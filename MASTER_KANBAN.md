@@ -249,8 +249,9 @@ A (parallel from day 0)
   - deps: SPK-0205, SPK-0004  
 - [ ] **SPK-0212** `// P0` **UX** Preflight plain-English fix actions  
   - deps: SPK-0211  
-- [ ] **SPK-0213** **GEO** Ellipse, polygon, star, freehand  
-  - deps: SPK-0200  
+- [x] **SPK-0213** **GEO** Ellipse, polygon, star, freehand  
+  - worklog: 2026-07-29 — Extended VectorShape enum in Kernel.swift with .ellipse, .polygon, .star, .freehand cases. Added area/boundingRect/translated/scaled/contains/hashValue coverage for all new cases. Updated Transform.swift, NodeEditor.swift, VectorOffset.swift for exhaustive switch compatibility. Build passes cleanly.
+  - deps: SPK-0200
 - [ ] **SPK-0214** **GEO** Array copy + circular copy  
   - deps: SPK-0202  
 - [ ] **SPK-0215** **GEO** Fillets, extend  

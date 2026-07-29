@@ -76,6 +76,17 @@ public final class ShapeTransformer {
             case .arc(let c, let r, let sa, let ea):
                 let newCenter = rotatePoint(c, around: center, by: radians)
                 return .arc(center: newCenter, radius: r, startAngle: sa + radians, endAngle: ea + radians)
+            case .ellipse(let c, let rx, let ry, let rot):
+                let newCenter = rotatePoint(c, around: center, by: radians)
+                return .ellipse(center: newCenter, radiusX: rx, radiusY: ry, rotation: rot + radians)
+            case .polygon(let c, let r, let s, let rot):
+                let newCenter = rotatePoint(c, around: center, by: radians)
+                return .polygon(center: newCenter, radius: r, sides: s, rotation: rot + radians)
+            case .star(let c, let or, let ir, let p, let rot):
+                let newCenter = rotatePoint(c, around: center, by: radians)
+                return .star(center: newCenter, outerRadius: or, innerRadius: ir, points: p, rotation: rot + radians)
+            case .freehand(let points):
+                return .freehand(points: points.map { rotatePoint($0, around: center, by: radians) })
             }
         }
     }
@@ -97,6 +108,17 @@ public final class ShapeTransformer {
             case .arc(let c, let r, let sa, let ea):
                 let newCenter = scalePoint(c, by: factorX, factorY, about: center)
                 return .arc(center: newCenter, radius: r * max(factorX, factorY), startAngle: sa, endAngle: ea)
+            case .ellipse(let c, let rx, let ry, let rot):
+                let newCenter = scalePoint(c, by: factorX, factorY, about: center)
+                return .ellipse(center: newCenter, radiusX: rx * factorX, radiusY: ry * factorY, rotation: rot)
+            case .polygon(let c, let r, let s, let rot):
+                let newCenter = scalePoint(c, by: factorX, factorY, about: center)
+                return .polygon(center: newCenter, radius: r * max(factorX, factorY), sides: s, rotation: rot)
+            case .star(let c, let or, let ir, let p, let rot):
+                let newCenter = scalePoint(c, by: factorX, factorY, about: center)
+                return .star(center: newCenter, outerRadius: or * max(factorX, factorY), innerRadius: ir * max(factorX, factorY), points: p, rotation: rot)
+            case .freehand(let points):
+                return .freehand(points: points.map { scalePoint($0, by: factorX, factorY, about: center) })
             }
         }
     }

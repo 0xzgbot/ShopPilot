@@ -73,6 +73,14 @@ extension VectorShape {
         case .arc(let center, _, _, _):
             // Arc represented by center point
             return [NodeHandle(point: center)]
+        case .ellipse(let center, _, _, _):
+            return [NodeHandle(point: center)]
+        case .polygon(let center, _, _, _):
+            return [NodeHandle(point: center)]
+        case .star(let center, _, _, _, _):
+            return [NodeHandle(point: center)]
+        case .freehand(let points):
+            return points.map { NodeHandle(point: $0) }
         }
     }
     
@@ -85,7 +93,6 @@ extension VectorShape {
             if nodes.count >= 2 {
                 return .line(start: nodes[0].point, end: nodes[1].point)
             } else if nodes.count == 1 {
-                // Move midpoint of line
                 let midX = (start.x + end.x) / 2.0
                 let midY = (start.y + end.y) / 2.0
                 let dx = nodes[0].point.x - midX
@@ -97,13 +104,11 @@ extension VectorShape {
             
         case .circle(let center, let radius):
             if nodes.count >= 2 {
-                // First node = center, second node = edge point (defines radius)
                 let newCenter = nodes[0].point
                 let newRadius = hypot(nodes[1].point.x - newCenter.x,
                                     nodes[1].point.y - newCenter.y)
                 return .circle(center: newCenter, radius: max(newRadius, 0.001))
             } else if nodes.count == 1 {
-                // Move center only
                 return .circle(center: nodes[0].point, radius: radius)
             }
             return self
@@ -123,6 +128,31 @@ extension VectorShape {
                           startAngle: startAngle, endAngle: endAngle)
             }
             return self
+            
+        case .ellipse(let center, let radiusX, let radiusY, let rotation):
+            if nodes.count >= 1 {
+                return .ellipse(center: nodes[0].point, radiusX: radiusX, radiusY: radiusY, rotation: rotation)
+            }
+            return self
+            
+        case .polygon(let center, let radius, let sides, let rotation):
+            if nodes.count >= 1 {
+                return .polygon(center: nodes[0].point, radius: radius, sides: sides, rotation: rotation)
+            }
+            return self
+            
+        case .star(let center, let outerRadius, let innerRadius, let points, let rotation):
+            if nodes.count >= 1 {
+                return .star(center: nodes[0].point, outerRadius: outerRadius, innerRadius: innerRadius, points: points, rotation: rotation)
+            }
+            return self
+            
+        case .freehand(let points):
+            if nodes.count >= 1 {
+                return .freehand(points: nodes.map { $0.point })
+            }
+            return self
         }
     }
 }
+

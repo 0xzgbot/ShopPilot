@@ -41,6 +41,10 @@ public enum VectorShape: Codable, Equatable {
     case circle(center: VectorPoint, radius: Double)
     case rectangle(origin: VectorPoint, width: Double, height: Double)
     case arc(center: VectorPoint, radius: Double, startAngle: Double, endAngle: Double)
+    case ellipse(center: VectorPoint, radiusX: Double, radiusY: Double, rotation: Double = 0)
+    case polygon(center: VectorPoint, radius: Double, sides: Int, rotation: Double = 0)
+    case star(center: VectorPoint, outerRadius: Double, innerRadius: Double, points: Int, rotation: Double = 0)
+    case freehand(points: [VectorPoint])
     
     /// Hashable identity for the shape.
     public var hashValue: Int {
@@ -65,6 +69,28 @@ public enum VectorShape: Codable, Equatable {
             hasher.combine(r)
             hasher.combine(sa)
             hasher.combine(ea)
+        case .ellipse(let c, let rx, let ry, let rot):
+            hasher.combine(4)
+            hasher.combine(c)
+            hasher.combine(rx)
+            hasher.combine(ry)
+            hasher.combine(rot)
+        case .polygon(let c, let r, let s, let rot):
+            hasher.combine(5)
+            hasher.combine(c)
+            hasher.combine(r)
+            hasher.combine(s)
+            hasher.combine(rot)
+        case .star(let c, let or, let ir, let p, let rot):
+            hasher.combine(6)
+            hasher.combine(c)
+            hasher.combine(or)
+            hasher.combine(ir)
+            hasher.combine(p)
+            hasher.combine(rot)
+        case .freehand(let pts):
+            hasher.combine(7)
+            hasher.combine(pts)
         }
         return hasher.finalize()
     }
@@ -80,6 +106,16 @@ public enum VectorShape: Codable, Equatable {
         case .arc(_, let r, let sa, let ea):
             let sweep = normalizeAngle(ea - sa)
             return 0.5 * r * r * sweep
+        case .ellipse(_, let rx, let ry, _):
+            return .pi * rx * ry
+        case .polygon(_, let r, let s, _):
+            return 0.5 * Double(s) * r * r * sin(2.0 * .pi / Double(s))
+        case .star(_, let outer, let inner, let points, _):
+            let spikes = Double(points)
+            let area = spikes * 0.5 * (outer * outer - inner * inner) * sin(2.0 * .pi / spikes)
+            return abs(area)
+        case .freehand:
+            return 0.0
         }
     }
     
@@ -100,6 +136,17 @@ public enum VectorShape: Codable, Equatable {
             )
         case .arc(let c, let r, _, _):
             return Rect(minX: c.x - r, minY: c.y - r, maxX: c.x + r, maxY: c.y + r)
+        case .ellipse(let c, let rx, let ry, _):
+            return Rect(minX: c.x - rx, minY: c.y - ry, maxX: c.x + rx, maxY: c.y + ry)
+        case .polygon(let c, let r, _, _):
+            return Rect(minX: c.x - r, minY: c.y - r, maxX: c.x + r, maxY: c.y + r)
+        case .star(let c, let outer, _, _, _):
+            return Rect(minX: c.x - outer, minY: c.y - outer, maxX: c.x + outer, maxY: c.y + outer)
+        case .freehand(let points):
+            guard !points.isEmpty else { return Rect() }
+            let xs = points.map { $0.x }
+            let ys = points.map { $0.y }
+            return Rect(minX: xs.min()!, minY: ys.min()!, maxX: xs.max()!, maxY: ys.max()!)
         }
     }
     
@@ -138,6 +185,27 @@ public enum VectorShape: Codable, Equatable {
                 // Arc crosses 0/2π boundary
                 return normalizedAngle >= startNorm || normalizedAngle <= endNorm
             }
+            
+        case .ellipse(let c, let rx, let ry, let rotation):
+            let dx = point.x - c.x
+            let dy = point.y - c.y
+            let cos = cos(-rotation)
+            let sin = sin(-rotation)
+            let localX = dx * cos - dy * sin
+            let localY = dx * sin + dy * cos
+            return (localX * localX) / (rx * rx) + (localY * localY) / (ry * ry) <= 1.0 + 1e-6
+            
+        case .polygon(let c, let r, let sides, let rotation):
+            // Check if point is inside regular polygon using ray casting
+            let vertices = polygonVertices(center: c, radius: r, sides: sides, rotation: rotation)
+            return isPointInPolygon(point, vertices: vertices)
+            
+        case .star(let c, let outerR, let innerR, let points, let rotation):
+            let vertices = starVertices(center: c, outerRadius: outerR, innerRadius: innerR, points: points, rotation: rotation)
+            return isPointInPolygon(point, vertices: vertices)
+            
+        case .freehand(let points):
+            return isPointInPolygon(point, vertices: points)
         }
     }
     
@@ -152,6 +220,14 @@ public enum VectorShape: Codable, Equatable {
             return .rectangle(origin: o.translated(dx, dy), width: w, height: h)
         case .arc(let c, let r, let sa, let ea):
             return .arc(center: c.translated(dx, dy), radius: r, startAngle: sa, endAngle: ea)
+        case .ellipse(let c, let rx, let ry, let rot):
+            return .ellipse(center: c.translated(dx, dy), radiusX: rx, radiusY: ry, rotation: rot)
+        case .polygon(let c, let r, let s, let rot):
+            return .polygon(center: c.translated(dx, dy), radius: r, sides: s, rotation: rot)
+        case .star(let c, let or, let ir, let p, let rot):
+            return .star(center: c.translated(dx, dy), outerRadius: or, innerRadius: ir, points: p, rotation: rot)
+        case .freehand(let points):
+            return .freehand(points: points.map { $0.translated(dx, dy) })
         }
     }
     
@@ -172,10 +248,31 @@ public enum VectorShape: Codable, Equatable {
             )
         case .arc(let c, let r, let sa, let ea):
             return .arc(center: c.scaled(factor, about: center), radius: r * factor, startAngle: sa, endAngle: ea)
+        case .ellipse(let c, let rx, let ry, let rot):
+            return .ellipse(center: c.scaled(factor, about: center), radiusX: rx * factor, radiusY: ry * factor, rotation: rot)
+        case .polygon(let c, let r, let s, let rot):
+            return .polygon(center: c.scaled(factor, about: center), radius: r * factor, sides: s, rotation: rot)
+        case .star(let c, let or, let ir, let p, let rot):
+            return .star(center: c.scaled(factor, about: center), outerRadius: or * factor, innerRadius: ir * factor, points: p, rotation: rot)
+        case .freehand(let points):
+            return .freehand(points: points.map { $0.scaled(factor, about: center) })
         }
     }
     
     // MARK: - Helpers
+    
+    public var points: [VectorPoint] {
+        switch self {
+        case .line(let s, let e): return [s, e]
+        case .circle(let c, _): return [c]
+        case .rectangle(let o, _, _): return [o]
+        case .arc(let c, _, _, _): return [c]
+        case .ellipse(let c, _, _, _): return [c]
+        case .polygon(let c, _, _, _): return [c]
+        case .star(let c, _, _, _, _): return [c]
+        case .freehand(let pts): return pts
+        }
+    }
     
     private func normalizeAngle(_ angle: Double) -> Double {
         var a = angle.truncatingRemainder(dividingBy: 2 * .pi)
@@ -197,4 +294,41 @@ extension VectorPoint {
             y: center.y + (y - center.y) * factor
         )
     }
+}
+
+// MARK: - Geometry Helpers
+
+func polygonVertices(center: VectorPoint, radius: Double, sides: Int, rotation: Double = 0) -> [VectorPoint] {
+    guard sides >= 3 else { return [] }
+    return (0..<sides).map { i in
+        let angle = rotation + 2.0 * .pi * Double(i) / Double(sides) - .pi / 2.0
+        return VectorPoint(x: center.x + radius * cos(angle), y: center.y + radius * sin(angle))
+    }
+}
+
+func starVertices(center: VectorPoint, outerRadius: Double, innerRadius: Double, points: Int, rotation: Double = 0) -> [VectorPoint] {
+    guard points >= 3, innerRadius < outerRadius else { return [] }
+    var vertices: [VectorPoint] = []
+    for i in 0..<(points * 2) {
+        let angle = rotation + .pi * Double(i) / Double(points) - .pi / 2.0
+        let r = i % 2 == 0 ? outerRadius : innerRadius
+        vertices.append(VectorPoint(x: center.x + r * cos(angle), y: center.y + r * sin(angle)))
+    }
+    return vertices
+}
+
+func isPointInPolygon(_ point: VectorPoint, vertices: [VectorPoint]) -> Bool {
+    guard vertices.count > 2 else { return false }
+    var inside = false
+    var j = vertices.count - 1
+    for i in 0..<vertices.count {
+        let vi = vertices[i]
+        let vj = vertices[j]
+        if (vi.y > point.y) != (vj.y > point.y),
+           point.x < (vj.x - vi.x) * (point.y - vi.y) / (vj.y - vi.y + 1e-12) + vi.x {
+            inside.toggle()
+        }
+        j = i
+    }
+    return inside
 }

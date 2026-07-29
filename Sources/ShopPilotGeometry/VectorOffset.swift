@@ -205,6 +205,8 @@ public final class ProfileOffsetGenerator: ObservableObject {
                 if let result = VectorOffsetCalculator.offsetArc(arc: shape, by: offsetDistance + toolRadius) {
                     results.append(result)
                 }
+            case .ellipse, .polygon, .star, .freehand:
+                break
             }
         }
 
@@ -248,6 +250,8 @@ public final class ProfileOffsetGenerator: ObservableObject {
                 if let r = VectorOffsetCalculator.offsetArc(arc: shape, by: outsideToolRadius) {
                     results.append(r)
                 }
+            case .ellipse, .polygon, .star, .freehand:
+                break
             }
 
             // Inside offset (negative = inward from shape).
@@ -268,6 +272,8 @@ public final class ProfileOffsetGenerator: ObservableObject {
                 if let r = VectorOffsetCalculator.offsetArc(arc: shape, by: -insideToolRadius) {
                     results.append(r)
                 }
+            case .ellipse, .polygon, .star, .freehand:
+                break
             }
         }
 
