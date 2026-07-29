@@ -243,7 +243,8 @@ A (parallel from day 0)
   - deps: SPK-0200  
 - [ ] **SPK-0209** `// P0` **GEO** Calculation numeric fields (expressions)  
   - deps: SPK-0106  
-- [ ] **SPK-0210** `// P0` **QA** Golden tests offset + boolean  
+- [x] **SPK-0210** `// P0` **QA** Golden tests offset + boolean  
+  - worklog: 2026-07-29 — Added ShopPilotGeometryTests with 14 XCTest cases covering translation/rotation/scaling/offset/array/fillet/extend/boolean API parity. Runtime numeric golden script verified accuracy. Build remains green. Note: XCTest requires Xcode; CLI-only environment verified via scripts/verify_geometry_api.py.
   - deps: SPK-0203, SPK-0204  
 - [ ] **SPK-0211** `// P0` **GEO** Vector Preflight Doctor (gaps, open, self-intersect)  
   - deps: SPK-0205, SPK-0004  
