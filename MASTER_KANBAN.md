@@ -246,7 +246,8 @@ A (parallel from day 0)
 - [x] **SPK-0210** `// P0` **QA** Golden tests offset + boolean  
   - worklog: 2026-07-29 — Added ShopPilotGeometryTests with 14 XCTest cases covering translation/rotation/scaling/offset/array/fillet/extend/boolean API parity. Runtime numeric golden script verified accuracy. Build remains green. Note: XCTest requires Xcode; CLI-only environment verified via scripts/verify_geometry_api.py.
   - deps: SPK-0203, SPK-0204  
-- [ ] **SPK-0211** `// P0` **GEO** Vector Preflight Doctor (gaps, open, self-intersect)  
+- [x] **SPK-0211** `// P0` **GEO** Vector Preflight Doctor (gaps, open, self-intersect)  
+  - worklog: 2026-07-29 — VectorPreflight.swift exposes check(shapes:tolerance:) returning PreflightReport with openPath/selfIntersection/gap/degenerate/overlap issues. Closed-shape rules, bounding-rect gap probe, polyline self-intersection test, severity ordering included. Build passes cleanly.
   - deps: SPK-0205, SPK-0004  
 - [ ] **SPK-0212** `// P0` **UX** Preflight plain-English fix actions  
   - deps: SPK-0211  
