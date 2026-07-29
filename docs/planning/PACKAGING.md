@@ -8,27 +8,32 @@
 ## Product Tiers
 
 ### Tier 1 — ShopPilot Core (Free / Base)
-| Feature | Included? |
-|---------|-----------|
-| Native Apple Silicon app | ✅ |
-| Single-sided stock, layers, undo, save/open `.shoppilot` | ✅ |
-| Draw/edit vectors: line, arc, circle, rectangle | ✅ |
-| Node editing, transform (move/rotate/scale), group | ✅ |
-| Offset vectors, boolean weld/subtract/intersect | ✅ |
-| Join/close/trim, measure tool | ✅ |
-| Profile, Pocket, Drill toolpaths | ✅ |
-| Material setup + tool database v0 | ✅ |
-| Draft/Final preview (heightfield) | ✅ |
-| GRBL post export (.nc files) | ✅ |
-| Simulator connection + jog + stream | ✅ |
-| Pre-flight checklist | ✅ |
-| ⌘K command palette, stage rail ≤12 icons | ✅ |
 
-**No 3D. No V-Carve. No text-to-curves. No DXF import.**
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Native Apple Silicon app | ✅ | SwiftUI, macOS 14+ |
+| Single-sided stock, layers, undo, save/open `.shoppilot` | ✅ | Core document model |
+| Draw/edit vectors: line, arc, circle, rectangle | ✅ | Kernel.swift |
+| Node editing, transform (move/rotate/scale), group | ✅ | NodeEditor.swift, Transform.swift |
+| Offset vectors, boolean weld/subtract/intersection | ✅ | VectorOffset.swift, BooleanOperations.swift |
+| Join/close/trim, measure tool | ✅ | JoinCloseTrim.swift, MeasurementTool.swift |
+| SVG import | ✅ | SVGImporter.swift |
+| DXF import | ⏳ Drafted | Not yet passing build; removed from shipping target |
+| Tool database v0 (endmill, V-bit) | ✅ | ToolDatabase.swift |
+| Material setup | ⏳ Planned | SPK-0300 |
+| Profile / Pocket / Drill toolpaths | ❌ Not started | SPK-0302–0304 |
+| Draft/Final preview (heightfield) | ❌ Not started | SPK-0309–0310 |
+| GRBL post export (.nc) | ❌ Not started | SPK-0313 |
+| Simulator connection + jog + stream | ⏳ Scaffolded | Transport + StatusParser + GCodeStreamer present; jog/stream UI not done |
+| Pre-flight checklist | ❌ Not started | SPK-0412 |
+| ⌘K command palette, stage rail ≤12 icons | ✅ | Commands.swift, StageRailView.swift, IconEnforcement.swift |
+
+**No 3D. No V-Carve. No text-to-curves. No laser for v1.0.**
 
 ### Tier 2 — ShopPilot Studio (Paid Unlock)
+
 Adds to Core:
-- **Import:** SVG + DXF
+- **Import:** SVG done; DXF in progress
 - **Text:** System fonts, text-to-curves, text-on-curve
 - **V-Carve strategy** (field map from DOC calibration pack)
 - **Quick engrave** strategy
@@ -37,6 +42,7 @@ Adds to Core:
 - **Job sheet PDF** export
 
 ### Tier 3 — ShopPilot Studio 3D (Paid Unlock)
+
 Adds to Studio:
 - **Component + Level model** with browser
 - **Combine modes:** Add / Subtract / Merge / Low
@@ -86,7 +92,7 @@ Rationale:
 |---------|-------------|-------|
 | Direct download (website) | ✅ Planned | DMG bundle, notarized |
 | Mac App Store | ❌ Post-v1 | Requires Apple Developer account (SPK-0615) |
-| GitHub Releases | ✅ Planned | Free tier only; Studio features require license key |
+| GitHub Releases | ✅ Planned | Private repo now; public release artifact on v1.0 tag |
 
 ---
 
@@ -114,9 +120,25 @@ ShopPilot.app/
 
 ---
 
+## Current phase status (2026-07-29)
+
+| Phase | Status |
+|-------|--------|
+| Phase A — Packaging / platform bootstrap | ✅ Complete |
+| Phase B — Mac-native shell | ✅ Complete |
+| Phase C — Geometry core | ⏳ In progress (9/14 cards done) |
+| Phase D — Toolpath core | ⏳ Scaffold only |
+| Phase E — Machine control | ⏳ Core types done; UI/loop not done |
+| Phase F — Sign shop | ❌ Not started |
+| Phase G — v1.0 gate | ⏳ Docs done; QA/hardware flight pending |
+| Phase H–K — 3D / production / rotary / v2.0 | ❌ Post-v1 |
+
+---
+
 ## References
 
 - **SPK-0005** (this document) — packaging truth before bulk code
 - **SPK-0613** DISTRIBUTION.md — notarize steps, signing workflow
 - **SPK-0621** Notarized build pipeline
 - **SPK-0622** v1.0 tag + GitHub/release artifact
+- **MASTER_KANBAN.md** — single source of truth for all SPK cards

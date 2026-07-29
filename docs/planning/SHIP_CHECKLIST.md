@@ -1,7 +1,37 @@
 # ShopPilot v1.0 — Ship Checklist
 
-**Date:** 2026-07-28  
+**Date:** 2026-07-29  
 **Purpose:** All items must be verified and signed off before SPK-0623 is marked `[x]` and v1.0 ships.
+
+---
+
+## Current Implementation Status (2026-07-29)
+
+This checklist covers functional acceptance, docs/legal, and release engineering for v1.0 ship. Below is the current code state; unchecked items below still require human QA / runtime verification.
+
+### Code-complete (build green as of 2026-07-29)
+
+- [x] SwiftUI macOS app scaffold; `swift build` green across all SPM targets
+- [x] Phase B shell: stage rail, inspector, layers browser, preferences, recipe picker, command palette
+- [x] Phase C geometry kernel: vectors, nodes, transform, offset, boolean, join/close/trim, SVG import, layers CRUD, measure
+- [x] Phase E machine control scaffold: MachineTransport, SimulatorTransport, RealSerialTransport, MachineProfile, StatusParser, GCodeStreamer, MachineSession
+- [x] Phase G docs: SAFETY.md, TUTORIAL_FIRST_CUT.md, KEYBOARD_SHORTCUTS.md, DISTRIBUTION.md, VERSIONING.md, CHANGELOG.md, release.yml
+- [x] Tool database v0 (endmill, V-bit)
+
+### Not yet implemented / pending
+
+- [ ] End-to-end calibration job flow (Stage B: Profile → Preview → Simulator stream)
+- [ ] End-to-end sign job flow (text → curves → V-Carve → preview → stream)
+- [ ] Unit tests for geo/mach edge cases
+- [ ] V-Carve / Pocket / Drill toolpaths and strategy code
+- [ ] Dirty toolpath / export safety logic
+- [ ] Preflight plain-English fix actions
+- [ ] Stage density audit against ≤12-icon rule
+- [ ] Hold/Reset visible UI when connected
+- [ ] In-app safety disclaimer Swift view (SAFETY.md exists; Swift disclaimer not yet written)
+- [ ] Notarized build pipeline run / Apple Developer credentials
+- [ ] v1.0 GitHub release asset (tag + DMG + checksums)
+- [ ] SPK-0623 ship-checklist sign-off
 
 ---
 

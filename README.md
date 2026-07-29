@@ -2,69 +2,86 @@
 
 Native **macOS** CNC suite: **Aspire-class design + toolpaths + preview**, plus **integrated machine control** for CNC routers (GRBL / FluidNC-class).
 
-> **Status:** Product plan + dual agent boards. Control path + Studio (CAM) path.  
-> **Safety:** Software controls are **not** a substitute for a hardware emergency stop.  
+> **Status:** Active development. Phase B shell complete. Phase C geometry core in progress (Kernel, SVG import, Layers, Measure done). Machine control scaffolded (serial + simulator + G-code streamer). Build is green.
+> **Safety:** Software controls are **not** a substitute for a hardware emergency stop.
 > **Research source:** [Vectric Aspire V12 User Guide](https://docs.vectric.com/docs/V12.0/Aspire/ENU/Help/page/user-guide/) (capability parity — independent implementation).
 
 ## For humans
 
 | Item | Location |
 | --- | --- |
-| **Aspire reimagined master plan** | [`docs/planning/ASPIRE_REIMAGINED_PRODUCT_PLAN.md`](docs/planning/ASPIRE_REIMAGINED_PRODUCT_PLAN.md) |
-| Feature parity matrix (~150 items) | [`docs/planning/FEATURE_PARITY_MATRIX.md`](docs/planning/FEATURE_PARITY_MATRIX.md) |
-| UX stage system (anti-bloat) | [`docs/planning/UX_STAGE_SYSTEM.md`](docs/planning/UX_STAGE_SYSTEM.md) |
-| Product brief (control seed) | [`docs/planning/PRODUCT_BRIEF.md`](docs/planning/PRODUCT_BRIEF.md) |
+| **Master kanban (single source of truth)** | [`MASTER_KANBAN.md`](MASTER_KANBAN.md) |
 | Agent operating manual | [`AGENTS.md`](AGENTS.md) |
-| **★ Master kanban (agents)** | [`MASTER_KANBAN.md`](MASTER_KANBAN.md) — single board through v1 ship → full product |
-| Legacy control/studio todos | Superseded; see MASTER_KANBAN crosswalk |
+| Product plan | [`docs/planning/ASPIRE_REIMAGINED_PRODUCT_PLAN.md`](docs/planning/ASPIRE_REIMAGINED_PRODUCT_PLAN.md) |
+| Feature parity matrix | [`docs/planning/FEATURE_PARITY_MATRIX.md`](docs/planning/FEATURE_PARITY_MATRIX.md) |
+| Safety + in-app disclaimer | [`docs/planning/SAFETY.md`](docs/planning/SAFETY.md) |
+| First-cut tutorial | [`docs/planning/TUTORIAL_FIRST_CUT.md`](docs/planning/TUTORIAL_FIRST_CUT.md) |
+| Keyboard shortcuts | [`docs/planning/KEYBOARD_SHORTCUTS.md`](docs/planning/KEYBOARD_SHORTCUTS.md) |
+| Distribution + notarization | [`docs/planning/DISTRIBUTION.md`](docs/planning/DISTRIBUTION.md) |
+| Packaging tiers | [`docs/planning/PACKAGING.md`](docs/planning/PACKAGING.md) |
+| UX stage system | [`docs/planning/UX_STAGE_SYSTEM.md`](docs/planning/UX_STAGE_SYSTEM.md) |
+| Release + versioning + changelog | [`docs/planning/VERSIONING.md`](docs/planning/VERSIONING.md), [`docs/planning/CHANGELOG.md`](docs/planning/CHANGELOG.md) |
+| CI release workflow | [`.github/workflows/release.yml`](.github/workflows/release.yml) |
 | Market pain research | [`docs/planning/ASPIRE_INGESTION_AND_MARKET_RESEARCH.md`](docs/planning/ASPIRE_INGESTION_AND_MARKET_RESEARCH.md) |
 
 ### Product vision (one line)
 
 Everything Aspire can do for decorative/artistic CNC — signs, inlays, 3D relief, rotary, laser, production — in a **calm Mac UI**, with **Run on Machine** built in.
 
-### Dual-track MVP
+### Current implementation status (empirical)
 
-**Control:** serial connect, jog, stream, hold, simulator.  
-**Studio A:** job setup, vectors, profile/pocket/drill, preview, GRBL post → machine.
+**Done**
+- SwiftUI macOS app scaffold; `swift build` green.
+- Phase B shell: stages, inspector, layers browser, preferences, recipe picker, command palette.
+- Phase C geometry kernel: `VectorShape`, `VectorPoint`, `NodeEditor`, `Transform`, `VectorOffset`, `BooleanOperations`, `JoinCloseTrim`, `SVGImporter`, `LayerManager`, `MeasurementTool`.
+- Phase E machine control: `MachineTransport` + `SimulatorTransport`, `RealSerialTransport`, `MachineProfile`, `StatusParser`, `GCodeStreamer`, `MachineSession`.
+- Phase G release docs + tutorial + SAFETY.md + CI workflow.
 
-## For local Hermes agents
+**Partial**
+- DXF import drafted but not shipping yet; SVG path is production-ready.
+- Toolpaths: `ToolDatabase` v0 present; strategy code not yet implemented.
+- Tests scaffold exists; geo/mach coverage still minimal.
+
+**Not started**
+- Full toolpath strategies: profile, pocket, drill, V-carve.
+- Post processor / GRBL export.
+- 3D relief pipeline.
+- Real hardware air-cut validation.
+
+## For local agents
 
 1. Open [`AGENTS.md`](AGENTS.md) — safety + protocol.  
 2. Work **only** from [`MASTER_KANBAN.md`](MASTER_KANBAN.md).  
 3. Loop Ready cards Phase A→G (v1.0), then H→K (full product).  
 4. Never idle on human `[!]` — take next Ready card. Simulator-first for machine.
 
-**Suggested first prompt:**
-
-```
-You are building ShopPilot at ~/Desktop/ShopPilot.
-Single source of truth: MASTER_KANBAN.md
-Read AGENTS.md safety rules. No Vectric proprietary assets.
-Loop: claim next Ready SPK card (deps met), implement AC, mark [x], work log, repeat.
-Prioritize Phase A→G until v1.0 ship. After SPK-0623, continue H→K.
-Never idle on [!] — pick another Ready card. Simulator-first for machine work.
-```
+**Current unblocked focus:** finish remaining Phase C geometry cards, then Phase D toolpath core.
 
 ## Stack
 
 - **SwiftUI** macOS 14+
-- **Serial:** IOKit and/or ORSSerialPort
-- **Modules:** ShopPilot (app) · ShopPilotCore · ShopPilotSerial · ShopPilotTests
+- **Serial:** IOKit / ORSSerialPort
+- **Modules:** `ShopPilot` · `ShopPilotCore` · `ShopPilotGeometry` · `ShopPilotSerial` · `ShopPilotTests`
 
 ## Project layout
 
 ```
 ShopPilot/
   AGENTS.md
-  HERMES_BUILD_TODO.md
+  MASTER_KANBAN.md
   README.md
+  Package.swift
   docs/planning/
   Sources/
   Tests/
   fixtures/gcode/
   scripts/
-  research/
+```
+
+## Build
+
+```bash
+swift build
 ```
 
 ## License
