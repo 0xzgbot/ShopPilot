@@ -1,0 +1,99 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  release:
+    types: [published]
+
+jobs:
+  build:
+    name: Build & Test
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_15.0.app
+
+      - name: Swift version
+        run: swift --version
+
+      - name: Build
+        run: swift build -c release
+
+      - name: Test
+        run: swift test
+
+  package:
+    name: Package App
+    needs: build
+    runs-on: macos-latest
+    if: github.event_name == 'release' && startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_15.0.app
+
+      - name: Build release
+        run: swift build -c release --build-path .build/release-build
+
+      - name: Create app bundle
+        run: |
+          mkdir -p ShopPilot.app/Contents/MacOS
+          cp .build/release-build/debug/ShopPilot ShopPilot.app/Contents/MacOS/ShopPilot
+          cat > ShopPilot.app/Contents/Info.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleName</key><string>ShopPilot</string>
+              <key>CFBundleExecutable</key><string>ShopPilot</string>
+              <key>CFBundleIdentifier</key><string>com.shopapp.shop-pilot</string>
+              <key>CFBundleVersion</key><string>${GITHUB_REF_NAME#v}</string>
+              <key>CFBundleShortVersionString</key><string>${GITHUB_REF_NAME#v}</string>
+              <key>CFBundleDevelopmentRegion</key><string>en</string>
+              <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+              <key>CFBundlePackageType</key><string>APPL</string>
+              <key>NSHumanReadableCopyright</key><string>© 2026 ShopPilot Contributors</string>
+          </dict>
+          </plist>
+          EOF
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ShopPilot-${{ github.ref_name }}
+          path: ShopPilot.app/
+
+  changelog:
+    name: Extract Changelog
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' && startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract release notes
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PREV_TAG=$(git tag --sort=-version:refname | head -n1 | grep -v "^${TAG}$" || echo "")
+          
+          if [ -n "$PREV_TAG" ]; then
+            CHANGELOG=$(sed -n "/## \[${TAG}\]/,/## \[/p" docs/planning/CHANGELOG.md | head -n -1)
+          else
+            CHANGELOG=$(sed -n "/## \[${TAG}\]/,/\$/p" docs/planning/CHANGELOG.md)
+          fi
+          
+          echo "$CHANGELOG" > RELEASE_NOTES.md
+          cat RELEASE_NOTES.md
+
+      - name: Update release body
+        uses: softprops/action-gh-release@v1
+        with:
+          body_path: RELEASE_NOTES.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

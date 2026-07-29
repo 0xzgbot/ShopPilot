@@ -1,0 +1,284 @@
+import Foundation
+import ShopPilotCore
+
+#if canImport(Combine)
+import Combine
+#endif
+
+// MARK: - Serial Port Info
+
+/// Enriched serial port information.
+public struct SerialPortInfo: Codable, Equatable {
+    public let path: String
+    public let description: String
+    
+    public init(path: String, description: String) {
+        self.path = path
+        self.description = description
+    }
+}
+
+// MARK: - Real Serial Transport
+
+/// Real serial port transport for CNC machines.
+public final class RealSerialTransport: MachineTransport, @unchecked Sendable {
+    
+    // MARK: - Internal State
+    
+    private let serialQueue = DispatchQueue(label: "com.shoppilot.serial")
+    private var fileHandle: FileHandle?
+    private let (stream, continuation) = AsyncStream<TransportEvent>.makeStream()
+    private var monitorTask: Task<Void, Error>?
+    private var isConnected = false
+    
+    // MARK: - AsyncStream
+    
+    public var events: AsyncStream<TransportEvent> {
+        stream
+    }
+    
+    // MARK: - Public API
+    
+    public init() {}
+    
+    // MARK: - Port Enumeration
+    
+    /// Enumerate available serial ports on macOS.
+    public static func enumeratePorts() -> [String] {
+        let ioResult = IOServiceMatching("IOUSBSerialDevice") as CFDictionary
+        let _ = IOServiceGetMatchingServices(kIOMasterPortDefault, ioResult, nil)
+        
+        var ports: [String] = []
+        
+        // Check /dev/cu.* and /dev/tty.* for serial devices
+        do {
+            let fileManager = FileManager.default
+            let rootContents = try fileManager.contentsOfDirectory(atPath: "/dev")
+            
+            for entry in rootContents where entry.hasPrefix("cu.") || entry.hasPrefix("tty.") {
+                // Skip pseudo-terminals and network devices
+                guard !entry.hasPrefix("cu.Bluetooth") &&
+                      !entry.hasPrefix("tty modem") &&
+                      !entry.hasPrefix("tty.X") &&
+                      !entry.hasPrefix("tty.iphone") else { continue }
+                
+                ports.append("/dev/\(entry)")
+            }
+        } catch {
+            // Fallback: return empty list if enumeration fails
+        }
+        
+        return ports.sorted()
+    }
+    
+    /// Get enriched port descriptions.
+    public static func portDescriptions() async -> [SerialPortInfo] {
+        let ports = enumeratePorts()
+        return ports.map { path in
+            let description = describePort(path)
+            return SerialPortInfo(path: path, description: description)
+        }
+    }
+    
+    private static func describePort(_ path: String) -> String {
+        let fileName = (path as NSString).lastPathComponent
+        
+        if fileName.contains("FTDI") || fileName.contains("ftdi") {
+            return "FTDI USB-to-Serial"
+        } else if fileName.contains("CP210") || fileName.contains("cp210") {
+            return "Silicon Labs CP210x USB-to-Serial"
+        } else if fileName.contains("CH340") || fileName.contains("ch340") {
+            return "WCH CH340 USB-to-Serial"
+        } else if fileName.contains("PL2303") || fileName.contains("pl2303") {
+            return "Prolific PL2303 USB-to-Serial"
+        } else if fileName.hasPrefix("cu.Bluetooth") || fileName.hasPrefix("tty.Bluetooth") {
+            return "Bluetooth Serial"
+        } else if fileName.hasPrefix("cu.usbmodem") || fileName.hasPrefix("tty.usbmodem") {
+            return "USB Modem (Arduino/ESP)"
+        } else if fileName.hasPrefix("cu.usbserial") || fileName.hasPrefix("tty.usbserial") {
+            return "USB Serial Adapter"
+        } else {
+            return "Serial Port: \(fileName)"
+        }
+    }
+    
+    // MARK: - Connection Management
+    
+    public func open(config: ShopPilotCore.SerialConfig) async throws {
+        guard !isConnected else { return }
+        
+        let path = config.portName
+        
+        guard FileManager.default.fileExists(atPath: path) else {
+            throw RealSerialTransportError.portNotFound(path)
+        }
+        
+        // Open the serial port for reading and writing
+        let handle = FileHandle(forWritingAtPath: path)
+        guard handle != nil else {
+            throw RealSerialTransportError.cannotOpenPort(path)
+        }
+        
+        self.fileHandle = handle
+        
+        // Configure baud rate using termios (simplified — real implementation would use ioctl)
+        try configureSerial(baudRate: config.baudRate)
+        
+        isConnected = true
+        
+        // Start monitoring for incoming data
+        startDataMonitoring()
+        
+        // Emit connected event
+        continuation.yield(TransportEvent.connected)
+    }
+    
+    public func close() async {
+        guard isConnected else { return }
+        
+        monitorTask?.cancel()
+        monitorTask = nil
+        
+        fileHandle?.closeFile()
+        fileHandle = nil
+        
+        isConnected = false
+        
+        continuation.yield(TransportEvent.disconnected)
+    }
+    
+    public func write(_ data: Data) async throws {
+        guard let handle = fileHandle, isConnected else {
+            throw RealSerialTransportError.notConnected
+        }
+        
+        // Write data to the serial port
+        do {
+            try handle.write(contentsOf: data)
+        } catch {
+            throw RealSerialTransportError.ioError(error.localizedDescription)
+        }
+    }
+    
+    // MARK: - Serial Configuration
+    
+    private func configureSerial(baudRate: Int) throws {
+        // Note: Full termios configuration requires POSIX imports.
+        // This is a simplified version — production code would use Darwin's termios.h
+        // via @_silgen_name or Foundation's FileHandle settings.
+        
+        // For now, we rely on the OS default serial configuration
+        // which typically uses 8N1 (8 data bits, no parity, 1 stop bit)
+        
+        #if os(macOS)
+        // In a real implementation, you would:
+        // 1. Open the file descriptor with open(path, O_RDWR | O_NOCTTY | O_NONBLOCK)
+        // 2. Use tcgetattr() to get current termios settings
+        // 3. Configure c_cflag with B<baudrate>, CS8, CLOCAL, CREAD
+        // 4. Set parity based on config.parity
+        // 5. Set stop bits based on config.stopBits
+        // 6. Use tcsetattr() to apply changes
+        
+        // Example baud rate mapping (simplified for documentation):
+        _ = baudRate
+        #endif
+    }
+    
+    // MARK: - Data Monitoring
+    
+    private func startDataMonitoring() {
+        monitorTask = Task { [weak self] in
+            guard let self else { return }
+            
+            while !Task.isCancelled, let handle = self.fileHandle, self.isConnected {
+                // Check for available data (non-blocking)
+                if let availableData = try? handle.availableData, !availableData.isEmpty {
+                    continuation.yield(.dataReceived(availableData))
+                }
+                
+                // Small delay to prevent busy-waiting
+                try await Task.sleep(nanoseconds: 10_000_000) // 10ms
+            }
+        }
+    }
+}
+
+// MARK: - Serial Monitor
+
+/// Monitors a serial port for incoming data.
+public final class SerialMonitor: ObservableObject {
+    
+    @Published public var receivedData: [Data] = []
+    @Published public var lastMessage: String?
+    @Published public var isConnected = false
+    
+    private var transport: RealSerialTransport?
+    private var monitorTask: Task<Void, Never>?
+    
+    /// Start monitoring the given transport.
+    public func start(transport: RealSerialTransport) {
+        self.transport = transport
+        isConnected = true
+        
+        monitorTask = Task { [weak self] in
+            guard let self else { return }
+            
+            for await event in transport.events {
+                switch event {
+                case .dataReceived(let data):
+                    if let text = String(data: data, encoding: .utf8) {
+                        await MainActor.run {
+                            self.receivedData.append(data)
+                            self.lastMessage = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                        }
+                    }
+                    
+                case .connected:
+                    await MainActor.run { [weak self] in
+                        self?.isConnected = true
+                    }
+                    
+                case .disconnected:
+                    await MainActor.run { [weak self] in
+                        self?.isConnected = false
+                    }
+                    
+                case .error(let message):
+                    await MainActor.run { [weak self] in
+                        self?.lastMessage = "Error: \(message)"
+                    }
+                }
+            }
+        }
+    }
+    
+    /// Stop monitoring.
+    public func stop() {
+        monitorTask?.cancel()
+        monitorTask = nil
+        isConnected = false
+    }
+}
+
+// MARK: - Errors
+
+/// Errors specific to real serial transport operations.
+public enum RealSerialTransportError: LocalizedError, Sendable {
+    case portNotFound(String)
+    case cannotOpenPort(String)
+    case notConnected
+    case ioError(String)
+    
+    public var errorDescription: String? {
+        switch self {
+        case .portNotFound(let path):
+            return "Serial port not found: \(path)"
+        case .cannotOpenPort(let path):
+            return "Cannot open serial port: \(path)"
+        case .notConnected:
+            return "Not connected to a serial port"
+        case .ioError(let message):
+            return "I/O error: \(message)"
+        }
+    }
+}

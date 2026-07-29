@@ -1,0 +1,128 @@
+import Foundation
+
+// MARK: - Node Handle
+
+/// An editable control point on a vector shape.
+public struct NodeHandle: Codable, Equatable, Hashable {
+    public let id: UUID
+    public var point: VectorPoint
+    
+    public init(id: UUID = UUID(), point: VectorPoint) {
+        self.id = id
+        self.point = point
+    }
+}
+
+// MARK: - Shape Node Editor
+
+/// Manages editable nodes for vector shapes.
+public final class ShapeNodeEditor: ObservableObject {
+    
+    @Published public var nodes: [NodeHandle] = []
+    
+    /// Add a node at the given point.
+    public func addNode(at point: VectorPoint) {
+        let handle = NodeHandle(point: point)
+        nodes.append(handle)
+    }
+    
+    /// Remove a node by ID.
+    public func removeNode(id: UUID) {
+        nodes.removeAll { $0.id == id }
+    }
+    
+    /// Move a node to a new position.
+    public func moveNode(id: UUID, to point: VectorPoint) {
+        if let index = nodes.firstIndex(where: { $0.id == id }) {
+            nodes[index].point = point
+        }
+    }
+    
+    /// Get a node by ID.
+    public func getNode(id: UUID) -> NodeHandle? {
+        return nodes.first(where: { $0.id == id })
+    }
+    
+    /// Clear all nodes.
+    public func clear() {
+        nodes.removeAll()
+    }
+}
+
+// MARK: - VectorShape Extensions for Node Editing
+
+extension VectorShape {
+    
+    /// Extract editable control points from any shape type.
+    public func extractNodes() -> [NodeHandle] {
+        switch self {
+        case .line(let start, let end):
+            return [
+                NodeHandle(point: start),
+                NodeHandle(point: end)
+            ]
+        case .circle(let center, _):
+            // Circle represented by center + 4 cardinal points for editing
+            return [
+                NodeHandle(id: UUID(), point: center),
+                NodeHandle(id: UUID(), point: VectorPoint(x: center.x + 1.0, y: center.y))
+            ]
+        case .rectangle(let origin, _, _):
+            // Rectangle represented by origin corner for editing
+            return [NodeHandle(point: origin)]
+        case .arc(let center, _, _, _):
+            // Arc represented by center point
+            return [NodeHandle(point: center)]
+        }
+    }
+    
+    /// Reconstruct a modified shape from edited node positions.
+    public func updateFromNodes(_ nodes: [NodeHandle]) -> VectorShape {
+        guard !nodes.isEmpty else { return self }
+        
+        switch self {
+        case .line(let start, let end):
+            if nodes.count >= 2 {
+                return .line(start: nodes[0].point, end: nodes[1].point)
+            } else if nodes.count == 1 {
+                // Move midpoint of line
+                let midX = (start.x + end.x) / 2.0
+                let midY = (start.y + end.y) / 2.0
+                let dx = nodes[0].point.x - midX
+                let dy = nodes[0].point.y - midY
+                return .line(start: VectorPoint(x: start.x + dx, y: start.y + dy),
+                           end: VectorPoint(x: end.x + dx, y: end.y + dy))
+            }
+            return self
+            
+        case .circle(let center, let radius):
+            if nodes.count >= 2 {
+                // First node = center, second node = edge point (defines radius)
+                let newCenter = nodes[0].point
+                let newRadius = hypot(nodes[1].point.x - newCenter.x,
+                                    nodes[1].point.y - newCenter.y)
+                return .circle(center: newCenter, radius: max(newRadius, 0.001))
+            } else if nodes.count == 1 {
+                // Move center only
+                return .circle(center: nodes[0].point, radius: radius)
+            }
+            return self
+            
+        case .rectangle(let origin, let width, let height):
+            if nodes.count >= 1 {
+                let dx = nodes[0].point.x - origin.x
+                let dy = nodes[0].point.y - origin.y
+                return .rectangle(origin: VectorPoint(x: origin.x + dx, y: origin.y + dy),
+                                width: width, height: height)
+            }
+            return self
+            
+        case .arc(let center, let radius, let startAngle, let endAngle):
+            if nodes.count >= 1 {
+                return .arc(center: nodes[0].point, radius: radius,
+                          startAngle: startAngle, endAngle: endAngle)
+            }
+            return self
+        }
+    }
+}
