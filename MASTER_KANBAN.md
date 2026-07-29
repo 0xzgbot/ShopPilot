@@ -252,9 +252,11 @@ A (parallel from day 0)
 - [x] **SPK-0213** **GEO** Ellipse, polygon, star, freehand  
   - worklog: 2026-07-29 — Extended VectorShape enum in Kernel.swift with .ellipse, .polygon, .star, .freehand cases. Added area/boundingRect/translated/scaled/contains/hashValue coverage for all new cases. Updated Transform.swift, NodeEditor.swift, VectorOffset.swift for exhaustive switch compatibility. Build passes cleanly.
   - deps: SPK-0200
-- [ ] **SPK-0214** **GEO** Array copy + circular copy  
+- [x] **SPK-0214** **GEO** Array copy + circular copy  
+  - worklog: 2026-07-29 — ArrayCopy.swift: grid + circular array copy with ArrayCopyResult, mergeCopies, VectorShape convenience extensions. Build passes cleanly.
   - deps: SPK-0202  
-- [ ] **SPK-0215** **GEO** Fillets, extend  
+- [x] **SPK-0215** **GEO** Fillets, extend  
+  - worklog: 2026-07-29 — FilletExtend.swift: rectangle corner fillet, line extend-to-point, extend-to-intersection. Build passes cleanly.
   - deps: SPK-0201  
 - [ ] **SPK-0216** **GEO** Unified Import hub UI  
   - deps: SPK-0206  
