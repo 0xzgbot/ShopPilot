@@ -249,7 +249,8 @@ A (parallel from day 0)
 - [x] **SPK-0211** `// P0` **GEO** Vector Preflight Doctor (gaps, open, self-intersect)  
   - worklog: 2026-07-29 — VectorPreflight.swift exposes check(shapes:tolerance:) returning PreflightReport with openPath/selfIntersection/gap/degenerate/overlap issues. Closed-shape rules, bounding-rect gap probe, polyline self-intersection test, severity ordering included. Build passes cleanly.
   - deps: SPK-0205, SPK-0004  
-- [ ] **SPK-0212** `// P0` **UX** Preflight plain-English fix actions  
+- [x] **SPK-0212** `// P0` **UX** Preflight plain-English fix actions  
+  - worklog: 2026-07-29 — Added FixAction struct + VectorPreflight.fixActions(for:) mapping openPath/selfIntersection/gap/degenerate/overlap to titles/bodies with severity ordering. SwiftUI-ready Identifiable model. Build passes cleanly.
   - deps: SPK-0211  
 - [x] **SPK-0213** **GEO** Ellipse, polygon, star, freehand  
   - worklog: 2026-07-29 — Extended VectorShape enum in Kernel.swift with .ellipse, .polygon, .star, .freehand cases. Added area/boundingRect/translated/scaled/contains/hashValue coverage for all new cases. Updated Transform.swift, NodeEditor.swift, VectorOffset.swift for exhaustive switch compatibility. Build passes cleanly.

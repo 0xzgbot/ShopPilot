@@ -234,3 +234,66 @@ private extension Rect {
         return a.minX <= other.maxX && a.maxX >= other.minX && a.minY <= other.maxY && a.maxY >= other.minY
     }
 }
+
+// MARK: - Plain-English Fix Actions
+
+public extension VectorPreflight {
+
+    /// Generate plain-English fix actions from a `PreflightReport`.
+    /// Suitable for `List` / `ForEach` in SwiftUI.
+    static func fixActions(for report: PreflightReport) -> [FixAction] {
+        report.issues.map { issue in
+            FixAction(
+                title: title(for: issue),
+                body: body(for: issue),
+                severity: issue.severity,
+                affectedShapeIds: issue.affectedShapeIds,
+                suggestedFix: issue.suggestedFix
+            )
+        }
+    }
+
+    static func title(for issue: PreflightResult) -> String {
+        switch issue.issue {
+        case .openPath:
+            return "Close open vector"
+        case .selfIntersection:
+            return "Remove self-intersection"
+        case .gap:
+            return "Bridge gap"
+        case .degenerate:
+            return "Remove degenerate shape"
+        case .overlap:
+            return "Review overlapping shapes"
+        }
+    }
+
+    static func body(for issue: PreflightResult) -> String {
+        issue.message.isEmpty ? issue.suggestedFix ?? "Review and fix." : issue.message
+    }
+}
+
+public struct FixAction: Identifiable, Codable {
+    public let id: UUID
+    public var title: String
+    public var body: String
+    public let severity: PreflightSeverity
+    public var affectedShapeIds: [UUID]
+    public var suggestedFix: String?
+
+    public init(
+        id: UUID = UUID(),
+        title: String,
+        body: String,
+        severity: PreflightSeverity,
+        affectedShapeIds: [UUID] = [],
+        suggestedFix: String? = nil
+    ) {
+        self.id = id
+        self.title = title
+        self.body = body
+        self.severity = severity
+        self.affectedShapeIds = affectedShapeIds
+        self.suggestedFix = suggestedFix
+    }
+}
