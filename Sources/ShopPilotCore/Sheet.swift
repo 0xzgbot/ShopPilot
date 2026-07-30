@@ -11,6 +11,9 @@ public struct Sheet: Identifiable, Codable, Sendable {
     public var height: Double     // mm (Z-stock thickness)
     public var layers: [Layer]
     public var isDoubleSided: Bool
+    
+    /// Material this sheet is made from. Defaults to Pine if not set.
+    public var material: Material?
 
     /// Z offset for the back side of a double-sided sheet.
     public var backSideZOffset: Double { -height }

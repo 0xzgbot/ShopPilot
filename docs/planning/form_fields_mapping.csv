@@ -1,0 +1,91 @@
+Strategy,Field Name,Type,Default,Description
+Profile,Cut Depth,float,"0.125 in",Depth of the toolpath relative to Start Depth (C)
+Profile,Start Depth,float,0.0,Depth at which the toolpath is calculated from; 0 for surface cuts
+Profile,Pass Depths,list,[auto],List of per-pass Z depths; auto-calculated from tool Pass Depth with ±15% optimization
+Profile,Maintain Exact Step Depth,bool,false,When true, disables step-size variation to optimize pass count
+Profile,Set Last Pass Thickness,float,N/A,Specify last pass as remaining material thickness instead of absolute depth
+Profile,Number of Passes,int,[auto],Force a specific number of evenly-spaced passes (overrides tool Pass Depth)
+Profile,Cut Type,enum,"Outside",Position relative to vector: Outside / Inside / On
+Profile,Cutting Direction,enum,"Climb",Direction of cut: Conventional or Climb
+Profile,Allowance Offset,float,0.0,Overcut (negative) or undercut (positive) offset from selected shape
+Profile,Last Pass Allowance,float,0.0,Separate allowance for the final pass only; cuts to exact size on last pass
+Profile,Reverse Last Pass Direction,bool,false,Reverses cutting direction of the last pass to minimize witness marks
+Profile,Use Vector Start Point,bool,true,Force plunge and start at vector's first node point (green box)
+Profile,Add Tabs,bool,false,Enable tab/bridge creation to hold parts in material
+Profile,Tab Length,float,"0.125 in",Length of each tab along the cut edge
+Profile,Tab Thickness,float,"0.031 in",Thickness of each tab measured from bottom of Cut Depth
+Profile,Create 3D Tabs,bool,false,Triangular-section tabs; cutter ramps up/down without Z lift stops
+Profile,Ramp Type,enum,"Smooth",Ramp plunge strategy: Smooth / ZigZag / Spiral (no lead-in)
+Profile,Ramp Distance,float,"0.125 in",Horizontal distance for ramp moves into material
+Profile,Ramp Angle,float,N/A,Entry angle for cutters that cannot plunge vertically
+Profile,Lead-In Type,enum,"None",Lead-in move: None / Straight Line / Circular Arc
+Profile,Lead-In Length,float,"0.0625 in",Length of the lead-in move
+Profile,Lead-In Angle,float,45°,Angle at which the straight-line lead approaches the edge
+Profile,Circular Lead Radius,float,N/A,Radius for arc-style lead-in (auto-calculated from angle)
+Profile,Do Lead Out,bool,false,Add an exit lead move at end of toolpath
+Profile,Overcut Distance,float,"0.015 in",Distance cutter machines past start point for edge quality
+Profile,Order Strategy,enum,"Optimize",Vector cutting order: Selection Order / Left-to-Right / Bottom-to-Top / Grid
+Profile,Start At Mode,enum,"Optimize",Start-point strategy: Keep Current / Optimize / Closest on Bounding Box
+Profile,Sharp External Corner,bool,false,Mimic vector angle at external corners for sharp V-bit cuts
+Profile,Sharp Internal Corner (3D),bool,false,Angled tip movement into internal corners for sharp V-bit results
+Profile,Safe Z,float,"0.25 in",Height above job for rapid / max feed-rate travel
+Profile,Home Position,(x,y),"(0,0)",Position tool travels to before/after machining
+Profile,Project onto 3D Model,bool,false,Drop toolpath down in Z onto a defined 3D model surface
+Profile,Vector Selection,multi-select,"all",Select vectors by properties or position; supports TP templates
+Profile,Name,string,[auto],Custom name for the toolpath entry
+
+Pocket,Cut Depth,float,"0.125 in",Depth of pocket relative to Start Depth (C)
+Pocket,Start Depth,float,0.0,Depth at which pocketing is calculated from
+Pocket,Pass Depths,list,[auto],Per-pass Z depths; auto from tool Pass Depth with ±15% optimization
+Pocket,Maintain Exact Step Depth,bool,false,Disable step-size variation for precise laminated cuts
+Pocket,Set Last Pass Thickness,float,N/A,Last pass as remaining material thickness
+Pocket,Number of Passes,int,[auto],Force specific number of evenly-spaced passes
+Pocket,Tool Selection,list,[1 tool],Single or multiple tools; each removes max from unmachined areas
+Pocket,Strategy,enum,"Offset",Fill pattern: Offset (concentric) / Raster (straight-line)
+Pocket,Cut Direction,enum,"Climb",For Offset strategy: Climb (CCW) or Conventional (CW)
+Pocket,Raster Angle,float,0°,Angle of raster passes; 0°=X-axis parallel, 90°=Y-axis parallel
+Pocket,Profile Pass,enum,"Last",Edge cleanup timing: First / Last / No Profile Pass
+Pocket,Pocket Allowance,float,0.0,Material left on pocket walls for profile pass to clean up
+Pocket,Ramp Plunge Moves,bool,false,Use ramping instead of vertical plunge into pocket
+Pocket,Use Vector Selection Order,bool,false,Machine pockets in selection order vs. optimized shortest path
+Pocket,Safe Z,float,"0.25 in",Height above job for rapid travel
+Pocket,Home Position,(x,y),"(0,0)",Position tool travels to before/after machining
+Pocket,Project onto 3D Model,bool,false,Drop pocket toolpath onto a defined 3D model surface
+Pocket,Vector Selection,multi-select,"all",Select closed boundary vectors; supports TP templates
+Pocket,Name,string,[auto],Custom name for the toolpath entry
+
+Drill,Cut Depth,float,"0.25 in",Depth of drilled hole relative to Start Depth (C)
+Drill,Start Depth,float,0.0,Depth at which drilling is calculated from
+Drill,Tool Selection,single,[1 drill],Single drill/end mill selected from Tool Database
+Drill,Peck Drilling,bool,false,Enable peck cycle: drill Pass Depth → retract → repeat
+Drill,Retract Mode,enum,"Above Previous",Retract strategy: Above Cutting Start / Above Previous Pass Height
+Drill,Retract Gap,float,"0.0625 in",Distance above start depth (fixed) or above previous pass (relative) for peck retract
+Drill,Dwell at Bottom,bool,false,Pause drill at hole bottom before retracting each pass
+Drill,Dwell Time,float,0.0,Duration of dwell pause at bottom of each peck pass (seconds)
+Drill,Use Vector Selection Order,bool,false,Machine drill points in selection order vs. optimized path
+Drill,Safe Z,float,"0.25 in",Height above job for rapid travel
+Drill,Home Position,(x,y),"(0,0)",Position tool travels to before/after machining
+Drill,Project onto 3D Model,bool,false,Drop drill points onto a defined 3D model surface
+Drill,Vector Selection,multi-select,"all",Select closed vectors (centers drilled) or point vectors; supports TP templates
+Drill,Name,string,[auto],Custom name for the toolpath entry
+
+V-Carve,Cut Depth,float,"0.125 in",Depth of V-carving relative to Start Depth (C); per-vector Z-depth drives shading
+V-Carve,Start Depth,float,0.0,Base depth; 0 for surface carving, deeper for pocket-bottom engraving
+V-Carve,Flat Depth,bool,false,Enable flat-bottomed carving mode with a specified depth limit
+V-Carve,Flat Depth Value,float,N/A,Maximum depth for flat-bottomed V-carving (F)
+V-Carve,Tool Selection,single,[1 V-bit],V-bit or ball nose tool from Tool Database; angle drives path calculation
+V-Carve,V-Bit Angle,float,90°,Angle of the V-bit cutter; 30°/45°/90° common presets
+V-Carve,Use Clearance Tools,bool,false,Enable multi-tool roughing with end mills before V-carving pass
+V-Carve,Clearance Tool List,list,[empty],List of clearance tools (end mill/ball nose); each removes max unmachined area
+V-Carve,Clearance Strategy,enum,"Offset",First clearance tool fill: Offset / Raster
+V-Carve,Clearance Cut Direction,enum,"Climb",For first clearance tool: Climb (CCW) or Conventional (CW)
+V-Carve,Clearance Raster Angle,float,0°,Angle of raster passes for clearance tool
+V-Carve,Ramp Plunge Moves,bool,false,Apply ramping to clearance tool plunge moves
+V-Carve,Corner Sharpen,bool,false,Raise engraving tool tip into narrower regions; available for 2nd+ tools only
+V-Carve,Use Vector Start Points,bool,true,Align profile/offset start points to boundary vector start points
+V-Carve,Use Vector Selection Order,bool,false,Machine vectors in selection order vs. optimized shortest path
+V-Carve,Safe Z,float,"0.125 in",Height above job for rapid travel (typically lower than Profile)
+V-Carve,Home Position,(x,y),"(0,0)",Position tool travels to before/after machining
+V-Carve,Project onto 3D Model,bool,false,Drop V-carve toolpath onto a defined 3D model surface
+V-Carve,Vector Selection,multi-select,"all",Select vectors with per-vector Z-depth data; supports TP templates
+V-Carve,Name,string,[auto],Custom name for the toolpath entry

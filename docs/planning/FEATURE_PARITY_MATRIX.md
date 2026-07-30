@@ -256,3 +256,164 @@ Track ownership in your PM tool; keep this file as the living checklist.
 | Machine (ours) | 7 | All P0 for Control path |
 
 Update **Status** column as epics complete. PM owns weekly parity review.
+
+---
+
+## L. Profile Toolpath — Form Fields (SPK-0002)
+
+Source: [Vectric Aspire V12 2D Profile Toolpath docs](https://docs.vectric.com/docs/V12.0/Aspire/ENU/Help/form/uiProfileMachineForm/index.html)
+
+| ID | Field | Type | Default | Description |
+| --- | --- | --- | --- | --- |
+| L01 | Cut Depth (C) | float | 0.125 in | Depth of the toolpath relative to Start Depth |
+| L02 | Start Depth (D) | float | 0.0 | Base depth; 0 for surface cuts, deeper for pocket-bottom profiling |
+| L03 | Pass Depths | list | [auto] | Per-pass Z depths; auto-calculated from tool Pass Depth with ±15% optimization |
+| L04 | Maintain Exact Step Depth | bool | false | Disables step-size variation for precise laminated cuts |
+| L05 | Set Last Pass Thickness | float | N/A | Specify last pass as remaining material thickness instead of absolute depth |
+| L06 | Number of Passes | int | [auto] | Force specific number of evenly-spaced passes (overrides tool Pass Depth) |
+| L07 | Cut Type | enum | Outside | Position relative to vector: **Outside** / **Inside** / **On** |
+| L08 | Cutting Direction | enum | Climb | **Conventional** or **Climb** machining direction |
+| L09 | Allowance Offset | float | 0.0 | Overcut (negative) or undercut (positive) offset from selected shape |
+| L10 | Last Pass Allowance | float | 0.0 | Separate allowance for final pass only; cuts to exact size on last pass |
+| L11 | Reverse Last Pass Direction | bool | false | Reverses cutting direction of the last pass to minimize witness marks |
+| L12 | Use Vector Start Point | bool | true | Force plunge and start at vector's first node point (green box) |
+| L13 | Add Tabs | bool | false | Enable tab/bridge creation to hold parts in material during cutting |
+| L14 | Tab Length | float | 0.125 in | Length of each tab along the cut edge |
+| L15 | Tab Thickness | float | 0.031 in | Thickness measured from bottom of Cut Depth (not material bottom) |
+| L16 | Create 3D Tabs | bool | false | Triangular-section tabs; cutter ramps up/down without Z lift stops |
+| L17 | Ramp Type | enum | Smooth | Plunge strategy: **Smooth** / **ZigZag** / **Spiral** (no lead-in) |
+| L18 | Ramp Distance | float | 0.125 in | Horizontal distance for ramp moves into material |
+| L19 | Ramp Angle | float | N/A | Entry angle for cutters that cannot plunge vertically |
+| L20 | Lead-In Type | enum | None | **None** / **Straight Line** / **Circular Arc** lead-in move |
+| L21 | Lead-In Length | float | 0.0625 in | Length of the lead-in move |
+| L22 | Lead-In Angle | float | 45° | Angle at which straight-line lead approaches the edge |
+| L23 | Circular Lead Radius | float | N/A | Radius for arc-style lead-in (auto-calculated from angle) |
+| L24 | Do Lead Out | bool | false | Add an exit lead move at end of toolpath |
+| L25 | Overcut Distance | float | 0.015 in | Cutter machines past start point for edge quality |
+| L26 | Order Strategy | enum | Optimize | Vector cutting order: **Selection Order** / **Left-to-Right** / **Bottom-to-Top** / **Grid** |
+| L27 | Start At Mode | enum | Optimize | Start-point strategy: **Keep Current** / **Optimize** / **Closest on Bounding Box** |
+| L28 | Sharp External Corner | bool | false | Mimic vector angle at external corners for sharp V-bit cuts |
+| L29 | Sharp Internal Corner (3D) | bool | false | Angled tip movement into internal corners for sharp V-bit results |
+| L30 | Safe Z | float | 0.25 in | Height above job for rapid / max feed-rate travel |
+| L31 | Home Position | (x,y) | (0,0) | Position tool travels to before/after machining |
+| L32 | Project onto 3D Model | bool | false | Drop toolpath down in Z onto a defined 3D model surface |
+| L33 | Vector Selection | multi-select | all | Select vectors by properties or position; supports TP templates |
+| L34 | Name | string | [auto] | Custom name for the toolpath entry
+
+---
+
+## M. Pocket Toolpath — Form Fields (SPK-0002)
+
+Source: [Vectric Aspire V12 Pocketing Toolpath docs](https://docs.vectric.com/docs/V12.0/VCarvePro/ENU/Help/form/uiPocketMachineForm/index.html)
+
+| ID | Field | Type | Default | Description |
+| --- | --- | --- | --- | --- |
+| M01 | Cut Depth (C) | float | 0.125 in | Depth of pocket relative to Start Depth |
+| M02 | Start Depth (D) | float | 0.0 | Base depth; 0 for surface pockets, deeper for stepped regions |
+| M03 | Pass Depths | list | [auto] | Per-pass Z depths; auto from tool Pass Depth with ±15% optimization |
+| M04 | Maintain Exact Step Depth | bool | false | Disables step-size variation for precise laminated cuts |
+| M05 | Set Last Pass Thickness | float | N/A | Specify last pass as remaining material thickness |
+| M06 | Number of Passes | int | [auto] | Force specific number of evenly-spaced passes |
+| M07 | Tool Selection | list | [1 tool] | Single or multiple tools; each removes max from unmachined areas, always leaves allowance for final tool |
+| M08 | Strategy | enum | Offset | Fill pattern: **Offset** (concentric) / **Raster** (straight-line) |
+| M09 | Cut Direction | enum | Climb | For Offset strategy: **Climb (CCW)** or **Conventional (CW)** |
+| M10 | Raster Angle | float | 0° | Angle of raster passes; 0°=X-axis parallel, 90°=Y-axis parallel |
+| M11 | Profile Pass | enum | Last | Edge cleanup timing: **First** / **Last** / **No Profile Pass** |
+| M12 | Pocket Allowance | float | 0.0 | Material left on pocket walls for profile pass to clean up (prevents edge marking) |
+| M13 | Ramp Plunge Moves | bool | false | Use ramping instead of vertical plunge into pocket |
+| M14 | Use Vector Selection Order | bool | false | Machine pockets in selection order vs. optimized shortest path |
+| M15 | Safe Z | float | 0.25 in | Height above job for rapid travel |
+| M16 | Home Position | (x,y) | (0,0) | Position tool travels to before/after machining |
+| M17 | Project onto 3D Model | bool | false | Drop pocket toolpath onto a defined 3D model surface |
+| M18 | Vector Selection | multi-select | all | Select closed boundary vectors; supports TP templates |
+| M19 | Name | string | [auto] | Custom name for the toolpath entry
+
+---
+
+## N. Drill Toolpath — Form Fields (SPK-0002)
+
+Source: [Vectric Aspire V12 Drilling Toolpaths docs](https://docs.vectric.com/docs/V12.5/Aspire/ENU/Help/form/Drilling%20Toolpath/index.html)
+
+| ID | Field | Type | Default | Description |
+| --- | --- | --- | --- | --- |
+| N01 | Cut Depth (C) | float | 0.25 in | Depth of drilled hole relative to Start Depth |
+| N02 | Start Depth (D) | float | 0.0 | Base depth; 0 for surface drilling, deeper for pocket-bottom holes |
+| N03 | Tool Selection | single | [1 drill] | Single drill/end mill selected from Tool Database |
+| N04 | Peck Drilling | bool | false | Enable peck cycle: drill Pass Depth → retract → repeat until full depth |
+| N05 | Retract Mode | enum | Above Previous | **Above Cutting Start** (fixed R above start) / **Above Previous Pass Height** (relative R) |
+| N06 | Retract Gap (R) | float | 0.0625 in | Distance for peck retract; fixed or relative depending on Retract Mode |
+| N07 | Dwell at Bottom | bool | false | Pause drill at hole bottom before retracting each pass |
+| N08 | Dwell Time | float | 0.0 | Duration of dwell pause at bottom of each peck pass (seconds) — requires PP support |
+| N09 | Use Vector Selection Order | bool | false | Machine drill points in selection order vs. optimized shortest path |
+| N10 | Safe Z | float | 0.25 in | Height above job for rapid travel |
+| N11 | Home Position | (x,y) | (0,0) | Position tool travels to before/after machining |
+| N12 | Project onto 3D Model | bool | false | Drop drill points onto a defined 3D model surface |
+| N13 | Vector Selection | multi-select | all | Select closed vectors (centers drilled) or point vectors; supports TP templates |
+| N14 | Name | string | [auto] | Custom name for the toolpath entry
+
+---
+
+## O. V-Carve Toolpath — Form Fields (SPK-0002)
+
+Source: [Vectric Aspire V12 V-Carve Toolpath docs](https://docs.vectric.com/docs/V12.0/Aspire/ENU/Help/form/VCarve%20Toolpath%20Creator/index.html)
+
+| ID | Field | Type | Default | Description |
+| --- | --- | --- | --- | --- |
+| O01 | Cut Depth (C) | float | 0.125 in | Depth of V-carving relative to Start Depth; per-vector Z-depth drives shade/color mapping |
+| O02 | Start Depth (D) | float | 0.0 | Base depth; 0 for surface carving, deeper for pocket-bottom engraving |
+| O03 | Flat Depth Mode | bool | false | Enable flat-bottomed carving mode with a specified depth limit |
+| O04 | Flat Depth Value (F) | float | N/A | Maximum depth for flat-bottomed V-carving; when off, toolcarves to full vector-defined depth |
+| O05 | Tool Selection | single | [1 V-bit] | V-bit or ball nose tool from Tool Database; angle drives path calculation |
+| O06 | V-Bit Angle | float | 90° | Angle of the V-bit cutter; common presets: **30°** / **45°** / **90°** |
+| O07 | Use Clearance Tools | bool | false | Enable multi-tool roughing with end mills/ball nose before V-carving pass |
+| O08 | Clearance Tool List | list | [empty] | List of clearance tools; each removes max unmachined area, leaves allowance for V-bit |
+| O09 | Clearance Strategy | enum | Offset | First clearance tool fill: **Offset** / **Raster** |
+| O10 | Clearance Cut Direction | enum | Climb | For first clearance tool: **Climb (CCW)** or **Conventional (CW)** |
+| O11 | Clearance Raster Angle | float | 0° | Angle of raster passes for clearance tool |
+| O12 | Ramp Plunge Moves | bool | false | Apply ramping to clearance tool plunge moves |
+| O13 | Corner Sharpen | bool | false | Raise engraving tool tip into narrower regions; available for 2nd+ tools only |
+| O14 | Use Vector Start Points | bool | true | Align profile/offset start points to boundary vector start points |
+| O15 | Use Vector Selection Order | bool | false | Machine vectors in selection order vs. optimized shortest path |
+| O16 | Safe Z | float | 0.125 in | Height above job for rapid travel (typically lower than Profile) |
+| O17 | Home Position | (x,y) | (0,0) | Position tool travels to before/after machining |
+| O18 | Project onto 3D Model | bool | false | Drop V-carve toolpath onto a defined 3D model surface |
+| O19 | Vector Selection | multi-select | all | Select vectors with per-vector Z-depth data; supports TP templates |
+| O20 | Name | string | [auto] | Custom name for the toolpath entry
+
+---
+
+## Field Mapping Summary (SPK-0002)
+
+### Cross-strategy common fields
+
+All four strategies share these positional/selection fields:
+
+| Common Field | Profile | Pocket | Drill | V-Carve |
+| --- | --- | --- | --- | --- |
+| Start Depth (D) | ✓ | ✓ | ✓ | ✓ |
+| Cut Depth (C) | ✓ | ✓ | ✓ | ✓ |
+| Safe Z | ✓ | ✓ | ✓ | ✓ |
+| Home Position | ✓ | ✓ | ✓ | ✓ |
+| Project onto 3D Model | ✓ | ✓ | ✓ | ✓ |
+| Vector Selection | ✓ | ✓ | ✓ | ✓ |
+| Name | ✓ | ✓ | ✓ | ✓ |
+
+### Strategy-specific field counts
+
+| Strategy | Unique Fields | Total Fields (incl. common) |
+| --- | --- | --- |
+| Profile | 34 | 34 |
+| Pocket | 19 | 19 |
+| Drill | 14 | 14 |
+| V-Carve | 20 | 20 |
+
+### Key differentiators per strategy
+
+- **Profile**: Tab system (length/thickness/3D), lead-in/out arcs, corner sharpening, order strategies (L→R/B→T/Grid)
+- **Pocket**: Multi-tool clearance chain, Offset vs Raster fill patterns, pocket allowance for edge cleanup
+- **Drill**: Peck cycle with retract modes (fixed vs relative), dwell time at hole bottom
+- **V-Carve**: Per-vector Z-depth shading, V-bit angle parameterization, flat-bottom mode, multi-tool clearance with corner sharpen
+
+### CSV output
+
+A summary CSV is available at `docs/planning/form_fields_mapping.csv` with columns: Strategy, Field Name, Type, Default, Description — covering all 87 fields across the four strategies.
