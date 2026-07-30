@@ -1,528 +1,471 @@
 import Foundation
 
+// MARK: - SVG Import Result
+
+/// Result of importing an SVG path.
+public struct SVGImportResult {
+    /// The parsed shapes from the SVG.
+    public let shapes: [VectorShape]
+    
+    /// Any errors encountered during parsing.
+    public let errors: [String]
+    
+    /// Whether import succeeded (no critical errors).
+    public var success: Bool { !errors.contains(where: { $0.hasPrefix("FATAL") }) }
+}
+
 // MARK: - SVG Importer
 
-/// Parses SVG path data and converts to VectorShape objects.
-public struct SVGImporter {
+/// Parses SVG path data and converts it to VectorShape objects.
+public final class SVGImporter {
     
-    /// Parse an SVG `<path>` element's `d` attribute into an array of VectorShapes.
-    public static func parsePath(_ d: String) -> [VectorShape] {
-        let commands = tokenize(d)
+    /// Parse an SVG string and return shapes.
+    public static func parse(_ svgString: String) -> SVGImportResult {
         var shapes: [VectorShape] = []
-        var currentPoint = VectorPoint()
-        var startPoint = VectorPoint()
-        var isClosed = false
+        var errors: [String] = []
+        
+        // Extract path d attributes from the SVG
+        let paths = extractPaths(from: svgString, errors: &errors)
+        
+        for pathD in paths {
+            do {
+                let parsedShapes = try parsePathData(pathD)
+                shapes.append(contentsOf: parsedShapes)
+            } catch {
+                errors.append("FATAL: Failed to parse path: \(error.localizedDescription)")
+            }
+        }
+        
+        return SVGImportResult(shapes: shapes, errors: errors)
+    }
+    
+    /// Parse a single SVG path d attribute string.
+    public static func parsePathData(_ dAttribute: String) throws -> [VectorShape] {
+        let commands = try tokenize(dAttribute)
+        var shapes: [VectorShape] = []
+        var currentPath: [VectorPoint] = []
+        var currentPosition = VectorPoint()
         
         for command in commands {
             switch command.type {
             case "M":
-                if !shapes.isEmpty, let last = shapes.last {
-                    // Start a new subpath — close the previous one first
-                    shapes.append(.freehand(points: extractPoints([last])))
+                if !currentPath.isEmpty && currentPath.count >= 2 {
+                    shapes.append(createShape(from: &currentPath))
                 }
-                currentPoint = command.target
-                startPoint = command.target
-                isClosed = false
+                currentPosition = command.target ?? currentPosition
+                currentPath = [currentPosition]
+                
+            case "m":
+                if !currentPath.isEmpty && currentPath.count >= 2 {
+                    shapes.append(createShape(from: &currentPath))
+                }
+                let tx = command.target?.x ?? 0
+                let ty = command.target?.y ?? 0
+                currentPosition = VectorPoint(x: currentPosition.x + tx, y: currentPosition.y + ty)
+                currentPath = [currentPosition]
                 
             case "L":
-                let line = VectorShape.line(start: currentPoint, end: command.target)
-                shapes.append(line)
-                currentPoint = command.target
+                if let target = command.target {
+                    currentPath.append(target)
+                    currentPosition = target
+                }
+                
+            case "l":
+                if let target = command.target {
+                    currentPosition = VectorPoint(x: currentPosition.x + target.x, y: currentPosition.y + target.y)
+                    currentPath.append(currentPosition)
+                }
                 
             case "H":
-                let newPoint = VectorPoint(x: command.target.x, y: currentPoint.y)
-                let line = VectorShape.line(start: currentPoint, end: newPoint)
-                shapes.append(line)
-                currentPoint = newPoint
+                if let vals = command.values, let x = vals.first {
+                    currentPosition = VectorPoint(x: x, y: currentPosition.y)
+                    currentPath.append(currentPosition)
+                }
+                
+            case "h":
+                if let vals = command.values, let dx = vals.first {
+                    currentPosition = VectorPoint(x: currentPosition.x + dx, y: currentPosition.y)
+                    currentPath.append(currentPosition)
+                }
                 
             case "V":
-                let newPoint = VectorPoint(x: currentPoint.x, y: command.target.y)
-                let line = VectorShape.line(start: currentPoint, end: newPoint)
-                shapes.append(line)
-                currentPoint = newPoint
+                if let vals = command.values, let y = vals.first {
+                    currentPosition = VectorPoint(x: currentPosition.x, y: y)
+                    currentPath.append(currentPosition)
+                }
+                
+            case "v":
+                if let vals = command.values, let dy = vals.first {
+                    currentPosition = VectorPoint(x: currentPosition.x, y: currentPosition.y + dy)
+                    currentPath.append(currentPosition)
+                }
                 
             case "C":
-                // Cubic bezier → approximate with lines
-                let approximated = approximateCubicBezier(
-                    from: currentPoint,
-                    cp1: command.cp1 ?? currentPoint,
-                    cp2: command.cp2 ?? currentPoint,
-                    to: command.target
-                )
-                shapes.append(contentsOf: approximated)
-                currentPoint = command.target
+                if let vals = command.values, vals.count >= 6 {
+                    let cp1 = VectorPoint(x: vals[0], y: vals[1])
+                    let cp2 = VectorPoint(x: vals[2], y: vals[3])
+                    let end = VectorPoint(x: vals[4], y: vals[5])
+                    
+                    let approximated = approximateCubicBezier(from: currentPosition, cp1: cp1, cp2: cp2, to: end, segments: 8)
+                    currentPath.append(contentsOf: approximated.dropFirst())
+                    currentPosition = end
+                }
+                
+            case "c":
+                if let vals = command.values, vals.count >= 6 {
+                    let cp1 = VectorPoint(x: currentPosition.x + vals[0], y: currentPosition.y + vals[1])
+                    let cp2 = VectorPoint(x: currentPosition.x + vals[2], y: currentPosition.y + vals[3])
+                    let end = VectorPoint(x: currentPosition.x + vals[4], y: currentPosition.y + vals[5])
+                    
+                    let approximated = approximateCubicBezier(from: currentPosition, cp1: cp1, cp2: cp2, to: end, segments: 8)
+                    currentPath.append(contentsOf: approximated.dropFirst())
+                    currentPosition = end
+                }
                 
             case "Q":
-                // Quadratic bezier → approximate with lines
-                let approximated = approximateQuadraticBezier(
-                    from: currentPoint,
-                    cp: command.cp1 ?? currentPoint,
-                    to: command.target
-                )
-                shapes.append(contentsOf: approximated)
-                currentPoint = command.target
+                if let vals = command.values, vals.count >= 4 {
+                    let cp = VectorPoint(x: vals[0], y: vals[1])
+                    let end = VectorPoint(x: vals[2], y: vals[3])
+                    
+                    let approximated = approximateQuadraticBezier(from: currentPosition, cp: cp, to: end, segments: 8)
+                    currentPath.append(contentsOf: approximated.dropFirst())
+                    currentPosition = end
+                }
+                
+            case "q":
+                if let vals = command.values, vals.count >= 4 {
+                    let cp = VectorPoint(x: currentPosition.x + vals[0], y: currentPosition.y + vals[1])
+                    let end = VectorPoint(x: currentPosition.x + vals[2], y: currentPosition.y + vals[3])
+                    
+                    let approximated = approximateQuadraticBezier(from: currentPosition, cp: cp, to: end, segments: 8)
+                    currentPath.append(contentsOf: approximated.dropFirst())
+                    currentPosition = end
+                }
                 
             case "A":
-                // Arc → approximate with lines
-                let approximated = approximateArc(
-                    from: currentPoint,
-                    radiusX: command.rx ?? 10,
-                    radiusY: command.ry ?? 10,
-                    rotation: command.rotation ?? 0,
-                    largeArc: command.largeArc ?? false,
-                    sweep: command.sweep ?? true,
-                    to: command.target
-                )
-                shapes.append(contentsOf: approximated)
-                currentPoint = command.target
-                
-            case "Z":
-                // Close path — add line back to start if not already there
-                if !isClosed && startPoint != currentPoint {
-                    let closeLine = VectorShape.line(start: currentPoint, end: startPoint)
-                    shapes.append(closeLine)
+                if let vals = command.values, vals.count >= 7 {
+                    let rx = abs(vals[0])
+                    let ry = abs(vals[1])
+                    let xAxisRotation = vals[2]
+                    let largeArc = vals[3] > 0.5
+                    let sweep = vals[4] > 0.5
+                    let endX = vals[5]
+                    let endY = vals[6]
+                    
+                    let approximated = approximateArc(
+                        from: currentPosition, to: VectorPoint(x: endX, y: endY),
+                        radiusX: rx, radiusY: ry, xAxisRotation: xAxisRotation,
+                        largeArc: largeArc, sweep: sweep, segments: 16
+                    )
+                    currentPath.append(contentsOf: approximated.dropFirst())
+                    currentPosition = VectorPoint(x: endX, y: endY)
                 }
-                isClosed = true
+                
+            case "a":
+                if let vals = command.values, vals.count >= 7 {
+                    let rx = abs(vals[0])
+                    let ry = abs(vals[1])
+                    let xAxisRotation = vals[2]
+                    let largeArc = vals[3] > 0.5
+                    let sweep = vals[4] > 0.5
+                    let endX = currentPosition.x + vals[5]
+                    let endY = currentPosition.y + vals[6]
+                    
+                    let approximated = approximateArc(
+                        from: currentPosition, to: VectorPoint(x: endX, y: endY),
+                        radiusX: rx, radiusY: ry, xAxisRotation: xAxisRotation,
+                        largeArc: largeArc, sweep: sweep, segments: 16
+                    )
+                    currentPath.append(contentsOf: approximated.dropFirst())
+                    currentPosition = VectorPoint(x: endX, y: endY)
+                }
+                
+            case "Z", "z":
+                if !currentPath.isEmpty {
+                    let startPoint = currentPath[0]
+                    if abs(startPoint.x - currentPosition.x) > 1e-6 || abs(startPoint.y - currentPosition.y) > 1e-6 {
+                        currentPath.append(startPoint)
+                    }
+                }
                 
             default:
                 break
             }
         }
         
-        // If we have shapes and weren't closed, add the freehand wrapper
-        if !shapes.isEmpty && !isClosed {
-            let allPoints = extractPoints(shapes)
-            return [.freehand(points: allPoints)]
+        // Finalize remaining path
+        if !currentPath.isEmpty && currentPath.count >= 2 {
+            shapes.append(createShape(from: &currentPath))
         }
         
         return shapes
     }
     
-    /// Parse a full SVG string and extract all path elements.
-    public static func parseSVG(_ svgString: String) -> [VectorShape] {
-        let paths = extractPathElements(svgString)
-        var allShapes: [VectorShape] = []
+    /// Create a VectorShape from an array of points.
+    private static func createShape(from pathPoints: inout [VectorPoint]) -> VectorShape {
+        guard !pathPoints.isEmpty else { return .freehand(points: []) }
         
-        for pathData in paths {
-            let shapes = parsePath(pathData)
-            allShapes.append(contentsOf: shapes)
-        }
+        let first = pathPoints[0]
+        let last = pathPoints[pathPoints.count - 1]
+        let isClosed = abs(first.x - last.x) < 1e-6 && abs(first.y - last.y) < 1e-6
         
-        return allShapes
-    }
-    
-    // MARK: - Tokenization
-    
-    /// Tokenize an SVG path `d` string into individual commands.
-    private static func tokenize(_ d: String) -> [SVGCommand] {
-        var commands: [SVGCommand] = []
-        let trimmed = d.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        // Regex to match command letters and their parameters
-        let pattern = "([MmLlHhVvCcQqAaZz])([^MmLlHhVvCcQqAaZz]*)"
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
-            return commands
-        }
-        
-        let range = NSRange(trimmed.startIndex..., in: trimmed)
-        let matches = regex.matches(in: trimmed, options: [], range: range)
-        
-        for match in matches {
-            guard let typeRange = Range(match.range(at: 1), in: trimmed),
-                  let paramsRange = Range(match.range(at: 2), in: trimmed) else { continue }
+        if isClosed && pathPoints.count >= 5 {
+            // Check if it looks like a rectangle (axis-aligned corners)
+            var isRect = true
+            for i in 1..<(pathPoints.count - 2) {
+                let prev = pathPoints[i - 1]
+                let curr = pathPoints[i]
+                let next = pathPoints[i + 1]
+                
+                let dx1 = curr.x - prev.x, dy1 = curr.y - prev.y
+                let dx2 = next.x - curr.x, dy2 = next.y - curr.y
+                
+                if abs(dx1 * dy2 - dy1 * dx2) > 1e-3 {
+                    isRect = false
+                    break
+                }
+            }
             
-            let type = String(trimmed[typeRange])
-            let paramsStr = String(trimmed[paramsRange]).trimmingCharacters(in: .whitespacesAndNewlines)
-            let parameters = parseParameters(paramsStr)
-            
-            commands.append(SVGCommand(type: type, parameters: parameters))
-        }
-        
-        return commands
-    }
-    
-    /// Parse parameter values from a command's parameter string.
-    private static func parseParameters(_ str: String) -> [Double] {
-        var params: [Double] = []
-        let trimmed = str.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        guard !trimmed.isEmpty else { return params }
-        
-        // Split on whitespace or commas, filter empty
-        let separatorSet = CharacterSet.whitespaces.union(CharacterSet(charactersIn: ","))
-        let parts = trimmed.components(separatedBy: separatorSet).filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-        
-        for part in parts {
-            if let value = Double(part.trimmingCharacters(in: .whitespacesAndNewlines)) {
-                params.append(value)
+            if isRect {
+                let origin = pathPoints[0]
+                let width = pathPoints[1].x - origin.x
+                let height = pathPoints[2].y - origin.y
+                return .rectangle(origin: origin, width: width, height: height)
             }
         }
         
-        return params
+        if isClosed && pathPoints.count >= 4 {
+            var points = pathPoints
+            points.removeLast()
+            return .freehand(points: points)
+        }
+        
+        if pathPoints.count == 2 {
+            return .line(start: pathPoints[0], end: pathPoints[1])
+        }
+        
+        return .freehand(points: pathPoints)
     }
     
-    // MARK: - Bezier Approximation
-    
-    /// Approximate a cubic bezier curve with line segments.
+    /// Approximate a cubic Bezier curve with line segments.
     private static func approximateCubicBezier(
-        from start: VectorPoint,
-        cp1: VectorPoint,
-        cp2: VectorPoint,
-        to end: VectorPoint,
+        from start: VectorPoint, cp1: VectorPoint, cp2: VectorPoint, to end: VectorPoint,
         segments: Int = 8
-    ) -> [VectorShape] {
-        var shapes: [VectorShape] = []
+    ) -> [VectorPoint] {
+        var points: [VectorPoint] = [start]
         
-        for i in 0..<segments {
-            let t0 = Double(i) / Double(segments)
-            let t1 = Double(i + 1) / Double(segments)
+        for i in 1...segments {
+            let t = Double(i) / Double(segments)
+            let mt = 1.0 - t
+            let mt2 = mt * mt, mt3 = mt2 * mt
+            let t2 = t * t, t3 = t2 * t
             
-            let p0 = cubicBezierPoint(t: t0, start: start, cp1: cp1, cp2: cp2, end: end)
-            let p1 = cubicBezierPoint(t: t1, start: start, cp1: cp1, cp2: cp2, end: end)
+            let x = mt3 * start.x + 3 * mt2 * t * cp1.x + 3 * mt * t2 * cp2.x + t3 * end.x
+            let y = mt3 * start.y + 3 * mt2 * t * cp1.y + 3 * mt * t2 * cp2.y + t3 * end.y
             
-            shapes.append(.line(start: p0, end: p1))
-        }
-        
-        return shapes
-    }
-    
-    /// Approximate a quadratic bezier curve with line segments.
-    private static func approximateQuadraticBezier(
-        from start: VectorPoint,
-        cp: VectorPoint,
-        to end: VectorPoint,
-        segments: Int = 8
-    ) -> [VectorShape] {
-        var shapes: [VectorShape] = []
-        
-        for i in 0..<segments {
-            let t0 = Double(i) / Double(segments)
-            let t1 = Double(i + 1) / Double(segments)
-            
-            let p0 = quadraticBezierPoint(t: t0, start: start, cp: cp, end: end)
-            let p1 = quadraticBezierPoint(t: t1, start: start, cp: cp, end: end)
-            
-            shapes.append(.line(start: p0, end: p1))
-        }
-        
-        return shapes
-    }
-    
-    /// Approximate an SVG arc with line segments.
-    private static func approximateArc(
-        from start: VectorPoint,
-        radiusX: Double,
-        radiusY: Double,
-        rotation: Double,
-        largeArc: Bool,
-        sweep: Bool,
-        to end: VectorPoint,
-        segments: Int = 16
-    ) -> [VectorShape] {
-        var shapes: [VectorShape] = []
-        
-        // Calculate center of arc
-        guard let center = calculateArcCenter(
-            start: start, end: end,
-            radiusX: abs(radiusX), radiusY: abs(radiusY),
-            largeArc: largeArc, sweep: sweep, rotation: rotation
-        ) else { return shapes }
-        
-        // Calculate start and end angles
-        let rotRad = rotation * .pi / 180.0
-        let dx = (start.x - center.x) * cos(rotRad) + (start.y - center.y) * sin(rotRad)
-        let dy = -(start.x - center.x) * sin(rotRad) + (start.y - center.y) * cos(rotRad)
-        let startAngle = atan2(dy, dx)
-        
-        let ex = (end.x - center.x) * cos(rotRad) + (end.y - center.y) * sin(rotRad)
-        let ey = -(end.x - center.x) * sin(rotRad) + (end.y - center.y) * cos(rotRad)
-        var endAngle = atan2(ey, ex)
-        
-        // Adjust for sweep and large arc flags
-        if sweep && endAngle <= startAngle {
-            endAngle += 2 * .pi
-        } else if !sweep && endAngle > startAngle {
-            endAngle -= 2 * .pi
-        }
-        
-        let totalSweep = endAngle - startAngle
-        
-        for i in 0..<segments {
-            let t0 = Double(i) / Double(segments)
-            let t1 = Double(i + 1) / Double(segments)
-            
-            let angle0 = startAngle + totalSweep * t0
-            let angle1 = startAngle + totalSweep * t1
-            
-            let p0 = VectorPoint(
-                x: center.x + radiusX * cos(angle0) * cos(rotRad) - radiusY * sin(angle0) * sin(rotRad),
-                y: center.y + radiusX * cos(angle0) * sin(rotRad) + radiusY * sin(angle0) * cos(rotRad)
-            )
-            
-            let p1 = VectorPoint(
-                x: center.x + radiusX * cos(angle1) * cos(rotRad) - radiusY * sin(angle1) * sin(rotRad),
-                y: center.y + radiusX * cos(angle1) * sin(rotRad) + radiusY * sin(angle1) * cos(rotRad)
-            )
-            
-            shapes.append(.line(start: p0, end: p1))
-        }
-        
-        return shapes
-    }
-    
-    /// Calculate the center of an SVG arc.
-    private static func calculateArcCenter(
-        start: VectorPoint,
-        end: VectorPoint,
-        radiusX: Double,
-        radiusY: Double,
-        largeArc: Bool,
-        sweep: Bool,
-        rotation: Double
-    ) -> VectorPoint? {
-        let rotRad = rotation * .pi / 180.0
-        
-        // Transform to unit circle space
-        let dx = (start.x - end.x) / 2.0
-        let dy = (start.y - end.y) / 2.0
-        
-        let x1 = dx * cos(rotRad) + dy * sin(rotRad)
-        let y1 = -dx * sin(rotRad) + dy * cos(rotRad)
-        
-        let rxSq = radiusX * radiusX
-        let rySq = radiusY * radiusY
-        let x1Sq = x1 * x1
-        let y1Sq = y1 * y1
-        
-        // Check if radii are valid
-        guard rxSq > 0, rySq > 0 else { return nil }
-        
-        let lambda = (x1Sq / rxSq) + (y1Sq / rySq)
-        var scaleFactor: Double = 1.0
-        
-        if lambda > 1.0 {
-            scaleFactor = sqrt(lambda)
-        }
-        
-        let rx = radiusX * scaleFactor
-        let ry = radiusY * scaleFactor
-        
-        let sign = largeArc == sweep ? -1.0 : 1.0
-        let sq = (rx * rx * rySq - rxSq * rySq * y1Sq) / (rxSq * rySq + x1Sq * y1Sq)
-        
-        guard sq >= 0 else { return nil }
-        
-        let coef = sign * sqrt(sq)
-        let cx1 = coef * (rx * y1 / ry)
-        let cy1 = coef * -(ry * x1 / rx)
-        
-        // Transform back
-        let centerX = (start.x + end.x) / 2.0 + cx1 * cos(rotRad) - cy1 * sin(rotRad)
-        let centerY = (start.y + end.y) / 2.0 + cx1 * sin(rotRad) + cy1 * cos(rotRad)
-        
-        return VectorPoint(x: centerX, y: centerY)
-    }
-    
-    // MARK: - Bezier Evaluation
-    
-    private static func cubicBezierPoint(
-        t: Double, start: VectorPoint, cp1: VectorPoint, cp2: VectorPoint, end: VectorPoint
-    ) -> VectorPoint {
-        let u = 1.0 - t
-        return VectorPoint(
-            x: u*u*u*start.x + 3*u*t*cp1.x + 3*u*t*t*cp2.x + t*t*t*end.x,
-            y: u*u*u*start.y + 3*u*t*cp1.y + 3*u*t*t*cp2.y + t*t*t*end.y
-        )
-    }
-    
-    private static func quadraticBezierPoint(
-        t: Double, start: VectorPoint, cp: VectorPoint, end: VectorPoint
-    ) -> VectorPoint {
-        let u = 1.0 - t
-        return VectorPoint(
-            x: u*u*start.x + 2*u*t*cp.x + t*t*end.x,
-            y: u*u*start.y + 2*u*t*cp.y + t*t*end.y
-        )
-    }
-    
-    // MARK: - Helpers
-    
-    /// Extract all VectorPoints from an array of shapes.
-    private static func extractPoints(_ shapes: [VectorShape]) -> [VectorPoint] {
-        var points: [VectorPoint] = []
-        
-        for shape in shapes {
-            switch shape {
-            case .line(let s, let e):
-                if points.isEmpty || points.last != s {
-                    points.append(s)
-                }
-                points.append(e)
-            case .freehand(let pts):
-                points.append(contentsOf: pts)
-            default:
-                // For non-line shapes, skip (they're already VectorShapes)
-                break
-            }
+            points.append(VectorPoint(x: x, y: y))
         }
         
         return points
     }
     
-    /// Extract path `d` attributes from an SVG string.
-    private static func extractPathElements(_ svgString: String) -> [String] {
-        var paths: [String] = []
-        let trimmed = svgString.trimmingCharacters(in: .whitespacesAndNewlines)
+    /// Approximate a quadratic Bezier curve with line segments.
+    private static func approximateQuadraticBezier(
+        from start: VectorPoint, cp: VectorPoint, to end: VectorPoint,
+        segments: Int = 8
+    ) -> [VectorPoint] {
+        var points: [VectorPoint] = [start]
         
-        // Simple regex to find <path ... d="..." /> or <path ...>...</path>
-        let pattern = #"d=["']([^"']+)["']"#
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
-            return paths
+        for i in 1...segments {
+            let t = Double(i) / Double(segments)
+            let mt = 1.0 - t
+            
+            let x = mt * mt * start.x + 2 * mt * t * cp.x + t * t * end.x
+            let y = mt * mt * start.y + 2 * mt * t * cp.y + t * t * end.y
+            
+            points.append(VectorPoint(x: x, y: y))
         }
         
-        let range = NSRange(trimmed.startIndex..., in: trimmed)
-        let matches = regex.matches(in: trimmed, options: [], range: range)
+        return points
+    }
+    
+    /// Approximate an SVG arc with line segments.
+    private static func approximateArc(
+        from start: VectorPoint, to end: VectorPoint,
+        radiusX: Double, radiusY: Double,
+        xAxisRotation: Double, largeArc: Bool, sweep: Bool,
+        segments: Int = 16
+    ) -> [VectorPoint] {
+        guard radiusX > 1e-6 && radiusY > 1e-6 else {
+            return [start, end]
+        }
         
-        for match in matches {
-            if let range = Range(match.range(at: 1), in: trimmed) {
-                paths.append(String(trimmed[range]))
+        let midX = (start.x + end.x) / 2.0
+        let midY = (start.y + end.y) / 2.0
+        
+        let dx = (start.x - end.x) / 2.0
+        let dy = (start.y - end.y) / 2.0
+        
+        let xAngle = xAxisRotation * .pi / 180.0
+        let cosX = cos(xAngle), sinX = sin(xAngle)
+        
+        let x1p = cosX * dx + sinX * dy
+        let y1p = -sinX * dx + cosX * dy
+        
+        // Use mutable local copies for potential scaling
+        var localRx = radiusX
+        var localRy = radiusY
+        
+        let rxSq = localRx * localRx
+        let rySq = localRy * localRy
+        let x1pSq = x1p * x1p
+        let y1pSq = y1p * y1p
+        
+        let lambda = x1pSq / rxSq + y1pSq / rySq
+        if lambda > 1.0 {
+            let scaleFactor = sqrt(lambda)
+            localRx *= scaleFactor
+            localRy *= scaleFactor
+        }
+        
+        // Recompute squares after potential scaling
+        let srxSq = localRx * localRx
+        let srySq = localRy * localRy
+        
+        let sign = largeArc == sweep ? -1.0 : 1.0
+        let sq = (srxSq * srySq - srxSq * y1pSq - srySq * x1pSq) / (srxSq * y1pSq + srySq * x1pSq)
+        let coef = sign * sqrt(max(0, sq))
+        let cxp = coef * (localRy * x1p / localRx)
+        let cyp = -coef * (localRx * y1p / localRy)
+        
+        let cx = cosX * cxp - sinX * cyp + midX
+        let cy = sinX * cxp + cosX * cyp + midY
+        
+        let ux = (x1p - cxp) / localRx
+        let uy = (y1p - cyp) / localRy
+        let vx = (-x1p - cxp) / localRx
+        let vy = (-y1p - cyp) / localRy
+        
+        let startAngle = atan2(uy, ux)
+        var endAngle = atan2(vy, vx)
+        
+        if sweep && startAngle > endAngle {
+            endAngle -= 2 * .pi
+        } else if !sweep && endAngle > startAngle {
+            endAngle += 2 * .pi
+        }
+        
+        // Generate points along the arc
+        var points: [VectorPoint] = [start]
+        let angleDiff = endAngle - startAngle
+        
+        for i in 1...segments {
+            let t = Double(i) / Double(segments)
+            let angle = startAngle + angleDiff * t
+            
+            let x = cx + localRx * cos(angle) * cosX - localRy * sin(angle) * sinX
+            let y = cy + localRx * cos(angle) * sinX + localRy * sin(angle) * cosX
+            
+            points.append(VectorPoint(x: x, y: y))
+        }
+        
+        return points
+    }
+    
+    /// Extract path d attributes from an SVG string.
+    private static func extractPaths(from svgString: String, errors: inout [String]) -> [String] {
+        var paths: [String] = []
+        
+        let pattern = #"d\s*=\s*"([^"]*)""#
+        if let regex = try? NSRegularExpression(pattern: pattern, options: []) {
+            let range = NSRange(svgString.startIndex..., in: svgString)
+            for match in regex.matches(in: svgString, options: [], range: range) {
+                if let dRange = Range(match.range(at: 1), in: svgString) {
+                    paths.append(String(svgString[dRange]))
+                }
             }
+        } else {
+            errors.append("FATAL: Could not compile SVG path regex")
         }
         
         return paths
     }
+    
+    /// Tokenize an SVG path d attribute into commands.
+    private static func tokenize(_ dAttribute: String) throws -> [SVGPathCommand] {
+        var commands: [SVGPathCommand] = []
+        let trimmed = dAttribute.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        let pattern = #"([MmZzLlHhVvCcSsQqTtAa])([^MmZzLlHhVvCcSsQqTtAa]*)"#
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
+            throw SVGImportError.invalidPathData("Could not compile tokenization regex")
+        }
+        
+        let range = NSRange(trimmed.startIndex..., in: trimmed)
+        for match in regex.matches(in: trimmed, options: [], range: range) {
+            guard let typeRange = Range(match.range(at: 1), in: trimmed),
+                  let argsRange = Range(match.range(at: 2), in: trimmed) else {
+                continue
+            }
+            
+            let commandType = String(trimmed[typeRange])
+            let argsString = String(trimmed[argsRange]).trimmingCharacters(in: .whitespacesAndNewlines)
+            
+            var values: [Double] = []
+            if !argsString.isEmpty {
+                let numberPattern = #"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?"#
+                guard let numRegex = try? NSRegularExpression(pattern: numberPattern, options: []) else {
+                    throw SVGImportError.invalidPathData("Could not compile number regex")
+                }
+                
+                let numRange = NSRange(argsString.startIndex..., in: argsString)
+                for numMatch in numRegex.matches(in: argsString, options: [], range: numRange) {
+                    if let valRange = Range(numMatch.range(at: 0), in: argsString) {
+                        if let value = Double(String(argsString[valRange])) {
+                            values.append(value)
+                        }
+                    }
+                }
+            }
+            
+            var targetPoint: VectorPoint?
+            switch commandType {
+            case "M", "L", "T", "C":
+                if values.count >= 2 {
+                    targetPoint = VectorPoint(x: values[0], y: values[1])
+                }
+            case "m", "l", "t", "c":
+                if values.count >= 2 {
+                    targetPoint = VectorPoint(x: values[0], y: values[1])
+                }
+            default:
+                break
+            }
+            
+            commands.append(SVGPathCommand(type: commandType, values: values, target: targetPoint))
+        }
+        
+        return commands
+    }
 }
 
-// MARK: - SVG Command
+// MARK: - SVG Path Command
 
-/// Represents a single command from an SVG path `d` attribute.
-struct SVGCommand {
-    let type: String           // M, L, H, V, C, Q, A, Z (or lowercase)
-    let target: VectorPoint    // End point of the command
-    let cp1: VectorPoint?      // First control point (for C/Q/A)
-    let cp2: VectorPoint?      // Second control point (for C only)
-    let rx: Double?            // X radius (for A)
-    let ry: Double?            // Y radius (for A)
-    let rotation: Double?      // Arc rotation in degrees
-    let largeArc: Bool?        // Large arc flag
-    let sweep: Bool?           // Sweep flag
+/// A single tokenized SVG path command.
+struct SVGPathCommand {
+    let type: String  // M, L, H, V, C, Q, A, Z (or lowercase variants)
+    let values: [Double]?
+    let target: VectorPoint?
+}
+
+// MARK: - Errors
+
+enum SVGImportError: LocalizedError {
+    case invalidPathData(String)
     
-    init(type: String, parameters: [Double]) {
-        self.type = type
-        
-        switch type.uppercased() {
-        case "M", "L":
-            self.target = VectorPoint(x: parameters.count > 0 ? parameters[0] : 0,
-                                      y: parameters.count > 1 ? parameters[1] : 0)
-            self.cp1 = nil
-            self.cp2 = nil
-            self.rx = nil
-            self.ry = nil
-            self.rotation = nil
-            self.largeArc = nil
-            self.sweep = nil
-            
-        case "H":
-            self.target = VectorPoint(x: parameters.first ?? 0, y: 0)
-            self.cp1 = nil
-            self.cp2 = nil
-            self.rx = nil
-            self.ry = nil
-            self.rotation = nil
-            self.largeArc = nil
-            self.sweep = nil
-            
-        case "V":
-            self.target = VectorPoint(x: 0, y: parameters.first ?? 0)
-            self.cp1 = nil
-            self.cp2 = nil
-            self.rx = nil
-            self.ry = nil
-            self.rotation = nil
-            self.largeArc = nil
-            self.sweep = nil
-            
-        case "C":
-            if parameters.count >= 6 {
-                self.target = VectorPoint(x: parameters[4], y: parameters[5])
-                self.cp1 = VectorPoint(x: parameters[0], y: parameters[1])
-                self.cp2 = VectorPoint(x: parameters[2], y: parameters[3])
-            } else {
-                self.target = VectorPoint()
-                self.cp1 = nil
-                self.cp2 = nil
-            }
-            self.rx = nil
-            self.ry = nil
-            self.rotation = nil
-            self.largeArc = nil
-            self.sweep = nil
-            
-        case "Q":
-            if parameters.count >= 4 {
-                self.target = VectorPoint(x: parameters[2], y: parameters[3])
-                self.cp1 = VectorPoint(x: parameters[0], y: parameters[1])
-            } else {
-                self.target = VectorPoint()
-                self.cp1 = nil
-            }
-            self.cp2 = nil
-            self.rx = nil
-            self.ry = nil
-            self.rotation = nil
-            self.largeArc = nil
-            self.sweep = nil
-            
-        case "A":
-            if parameters.count >= 7 {
-                self.target = VectorPoint(x: parameters[5], y: parameters[6])
-                self.rx = parameters[0]
-                self.ry = parameters[1]
-                self.rotation = parameters[2]
-                self.largeArc = parameters[3] != 0
-                self.sweep = parameters[4] != 0
-            } else {
-                self.target = VectorPoint()
-                self.rx = nil
-                self.ry = nil
-                self.rotation = nil
-                self.largeArc = nil
-                self.sweep = nil
-            }
-            self.cp1 = nil
-            self.cp2 = nil
-            
-        case "Z":
-            self.target = VectorPoint()
-            self.cp1 = nil
-            self.cp2 = nil
-            self.rx = nil
-            self.ry = nil
-            self.rotation = nil
-            self.largeArc = nil
-            self.sweep = nil
-            
-        default:
-            self.target = VectorPoint()
-            self.cp1 = nil
-            self.cp2 = nil
-            self.rx = nil
-            self.ry = nil
-            self.rotation = nil
-            self.largeArc = nil
-            self.sweep = nil
+    var errorDescription: String? {
+        switch self {
+        case .invalidPathData(let msg): return "Invalid path data: \(msg)"
         }
     }
 }
-
-// MARK: - Preview (Xcode only — not available in CLI builds)
-
-#if canImport(SwiftUI) && DEBUG
-import SwiftUI
-
-struct SVGImporter_Previews: PreviewProvider {
-    static var previews: some View {
-        Text("SVG importer is a non-visual component")
-    }
-}
-#endif
