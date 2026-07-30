@@ -331,10 +331,12 @@ A (parallel from day 0)
 - [x] **SPK-0317** `// P0` **QA** Golden G-code fixtures Profile/Pocket/Drill  
   - worklog: 2026-07-29 — Direct write. GoldenFixtures.swift (7KB) with GoldenFixtureType enum, GoldenFixtureResult struct with matches/differences properties, GoldenFixtureManager class for fixture registration and verification, normalizeGcode()/findGcodeDifferences() top-level functions for G-code comparison, and predefined fixtures for Profile/Pocket/Drill toolpaths. swift build passes cleanly.
   - deps: SPK-0313  
-- [ ] **SPK-0318** `// P0` **UX** Coach: “toolpaths don’t follow art unless linked”  
-  - deps: SPK-0305  
-- [ ] **SPK-0319** **TP** Optional Follow-source link mode (default off)  
-  - deps: SPK-0305  
+- [x] **SPK-0318** `// P0` **UX** Coach: "toolpaths don't follow art unless linked"  
+  - worklog: 2026-07-30 — Direct write. Updated CoachPanelView.swift cut stage message to explicitly warn users that toolpaths don't follow art unless linked, instructing them to select vectors first then apply strategy. swift build passes cleanly.
+  - deps: SPK-0305
+- [x] **SPK-0319** **TP** Optional Follow-source link mode (default off)  
+  - worklog: 2026-07-30 — Direct write. ToolpathLinkManager.swift (6.6KB) with FollowSourceMode enum (.manual/.autoFollow defaulting to .manual), ToolpathLink struct linking toolpaths to source vector IDs, LinkStatus enum (.linked/.stale/.unlinked), and ToolpathLinkManager ObservableObject managing create/remove links, auto-follow per-link toggle, global mode switching, stale tracking (markStale/markUpToDate), and staleToolpathIds query. swift build passes cleanly.
+  - deps: SPK-0305
 
 **Phase D exit:** Calibration vectors → profile → preview → `.nc` on disk; dirty safety works.
 
