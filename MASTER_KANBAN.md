@@ -379,7 +379,8 @@ A (parallel from day 0)
 - [x] **SPK-0410** `// P0` **MACH** Jog + soft home + work zero  
   - worklog: 2026-07-30 — Direct write. Added jogControls view to MachineConnection.swift with step size picker (10/1/0.1/0.01mm), jog pad (X-/X+/Y-/Y+ arrows, Z up/down arrows), soft home button (G28), and work zero buttons (G92 X0/Y0/Z0). All controls visible when connected/connecting. swift build passes cleanly.
   - deps: SPK-0405  
-- [ ] **SPK-0411** `// P0` **MACH** Stream job from file + progress  
+- [x] **SPK-0411** `// P0` **MACH** Stream job from file + progress  
+  - worklog: 2026-07-30 — Direct write. Added GCodeStreamer integration to MachineConnection.swift with streamProgress view (progress bar + line count), streamJobFromFile() that loads .gcode from Documents dir (creates demo if missing), pause/resume/stop controls, and green/red/orange state buttons. Made GCodeStreamer.init public and ConnectionManager.transport internal for cross-module access. swift build passes cleanly.
   - deps: SPK-0405  
 - [ ] **SPK-0412** `// P0` **MACH** Pre-flight checklist before Run  
   - deps: SPK-0411  

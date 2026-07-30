@@ -40,6 +40,8 @@ public final class GCodeStreamer: ObservableObject {
     private var transport: MachineTransport?
     private var isPaused = false
     
+    public init() {}
+    
     public var isStreaming: Bool { state == .streaming }
     
     // MARK: - Load G-code

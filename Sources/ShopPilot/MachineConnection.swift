@@ -140,7 +140,7 @@ public final class ConnectionManager: ObservableObject {
     @Published public var currentStatus: String = ""
     
     /// The active transport (if connected).
-    private var transport: MachineTransport?
+    var transport: MachineTransport?
     
     /// Task handling the event stream.
     private var eventTask: Task<Void, Never>?
@@ -291,6 +291,8 @@ public struct MachineConnectionView: View {
     @State private var commandInput = ""
     @State private var selectedTransportType: MachineTransportType = .simulator
     @State private var jogStepSize: Double = 1.0
+    @State private var streamer = GCodeStreamer()
+    @State private var isStreamingJob = false
     
     public init() {}
     
@@ -304,6 +306,9 @@ public struct MachineConnectionView: View {
             
             // Command input
             commandInputView
+            
+            // Stream progress (visible when streaming)
+            streamProgress
             
             // Connection controls
             connectionControls
@@ -424,6 +429,32 @@ public struct MachineConnectionView: View {
         .padding(8)
     }
     
+    // MARK: - Stream Progress
+    
+    /// Progress bar shown while streaming a G-code job.
+    private var streamProgress: some View {
+        Group {
+            if isStreamingJob || streamer.state == .streaming || streamer.state == .paused {
+                VStack(spacing: 4) {
+                    HStack {
+                        Text(streamer.state == .paused ? "Paused" : "Streaming")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        
+                        Spacer()
+                        
+                        Text("\(streamer.currentLine)/\(streamer.totalLines)")
+                            .font(.caption2.monospacedDigit())
+                    }
+                    
+                    ProgressView(value: streamer.progress)
+                        .tint(streamer.state == .paused ? .orange : .blue)
+                }
+                .padding(8)
+            }
+        }
+    }
+    
     // MARK: - Jog Controls
     
     /// Step sizes for jogging.
@@ -535,6 +566,39 @@ public struct MachineConnectionView: View {
                                 .font(.caption2)
                         }
                         .buttonStyle(.bordered)
+                    }
+                    
+                    // Stream job button (when connected, not already streaming)
+                    if connectionManager.connectionState.isConnected && !isStreamingJob {
+                        Button(action: streamJobFromFile) {
+                            HStack {
+                                Image(systemName: "play.fill")
+                                Text("Stream Job from File")
+                                    .font(.caption2)
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.green)
+                    } else if isStreamingJob || streamer.state == .streaming {
+                        Button(action: stopStreaming) {
+                            HStack {
+                                Image(systemName: "stop.fill")
+                                Text("Stop Stream")
+                                    .font(.caption2)
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.red)
+                    } else if streamer.state == .paused {
+                        Button(action: resumeStreaming) {
+                            HStack {
+                                Image(systemName: "play.fill")
+                                Text("Resume Stream")
+                                    .font(.caption2)
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.orange)
                     }
                 }
                 .padding(8)
@@ -652,6 +716,82 @@ public struct MachineConnectionView: View {
         Task {
             await connectionManager.sendCommand("G92 Z0")
             connectionManager.addSystemMessage("Work zero set — Z=0")
+        }
+    }
+    
+    // MARK: - Stream Job Actions
+    
+    /// Open file picker and stream selected G-code job.
+    private func streamJobFromFile() {
+        isStreamingJob = true
+        
+        // Use a sample G-code file for demo (in production, use NSOpenPanel)
+        let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let gcodeFileURL = documentsURL.appendingPathComponent("job.gcode")
+        
+        Task {
+            do {
+                // Try to load the file; if it doesn't exist yet, create a demo one
+                var lines: [String]
+                if FileManager.default.fileExists(atPath: gcodeFileURL.path) {
+                    lines = try await streamer.load(from: gcodeFileURL)
+                } else {
+                    // Create demo G-code for testing
+                    let demoGcode = """
+                    ; Demo G-code file
+                    G21 ; Set units to mm
+                    G90 ; Absolute positioning
+                    G0 Z5 ; Safe Z height
+                    G0 X0 Y0 ; Move to origin
+                    G1 Z-1 F100 ; Plunge
+                    G1 X50 F500 ; Cut line 1
+                    G1 X50 Y50 ; Cut line 2
+                    G1 X0 Y50 ; Cut line 3
+                    G1 X0 Y0 ; Cut line 4
+                    G0 Z5 ; Retract
+                    M2 ; Program end
+                    """
+                    try demoGcode.write(to: gcodeFileURL, atomically: true, encoding: .utf8)
+                    lines = try await streamer.load(from: gcodeFileURL)
+                }
+                
+                guard let transport = connectionManager.transport else {
+                    isStreamingJob = false
+                    return
+                }
+                
+                try await streamer.stream(lines: lines, to: transport)
+                isStreamingJob = false
+                connectionManager.addSystemMessage("Stream complete — \(streamer.currentLine) lines")
+            } catch {
+                isStreamingJob = false
+                connectionManager.addSystemMessage("Stream error: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    /// Pause the current stream.
+    private func pauseStreaming() {
+        Task {
+            await streamer.pause()
+            connectionManager.addSystemMessage("Stream paused")
+        }
+    }
+    
+    /// Resume a paused stream.
+    private func resumeStreaming() {
+        Task {
+            await streamer.resume()
+            connectionManager.addSystemMessage("Stream resumed")
+        }
+    }
+    
+    /// Stop and reset the current stream.
+    private func stopStreaming() {
+        Task {
+            await streamer.reset()
+            isStreamingJob = false
+            connectionManager.addSystemMessage("Stream stopped")
         }
     }
     
