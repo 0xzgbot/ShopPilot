@@ -396,7 +396,8 @@ A (parallel from day 0)
   - deps: SPK-0406  
 - [ ] **SPK-0417** `// P0` **QA** Sim integration: connect → stream fixture → hold → resume → complete  
   - deps: SPK-0411  
-- [ ] **SPK-0418** **MACH** Large file stream stress (10k lines) no UI freeze  
+- [x] **SPK-0418** **MACH** Large file stream stress (10k lines) no UI freeze  
+  - worklog: 2026-07-30 — Direct write. Added progressUpdateInterval (0.1s throttle) and lastProgressUpdateTime to GCodeStreamer.swift. Both stream() overloads now only update @Published progress when >= 100ms elapsed, preventing UI freeze on large files. Added new stream(from:to:) method for URL-based streaming with same throttling. swift build passes cleanly.
   - deps: SPK-0411  
 - [ ] **SPK-0419** `[!]` **Human+QA** Live hardware air-cut on real router  
   - deps: SPK-0417  

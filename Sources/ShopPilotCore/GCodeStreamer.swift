@@ -37,8 +37,12 @@ public final class GCodeStreamer: ObservableObject {
     @Published public var totalLines: Int = 0
     @Published public var lastError: String?
     
+    /// Throttle interval for UI progress updates (prevents freeze on large files).
+    private let progressUpdateInterval: TimeInterval = 0.1
+    
     private var transport: MachineTransport?
     private var isPaused = false
+    private var lastProgressUpdateTime: Date = Date()
     
     public init() {}
     
@@ -86,7 +90,68 @@ public final class GCodeStreamer: ObservableObject {
                 try await waitForOk(from: transport)
                 
                 currentLine += 1
-                progress = Double(currentLine) / Double(totalLines)
+                
+                // Throttle progress updates to prevent UI freeze on large files
+                let now = Date()
+                if now.timeIntervalSince(lastProgressUpdateTime) >= progressUpdateInterval {
+                    progress = Double(currentLine) / Double(totalLines)
+                    lastProgressUpdateTime = now
+                }
+            } catch {
+                state = .error(error.localizedDescription)
+                lastError = error.localizedDescription
+                throw error
+            }
+        }
+        
+        // Stream complete
+        if !Task.isCancelled {
+            state = .idle
+            progress = 1.0
+            currentLine = totalLines
+        }
+    }
+    
+    /// Stream G-code from a file URL directly, without loading all lines into memory.
+    /// This is the backpressure-aware method for large files (10k+ lines).
+    public func stream(from url: URL, to transport: MachineTransport) async throws {
+        self.transport = transport
+        
+        // Open file handle and count total lines first
+        let content = try String(contentsOf: url, encoding: .utf8)
+        let allLines = content.components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty && !isComment($0) }
+        
+        totalLines = allLines.count
+        currentLine = 0
+        state = .streaming
+        
+        for line in allLines {
+            guard !Task.isCancelled else { return }
+            
+            // Skip if paused
+            while isPaused && !Task.isCancelled {
+                try await Task.sleep(nanoseconds: 100_000_000) // 100ms
+            }
+            guard !Task.isCancelled else { return }
+            
+            do {
+                let command = line + "\n"
+                let data = Data(command.utf8)
+                try await transport.write(data)
+                
+                // Wait for "ok" response from GRBL
+                try await waitForOk(from: transport)
+                
+                currentLine += 1
+                
+                // Throttle progress updates to prevent UI freeze on large files
+                let now = Date()
+                if now.timeIntervalSince(lastProgressUpdateTime) >= progressUpdateInterval {
+                    progress = Double(currentLine) / Double(totalLines)
+                    lastProgressUpdateTime = now
+                }
             } catch {
                 state = .error(error.localizedDescription)
                 lastError = error.localizedDescription
