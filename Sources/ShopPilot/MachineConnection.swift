@@ -63,6 +63,19 @@ public struct TransportFactoryResult {
     public var success: Bool { transport != nil }
 }
 
+// MARK: - Pre-flight Checklist Item
+
+/// A single item in the pre-flight checklist.
+public struct PreFlightItem: Identifiable, Equatable {
+    public let id = UUID()
+    public let title: String
+    public let description: String
+    
+    public static func == (lhs: PreFlightItem, rhs: PreFlightItem) -> Bool {
+        lhs.id == rhs.id
+    }
+}
+
 // MARK: - Transport Factory
 
 /// Factory for creating machine transports based on configuration.
@@ -293,6 +306,31 @@ public struct MachineConnectionView: View {
     @State private var jogStepSize: Double = 1.0
     @State private var streamer = GCodeStreamer()
     @State private var isStreamingJob = false
+    @State private var preflightPassed = false
+    
+    private let preflightItems: [PreFlightItem] = [
+        PreFlightItem(title: "Work zero set", description: "Confirm X/Y/Z work coordinates are correct"),
+        PreFlightItem(title: "Tool loaded", description: "Verify correct tool is in spindle"),
+        PreFlightItem(title: "Material secured", description: "Check material is clamped and level"),
+        PreFlightItem(title: "Clear workspace", description: "Ensure no obstructions near machine"),
+        PreFlightItem(title: "G-code verified", description: "Preview toolpath before running")
+    ]
+    
+    // MARK: - Pre-flight Actions
+    
+    /// Mark all preflight items as passed.
+    private func markPreflightPassed() {
+        withAnimation {
+            preflightPassed = true
+        }
+    }
+    
+    /// Reset the preflight checklist.
+    private func resetPreflight() {
+        withAnimation {
+            preflightPassed = false
+        }
+    }
     
     public init() {}
     
@@ -318,6 +356,9 @@ public struct MachineConnectionView: View {
             
             // Jog + Home + Work Zero controls
             jogControls
+            
+            // Pre-flight checklist (shown when connected, before streaming)
+            preflightChecklist
         }
         .onAppear {
             if selectedTransportType == .simulator {
@@ -451,6 +492,80 @@ public struct MachineConnectionView: View {
                         .tint(streamer.state == .paused ? .orange : .blue)
                 }
                 .padding(8)
+            }
+        }
+    }
+    
+    // MARK: - Pre-flight Checklist
+    
+    /// Checklist shown before allowing stream to start.
+    private var preflightChecklist: some View {
+        Group {
+            if connectionManager.connectionState.isConnected && !preflightPassed {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Pre-Flight Checklist")
+                        .font(.caption.bold())
+                        .foregroundColor(.orange)
+                    
+                    ForEach(Array(preflightItems), id: \.id) { item in
+                        PreFlightRow(item: item, passed: preflightPassed)
+                    }
+                    
+                    Button(action: markPreflightPassed) {
+                        HStack {
+                            Image(systemName: "checkmark.seal.fill")
+                            Text("I've Verified All Items — Ready to Run")
+                                .font(.caption.bold())
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.green)
+                }
+                .padding(8)
+                .background(Color.orange.opacity(0.1))
+            } else if preflightPassed {
+                HStack {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                    Text("Pre-flight passed — ready to stream")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    
+                    Spacer()
+                    
+                    Button(action: resetPreflight) {
+                        Text("Reset Checklist")
+                            .font(.caption2)
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .padding(8)
+            }
+        }
+    }
+    
+    // MARK: - Pre-flight Row Subview
+    
+    /// Individual row in the pre-flight checklist.
+    private struct PreFlightRow: View {
+        let item: PreFlightItem
+        let passed: Bool
+        
+        var body: some View {
+            HStack(spacing: 8) {
+                Image(systemName: passed ? "checkmark.circle.fill" : "circle")
+                    .foregroundColor(passed ? .green : .secondary)
+                    .font(.caption2)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(item.title)
+                        .font(.caption2.bold())
+                    
+                    Text(item.description)
+                        .font(.system(size: 9))
+                        .foregroundColor(.secondary)
+                }
             }
         }
     }

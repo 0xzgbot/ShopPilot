@@ -382,7 +382,8 @@ A (parallel from day 0)
 - [x] **SPK-0411** `// P0` **MACH** Stream job from file + progress  
   - worklog: 2026-07-30 — Direct write. Added GCodeStreamer integration to MachineConnection.swift with streamProgress view (progress bar + line count), streamJobFromFile() that loads .gcode from Documents dir (creates demo if missing), pause/resume/stop controls, and green/red/orange state buttons. Made GCodeStreamer.init public and ConnectionManager.transport internal for cross-module access. swift build passes cleanly.
   - deps: SPK-0405  
-- [ ] **SPK-0412** `// P0` **MACH** Pre-flight checklist before Run  
+- [x] **SPK-0412** `// P0` **MACH** Pre-flight checklist before Run  
+  - worklog: 2026-07-30 — Direct write. Added preflightChecklist view to MachineConnection.swift with 5-item checklist (work zero, tool loaded, material secured, clear workspace, g-code verified), orange warning background, "I've Verified All Items" confirmation button, and reset option. PreFlightItem struct defined at module scope for ForEach compatibility. swift build passes cleanly.
   - deps: SPK-0411  
 - [ ] **SPK-0413** `// P0` **MACH** One-click Run CTA (armed)  
   - deps: SPK-0412  
