@@ -290,6 +290,7 @@ public struct MachineConnectionView: View {
     
     @State private var commandInput = ""
     @State private var selectedTransportType: MachineTransportType = .simulator
+    @State private var jogStepSize: Double = 1.0
     
     public init() {}
     
@@ -309,6 +310,9 @@ public struct MachineConnectionView: View {
             
             // Safety chrome (always visible when connected)
             safetyChrome
+            
+            // Jog + Home + Work Zero controls
+            jogControls
         }
         .onAppear {
             if selectedTransportType == .simulator {
@@ -420,6 +424,124 @@ public struct MachineConnectionView: View {
         .padding(8)
     }
     
+    // MARK: - Jog Controls
+    
+    /// Step sizes for jogging.
+    private let jogStepSizes: [Double] = [10.0, 1.0, 0.1, 0.01]
+    
+    private var jogControls: some View {
+        Group {
+            if connectionManager.connectionState.isConnected || connectionManager.connectionState == .connecting {
+                VStack(spacing: 8) {
+                    // Jog step size selector
+                    HStack {
+                        Text("Step:")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        Picker("", selection: $jogStepSize) {
+                            ForEach(jogStepSizes, id: \.self) { size in
+                                Text("\(size) mm").tag(size)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                    }
+                    
+                    // Jog pad (X/Y plane + Z up/down)
+                    HStack(spacing: 8) {
+                        // Left column: Y- / Y+
+                        VStack(spacing: 4) {
+                            Button(action: { jogAxis("Y", direction: 1) }) {
+                                Image(systemName: "arrow.up")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.blue)
+                            .controlSize(.small)
+                            
+                            Button(action: { jogAxis("Y", direction: -1) }) {
+                                Image(systemName: "arrow.down")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.blue)
+                            .controlSize(.small)
+                        }
+                        
+                        // Center column: X- / X+ with Home
+                        VStack(spacing: 4) {
+                            Button(action: { jogAxis("X", direction: -1) }) {
+                                Image(systemName: "arrow.left")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.blue)
+                            .controlSize(.small)
+                            
+                            // Soft home button (G28)
+                            Button(action: softHomeAll) {
+                                Image(systemName: "house.fill")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.orange)
+                            .controlSize(.small)
+                            
+                            Button(action: { jogAxis("X", direction: 1) }) {
+                                Image(systemName: "arrow.right")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.blue)
+                            .controlSize(.small)
+                        }
+                        
+                        // Right column: Z- / Z+
+                        VStack(spacing: 4) {
+                            Button(action: { jogAxis("Z", direction: -1) }) {
+                                Image(systemName: "arrow.down")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.purple)
+                            .controlSize(.small)
+                            
+                            Button(action: { jogAxis("Z", direction: 1) }) {
+                                Image(systemName: "arrow.up")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.purple)
+                            .controlSize(.small)
+                        }
+                    }
+                    
+                    // Work zero buttons (G92 / G10)
+                    HStack(spacing: 8) {
+                        Button(action: zeroXAxis) {
+                            Text("Zero X")
+                                .font(.caption2)
+                        }
+                        .buttonStyle(.bordered)
+                        
+                        Button(action: zeroYAxis) {
+                            Text("Zero Y")
+                                .font(.caption2)
+                        }
+                        .buttonStyle(.bordered)
+                        
+                        Button(action: zeroZAxis) {
+                            Text("Zero Z")
+                                .font(.caption2)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+                .padding(8)
+            }
+        }
+    }
+    
     // MARK: - Safety Chrome
     
     /// Always-visible safety controls (Hold/Reset) shown when connected.
@@ -484,6 +606,52 @@ public struct MachineConnectionView: View {
             let resetCmd = "\u{18}" // GRBL reset (Ctrl+X)
             await connectionManager.sendCommand(resetCmd)
             connectionManager.addSystemMessage("Reset sent — machine cleared")
+        }
+    }
+    
+    // MARK: - Jog Actions
+    
+    /// Send a jog move command to the specified axis.
+    private func jogAxis(_ axis: String, direction: Int) {
+        let distance = Double(direction) * jogStepSize
+        let cmd = "G91 G0 \(axis)\(String(format: "%.3f", distance))" // Relative rapid move
+        Task {
+            await connectionManager.sendCommand(cmd)
+            connectionManager.addSystemMessage("Jog \(axis) \(direction > 0 ? "+" : "")\(distance)mm")
+        }
+    }
+    
+    /// Send soft home command (G28 — return all axes to machine zero).
+    private func softHomeAll() {
+        Task {
+            await connectionManager.sendCommand("G28")
+            connectionManager.addSystemMessage("Soft home sent — G28")
+        }
+    }
+    
+    // MARK: - Work Zero Actions
+    
+    /// Set work coordinate X to current position (G92 X0).
+    private func zeroXAxis() {
+        Task {
+            await connectionManager.sendCommand("G92 X0")
+            connectionManager.addSystemMessage("Work zero set — X=0")
+        }
+    }
+    
+    /// Set work coordinate Y to current position (G92 Y0).
+    private func zeroYAxis() {
+        Task {
+            await connectionManager.sendCommand("G92 Y0")
+            connectionManager.addSystemMessage("Work zero set — Y=0")
+        }
+    }
+    
+    /// Set work coordinate Z to current position (G92 Z0).
+    private func zeroZAxis() {
+        Task {
+            await connectionManager.sendCommand("G92 Z0")
+            connectionManager.addSystemMessage("Work zero set — Z=0")
         }
     }
     
