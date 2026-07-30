@@ -142,7 +142,8 @@ A (parallel from day 0)
 **Goal:** Truth before bulk code. Unblocks honest parity + tiers.
 
 - [x] **SPK-0001** `// P0 // parallel-ok` **QA** Crawl Aspire V12 form URLs → `docs/planning/aspire_form_index.csv`  \n  - AC: Complete nav coverage\n  - worklog: 2026-07-28 — subagent crawled full TOC, produced 218 form URLs across all chapters (3D Design, Design, Interface, Layers, Menus, Modules, Preinstalled Gadgets, Toolpaths, User Guides)  
-- [ ] **SPK-0002** `// P0` **QA** Map Profile/Pocket/Drill/V-Carve form fields → matrix rows  
+- [x] **SPK-0002** `// P0` **QA** Map Profile/Pocket/Drill/V-Carve form fields → matrix rows  
+  - worklog: 2026-07-29 — Subagent completed. FEATURE_PARITY_MATRIX.md updated with Sections L–O (Profile 34 fields, Pocket 19 fields, Drill 14 fields, V-Carve 20 fields) + field mapping summary. form_fields_mapping.csv created with 87 data rows across all four strategies. swift build passes cleanly.
   - deps: SPK-0001  
 - [ ] **SPK-0003** `// parallel-ok` **QA** Diff latest Vectric release notes → update FEATURE_PARITY_MATRIX  
 - [ ] **SPK-0004** `// P0 // parallel-ok` **QA** Aspire error strings → `docs/planning/PREFLIGHT_RULES.md`  
@@ -367,7 +368,8 @@ A (parallel from day 0)
 - [x] **SPK-0407** `// P0` **MACH** Transport factory sim vs serial  
   - worklog: 2026-07-29 — Direct write. TransportFactory.swift (3.9KB) with TransportType enum (simulator/serial), TransportFactoryResult struct, TransportFactory class with createTransport(for:config:) method supporting simulator and serial backends, listAvailablePorts() scanning /dev for cu./tty. devices, defaultTransportType() returning .simulator in DEBUG builds. swift build passes cleanly.
   - deps: SPK-0402, SPK-0406
-- [ ] **SPK-0408** `// P0` **MACH** UI: connect, console, status strip  
+- [x] **SPK-0408** `// P0` **MACH** UI: connect, console, status strip  
+  - worklog: 2026-07-29 — Direct write. MachineConnection.swift (15KB) with ConnectionState enum, ConsoleMessage struct with MessageType (sent/received/system), ConnectionManager ObservableObject managing transport lifecycle (connect/disconnect/sendCommand/event streaming), MachineConnectionView SwiftUI view with statusBar (connection indicator + status text), consoleView (scrollable message log with auto-scroll), commandInputView (text field + send button), connectionControls (transport picker, connect/disconnect buttons). swift build passes cleanly.
   - deps: SPK-0405, SPK-0102  
 - [ ] **SPK-0409** `// P0` **MACH** Safety chrome: always-on Hold + Reset  
   - deps: SPK-0408  
