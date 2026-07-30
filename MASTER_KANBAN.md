@@ -385,7 +385,8 @@ A (parallel from day 0)
 - [x] **SPK-0412** `// P0` **MACH** Pre-flight checklist before Run  
   - worklog: 2026-07-30 — Direct write. Added preflightChecklist view to MachineConnection.swift with 5-item checklist (work zero, tool loaded, material secured, clear workspace, g-code verified), orange warning background, "I've Verified All Items" confirmation button, and reset option. PreFlightItem struct defined at module scope for ForEach compatibility. swift build passes cleanly.
   - deps: SPK-0411  
-- [ ] **SPK-0413** `// P0` **MACH** One-click Run CTA (armed)  
+- [x] **SPK-0413** `// P0` **MACH** One-click Run CTA (armed)  
+  - worklog: 2026-07-30 — Direct write. Replaced preflight-passed state from simple status bar to prominent green RUN button (.extraLarge, borderedProminent) with play icon + "RUN" text in large bold font. Green background on passed checklist. runJob() delegates to streamJobFromFile(). Reset Checklist button still available. swift build passes cleanly.
   - deps: SPK-0412  
 - [ ] **SPK-0414** `// P0` **MACH** Wire Cut stage export → Machine stream (STU handoff)  
   - deps: SPK-0313, SPK-0411  

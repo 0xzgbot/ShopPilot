@@ -525,22 +525,37 @@ public struct MachineConnectionView: View {
                 .padding(8)
                 .background(Color.orange.opacity(0.1))
             } else if preflightPassed {
-                HStack {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.green)
-                    Text("Pre-flight passed — ready to stream")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                    
-                    Spacer()
-                    
-                    Button(action: resetPreflight) {
-                        Text("Reset Checklist")
-                            .font(.caption2)
+                VStack(spacing: 8) {
+                    // One-click Run CTA (armed state)
+                    Button(action: runJob) {
+                        HStack {
+                            Image(systemName: "play.fill")
+                                .font(.title2)
+                            Text("RUN")
+                                .font(.title3.bold())
+                        }
+                        .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.borderedProminent)
+                    .tint(.green)
+                    .controlSize(.extraLarge)
+                    
+                    HStack {
+                        Text("Pre-flight passed")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        
+                        Spacer()
+                        
+                        Button(action: resetPreflight) {
+                            Text("Reset Checklist")
+                                .font(.caption2)
+                        }
+                        .buttonStyle(.bordered)
+                    }
                 }
                 .padding(8)
+                .background(Color.green.opacity(0.1))
             }
         }
     }
@@ -835,6 +850,11 @@ public struct MachineConnectionView: View {
     }
     
     // MARK: - Stream Job Actions
+    
+    /// Run the job (one-click CTA after preflight passes).
+    private func runJob() {
+        streamJobFromFile()
+    }
     
     /// Open file picker and stream selected G-code job.
     private func streamJobFromFile() {
