@@ -270,8 +270,8 @@ public final class ConnectionManager: ObservableObject {
         }
     }
     
-    /// Add a system message.
-    private func addSystemMessage(_ text: String) {
+    /// Add a system message (internal for SwiftUI view access).
+    func addSystemMessage(_ text: String) {
         addConsoleMessage(text: text, type: .system)
     }
     
@@ -306,6 +306,9 @@ public struct MachineConnectionView: View {
             
             // Connection controls
             connectionControls
+            
+            // Safety chrome (always visible when connected)
+            safetyChrome
         }
         .onAppear {
             if selectedTransportType == .simulator {
@@ -417,6 +420,46 @@ public struct MachineConnectionView: View {
         .padding(8)
     }
     
+    // MARK: - Safety Chrome
+    
+    /// Always-visible safety controls (Hold/Reset) shown when connected.
+    private var safetyChrome: some View {
+        Group {
+            if connectionManager.connectionState.isConnected || connectionManager.connectionState == .connecting {
+                HStack(spacing: 12) {
+                    // Hold button — pauses machine motion
+                    Button(action: holdMachine) {
+                        VStack(spacing: 4) {
+                            Image(systemName: "pause.circle.fill")
+                                .font(.title2)
+                            Text("Hold")
+                                .font(.caption2)
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.orange)
+                    .controlSize(.large)
+                    
+                    // Reset button — clears alarms and resets state
+                    Button(action: resetMachine) {
+                        VStack(spacing: 4) {
+                            Image(systemName: "arrow.counterclockwise.circle.fill")
+                                .font(.title2)
+                            Text("Reset")
+                                .font(.caption2)
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.red)
+                    .controlSize(.large)
+                }
+                .padding(8)
+            }
+        }
+    }
+    
     // MARK: - Actions
     
     private func connectToMachine() async {
@@ -425,6 +468,23 @@ public struct MachineConnectionView: View {
     
     private func disconnectFromMachine() async {
         await connectionManager.disconnect()
+    }
+    
+    /// Send GRBL hold command (pause machine motion).
+    private func holdMachine() {
+        Task {
+            await connectionManager.sendCommand("$H") // GRBL hold
+            connectionManager.addSystemMessage("Hold sent — machine paused")
+        }
+    }
+    
+    /// Send GRBL reset command (clear alarms, return to idle).
+    private func resetMachine() {
+        Task {
+            let resetCmd = "\u{18}" // GRBL reset (Ctrl+X)
+            await connectionManager.sendCommand(resetCmd)
+            connectionManager.addSystemMessage("Reset sent — machine cleared")
+        }
     }
     
     private func sendCommand() {

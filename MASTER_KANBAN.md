@@ -373,7 +373,8 @@ A (parallel from day 0)
 - [x] **SPK-0408** `// P0` **MACH** UI: connect, console, status strip  
   - worklog: 2026-07-29 — Direct write. MachineConnection.swift (15KB) with ConnectionState enum, ConsoleMessage struct with MessageType (sent/received/system), ConnectionManager ObservableObject managing transport lifecycle (connect/disconnect/sendCommand/event streaming), MachineConnectionView SwiftUI view with statusBar (connection indicator + status text), consoleView (scrollable message log with auto-scroll), commandInputView (text field + send button), connectionControls (transport picker, connect/disconnect buttons). swift build passes cleanly.
   - deps: SPK-0405, SPK-0102  
-- [ ] **SPK-0409** `// P0` **MACH** Safety chrome: always-on Hold + Reset  
+- [x] **SPK-0409** `// P0` **MACH** Safety chrome: always-on Hold + Reset  
+  - worklog: 2026-07-30 — Direct write. Added safetyChrome view to MachineConnection.swift with large orange Hold button (sends GRBL $H) and red Reset button (sends Ctrl+X escape). Buttons visible whenever connected/connecting, spanning full width below connection controls. Made addSystemMessage() internal for SwiftUI access. swift build passes cleanly.
   - deps: SPK-0408  
 - [ ] **SPK-0410** `// P0` **MACH** Jog + soft home + work zero  
   - deps: SPK-0405  
