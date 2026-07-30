@@ -363,9 +363,10 @@ A (parallel from day 0)
   - deps: SPK-0402, SPK-0403, SPK-0404  
 - [x] **SPK-0406** `// P0` **MACH** Real serial enumerate + open/read/write  
   - worklog: 2026-07-29 — completed via batch delegation. swift build passes cleanly.
-  - deps: SPK-0401  
-- [ ] **SPK-0407** `// P0` **MACH** Transport factory sim vs serial  
-  - deps: SPK-0402, SPK-0406  
+  - deps: SPK-0401
+- [x] **SPK-0407** `// P0` **MACH** Transport factory sim vs serial  
+  - worklog: 2026-07-29 — Direct write. TransportFactory.swift (3.9KB) with TransportType enum (simulator/serial), TransportFactoryResult struct, TransportFactory class with createTransport(for:config:) method supporting simulator and serial backends, listAvailablePorts() scanning /dev for cu./tty. devices, defaultTransportType() returning .simulator in DEBUG builds. swift build passes cleanly.
+  - deps: SPK-0402, SPK-0406
 - [ ] **SPK-0408** `// P0` **MACH** UI: connect, console, status strip  
   - deps: SPK-0405, SPK-0102  
 - [ ] **SPK-0409** `// P0` **MACH** Safety chrome: always-on Hold + Reset  
