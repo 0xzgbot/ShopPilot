@@ -40,16 +40,26 @@ private func sampleArcPoints(center: VectorPoint, radius: Double, startAngle: Do
     let sa = normaliseAngle(startAngle)
     let ea = normaliseAngle(endAngle)
 
+    // Raw span BEFORE normalisation. A full-circle call (0 → 2π) normalises to
+    // sa == ea and must NOT be treated as a zero-sweep degenerate arc — it is
+    // the most common case (circle offset / circle profile cut). Previously the
+    // full-circle case collapsed to a single point, silently producing garbage
+    // toolpaths for every circle. (SPK review pass 2026-07-31)
+    let rawSpan = endAngle - startAngle
+
     // Determine sweep direction (clockwise vs counter-clockwise).
     // We follow the same convention as Kernel.swift: positive angles are CCW.
     var sweep: Double
-    if ea >= sa {
+    if abs(rawSpan) >= 2 * .pi - 1e-9 {
+        // Full turn (circle or multi-turn input): sample the entire circumference.
+        sweep = rawSpan > 0 ? 2 * .pi : -2 * .pi
+    } else if ea >= sa {
         sweep = ea - sa
     } else {
         sweep = 2 * .pi - (sa - ea)
     }
 
-    guard sweep > 1e-9 else { return [VectorPoint(x: center.x + radius, y: center.y)] }
+    guard abs(sweep) > 1e-9 else { return [VectorPoint(x: center.x + radius, y: center.y)] }
 
     let count = max(2, arcSampleCount)
     var points: [VectorPoint] = []

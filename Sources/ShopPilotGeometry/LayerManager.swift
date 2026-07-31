@@ -115,11 +115,13 @@ public final class LayerManager: ObservableObject {
         return true
     }
     
-    /// Remove a shape from the active layer by UUID.
-    public func removeShape(_ id: UUID) -> Bool {
+    /// Remove a shape from the active layer (matched by equality).
+    /// `VectorShape` carries no UUID, so removal is by value — the previous
+    /// UUID-based variant could never match (shapeId() always returned nil).
+    public func removeShape(_ shape: VectorShape) -> Bool {
         guard let layerId = activeLayerId, !isLayerLocked(layerId) else { return false }
         guard var lIndex = layers.firstIndex(where: { $0.id == layerId }) else { return false }
-        if let sIndex = layers[lIndex].shapes.firstIndex(where: { shapeId($0) == id }) {
+        if let sIndex = layers[lIndex].shapes.firstIndex(of: shape) {
             var layer = layers[lIndex]
             layer.shapes.remove(at: sIndex)
             layers[lIndex] = layer
@@ -192,10 +194,4 @@ public final class LayerManager: ObservableObject {
         layers = [DesignLayer(name: "Layer 1")]
         activeLayerId = layers[0].id
     }
-}
-
-// MARK: - Helpers
-
-private func shapeId(_ shape: VectorShape) -> UUID? {
-    (shape as? Identifiable)?.id as? UUID
 }

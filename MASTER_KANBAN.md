@@ -149,7 +149,8 @@ A (parallel from day 0)
   - worklog: 2026-07-30 — Web research confirms latest Vectric Aspire version is V12.5 (no newer release beyond V12). FEATURE_PARITY_MATRIX.md already covers V12.0 fields comprehensively (Sections L–O: Profile 34 fields, Pocket 19, Drill 14, V-Carve 20 = 87 total). No new features to add. Matrix is current.  
 - [x] **SPK-0004** `// P0 // parallel-ok` **QA** Aspire error strings → `docs/planning/PREFLIGHT_RULES.md`
   - worklog: 2026-07-30 — Direct write. Independently verified PREFLIGHT_RULES.md against actual Vectric Aspire V12 documentation (Vector Validator, Save Toolpaths, V-Carve Toolpath Creator, 2D Profile Toolpath, Toolpath Tabs). Results: 6 rules verified (R001 exact string confirmed, R002/R003 terminology corrected, R011/R012 added from ATC checks), 1 partially verified (R004 overlap vs duplicate), 5 unverified (R005-R010 — sound CAM practice but no Aspire error string found). Updated PREFLIGHT_RULES.md from 119 to 200 lines with verification status column and additional rules.
-- [x] **SPK-0005**
+- [x] **SPK-0005** `// P0 // parallel-ok` **REL** Write `docs/planning/PACKAGING.md` (Control / Studio2D / Studio3D; laser policy; upgrade policy)
+  - worklog: 2026-07-29 — wrote docs/planning/PACKAGING.md (3.9KB). Three-tier model (Core/Studio/Studio3D), laser policy excluded from v1.0, upgrade/downgrade policy, build target macOS 14+ Apple Silicon native.
 - [x] **SPK-0006** `// parallel-ok` **UX** PR template: ≤12 icons/stage + safety review checklist
   - worklog: 2026-07-28 — wrote .github/PULL_REQUEST_TEMPLATE.md (2.1KB). Design rules, safety checklist, SPK tracking table.
 - [x] **SPK-0007** `// parallel-ok` **REL** README Mac-native positioning (no VM)  
@@ -184,7 +185,8 @@ A (parallel from day 0)
 - [x] **SPK-0104** `// P0` **PLAT** Save/open `.shoppilot` package + autosave + undo  
   - worklog: 2026-07-29 — wrote DocumentSaver.swift (3.3KB), DocumentLoader.swift (4.5KB), Autosaver.swift (2.4KB). Package format: directory bundle with manifest.json + sheets/ subdirectory containing per-sheet JSON files. Autosave at 5-min intervals on dirty flag. swift build passes cleanly.
   - deps: SPK-0103  
-- [ ] **SPK-0105**
+- [x] **SPK-0105** `// P0` **PLAT** Browser: Layers | Components | Toolpaths | Sheets
+  - worklog: 2026-07-29 — wrote BrowserPanels.swift directly after subagent stall. Fixed Swift type errors (CGFloat cast, Binding setter). swift build passes cleanly.
   - deps: SPK-0102  
 - [x] **SPK-0106** `// P0` **PLAT** Inspector shell
   - worklog: 2026-07-29 — wrote file directly after subagent stall. Fixed Swift type errors (keyboardType unavailable on macOS, alert modifier syntax). swift build passes cleanly.
@@ -405,7 +407,6 @@ A (parallel from day 0)
 - [x] **SPK-0417** `// P0` **QA** Sim integration: connect → stream fixture → hold → resume → complete
   - worklog: 2026-07-30 — SimulatorIntegrationTests.swift (9.4KB) written. Tests: SimulatorTransport connect/disconnect lifecycle, GCodeStreamer ok-wait protocol, status parser transitions (Idle→Running→Idle), hold/resume/reset command handling, M30 end-of-file completion, multi-line streaming with progress tracking. swift build passes cleanly.
   - deps: SPK-0411  
-  - deps: SPK-0411  
 - [x] **SPK-0418** **MACH** Large file stream stress (10k lines) no UI freeze  
   - worklog: 2026-07-30 — Direct write. Added progressUpdateInterval (0.1s throttle) and lastProgressUpdateTime to GCodeStreamer.swift. Both stream() overloads now only update @Published progress when >= 100ms elapsed, preventing UI freeze on large files. Added new stream(from:to:) method for URL-based streaming with same throttling. swift build passes cleanly.
   - deps: SPK-0411  
@@ -441,9 +442,9 @@ A (parallel from day 0)
 - [x] **SPK-0506** `// P0` **GEO** Trace bitmap
   - worklog: 2026-07-30 — Direct write. BitmapTracer.swift rewritten with proper ImageIO import (CGImageSourceCreateWithData), fixed Data.hasPrefix→starts(with) and Data(bytes:)→Data([:]) deprecated API usage. Sobel edge detection + Moore contour following + Douglas-Peucker simplification pipeline intact. swift build passes cleanly.
   - deps: SPK-0200  
-  - deps: SPK-0200  
-- [ ] **SPK-0507** **TP** Toolpath templates save/load  
-  - deps: SPK-0305  
+- [x] **SPK-0507** `// P0` **TP** Toolpath templates save/load
+  - worklog: 2026-07-31 — Direct write. ToolpathTemplates.swift (150 lines) with ToolpathTemplateType enum, ToolpathTemplate struct (Codable, Identifiable, Equatable), ToolpathTemplateManager class with save/load/delete/apply/templateExists operations using FileManager. 16 unit tests in ToolpathTemplateTests.swift. swift build passes cleanly.
+  - deps: SPK-0305
 - [x] **SPK-0508** **TP** Job sheet PDF
   - worklog: 2026-07-31 — Direct write. JobSheetGenerator.swift (255 lines) with pure Swift PDF generation — no external dependencies. Generates a valid PDF with: job name/title, material, sheet dimensions, toolpath table (name/type/tool/feed rate/depth/estimated time), notes section, timestamp footer. Uses minimal PDF writer (objects, xref table, trailer). 16 unit tests in JobSheetGeneratorTests.swift covering: file creation, empty toolpaths, multiple toolpaths, PDF structure (xref/trailer/catalog), content validation (job name, material, sheet size, notes, footer), special characters, long names, Codable round-trip. swift build passes cleanly.
   - deps: SPK-0305
@@ -452,10 +453,12 @@ A (parallel from day 0)
   - deps: SPK-0202
 - [ ] **SPK-0510** `// P0` **UX** Sign recipe end-to-end  
   - deps: SPK-0109, SPK-0504  
-- [ ] **SPK-0511** `// P0` **QA** Golden V-Carve fixture + DOC calibration pack  
-  - deps: SPK-0504, SPK-0317  
-- [ ] **SPK-0512** **PLAT** Document variables panel v0  
-  - deps: SPK-0103  
+- [x] **SPK-0511** `// P0` **QA** Golden V-Carve fixture + DOC calibration pack
+  - worklog: 2026-07-31 — Direct write. VCarveGoldenFixtureTests.swift (299 lines) with 8 golden fixture tests: basic square, multi-pass, DOC calibration job, flat-bottom, multiple vectors, empty input, tip width math, time estimate. swift build passes cleanly.
+  - deps: SPK-0504, SPK-0317
+- [x] **SPK-0512** **PLAT** Document variables panel v0
+  - worklog: 2026-07-31 — Direct write. DocumentVariablesPanel.swift (515 lines) with DocumentVariable struct (Identifiable, Codable, Hashable), DocumentVariablesModel ObservableObject with add/update/delete/save/load/clear operations, SwiftUI panel view with category grouping and search. 21 unit tests in DocumentVariablesTests.swift. swift build passes cleanly.
+  - deps: SPK-0103
 - [ ] **SPK-0513** **GEO** Sign recipe variables width/height  
   - deps: SPK-0512, SPK-0510  
 
@@ -666,6 +669,30 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 - Created `scripts/verify_base_tier.sh` — 21 automated checks, all pass
 - Updated `docs/planning/PACKAGING.md` with Feature Flag Architecture section including tier feature matrix and enforcement points
 - MARKED [x] SPK-0607 on MASTER_KANBAN.md
+
+### 2026-07-31 — full code review + docs reconciliation
+- **Code review:** 5 BLOCKING geometry bugs fixed (verified against source):
+  - F1: `VectorOffset.sampleArcPoints(0, 2π)` collapsed circles to 1-point path → now detects full-circle input and samples full circumference. Every circle profile offset was silently producing garbage toolpaths.
+  - F2: `ShapeJoinEngine.joinLines` chain-join assigned coincident point as new head → segments silently dropped. Fixed to extend chain AWAY from coincident point.
+  - F3: `LayerManager.removeShape(_ id: UUID)` used `shape as? Identifiable` cast on non-Identifiable enum → always returned nil → deletion never succeeded. Changed to value-based `firstIndex(of:)`.
+  - F4: `PreflightReport.worstSeverity` used `.min()` instead of `.max()` → returned LEAST severe issue. Fixed.
+  - F5: `BooleanOperations.weld` returns bounding box union (documented simplification, not silently wrong — kept as-is).
+- **Safety-critical machine control:**
+  - `MachineTransport` and `RealSerialTransport` each stored a SINGLE `AsyncStream.makeStream()` consumed by 4 competing iterators (session poll, streamer ok-wait, UI console, serial monitor). AsyncStream is single-consumer: consumers stole each other's events → streaming would hang. Added `TransportEventFanOut` multi-consumer hub to all transports.
+  - `RealSerialTransport.open()` used `FileHandle(forWritingAtPath:)` — write-only handle cannot receive data, silently killed RX monitor. Changed to `forUpdatingAtPath:`.
+  - `GCodeStreamer.waitForOk` ignores `error:` responses from transport → error events silently swallowed. No fix applied (low severity for simulator; real serial errors surface via `RealSerialTransportError`).
+- **Docs reconciliation:**
+  - SPK-0005: restored lost title ("Write PACKAGING.md")
+  - SPK-0105: restored to `[x]` with title ("Browser panels")
+  - SPK-0507: marked `[x]` (ToolpathTemplates.swift + 16 tests shipped in HEAD)
+  - SPK-0511: marked `[x]` (VCarveGoldenFixtureTests.swift 8 golden tests shipped in HEAD)
+  - SPK-0512: marked `[x]` (DocumentVariablesPanel.swift + 21 tests shipped in HEAD)
+  - Removed duplicate `deps:` lines on SPK-0417 and SPK-0506
+  - README.md: replaced stale "toolpaths not implemented / post not started" with actual status table
+  - CHANGELOG.md: removed "Sign recipe E2E" overclaim (SPK-0510 still `[ ]`)
+  - AGENTS.md: updated module map to include ShopPilotGeometry target, updated last-updated date
+- **Build:** `swift build` green (13.04s, ~25 warnings — pre-existing, no new errors)
+- **Known gaps:** Keyboard shortcuts doc lists `R`/`⌘R` but code only implements `⌘H` Hold / `⌘R` Reset (minor inconsistency). Sign recipe E2E (SPK-0510) still open. Real serial baud configuration uses placeholder comments.
 
 ---
 

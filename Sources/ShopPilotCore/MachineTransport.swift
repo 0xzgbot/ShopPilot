@@ -54,6 +54,58 @@ public struct SerialConfig: Codable, Identifiable, Sendable {
     }
 }
 
+// MARK: - Event Fan-Out
+
+/// Fan-out hub allowing multiple consumers to iterate the same transport event
+/// stream. `AsyncStream` is single-consumer: with a single stored stream, the
+/// session poll loop, `GCodeStreamer.waitForOk` and the UI console would steal
+/// events from each other and streaming would hang or go blind. Each consumer
+/// calls `subscribe()` and receives every event. (SPK review pass 2026-07-31)
+public final class TransportEventFanOut: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuations: [UUID: AsyncStream<TransportEvent>.Continuation] = [:]
+
+    public init() {}
+
+    /// Subscribe a new consumer. The returned stream is finite: it terminates
+    /// when the consumer's iterator is dropped or the hub is finished.
+    public func subscribe() -> AsyncStream<TransportEvent> {
+        AsyncStream { continuation in
+            let id = UUID()
+            self.lock.lock()
+            self.continuations[id] = continuation
+            self.lock.unlock()
+            continuation.onTermination = { [weak self] _ in
+                guard let self else { return }
+                self.lock.lock()
+                self.continuations.removeValue(forKey: id)
+                self.lock.unlock()
+            }
+        }
+    }
+
+    /// Deliver an event to every live subscriber.
+    public func yield(_ event: TransportEvent) {
+        lock.lock()
+        let live = Array(continuations.values)
+        lock.unlock()
+        for continuation in live {
+            continuation.yield(event)
+        }
+    }
+
+    /// Terminate all subscriptions (transport closed).
+    public func finish() {
+        lock.lock()
+        let live = Array(continuations.values)
+        continuations.removeAll()
+        lock.unlock()
+        for continuation in live {
+            continuation.finish()
+        }
+    }
+}
+
 // MARK: - SimulatorTransport
 
 /// A thread-safe simulator transport that mimics GRBL v1.x behaviour.
@@ -69,10 +121,11 @@ public final class SimulatorTransport: MachineTransport {
 
     // MARK: - AsyncStream plumbing
 
-    private let (stream, continuation) = AsyncStream<TransportEvent>.makeStream()
+    /// Multi-consumer event hub (session poll + streamer ok-wait + UI console).
+    private let fanOut = TransportEventFanOut()
 
     public var events: AsyncStream<TransportEvent> {
-        stream
+        fanOut.subscribe()
     }
 
     // MARK: - Public API
@@ -83,12 +136,13 @@ public final class SimulatorTransport: MachineTransport {
 
     public func open(config: SerialConfig) async throws {
         try await actor.open()
-        continuation.yield(.connected)
+        fanOut.yield(.connected)
     }
 
     public func close() async {
         await actor.close()
-        continuation.yield(.disconnected)
+        fanOut.yield(.disconnected)
+        fanOut.finish()
     }
 
     public func write(_ data: Data) async throws {
@@ -98,7 +152,7 @@ public final class SimulatorTransport: MachineTransport {
         try await Task.sleep(nanoseconds: 50_000_000) // 50 ms
 
         let response = try await actor.handleCommand(text)
-        continuation.yield(.dataReceived(Data(response.utf8)))
+        fanOut.yield(.dataReceived(Data(response.utf8)))
     }
 }
 

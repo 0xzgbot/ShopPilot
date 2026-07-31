@@ -12,7 +12,7 @@
 | **Stack** | **SwiftUI** (macOS 14+) · geometry/toolpath core · Metal preview · serial IOKit/ORSSerialPort |
 | **Not in first ship** | Illegal reverse-engineering of proprietary CRV; Windows/Linux ports |
 | **Doc status** | Living — agents **must** update task checkboxes + Work log |
-| **Last updated** | 2026-07-28 |
+| **Last updated** | 2026-07-31 |
 | **Current phase focus** | **MASTER_KANBAN** Phase A→G (v1.0 ship), then H→K |
 | **★ Single task board** | [`MASTER_KANBAN.md`](./MASTER_KANBAN.md) — **only** place to claim work |
 | **Legacy boards** | `HERMES_BUILD_TODO.md`, `HERMES_STUDIO_TODO.md` — superseded (reference only) |
@@ -133,7 +133,8 @@ These are product requirements, not nice-to-haves.
 | `ShopPilot` | App entry, SwiftUI scenes |
 | `ShopPilotCore` | Session, streamer, profiles, G-code model (no UI) |
 | `ShopPilotSerial` | Port enumeration, read/write, simulator transport |
-| `ShopPilotTests` | Unit tests for parser, streamer, soft limits |
+| `ShopPilotGeometry` | Vector kernel, text, boolean ops, nesting |
+| `ShopPilotTests` | Unit tests for parser, streamer, geometry, toolpaths |
 
 ### 3.2 Protocols first
 

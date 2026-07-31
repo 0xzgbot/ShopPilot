@@ -46,48 +46,54 @@ public final class ShapeJoinEngine {
             let shape: VectorShape
             let start: VectorPoint
             let end: VectorPoint
+            let sourceIndex: Int
         }
         
         var lines: [LineInfo] = []
-        for shape in shapes {
+        for (index, shape) in shapes.enumerated() {
             if case .line(let s, let e) = shape {
-                lines.append(LineInfo(shape: shape, start: s, end: e))
+                lines.append(LineInfo(shape: shape, start: s, end: e, sourceIndex: index))
             }
         }
         
         var result: [VectorShape] = []
         var remaining: [VectorShape] = []
-        var usedIndices: Set<Int> = []
+        var usedSource: Set<Int> = []   // indices into the ORIGINAL shapes array
         
-        for i in lines.indices where !usedIndices.contains(i) {
+        for i in lines.indices where !usedSource.contains(lines[i].sourceIndex) {
             var chainStart = lines[i].start
             var chainEnd = lines[i].end
-            usedIndices.insert(i)
+            usedSource.insert(lines[i].sourceIndex)
             
             var changed = true
             while changed {
                 changed = false
-                for j in lines.indices where !usedIndices.contains(j) {
+                for j in lines.indices where !usedSource.contains(lines[j].sourceIndex) {
                     let distToStartA = hypot(chainStart.x - lines[j].start.x, chainStart.y - lines[j].start.y)
                     let distToEndA = hypot(chainStart.x - lines[j].end.x, chainStart.y - lines[j].end.y)
                     let distToStartB = hypot(chainEnd.x - lines[j].start.x, chainEnd.y - lines[j].start.y)
                     let distToEndB = hypot(chainEnd.x - lines[j].end.x, chainEnd.y - lines[j].end.y)
                     
+                    // When a candidate's endpoint coincides with the chain head,
+                    // the chain must extend AWAY from that coincident point —
+                    // i.e. the new head is the candidate's OTHER endpoint.
+                    // (Previously the coincident point was assigned, so the chain
+                    // never grew and segments were silently dropped. SPK review pass.)
                     if distToStartA <= 1e-6 {
-                        chainStart = lines[j].start
-                        usedIndices.insert(j)
+                        chainStart = lines[j].end
+                        usedSource.insert(lines[j].sourceIndex)
                         changed = true
                     } else if distToEndA <= 1e-6 {
-                        chainStart = lines[j].end
-                        usedIndices.insert(j)
+                        chainStart = lines[j].start
+                        usedSource.insert(lines[j].sourceIndex)
                         changed = true
                     } else if distToStartB <= 1e-6 {
-                        chainEnd = lines[j].start
-                        usedIndices.insert(j)
+                        chainEnd = lines[j].end
+                        usedSource.insert(lines[j].sourceIndex)
                         changed = true
                     } else if distToEndB <= 1e-6 {
-                        chainEnd = lines[j].end
-                        usedIndices.insert(j)
+                        chainEnd = lines[j].start
+                        usedSource.insert(lines[j].sourceIndex)
                         changed = true
                     }
                 }
@@ -96,10 +102,9 @@ public final class ShapeJoinEngine {
             result.append(.line(start: chainStart, end: chainEnd))
         }
         
-        for shape in shapes where !usedIndices.contains(shapes.firstIndex(of: shape) ?? -1) {
-            if case .line = shape {
-                remaining.append(shape)
-            }
+        // Non-line shapes and unattached lines pass through untouched.
+        for (index, shape) in shapes.enumerated() where !usedSource.contains(index) {
+            remaining.append(shape)
         }
         
         return (result, remaining)

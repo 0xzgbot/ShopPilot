@@ -35,30 +35,32 @@ Everything Aspire can do for decorative/artistic CNC — signs, inlays, 3D relie
 
 **Done**
 - SwiftUI macOS app scaffold; `swift build` green.
-- Phase B shell: stages, inspector, layers browser, preferences, recipe picker, command palette.
-- Phase C geometry kernel: `VectorShape`, `VectorPoint`, `NodeEditor`, `Transform`, `VectorOffset`, `BooleanOperations`, `JoinCloseTrim`, `SVGImporter`, `LayerManager`, `MeasurementTool`.
-- Phase E machine control: `MachineTransport` + `SimulatorTransport`, `RealSerialTransport`, `MachineProfile`, `StatusParser`, `GCodeStreamer`, `MachineSession`.
-- Phase G release docs + tutorial + SAFETY.md + CI workflow.
+- Phase B shell: stages, inspector, layers browser, preferences, recipe picker, command palette, document browser panels.
+- Phase C geometry kernel: `VectorShape`, `VectorPoint`, `NodeEditor`, `Transform`, `VectorOffset`, `BooleanOperations`, `JoinCloseTrim`, `SVGImporter`, `LayerManager`, `MeasurementTool`, `VectorPreflight`.
+- Phase D toolpaths: Profile, Pocket, Drill, V-Carve, Quick Engrave engines; toolpath tree with dirty flags; export blocker; keep-out zones; preview simulation; GRBL post-processor; time estimator; nesting engine.
+- Phase E machine control: `MachineTransport` + `SimulatorTransport`, `RealSerialTransport`, `MachineProfile`, `StatusParser`, `GCodeStreamer`, `MachineSession`, transport factory, connection UI with console/jog/zero/stream.
+- Phase F sign shop: text tools, text-to-curves, text-on-curve, engraving font pack, job sheet PDF, toolpath templates, document variables panel.
+- Phase G release docs + tutorial + SAFETY + keyboard shortcuts + CI workflow + packaging + versioning.
+- Tests: 140+ test cases across geometry, toolpaths, streamer, status parser, preflight, export blocker, job sheet, nesting, text-on-curve, quick engrave, v-carve golden fixtures, document variables, toolpath templates, simulator integration, calibration E2E.
 
 **Partial**
 - DXF import drafted but not shipping yet; SVG path is production-ready.
-- Toolpaths: `ToolDatabase` v0 present; strategy code not yet implemented.
-- Tests scaffold exists; geo/mach coverage still minimal.
+- 3D relief pipeline not yet implemented (Phase H, post-v1).
+- Real hardware air-cut validation pending (Phase G, human-only `[!]`).
 
 **Not started**
-- Full toolpath strategies: profile, pocket, drill, V-carve.
-- Post processor / GRBL export.
-- 3D relief pipeline.
-- Real hardware air-cut validation.
+- 3D relief components, sculpt, 3D rough/finish toolpaths.
+- Double-sided, multi-sheet, nest advanced, inlays, rotary, laser.
+- Post Studio, parametric-driven dims, notarized App Store.
 
 ## For local agents
 
 1. Open [`AGENTS.md`](AGENTS.md) — safety + protocol.  
-2. Work **only** from [`MASTER_KANBAN.md`](MASTER_KANBAN.md).  
-3. Loop Ready cards Phase A→G (v1.0), then H→K (full product).  
+2. Work **only** from [`MASTER_KANBAN.md`](MASTER_KANBAN.md).
+3. Loop Ready cards Phase A→G (v1.0), then H→K (full product).
 4. Never idle on human `[!]` — take next Ready card. Simulator-first for machine.
 
-**Current unblocked focus:** finish remaining Phase C geometry cards, then Phase D toolpath core.
+**Current unblocked focus:** Phase F remaining cards (sign recipe E2E, sign recipe variables) and Phase G remaining cards.
 
 ## Stack
 

@@ -27,14 +27,15 @@ public final class RealSerialTransport: MachineTransport, @unchecked Sendable {
     
     private let serialQueue = DispatchQueue(label: "com.shoppilot.serial")
     private var fileHandle: FileHandle?
-    private let (stream, continuation) = AsyncStream<TransportEvent>.makeStream()
+    /// Multi-consumer event hub (session poll + streamer ok-wait + UI console).
+    private let fanOut = TransportEventFanOut()
     private var monitorTask: Task<Void, Error>?
     private var isConnected = false
     
     // MARK: - AsyncStream
     
     public var events: AsyncStream<TransportEvent> {
-        stream
+        fanOut.subscribe()
     }
     
     // MARK: - Public API
@@ -113,8 +114,10 @@ public final class RealSerialTransport: MachineTransport, @unchecked Sendable {
             throw RealSerialTransportError.portNotFound(path)
         }
         
-        // Open the serial port for reading and writing
-        let handle = FileHandle(forWritingAtPath: path)
+        // Open the serial port for reading AND writing.
+        // A write-only handle cannot receive data, which silently killed the
+        // RX monitor path. (SPK review pass 2026-07-31)
+        let handle = FileHandle(forUpdatingAtPath: path)
         guard handle != nil else {
             throw RealSerialTransportError.cannotOpenPort(path)
         }
@@ -130,7 +133,7 @@ public final class RealSerialTransport: MachineTransport, @unchecked Sendable {
         startDataMonitoring()
         
         // Emit connected event
-        continuation.yield(TransportEvent.connected)
+        fanOut.yield(TransportEvent.connected)
     }
     
     public func close() async {
@@ -144,7 +147,8 @@ public final class RealSerialTransport: MachineTransport, @unchecked Sendable {
         
         isConnected = false
         
-        continuation.yield(TransportEvent.disconnected)
+        fanOut.yield(TransportEvent.disconnected)
+        fanOut.finish()
     }
     
     public func write(_ data: Data) async throws {
@@ -193,7 +197,7 @@ public final class RealSerialTransport: MachineTransport, @unchecked Sendable {
             while !Task.isCancelled, let handle = self.fileHandle, self.isConnected {
                 // Check for available data (non-blocking)
                 if let availableData = try? handle.availableData, !availableData.isEmpty {
-                    continuation.yield(.dataReceived(availableData))
+                    fanOut.yield(.dataReceived(availableData))
                 }
                 
                 // Small delay to prevent busy-waiting

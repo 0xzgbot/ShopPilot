@@ -50,7 +50,7 @@ public struct PreflightReport: Identifiable, Codable {
     public let id: UUID
     public var issues: [PreflightResult]
     public var isClean: Bool { issues.isEmpty }
-    public var worstSeverity: PreflightSeverity { issues.map(\.severity).min() ?? .info }
+    public var worstSeverity: PreflightSeverity { issues.map(\.severity).max() ?? .info }
 
     public init(id: UUID = UUID(), issues: [PreflightResult] = []) {
         self.id = id

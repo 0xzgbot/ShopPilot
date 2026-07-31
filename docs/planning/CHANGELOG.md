@@ -64,7 +64,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Trace bitmap functionality
 - Toolpath templates save/load
 - Job sheet PDF export
-- Sign recipe end-to-end workflow (Phase F)
 - Document variables panel v0
 
 ### Fixed
