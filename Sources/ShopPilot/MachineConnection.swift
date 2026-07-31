@@ -308,6 +308,8 @@ public struct MachineConnectionView: View {
     @State private var streamer = GCodeStreamer()
     @State private var isStreamingJob = false
     @State private var preflightPassed = false
+    @State private var showRawTXRX = false
+    @State private var softLimitWarning: String? = nil
     
     private let preflightItems: [PreFlightItem] = [
         PreFlightItem(title: "Work zero set", description: "Confirm X/Y/Z work coordinates are correct"),
@@ -361,11 +363,8 @@ public struct MachineConnectionView: View {
             // Pre-flight checklist (shown when connected, before streaming)
             preflightChecklist
         }
-        .onAppear {
-            if selectedTransportType == .simulator {
-                Task { await connectToMachine() }
-            }
-        }
+        // NOTE: No auto-connect on appear. Safety Req #9: never auto-connect
+        // or auto-run on application launch. User must explicitly press Connect.
     }
     
     // MARK: - Status Bar
@@ -395,24 +394,59 @@ public struct MachineConnectionView: View {
     
     // MARK: - Console View
     
+    /// Console with optional raw TX/RX toggle (Safety Req #6).
     private var consoleView: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                VStack(alignment: .leading, spacing: 2) {
-                    ForEach(connectionManager.consoleMessages) { message in
-                        Text(message.text)
-                            .font(.system(.caption, design: .monospaced))
-                            .foregroundColor(message.type.uiColor)
-                            .lineLimit(1)
+        VStack(alignment: .leading, spacing: 0) {
+            // Raw TX/RX toggle bar (Safety Req #6)
+            if showRawTXRX {
+                HStack {
+                    Text("Raw TX/RX mode — shows all raw serial data")
+                        .font(.caption2)
+                        .foregroundColor(.orange)
+                    Spacer()
+                    Button(action: { withAnimation { showRawTXRX = false } }) {
+                        Text("Hide")
+                            .font(.caption2)
                     }
+                    .buttonStyle(.bordered)
                 }
-                .padding(8)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                .background(Color.black.opacity(0.95))
-                .onChange(of: connectionManager.consoleMessages.count) { count in
-                    withAnimation {
-                        if let lastMessage = connectionManager.consoleMessages.last {
-                            proxy.scrollTo(lastMessage.id, anchor: .bottom)
+                .padding(4)
+                .background(Color.orange.opacity(0.1))
+            }
+            
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 2) {
+                        ForEach(connectionManager.consoleMessages) { message in
+                            // In raw mode, show sent/received with TX/RX labels
+                            if showRawTXRX && (message.type == .sent || message.type == .received) {
+                                let label = message.type == .sent ? "TX: " : "RX: "
+                                HStack(alignment: .top, spacing: 4) {
+                                    Text(label)
+                                        .font(.caption2)
+                                        .foregroundColor(message.type == .sent ? .blue : .green)
+                                        .lineLimit(1)
+                                    Text(message.text)
+                                        .font(.system(.caption, design: .monospaced))
+                                        .foregroundColor(message.type.uiColor)
+                                        .lineLimit(1)
+                                }
+                            } else {
+                                Text(message.text)
+                                    .font(.system(.caption, design: .monospaced))
+                                    .foregroundColor(message.type.uiColor)
+                                    .lineLimit(1)
+                            }
+                        }
+                    }
+                    .padding(8)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .background(Color.black.opacity(0.95))
+                    .onChange(of: connectionManager.consoleMessages.count) { count in
+                        withAnimation {
+                            if let lastMessage = connectionManager.consoleMessages.last {
+                                proxy.scrollTo(lastMessage.id, anchor: .bottom)
+                            }
                         }
                     }
                 }
@@ -462,6 +496,14 @@ public struct MachineConnectionView: View {
             }
             
             Spacer()
+            
+            // Raw TX/RX toggle (Safety Req #6)
+            Button(action: { withAnimation { showRawTXRX.toggle() } }) {
+                Text(showRawTXRX ? "Hide TX/RX" : "Show TX/RX")
+                    .font(.caption2)
+            }
+            .buttonStyle(.bordered)
+            .help("Toggle raw TX/RX console mode for diagnosis")
             
             Button(action: clearConsole) {
                 Image(systemName: "trash")

@@ -62,12 +62,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - V-Carve strategy with field map generation
 - Quick engrave toolpath
 - Trace bitmap functionality
+- Text on curve (Phase F)
+- Engraving font pack (Phase F)
+- Nesting engine (shelf-packing + grid) (Phase F)
 - Toolpath templates save/load
 - Job sheet PDF export
-- Document variables panel v0
+- Document variables panel v0 (Phase F)
+- Base tier path works without 3D unlock (FeatureFlag + StageGate) (Phase G)
 
 ### Fixed
-- [Bug fixes will be added as they are discovered]
+- VectorOffset: full-circle input now samples full circumference (was 1-point path)
+- ShapeJoinEngine: chain-join extends away from coincident point (was dropping segments)
+- LayerManager: shape deletion uses value-based lookup (was broken Identifiable cast)
+- PreflightReport: worstSeverity uses max (was using min — returned least severe)
+- RealSerialTransport: open() uses forUpdatingAtPath (was forWritingAtPath — killed RX)
+- Bug fixes will be added as they are discovered
 
 ---
 
@@ -86,7 +95,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Quality Gates Met
 - Calibration job E2E on simulator green
-- Sign job E2E on simulator green
 - All core unit tests passing in CI
 - Dirty toolpath export blocked without override
 - Preflight blocks V-Carve on open vectors with fix CTA

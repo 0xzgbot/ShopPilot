@@ -178,26 +178,90 @@ struct InspectorShell: View {
     
     private var cutInspector: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("ROUGHING PASS")
+            Text("TOOLPATH STRATEGY")
+                .font(.caption2)
+                .fontWeight(.semibold)
+                .foregroundStyle(.secondary)
+            
+            Picker("Strategy", selection: .constant(0)) {
+                Text("Profile").tag(0)
+                Text("Pocket").tag(1)
+                Text("Drill").tag(2)
+                Text("V-Carve").tag(3)
+                Text("Quick Engrave").tag(4)
+            }
+            .pickerStyle(.menu)
+            
+            Divider()
+            
+            Text("TOOL")
                 .font(.caption2)
                 .fontWeight(.semibold)
                 .foregroundStyle(.secondary)
             
             HStack(spacing: 8) {
-                InfoCard(label: "Tool", value: "---")
-                InfoCard(label: "Passes", value: "---")
+                Picker("Bit Type", selection: .constant(0)) {
+                    Text("End Mill").tag(0)
+                    Text("V-Bit 90°").tag(1)
+                    Text("V-Bit 60°").tag(2)
+                    Text("V-Bit 30°").tag(3)
+                }
+                .pickerStyle(.menu)
+                .frame(maxWidth: .infinity)
+                
+                TextField("D", text: .constant("6.0"))
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 60)
             }
             
             Divider()
             
-            Text("FINISHING PASS")
+            Text("DEPTH & FEED")
                 .font(.caption2)
                 .fontWeight(.semibold)
                 .foregroundStyle(.secondary)
             
             HStack(spacing: 8) {
-                InfoCard(label: "Tool", value: "---")
-                InfoCard(label: "Est. Time", value: "--- min")
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Depth")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    TextField("", text: .constant("0.5"))
+                        .textFieldStyle(.roundedBorder)
+                }
+                .frame(width: 80)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Feed Rate")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    TextField("", text: .constant("1000"))
+                        .textFieldStyle(.roundedBorder)
+                }
+                .frame(width: 80)
+            }
+            
+            Divider()
+            
+            Text("SIGN RECIPE")
+                .font(.caption2)
+                .fontWeight(.semibold)
+                .foregroundStyle(.secondary)
+            
+            HStack(spacing: 4) {
+                Image(systemName: "textformat.abc")
+                    .foregroundStyle(.secondary)
+                Text("V-Carve: 2 passes, 0.5mm depth")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            
+            HStack(spacing: 4) {
+                Image(systemName: "timer")
+                    .foregroundStyle(.secondary)
+                Text("Est. time: 4.2 min")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
     }

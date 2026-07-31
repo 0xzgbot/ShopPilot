@@ -26,7 +26,10 @@ public struct CoachPanelView: View {
             }
             return "Create 3D reliefs, combine components, or sculpt surfaces. Use the shape tools to add depth and detail to your design."
         case .cut:
-            return "Choose a toolpath strategy (Profile, Pocket, Drill) and link it to vectors on your layers. Toolpaths don't follow art unless linked — select your vectors first, then apply the strategy."
+            if !FeatureFlag.isAvailable(.quickEngrave, tier: ProductTier.studio) {
+                return "Choose a toolpath strategy (Profile, Pocket, Drill) and link it to vectors on your layers. Toolpaths don't follow art unless linked — select your vectors first, then apply the strategy."
+            }
+            return "Choose a toolpath strategy (Profile, Pocket, Drill, V-Carve) and link it to vectors on your layers. For signs: use V-Carve with a V-bit for lettering (deeper cuts = wider grooves). Select your vectors first, then apply the strategy. V-Carve shading creates engraved lettering effects."
         case .preview:
             return "Review the simulated toolpath with heightfield visualization. Check for collisions, verify depths, and confirm feed rates."
         case .machine:

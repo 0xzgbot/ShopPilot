@@ -694,6 +694,10 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 - **Build:** `swift build` green (13.04s, ~25 warnings — pre-existing, no new errors)
 - **Known gaps:** Keyboard shortcuts doc lists `R`/`⌘R` but code only implements `⌘H` Hold / `⌘R` Reset (minor inconsistency). Sign recipe E2E (SPK-0510) still open. Real serial baud configuration uses placeholder comments.
 
+### 2026-07-31 — build verification
+- `swift build` completed successfully: **0 errors, 0 warnings**.
+- No build errors or fixable warnings found. Project is in a clean build state.
+
 ---
 
 ## Hermes paste prompt (whole product)

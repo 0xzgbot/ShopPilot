@@ -53,6 +53,20 @@ Everything Aspire can do for decorative/artistic CNC — signs, inlays, 3D relie
 - Double-sided, multi-sheet, nest advanced, inlays, rotary, laser.
 - Post Studio, parametric-driven dims, notarized App Store.
 
+## What's Next
+
+### Immediate (pre-v1.0 ship)
+- **Sign recipe E2E** (SPK-0510): full sign job pipeline — recipe → text → V-Carve → preview → sim run
+- **Sign recipe variables** (SPK-0513): width/height document variables for sign templates
+- **Ship checklist** (SPK-0623): formal sign-off on all Phase G gates
+- **Sign recipe E2E on simulator** (SPK-0601): automated sign job E2E test
+
+### Post-v1.0
+- **Phase H — 3D relief**: component model, combine modes, sculpt, 3D rough/finish toolpaths
+- **Phase I — Production**: multi-sheet, double-sided, inlays, nest advanced
+- **Phase J — Rotary / laser**: fluting, photo V-Carve, rotary setup, wrap toolpaths
+- **Phase K — Power user**: Post Studio, performance, machine catalog, App Store submission
+
 ## For local agents
 
 1. Open [`AGENTS.md`](AGENTS.md) — safety + protocol.  
@@ -60,7 +74,7 @@ Everything Aspire can do for decorative/artistic CNC — signs, inlays, 3D relie
 3. Loop Ready cards Phase A→G (v1.0), then H→K (full product).
 4. Never idle on human `[!]` — take next Ready card. Simulator-first for machine.
 
-**Current unblocked focus:** Phase F remaining cards (sign recipe E2E, sign recipe variables) and Phase G remaining cards.
+**Current unblocked focus:** Sign recipe E2E (SPK-0510), sign recipe variables (SPK-0513), ship checklist (SPK-0623), then Phase H 3D relief.
 
 ## Stack
 

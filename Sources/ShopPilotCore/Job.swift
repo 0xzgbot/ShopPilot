@@ -14,6 +14,12 @@ public struct Job: Identifiable, Codable, Sendable {
     /// Whether the job has unsaved changes.
     public var isDirty: Bool { false } // Managed by DirtyDocument protocol
 
+    /// V-Carve pass count from the last toolpath calculation.
+    public var vcarvePasses: Int = 0
+
+    /// V-Carve estimated time in seconds.
+    public var vcarveTimeSeconds: Double = 0.0
+
     public init(
         id: UUID = UUID(),
         name: String = "Untitled Job",
