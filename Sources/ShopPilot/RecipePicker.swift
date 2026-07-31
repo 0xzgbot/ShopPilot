@@ -1,4 +1,6 @@
 import SwiftUI
+import ShopPilotCore
+import ShopPilotGeometry
 
 // MARK: - Job Recipe Model
 
