@@ -1,4 +1,5 @@
 import SwiftUI
+import ShopPilotCore
 
 /// Type-safe stage management for the ShopPilot stage rail.
 /// Each case maps to a human-readable label and an SF Symbol icon name.
@@ -37,6 +38,27 @@ enum Stage: String, CaseIterable, Identifiable {
         case .cut:        return "scissors"
         case .preview:    return "play.circle"
         case .machine:    return "printer.tray"
+        }
+    }
+    
+    /// Whether this stage is available for the given tier.
+    /// The Model stage requires Studio3D tier; Core/Studio show it as locked.
+    public func isAvailable(tier: ProductTier) -> Bool {
+        switch self {
+        case .model:
+            return tier.has3D
+        default:
+            return true
+        }
+    }
+    
+    /// Human-readable label for the locked state.
+    public var lockedLabel: String? {
+        switch self {
+        case .model:
+            return "Requires Studio3D"
+        default:
+            return nil
         }
     }
 

@@ -1,6 +1,8 @@
 # ShopPilot — Safety Policy
 
-**Software is not a substitute for a hardware emergency stop.**
+> **⚠️ CNC routers are dangerous machines. ShopPilot is a tool, not a substitute for safe practices.**
+>
+> **Software controls are not a substitute for a hardware emergency stop.**
 
 ## Required product behaviors
 
@@ -12,6 +14,15 @@
 6. Console can show raw TX/RX for diagnosis.
 7. Soft-limit warnings when profile travel is configured.
 8. In-app and README disclaimer about hardware e-stop.
+9. Dirty-flag protection: cannot export G-code from unrecalculated toolpaths.
+10. Preflight checklist required before Run.
+
+## Safety documentation
+
+- **README.md** — Scope disclaimer + safety warning in repo root.
+- **PRODUCT_BOUNDARIES.md** — Honest scope: relief CAM, not full 3D CAD.
+- **SHOPPILOT_SCOPE.md** — Full scope statement with safety section.
+- **SAFETY.md** — This file: product behaviors + operator checklist.
 
 ## Testing bar before “live serial done”
 
@@ -26,3 +37,13 @@
 - [ ] Soft limits / travel match physical machine
 - [ ] First moves are air cuts above the workpiece
 - [ ] Spindle RPM and feeds verified for tool/material
+- [ ] Safety glasses, hearing protection, no loose clothing
+- [ ] Never leave running machine unattended
+
+## Safety disclaimer (in-app)
+
+All users must see this message before first hardware connection:
+
+> **ShopPilot is a CNC toolpath generator and machine controller. It does not replace hardware safety. Always use a hardware emergency stop, wear appropriate PPE, and never leave a running machine unattended. Software controls are not a substitute for proper machine safety.**
+
+See [`SHOPPILOT_SCOPE.md`](./SHOPPILOT_SCOPE.md) for the full scope and safety statement.

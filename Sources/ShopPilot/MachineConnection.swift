@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import ShopPilotCore
+import ShopPilotSerial
 
 // MARK: - Console Message
 
@@ -82,13 +83,13 @@ public struct PreFlightItem: Identifiable, Equatable {
 public final class TransportFactory {
     
     /// Create a transport based on the specified type and configuration.
-    public static func createTransport(for type: MachineTransportType, config: SerialConfig? = nil) -> TransportFactoryResult {
+    public static func createTransport(for type: MachineTransportType, config: ShopPilotCore.SerialConfig? = nil) -> TransportFactoryResult {
         switch type {
         case .simulator:
             return createSimulatorTransport()
             
         case .serial:
-            let serialConfig = config ?? SerialConfig(baudRate: 115200, portName: "/dev/ttyUSB0", isSimulator: false)
+            let serialConfig = config ?? ShopPilotCore.SerialConfig(baudRate: 115200, portName: "/dev/ttyUSB0", isSimulator: false)
             return createSerialTransport(config: serialConfig)
         }
     }
@@ -100,7 +101,7 @@ public final class TransportFactory {
     }
     
     /// Create a serial transport with the given configuration.
-    private static func createSerialTransport(config: SerialConfig) -> TransportFactoryResult {
+    private static func createSerialTransport(config: ShopPilotCore.SerialConfig) -> TransportFactoryResult {
         // Validate baud rate
         guard [9600, 19200, 38400, 57600, 115200, 250000].contains(config.baudRate) else {
             return TransportFactoryResult(
@@ -738,10 +739,13 @@ public struct MachineConnectionView: View {
     
     // MARK: - Safety Chrome
     
-    /// Always-visible safety controls (Hold/Reset) shown when connected.
+    /// Always-visible safety controls (Hold/Reset) shown when connected, connecting, or in alarm.
     private var safetyChrome: some View {
         Group {
-            if connectionManager.connectionState.isConnected || connectionManager.connectionState == .connecting {
+            if connectionManager.connectionState.isConnected
+                || connectionManager.connectionState == .connecting
+                || connectionManager.connectionState.isInAlarm
+            {
                 HStack(spacing: 12) {
                     // Hold button — pauses machine motion
                     Button(action: holdMachine) {
@@ -756,6 +760,7 @@ public struct MachineConnectionView: View {
                     .buttonStyle(.borderedProminent)
                     .tint(.orange)
                     .controlSize(.large)
+                    .keyboardShortcut(KeyEquivalent("h"), modifiers: .command)
                     
                     // Reset button — clears alarms and resets state
                     Button(action: resetMachine) {
@@ -770,6 +775,7 @@ public struct MachineConnectionView: View {
                     .buttonStyle(.borderedProminent)
                     .tint(.red)
                     .controlSize(.large)
+                    .keyboardShortcut(KeyEquivalent("r"), modifiers: .command)
                 }
                 .padding(8)
             }
@@ -789,7 +795,7 @@ public struct MachineConnectionView: View {
     /// Send GRBL hold command (pause machine motion).
     private func holdMachine() {
         Task {
-            await connectionManager.sendCommand("$H") // GRBL hold
+            await connectionManager.sendCommand("!") // GRBL hold (exclamation mark)
             connectionManager.addSystemMessage("Hold sent — machine paused")
         }
     }
@@ -860,34 +866,45 @@ public struct MachineConnectionView: View {
     private func streamJobFromFile() {
         isStreamingJob = true
         
-        // Use a sample G-code file for demo (in production, use NSOpenPanel)
-        let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-        let gcodeFileURL = documentsURL.appendingPathComponent("job.gcode")
+        // Check for recent export files from CutToMachineBridge first,
+        // then fall back to user-saved jobs in Documents, then demo G-code.
+        let bridgeExportURLs = findRecentBridgeExports()
         
         Task {
             do {
-                // Try to load the file; if it doesn't exist yet, create a demo one
                 var lines: [String]
-                if FileManager.default.fileExists(atPath: gcodeFileURL.path) {
-                    lines = try await streamer.load(from: gcodeFileURL)
+                
+                if !bridgeExportURLs.isEmpty {
+                    // Use the most recent bridge export (Cut stage output)
+                    let latestURL = bridgeExportURLs[0]
+                    connectionManager.addSystemMessage("Using exported toolpath: \(latestURL.lastPathComponent)")
+                    lines = try await streamer.load(from: latestURL)
                 } else {
-                    // Create demo G-code for testing
-                    let demoGcode = """
-                    ; Demo G-code file
-                    G21 ; Set units to mm
-                    G90 ; Absolute positioning
-                    G0 Z5 ; Safe Z height
-                    G0 X0 Y0 ; Move to origin
-                    G1 Z-1 F100 ; Plunge
-                    G1 X50 F500 ; Cut line 1
-                    G1 X50 Y50 ; Cut line 2
-                    G1 X0 Y50 ; Cut line 3
-                    G1 X0 Y0 ; Cut line 4
-                    G0 Z5 ; Retract
-                    M2 ; Program end
-                    """
-                    try demoGcode.write(to: gcodeFileURL, atomically: true, encoding: .utf8)
-                    lines = try await streamer.load(from: gcodeFileURL)
+                    // Fall back to user-saved job file
+                    let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+                    let gcodeFileURL = documentsURL.appendingPathComponent("job.gcode")
+                    
+                    if FileManager.default.fileExists(atPath: gcodeFileURL.path) {
+                        lines = try await streamer.load(from: gcodeFileURL)
+                    } else {
+                        // Create demo G-code for testing
+                        let demoGcode = """
+                        ; Demo G-code file
+                        G21 ; Set units to mm
+                        G90 ; Absolute positioning
+                        G0 Z5 ; Safe Z height
+                        G0 X0 Y0 ; Move to origin
+                        G1 Z-1 F100 ; Plunge
+                        G1 X50 F500 ; Cut line 1
+                        G1 X50 Y50 ; Cut line 2
+                        G1 X0 Y50 ; Cut line 3
+                        G1 X0 Y0 ; Cut line 4
+                        G0 Z5 ; Retract
+                        M2 ; Program end
+                        """
+                        try demoGcode.write(to: gcodeFileURL, atomically: true, encoding: .utf8)
+                        lines = try await streamer.load(from: gcodeFileURL)
+                    }
                 }
                 
                 guard let transport = connectionManager.transport else {
@@ -895,6 +912,10 @@ public struct MachineConnectionView: View {
                     return
                 }
                 
+                // Stream the G-code lines to the machine via the active transport.
+                // In production, this path receives output from CutToMachineBridge.export()
+                // which post-processes toolpath results using the machine profile's auto-selected
+                // post processor type (GRBL vs universal) before writing to file.
                 try await streamer.stream(lines: lines, to: transport)
                 isStreamingJob = false
                 connectionManager.addSystemMessage("Stream complete — \(streamer.currentLine) lines")
@@ -902,6 +923,78 @@ public struct MachineConnectionView: View {
                 isStreamingJob = false
                 connectionManager.addSystemMessage("Stream error: \(error.localizedDescription)")
             }
+        }
+    }
+    
+    /// Find recent export files from CutToMachineBridge (sorted newest first).
+    private func findRecentBridgeExports() -> [URL] {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("ShopPilotExports")
+        guard FileManager.default.fileExists(atPath: tempDir.path) else { return [] }
+        
+        do {
+            let files = try FileManager.default.contentsOfDirectory(
+                at: tempDir,
+                includingPropertiesForKeys: [.contentModificationDateKey]
+            )
+            
+            // Filter for .gcode and .nc files, sort by modification date (newest first)
+            return files
+                .filter { $0.pathExtension == "gcode" || $0.pathExtension == "nc" }
+                .sorted { urlA, urlB in
+                    let dateA = (try? urlA.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? Date.distantPast
+                    let dateB = (try? urlB.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? Date.distantPast
+                    return dateA > dateB
+                }
+        } catch {
+            connectionManager.addSystemMessage("Warning: Could not scan for bridge exports")
+            return []
+        }
+    }
+    
+    /// Export toolpath results via CutToMachineBridge and stream to the connected machine.
+    /// This is the primary handoff path from Cut stage → Machine stage.
+    public func exportAndStream(
+        gcodeLines: [String],
+        toolInfo: String?,
+        machineProfile: MachineProfile,
+        fileName: String = "job"
+    ) async {
+        isStreamingJob = true
+        
+        do {
+            // Step 1: Post-process and export via the bridge
+            let result = try await CutToMachineBridge.export(
+                gcodeLines: gcodeLines,
+                toolInfo: toolInfo,
+                machineProfile: machineProfile,
+                fileName: fileName
+            )
+            
+            connectionManager.addSystemMessage("Exported \(result.postProcessorType.displayName) G-code → \(result.outputFileURL?.lastPathComponent ?? "unknown")")
+            
+            guard let transport = connectionManager.transport else {
+                isStreamingJob = false
+                connectionManager.addSystemMessage("Error: Not connected to machine")
+                return
+            }
+            
+            // Step 2: Load and stream the exported file
+            guard let outputFileURL = result.outputFileURL,
+                  FileManager.default.fileExists(atPath: outputFileURL.path) else {
+                isStreamingJob = false
+                connectionManager.addSystemMessage("Error: Exported file not found")
+                return
+            }
+            
+            let lines = try await streamer.load(from: outputFileURL)
+            try await streamer.stream(lines: lines, to: transport)
+            
+            // Step 3: Update result with actual streamed line count
+            connectionManager.addSystemMessage("Stream complete — \(streamer.currentLine) lines")
+            
+        } catch {
+            isStreamingJob = false
+            connectionManager.addSystemMessage("Export/stream error: \(error.localizedDescription)")
         }
     }
     
@@ -950,6 +1043,10 @@ public struct MachineConnectionView: View {
 extension ConnectionState {
     var isDisconnected: Bool { self == .disconnected }
     var isConnected: Bool { self == .connected }
+    var isInAlarm: Bool {
+        if case .error = self { return true }
+        return false
+    }
     
     var displayName: String {
         switch self {

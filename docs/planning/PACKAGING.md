@@ -1,7 +1,7 @@
 # ShopPilot Packaging & Distribution Strategy
 
 **Version:** 0.1.0  
-**Last Updated:** 2026-07-29
+**Last Updated:** 2026-07-31
 
 ---
 
@@ -50,6 +50,47 @@ Adds to Studio:
 - **Bitmap → component**, import STL
 - **3D rough + finish toolpaths**
 - **Sculpt mode v1**
+
+---
+
+## Feature Flag Architecture
+
+The three-tier model is enforced at runtime via `FeatureFlag` and `ProductTier` in `ShopPilotCore/FeatureFlag.swift`.  
+`StageGate` in `ShopPilotCore/StageGate.swift` gates stage-level UI access.  
+`Stage.isAvailable(tier:)` in `StageEnum.swift` gates individual stage rail buttons.
+
+### Tier feature matrix
+
+Feature | Core | Studio | Studio3D
+---------|------|--------|----------
+2D vector design | ✅ | ✅ | ✅
+Profile/Pocket/Drill toolpaths | ✅ | ✅ | ✅
+Preview simulation | ✅ | ✅ | ✅
+GRBL machine control | ✅ | ✅ | ✅
+Text (system fonts, text-to-curves) | ❌ | ✅ | ✅
+V-Carve strategy | ❌ | ✅ | ✅
+Quick engrave | ❌ | ✅ | ✅
+Keep-out zones | ❌ | ✅ | ✅
+Toolpath templates | ❌ | ✅ | ✅
+Job sheet PDF | ❌ | ✅ | ✅
+Component browser / combine modes | ❌ | ❌ | ✅
+3D rough/finish toolpaths | ❌ | ❌ | ✅
+Sculpt mode | ❌ | ❌ | ✅
+STL/OBJ import | ❌ | ❌ | ✅
+
+### Enforcement points
+
+1. **FeatureFlag.isAvailable(feature, tier)** — All UI code calls this before showing a feature. Core features (`.vectorDesign2D`, `.coreToolpaths`, `.previewSimulation`, `.machineControl`) always return `true`. Studio features require `.hasStudio`. 3D features require `.has3D`.
+2. **StageGate.canUseModelStage(tier)** — Returns `tier.has3D`. Core/Studio see the Model stage with an upgrade prompt.
+3. **Stage.isAvailable(tier)** — `Stage.model` returns `tier.has3D`. All other stages always available.
+4. **StageGate.shouldHideModelStage(tier)** — Always returns `false`. The Model stage is never hidden from the rail; it shows an upgrade prompt for non-3D tiers.
+5. **Commands.availableCommands(tier)** — Filters command palette entries by tier.
+
+### Upgrade policy
+
+- When a user upgrades from Core → Studio, Studio features appear as enabled options in the UI.
+- When a user upgrades from Studio → Studio3D, the Model stage becomes fully functional.
+- All `.shoppilot` files remain fully compatible across tiers — no data migration needed.
 
 ---
 
@@ -120,7 +161,7 @@ ShopPilot.app/
 
 ---
 
-## Current phase status (2026-07-29)
+## Current phase status (2026-07-31)
 
 | Phase | Status |
 |-------|--------|

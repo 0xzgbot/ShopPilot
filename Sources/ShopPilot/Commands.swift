@@ -1,4 +1,5 @@
 import Foundation
+import ShopPilotCore
 
 // MARK: - Command ID
 
@@ -128,6 +129,19 @@ public enum CommandCategory: String, CaseIterable {
 // MARK: - Command Registry
 
 public struct CommandRegistry {
+    
+    /// Filter commands available for the given product tier.
+    /// Core tier: no 3D toolpath commands. Studio3D: all commands available.
+    public static func availableCommands(for tier: ProductTier) -> [CommandID] {
+        CommandID.allCases.filter { cmd in
+            switch cmd {
+            case .rough3DTP, .finish3DTP:
+                return tier.has3D
+            default:
+                return true
+            }
+        }
+    }
     
     /// All available commands, grouped by category.
     public static var allCommands: [CommandCategory: [CommandID]] {

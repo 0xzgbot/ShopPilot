@@ -2,7 +2,8 @@
 
 Native **macOS** CNC suite: **Aspire-class design + toolpaths + preview**, plus **integrated machine control** for CNC routers (GRBL / FluidNC-class).
 
-> **Status:** Active development. Phase B shell complete. Phase C geometry core in progress (Kernel, SVG import, Layers, Measure done). Machine control scaffolded (serial + simulator + G-code streamer). Build is green.
+> **⚠️ Scope disclaimer:** ShopPilot is a **relief CAM toolpath generator and machine controller**. It is NOT a full solid CAD system — it does not replace Fusion 360, SolidWorks, Rhino, or FreeCAD. Input formats are STL/OBJ mesh files produced by other 3D modeling software. For parametric design from scratch, use a proper CAD tool first, then export STL/OBJ for ShopPilot. See [`docs/planning/PRODUCT_BOUNDARIES.md`](docs/planning/PRODUCT_BOUNDARIES.md) for full scope details.
+
 > **Safety:** Software controls are **not** a substitute for a hardware emergency stop.
 > **Research source:** [Vectric Aspire V12 User Guide](https://docs.vectric.com/docs/V12.0/Aspire/ENU/Help/page/user-guide/) (capability parity — independent implementation).
 
@@ -14,8 +15,10 @@ Native **macOS** CNC suite: **Aspire-class design + toolpaths + preview**, plus 
 | Agent operating manual | [`AGENTS.md`](AGENTS.md) |
 | Product plan | [`docs/planning/ASPIRE_REIMAGINED_PRODUCT_PLAN.md`](docs/planning/ASPIRE_REIMAGINED_PRODUCT_PLAN.md) |
 | Feature parity matrix | [`docs/planning/FEATURE_PARITY_MATRIX.md`](docs/planning/FEATURE_PARITY_MATRIX.md) |
-| Safety + in-app disclaimer | [`docs/planning/SAFETY.md`](docs/planning/SAFETY.md) |
-| First-cut tutorial | [`docs/planning/TUTORIAL_FIRST_CUT.md`](docs/planning/TUTORIAL_FIRST_CUT.md) |
+| **Safety + in-app disclaimer** | [`docs/planning/SAFETY.md`](docs/planning/SAFETY.md) |
+| **Product scope & boundaries** | [`docs/planning/PRODUCT_BOUNDARIES.md`](docs/planning/PRODUCT_BOUNDARIES.md) |
+| **Honest scope statement** | [`docs/planning/SHOPPILOT_SCOPE.md`](docs/planning/SHOPPILOT_SCOPE.md) |
+| **First-cut tutorial** | [`docs/planning/TUTORIAL_FIRST_CUT.md`](docs/planning/TUTORIAL_FIRST_CUT.md) |
 | Keyboard shortcuts | [`docs/planning/KEYBOARD_SHORTCUTS.md`](docs/planning/KEYBOARD_SHORTCUTS.md) |
 | Distribution + notarization | [`docs/planning/DISTRIBUTION.md`](docs/planning/DISTRIBUTION.md) |
 | Packaging tiers | [`docs/planning/PACKAGING.md`](docs/planning/PACKAGING.md) |

@@ -1,8 +1,34 @@
 import Foundation
+import ShopPilotCore
 
 #if canImport(Combine)
 import Combine
 #endif
+
+// MARK: - Machine Profile Type (for post processor auto-select)
+
+/// Broad classification of machine type used to auto-select the appropriate G-code post processor.
+public enum MachineProfileType: String, Codable, Sendable {
+    /// GRBL 1.1-compatible controller (most hobby CNC routers).
+    case grbl
+    /// Universal/other G-code controller.
+    case universal
+    
+    public var displayName: String {
+        switch self {
+        case .grbl: return "GRBL 1.1"
+        case .universal: return "Universal"
+        }
+    }
+    
+    /// Auto-select post processor type based on machine profile type.
+    public func autoPostProcessorType() -> PostProcessorType {
+        switch self {
+        case .grbl: return .grbl
+        case .universal: return .universal
+        }
+    }
+}
 
 // MARK: - Parity
 
@@ -66,17 +92,28 @@ public struct MachineProfile: Identifiable, Codable, Sendable {
     public var name: String
     public let config: SerialConfig
     public let isSimulator: Bool
+    
+    /// Machine type classification used to auto-select the appropriate G-code post processor on export.
+    public var machineType: MachineProfileType
+    
     public var createdAt: Date
     public var updatedAt: Date
 
     /// Whether this profile has unsaved changes.
     public var isDirty: Bool { false } // Managed by DirtyDocument protocol
 
+    /// Auto-selected post processor type based on the machine's classification.
+    /// GRBL machines → GRBL 1.1 post; Universal/other → universal G-code post.
+    public var autoPostProcessorType: PostProcessorType {
+        machineType.autoPostProcessorType()
+    }
+
     public init(
         id: UUID = UUID(),
         name: String,
         config: SerialConfig,
         isSimulator: Bool = false,
+        machineType: MachineProfileType = .grbl,
         createdAt: Date = .now,
         updatedAt: Date = .now
     ) {
@@ -84,6 +121,7 @@ public struct MachineProfile: Identifiable, Codable, Sendable {
         self.name = name
         self.config = config
         self.isSimulator = isSimulator
+        self.machineType = machineType
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
@@ -95,7 +133,8 @@ public struct MachineProfile: Identifiable, Codable, Sendable {
         MachineProfile(
             name: "ShopPilot Simulator",
             config: .simulator,
-            isSimulator: true
+            isSimulator: true,
+            machineType: .grbl // Simulators default to GRBL-compatible output
         )
     }
 }

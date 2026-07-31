@@ -1,4 +1,5 @@
 import SwiftUI
+import ShopPilotCore
 
 // MARK: - Coach Panel View
 
@@ -20,6 +21,9 @@ public struct CoachPanelView: View {
         case .design:
             return "Import or draw vector shapes on layers. Each layer can have its own visibility and lock state for organized design work."
         case .model:
+            if !FeatureFlag.isAvailable(.modelStage3D, tier: ProductTier.core) {
+                return "3D relief features require Studio3D upgrade. Create your 2D design in the Design stage first, then add toolpaths in the Cut stage."
+            }
             return "Create 3D reliefs, combine components, or sculpt surfaces. Use the shape tools to add depth and detail to your design."
         case .cut:
             return "Choose a toolpath strategy (Profile, Pocket, Drill) and link it to vectors on your layers. Toolpaths don't follow art unless linked — select your vectors first, then apply the strategy."
