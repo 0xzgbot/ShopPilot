@@ -703,6 +703,27 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 - `swift build` completed successfully: **0 errors, 0 warnings**.
 - No build errors or fixable warnings found. Project is in a clean build state.
 
+### 2026-07-31 — SPK-0800 multi-sheet management
+- worklog: <details><summary>Summary</summary>
+- Created `SheetListView` — a SwiftUI panel that lists all sheets in a job with selection, add, and remove.
+- Created `Job+Extensions.swift` with `makeDefaultSheet(named:)` convenience factory.
+- `swift build` passes with 0 errors, 0 new warnings.
+</details>
+
+### 2026-07-31 — SPK-0807 driven dimensions
+- worklog: <details><summary>Summary</summary>
+- Created `Sources/ShopPilotCore/DrivenDimensions.swift` (6.7KB) — self-contained driven dimension system:
+  - `DrivenDimension` struct: `{ id: UUID, key: String, expression: String, category: String }`
+  - `DrivenDimensionResolver.resolve(expression:variables:)` — substitutes document variable values into expressions and evaluates them
+  - Internal `ExpressionEvaluator` class (recursive-descent parser) mirrors ExpressionParser logic so ShopPilotCore stays independent of ShopPilotGeometry
+  - `ExpressionError` enum for error handling
+- Updated `Sources/ShopPilotCore/Job.swift`:
+  - Added `drivenDimensions: [DrivenDimension] = []` stored property
+  - Added `evaluateDrivenDimension(_:)` convenience method that delegates to DrivenDimensionResolver
+- Architecture: ShopPilotCore is self-contained — no import of ShopPilotGeometry. ExpressionParser in GeometryKit still works independently for other consumers.
+- `swift build` passes with 0 errors, 0 new warnings.
+</details>
+
 ---
 
 ## Hermes paste prompt (whole product)

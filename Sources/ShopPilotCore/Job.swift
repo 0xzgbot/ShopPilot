@@ -23,6 +23,9 @@ public struct Job: Identifiable, Codable, Sendable {
     /// Document-level variables (key-value pairs for stock size, material, etc.).
     public var documentVariables: [DocumentVariable] = []
 
+    /// Driven (computed) dimensions whose values are derived from expressions.
+    public var drivenDimensions: [DrivenDimension] = []
+
     public init(
         id: UUID = UUID(),
         name: String = "Untitled Job",
@@ -59,6 +62,17 @@ public struct Job: Identifiable, Codable, Sendable {
         let newSheet = Sheet(name: "Sheet 1")
         addSheet(newSheet)
         return newSheet
+    }
+
+    /// Evaluate a single driven dimension, returning its computed value.
+    ///
+    /// - Parameter dim: The driven dimension to evaluate.
+    /// - Returns: The computed `Double`, or `nil` if the expression cannot be resolved.
+    public func evaluateDrivenDimension(_ dim: DrivenDimension) -> Double? {
+        return DrivenDimensionResolver.resolve(
+            expression: dim.expression,
+            variables: documentVariables
+        )
     }
 }
 
