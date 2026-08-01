@@ -134,10 +134,24 @@ public final class ToolpathSimulator {
     }
     
     /// Simulate a toolpath on the heightmap.
-    public func simulate(toolpathGcode: [String]) -> SimulationResult {
+    public func simulate(
+        toolpathGcode: [String],
+        zeroPlane: ZeroPlane? = nil
+    ) -> SimulationResult {
         let startTime = Date()
         
         var workingHeightmap = initialHeightmap
+        
+        // Apply zero plane Z offset to initial height if provided
+        if let zp = zeroPlane {
+            let adjustedInitial = zp.z + zp.offsetZ
+            // Shift the heightmap so the zero plane Z aligns with the stock surface
+            var shiftedData = workingHeightmap.data
+            for i in shiftedData.indices {
+                shiftedData[i] += adjustedInitial - workingHeightmap.minY
+            }
+            workingHeightmap.data = shiftedData
+        }
         
         // Parse G-code and apply material removal simulation
         for line in toolpathGcode {
@@ -155,7 +169,7 @@ public final class ToolpathSimulator {
             
             // Parse G1 (linear move) with Z depth changes
             if trimmed.hasPrefix("G1 ") {
-                simulateCut(line: trimmed, heightmap: &workingHeightmap)
+                simulateCut(line: trimmed, heightmap: &workingHeightmap, zeroPlane: zeroPlane)
             }
         }
         
@@ -169,7 +183,7 @@ public final class ToolpathSimulator {
     }
     
     /// Simulate a single cut operation on the heightmap.
-    private func simulateCut(line: String, heightmap: inout Heightmap) {
+    private func simulateCut(line: String, heightmap: inout Heightmap, zeroPlane: ZeroPlane?) {
         // Parse X, Y, Z coordinates from G-code line
         var xCoord: Double?
         var yCoord: Double?
