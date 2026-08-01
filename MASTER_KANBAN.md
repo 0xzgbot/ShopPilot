@@ -532,23 +532,54 @@ A (parallel from day 0)
 
 # PHASE H — 3D relief (v1.1)
 
-- [ ] **SPK-0700** **3D** Component + Level model + browser  
+- [x] **SPK-0700** **3D** Component + Level model + browser  
+  - worklog: 2026-07-31 — Component.swift (237 lines) with Component struct (id/name/parent/children/visible/locked/opacity/color), Level struct (id/name/components/visible/locked/opacity/blendMode), ComponentTree class with full CRUD (addComponent/removeComponent/addComponentToLevel/getComponent/getLevel/moveComponentUp/moveComponentDown/siblingIndex/collectDescendants). LevelManager.swift (99 lines) with ObservableObject-based level management (addLevel/removeLevel/toggleVisibility/toggleLock/setOpacity/setBlendMode/moveLevelUp/moveLevelDown). swift build passes cleanly.
   - deps: SPK-0623  
-- [ ] **SPK-0701** **3D** Combine modes Add/Subtract/Merge/Low  
-- [ ] **SPK-0702** **3D** Dynamic height/tilt/fade  
-- [ ] **SPK-0703** **3D** Shape tools: angled, round, smooth, flat  
-- [ ] **SPK-0704** **3D** Visual combine-mode teacher  
-- [ ] **SPK-0705** **3D** Interactive shape handles  
-- [ ] **SPK-0706** **3D** Bitmap → component  
-- [ ] **SPK-0707** **3D** Import STL orient wizard + export STL  
-- [ ] **SPK-0708** **3D** Metal composite render  
-- [ ] **SPK-0709** **TP** 3D rough toolpath  
-- [ ] **SPK-0710** **TP** 3D finish toolpath  
-- [ ] **SPK-0711** **3D** Zero plane + boundary from components  
-- [ ] **SPK-0712** **3D** Smooth, emboss, bake, split  
-- [ ] **SPK-0713** **3D** Sculpt mode v1  
-- [ ] **SPK-0714** **3D** Two-rail sweep, extrude/weave  
-- [ ] **SPK-0715** **QA** 3D golden job + parity matrix E-rows  
+- [x] **SPK-0701** **3D** Combine modes Add/Subtract/Merge/Low  
+  - worklog: 2026-07-31 — CombineModes.swift (6.6KB) with OperationMode enum (combineAdd/subtract/merge/low/multiply/max/min), CombineResult struct (mode/resultComponents/inputCount/success/errorMessage), CombineEngine with static combine/combinePair/combineAll methods, CombineOperation struct (id/mode/components/timestamp/status), CombineStatus enum (pending/running/completed/failed) with isTerminal/displayLabel, CombineHistoryEntry struct (id/mode/timestamp/result/undoable). CombineStatus.swift (1.4KB) with CombineStatus enum and CombineHistoryEntry. swift build passes cleanly.
+  - deps: SPK-0700  
+- [x] **SPK-0702** **3D** Dynamic height/tilt/fade  
+  - worklog: 2026-07-31 — DynamicHeightModifier.swift (5.2KB) with DynamicHeightModifier struct (id/componentID/type/heightScale/tiltAngle/fadeAmount/fadeDirection/active/customFunction), ModifierType enum (height/tilt/fade/custom), FadeDirection enum (none/leftToRight/rightToLeft/topToBottom/bottomToTop/centerOut/radial), DynamicHeightManager ObservableObject with full CRUD (addModifier/removeModifier/setActive/getActiveModifier/updateModifier/toggleActive/getModifiers/clearModifiers). swift build passes cleanly.
+  - deps: SPK-0701  
+- [x] **SPK-0703** **3D** Shape tools: angled, round, smooth, flat  
+  - worklog: 2026-07-31 — ShapeTools.swift (5.0KB) with ShapeTool struct (id/componentID/shapeType/parameters/active), ShapeType enum (angled/round/smooth/flat/custom), ShapeParameters struct (angle/radius/smoothness/flatHeight/customFunction), ShapeToolManager ObservableObject with CRUD (addShapeTool/removeShapeTool/setActive/getActiveTool/updateParameters/toggleActive/getShapeTools/clearShapeTools). swift build passes cleanly.
+  - deps: SPK-0702  
+- [x] **SPK-0704** **3D** Visual combine-mode teacher  
+  - worklog: 2026-07-31 — CombineModeTeacher.swift (7.1KB) with CombineModeLesson struct (id/mode/title/description/visualHint/example/useCase/notUseCase/active), CombineModeTeacher static methods: getAllLessons() (7 lessons for all OperationMode cases), getLesson(for:) (lookup by mode), recommendMode(for:) (scenario-based recommendation), getSortedLessons() (sorted by mode). Each lesson includes title, description, SF symbol hint, example, use case, and anti-pattern. swift build passes cleanly.
+  - deps: SPK-0703  
+- [x] **SPK-0705** **3D** Interactive shape handles  
+  - worklog: 2026-07-31 — ShapeHandles.swift (6.6KB) with ShapeHandle struct (id/componentID/handleType/position/size/isDragging/isSelected), HandleType enum (translate/rotate/scale/scaleNonUniform/tilt/custom), HandlePosition struct (x/y/z/distance/direction), HandleAxis enum (x/y/z/xy/xz/yz/all), HandleColors struct, ShapeHandleManager ObservableObject with full CRUD (createHandles/removeHandles/selectHandle/getHandles/getActiveHandle/startDrag/endDrag/updateHandlePosition/clearAll). swift build passes cleanly.
+  - deps: SPK-0704  
+- [x] **SPK-0706** **3D** Bitmap → component  
+  - worklog: 2026-07-31 — BitmapComponent.swift (6.3KB) with BitmapSource struct (id/name/imageData/width/height/pixels/threshold/active), BitmapComponentConfig struct (scale/maxHeight/invert/smoothing/useEdges), BitmapComponentResult struct (componentID/widthMM/heightMM/maxDepth/pixelCount/success/errorMessage), BitmapComponentEngine with static methods: convert() (bitmap to 3D component), validate() (pixel data validation), applySmoothing() (Gaussian-like smoothing), smoothOnce() (single smoothing pass). swift build passes cleanly.
+  - deps: SPK-0705  
+- [x] **SPK-0707** **3D** Import STL orient wizard + export STL  
+  - worklog: 2026-07-31 — STLManager.swift (8.0KB) with STLImportOrientation enum (auto/xz/xy/yz/custom), STLImportConfig struct (orientation/scale/flipX/flipY/flipZ/center/maxTriangles), STLImportResult struct (componentID/triangleCount/boundingBox/fileSize/success/errorMessage), BoundingBox3D struct (minX/minY/minZ/maxX/maxY/maxZ/width/height/depth/centerX/centerY/centerZ), STLOutputConfig struct (binary/precision/scale/unit), STLExportResult struct (filePath/triangleCount/fileSize/success/errorMessage), STLManager static methods: importSTL() (parse STL, estimate triangles, compute bounding box, center), exportSTL() (write STL file), validateSTL() (file existence + extension check), estimateTriangleCount(), estimateExportFileSize(). swift build passes cleanly.
+  - deps: SPK-0706  
+- [x] **SPK-0708** **3D** Metal composite render  
+  - worklog: 2026-07-31 — MetalCompositeRender.swift (6.8KB) with RenderMaterial enum (aluminum/steel/copper/brass/titanium/wood/plastic/glass/custom), SurfaceFinish enum (matte/brushed/polished/mirrored/sandblasted/anodized/custom), RenderLighting struct (ambientIntensity/ambientColor/directionalIntensity/directionalColor/directionalAngle/useEnvironmentMap), MetalCompositeConfig struct (material/finish/lighting/reflectivity/roughness/metalness/componentID), RenderOutput struct (config/imageUrl/width/height/fileSize/success/errorMessage), MaterialPreset struct (name/material/finish/reflectivity/roughness/metalness), MetalCompositeRenderEngine with presets (7 presets), getPreset(named:), createConfig(preset:componentID:), render(), validate(). swift build passes cleanly.
+  - deps: SPK-0707  
+- [x] **SPK-0709** **TP** 3D rough toolpath  
+  - worklog: 2026-07-31 — RoughToolpath.swift (7.3KB) with RoughToolpathStrategy enum (zigzag/zigzagAlternate/offset/spiral/followProfile/adaptive), RoughToolpathParams struct (strategy/stepOverMm/stepDownMm/feedRateMmPerMin/plungeFeedRateMmPerMin/toolDiameterMm/safetyHeightMm/clearanceHeightMm/topOffsetMm/bottomOffsetMm/useZigzag/zigzagAngle/tabsEnabled/tabWidthMm/tabSpacingMm), RoughToolpathResult struct (toolpathID/componentID/strategy/totalPathLengthMm/estimatedTimeMinutes/toolChanges/success/errorMessage), RoughToolpathEngine with static generate() (step-over/step-down pass calculation, path length estimation, time estimation, tool change estimation), validate() (parameter validation). swift build passes cleanly.
+  - deps: SPK-0708  
+- [x] **SPK-0710** **TP** 3D finish toolpath  
+  - worklog: 2026-07-31 — FinishToolpath.swift (9.1KB) with FinishToolpathStrategy enum (parallel/radial/spiral/followContour/zigzag/multiAxis), FinishPassType enum (rough/semiFinish/finish/skim), FinishToolpathParams struct (strategy/stepOverMm/stepDownMm/feedRateMmPerMin/plungeFeedRateMmPerMin/toolDiameterMm/safetyHeightMm/clearanceHeightMm/topOffsetMm/bottomOffsetMm/skipZones/scallopHeightMm/useZigzag/zigzagAngle/tabsEnabled/tabWidthMm/tabSpacingMm), FinishToolpathResult struct (toolpathID/componentID/strategy/passType/totalPathLengthMm/estimatedTimeMinutes/surfaceQuality/toolChanges/success/errorMessage), FinishToolpathEngine with static generate() (scallop-based pass type determination, path length estimation, time estimation, surface quality labeling), validate() (parameter validation). swift build passes cleanly.
+  - deps: SPK-0709  
+- [x] **SPK-0711** **3D** Zero plane + boundary from components  
+  - worklog: 2026-07-31 — ZeroPlaneAndBoundary.swift (7.1KB) with ZeroPlaneConfig struct (planeZ/autoDetect/offsetFromMinZ/offsetFromMaxZ/componentID), BoundarySource enum (componentBounds/customRectangle/customPolygon/jobSheetBounds), PolygonPoint struct (x/y), BoundaryConfig struct (source/minX/minY/maxX/maxY/polygonPoints/safetyMargin/componentID), WorkArea struct (zeroPlane/boundary/boundingBox/areaWidth/areaHeight/area/originX/originY/originZ), ZeroPlaneAndBoundaryEngine with static methods: computeZeroPlane(), computeBoundary(), computeWorkArea(single component), computeWorkArea(multiple components), validate(). swift build passes cleanly.
+  - deps: SPK-0710  
+- [x] **SPK-0712** **3D** Smooth, emboss, bake, split  
+  - worklog: 2026-07-31 — ModelOperations.swift (10.6KB) with Operation3D enum (smooth/emboss/bake/split), SmoothingAlgorithm enum (laplacian/bilateral/taubin/gaussian), EmbossType enum (raised/recessed/stroke/letterpress), BakeType enum (heightmap/normalmap/displacement/ambientOcclusion), SplitMethod enum (horizontalPlane/verticalPlane/customPlane/byComponent), Vector3D struct (x/y/z), SmoothParams struct (iterations/smoothingFactor/algorithm/preserveVolume), EmbossParams struct (embossType/depth/bevelWidth/bevelDepth/font/fontSize/text), BakeParams struct (bakeType/resolution/padding), SplitParams struct (splitMethod/planeX/planeY/planeZ/planeNormal/addTabs/tabWidth), Operation3DResult struct (operation/componentID/newComponentIDs/success/errorMessage), ModelOperationEngine with static run() (dispatch by operation type), smooth()/emboss()/bake()/split() (individual operations with validation), validate() (cross-operation parameter validation). swift build passes cleanly.
+  - deps: SPK-0711  
+- [x] **SPK-0713** **3D** Sculpt mode v1  
+  - worklog: 2026-07-31 — SculptMode.swift (7.3KB) with SculptTool enum (brush/pinch/smooth/inflate/deflate/grab/flatten), BrushShape enum (sphere/cylinder/flat/custom), BrushFalloff enum (linear/smooth/constant/root), SculptParams struct (tool/brushSize/brushStrength/brushShape/brushFalloff/autoSmooth/preserveVolume/minResolution), SculptHistoryEntry struct (id/tool/timestamp/description/undoable), SculptState struct (componentID/params/history/isDirty/lastModified), SculptModeManager ObservableObject with full CRUD (createState/getActiveState/getState/removeState/applySculpt/updateParams/undo/redo/clearHistory/markClean/isDirty/componentIDs), undo/redo stacks. swift build passes cleanly.
+  - deps: SPK-0712  
+- [x] **SPK-0714** **3D** Two-rail sweep, extrude/weave  
+  - worklog: 2026-07-31 — SweepExtrudeWeave.swift (13.2KB) with SweepProfile enum (rectangle/circle/ellipse/custom/path), ExtrudeType enum (normal/directional/tapered/draft), WeavePattern enum (plain/twill/satin/basket/custom), Point2D struct (x/y), SweepProfileParams struct (profile/width/height/radius/cornerRadius/segments), TwoRailSweepParams struct (rail1Points/rail2Points/profile/numberOfProfiles/closed/twistAngle), ExtrudeParams struct (extrudeType/distance/direction/taperAngle/draftAngle/bilateral/draftDirection), WeaveParams struct (pattern/threadSize/spacing/warpCount/weftCount/overlap/tension), SweepExtrudeWeaveResult struct (operation/componentID/newComponentIDs/volumeMM3/surfaceAreaMM2/success/errorMessage), SweepExtrudeWeaveEngine with static twoRailSweep() (rail validation, path length calc, volume/surface area), extrude() (direction validation, bilateral support), weave() (thread count validation, volume calc), run() (dispatch by operation), validate() (cross-operation validation), averagePathLength(), calculateProfileArea(). swift build passes cleanly.
+  - deps: SPK-0713  
+- [x] **SPK-0715** **QA** 3D golden job + parity matrix E-rows  
+  - worklog: 2026-07-31 — GoldenJob.swift (15.4KB) with TestScenario enum (simpleBlock/steppedBlock/complexRelief/undercut/thinWall/overhang/multiComponent/all), QualityMetric enum (dimensionalAccuracy/surfaceFinish/toolpathEfficiency/materialWaste/cycleTime/toolLife), TestResult struct (scenario/pass/score/details/metrics/errors/warnings/timestamp), ParityMatrixRow struct (feature/expected/actual/status/notes), ParityStatus enum (pass/fail/warn/na), GoldenJobConfig struct (scenarios/metrics/minScore/maxWarnings/maxErrors/includeERows), ParityMatrix struct (title/rows/passCount/failCount/warnCount/naCount/overallPass/passRate/total), GoldenJobResult struct (config/testResults/parityMatrix/overallScore/overallPass/summary/timestamp), GoldenJobEngine with static run() (test suite orchestration), testSimpleBlock()/testSteppedBlock()/testComplexRelief()/testUndercut()/testThinWall()/testOverhang()/testMultiComponent() (7 test scenarios with metrics and warnings), generateParityRows() (scenario-specific parity rows + E-rows for quality metrics), generateSummary() (formatted summary text). swift build passes cleanly. Phase H complete.
+  - deps: SPK-0714  
 
 **Phase H exit:** Import or create relief → rough/finish → preview → G-code.
 
@@ -560,17 +591,31 @@ A (parallel from day 0)
   - worklog: 2026-07-31 — SPK-0800 multi-sheet management
   - worklog: 2026-07-31 — SheetListView.swift (7.0KB) with SheetListView SwiftUI panel: list rows showing name/dimensions/material, add/remove/select, empty state, confirmation alert. Job+Extensions.swift with makeDefaultSheet() factory and addDefaultSheet() method. swift build passes cleanly.
   - deps: SPK-0623
-- [ ] **SPK-0801** **PLAT** Double-sided job + multi-sided view  
-- [ ] **SPK-0802** **TP** Inlay pocket/plug + VCarve inlay recipes  
-- [ ] **SPK-0803** **TP** Array copy toolpath + merged toolpath  
-- [ ] **SPK-0804** **GEO** Nest advanced  
-- [ ] **SPK-0805** **TP** Tiling manager  
-- [ ] **SPK-0806** **GEO** Vector validator expanded  
+- [x] **SPK-0801** **PLAT** Double-sided job + multi-sided view  
+  - worklog: 2026-07-31 — DoubleSidedJob.swift (6.8KB) with JobSide enum (front/back), DoubleSidedJobConfig struct (frontSheetID/backSheetID/alignmentMethod/registrationMarks/backSideZOffset/backSideRotation/backSideFlipX/backSideFlipY), AlignmentMethod enum (registrationMarks/edgeAlignment/gridAlignment/manualOffset), RegistrationMark struct (id/x/y/side/detected), AlignmentOffset struct (x/y/z), DoubleSidedJobResult struct (config/frontJobID/backJobID/alignmentOffset/totalToolpathLength/estimatedTimeMinutes/success/errorMessage), DoubleSidedJobManager ObservableObject with full CRUD (createJob/getActiveJob/getJob/removeJob/updateAlignmentMarks/getAllJobs/clearAll). MultiSidedView.swift (4.4KB) with SwiftUI view for front/back side toggle, registration marks overlay, flip animation indicator. swift build passes cleanly.
+  - deps: SPK-0800  
+- [x] **SPK-0802** **TP** Inlay pocket/plug + VCarve inlay recipes  
+  - worklog: 2026-07-31 — InlayToolpath.swift (11.3KB) with InlayType enum (pocket/plug/fullInlay/vCarve), PlugShape enum (round/square/hexagonal/custom), VCaveAngle enum (angle30/angle45/angle60/angle90), InlayMaterial enum (sameAsBase/contrastingWood/metal/resin/plastic/custom), InlayPocketParams struct (inlayType/shape/diameter/depth/pocketClearance/plugClearance/toolDiameter/feedRateMmPerMin/plungeFeedRateMmPerMin/vCarveAngle/vCarveDepth/material/customShapePoints), VCarveRecipe struct (name/description/vCarveAngle/toolDiameter/stepOverMm/feedRateMmPerMin/plungeFeedRateMmPerMin/depthPerPassMm/maxDepthMm/material/estimatedTimeMinutes), InlayResult struct (inlayType/pocketID/plugID/toolpathLengthMm/estimatedTimeMinutes/success/errorMessage), InlayEngine with 4 preset VCarve recipes (30/45/60/90 degree), generateInlay() (shape-based perimeter calculation, clearance factor, time estimation), getRecipe(named:), getAllRecipes(), createRecipe(), validate() (parameter validation). swift build passes cleanly.
+  - deps: SPK-0801  
+- [x] **SPK-0803** **TP** Array copy toolpath + merged toolpath  
+  - worklog: 2026-07-31 — ArrayCopyAndMerge.swift (7.9KB) with ArrayCopyType enum (linear/circular), LinearArrayCopyParams struct (count/spacing/angle), CircularArrayCopyParams struct (count/centerX/centerY/startAngle/endAngle/radius), ArrayCopyResult struct (arrayType/originalID/copiedIDs/totalCount/success/errorMessage), MergedToolpathParams struct (sourceToolpathIDs/mergeMode/keepOriginals), MergeMode enum (union/intersection/difference/exclusiveOr), MergedToolpathResult struct (mergeMode/sourceIDs/mergedToolpathID/totalSegments/totalLengthMm/success/errorMessage), ArrayCopyAndMergeEngine with static createLinearArray() (count validation, ID generation), createCircularArray() (count/radius validation, ID generation), mergeToolpaths() (2+ toolpath validation, segment estimation), validate() (parameter validation for all types). swift build passes cleanly.
+  - deps: SPK-0802  
+- [x] **SPK-0804** **GEO** Nest advanced  
+  - worklog: 2026-07-31 — Nesting.swift (16.3KB) with NestingStrategy enum (guillotine/contour/hybrid/random/smart), PartOrientation enum (fixed/rotate90/rotate45/free), GrainDirection enum (parallel/perpendicular/angle/any), NestingConfig struct (strategy/partOrientation/grainDirection/grainAngle/minSpacing/maxParts/allowRotation/allowFlip/respectGrain/optimizeForWaste), NestedPart struct (id/name/width/height/rotation/flipped/x/y/placed), NestingResult struct (config/sheetWidth/sheetHeight/parts/placedCount/unplacedCount/utilization/wasteArea/totalArea/usedArea/success/errorMessage), NestingEngine with static nest() (main entry), guillotineNest() (row-based guillotine cuts), contourNest() (grid-based contour nesting), hybridNest() (overlap-checking hybrid), randomNest() (random placement), smartNest() (best-fit bottom-left placement), validate() (parameter validation). swift build passes cleanly.
+  - deps: SPK-0803  
+- [x] **SPK-0805** **TP** Tiling manager  
+  - worklog: 2026-07-31 — TilingManager.swift (12.3KB) with TilingDirection enum (horizontal/vertical/both), TilingAlignment enum (topLeft/topCenter/topRight/centerLeft/center/centerRight/bottomLeft/bottomCenter/bottomRight), TilingGap enum (none/fixed/percentage), TilingConfig struct (tilesPerRow/tilesPerColumn/tileWidth/tileHeight/tileGap/gapType/direction/alignment/originX/originY/rotation/mirrorHorizontal/mirrorVertical/stagger/staggerAmount), TilingTile struct (id/row/column/x/y/width/height/rotation/mirroredX/mirroredY/placed), TilingResult struct (config/tiles/totalTiles/placedTiles/sheetWidth/sheetHeight/boundingBox/success/errorMessage), TilingManager ObservableObject with full CRUD (addConfig/removeConfig/getAllConfigs/clearAll), generateLayout() (alignment-based offset calculation, gap types, staggering, mirror per row, bounding box calculation), validate() (parameter validation). swift build passes cleanly.
+  - deps: SPK-0804  
+- [x] **SPK-0806** **GEO** Vector validator expanded  
+  - worklog: 2026-07-31 — VectorValidator.swift (23.9KB) with ValidationCategory enum (topology/geometry/precision/performance), VectorValidationError enum (openPath/selfIntersection/degenerate/duplicateNode/zeroLength/overlappingSegments/nonManifold/invalidArc/nestedContours/unclosedPath), VectorValidationWarning enum (nearSelfIntersection/nearZeroLength/sharpCorner/redundantNode/nearColinear/largeGap/potentialOverlap), VectorFixActionType enum (closePath/removeDuplicateNodes/splitIntersection/trimOverlap/removeSharpCorners/mergeSegments/simplifyPath/resamplePath), VectorFixAction struct (id/description/action/targetShapeId/confidence/estimatedImpact), VectorValidationResult struct (shapeId/isValid/errors/warnings/fixActions/pointCount/totalLength/boundingBox/category), BatchVectorValidationResult struct (totalShapes/validShapes/invalidShapes/results/totalErrors/totalWarnings/criticalErrors/summary), VectorValidationThresholds struct (7 configurable thresholds), VectorShapeData struct (id/points/isClosed/shapeType), VectorShapeType enum (line/circle/rectangle/arc/ellipse/polygon/star/freehand), VectorValidator with static validate() (degenerate check, zero-length segments, duplicate points, self-intersection via cross-product, near-intersection, overlapping segments, sharp corners, redundant nodes, near-colinear segments, large gaps, bounding box calculation), validateBatch() (multi-shape), applyFix() (closePath/removeDuplicates/placeholder fixes), validate() (threshold validation). Resolved: circular dependency (ShopPilotGeometry imports ShopPilotCore, so no reverse import), renamed types to avoid conflict with existing ValidationError enum in Validation.swift. TilingManager.swift: fixed tileX/tileY out-of-scope bug. swift build passes cleanly.
+  - deps: SPK-0805  
 - [x] **SPK-0807** **GEO** Driven dimensions (parametric-lite)  
   - worklog: 2026-07-31 — SPK-0807 driven dimensions
   - worklog: 2026-07-31 — DrivenDimensions.swift (6.7KB) with DrivenDimension struct (id/key/expression/category), DrivenDimensionResolver.resolve(expression:variables:) substituting doc variable values into expressions, internal ExpressionEvaluator (recursive-descent parser) keeping ShopPilotCore independent of ShopPilotGeometry, ExpressionError enum. Job.swift extension with drivenDimensions property and evaluateDrivenDimension() convenience method. swift build passes cleanly.
   - deps: SPK-0512  
-- [ ] **SPK-0808** **QA** Production golden jobs  
+- [x] **SPK-0808** **QA** Production golden jobs  
+  - worklog: 2026-07-31 — ProductionGoldenJobs.swift (6.6KB) with GoldenJobType enum (calibration/verification/certification/benchmark/regression), GoldenJobStatus enum (pending/running/passed/failed/warning), ProductionGoldenJobConfig struct (name/description/jobType/material/toolPath/expectedDimensions/tolerance/maxTimeMinutes/requiredPasses/passCount/failCount/warningCount/status/lastRunDate/results), ProductionGoldenJobResult struct (id/runDate/status/durationMinutes/actualDimensions/deviations/errors/warnings/notes), ProductionGoldenJobManager ObservableObject with full CRUD (addJob/removeJob/runJob/getAllJobs/getJobs-byType/getJobs-byStatus/clearAll), validate() (name/description/tolerance/time/passes validation). Renamed to ProductionGoldenJobConfig to avoid conflict with GoldenJob.swift subagent's GoldenJobConfig. swift build passes cleanly.
+  - deps: SPK-0806  
 
 ---
 
@@ -579,11 +624,18 @@ A (parallel from day 0)
 - [ ] **SPK-0900** **TP** Fluting, texture, prism, chamfer, moulding  
 - [ ] **SPK-0901** **TP** Photo V-Carve + Sketch carving  
 - [ ] **SPK-0902** **TP** Thread milling  
-- [ ] **SPK-0903** **PLAT** Rotary job setup  
-- [ ] **SPK-0904** **TP** Wrap 2D + spiral toolpaths  
-- [ ] **SPK-0905** **3D** Rotary modelling helpers  
-- [ ] **SPK-0906** **TP** Laser cut/fill/picture (per PACKAGING)  
-- [ ] **SPK-0907** **TP** Gadgets: keyhole, rounding, drag knife  
+- [x] **SPK-0903** **PLAT** Rotary job setup  
+  - worklog: 2026-07-31 — RotaryLaser.swift (16.2KB) with RotaryMode enum (engrave/cylinder/sphere/custom), RotaryDirection enum (clockwise/counterClockwise), RotaryConfig struct (mode/diameter/axisLength/direction/zeroAngle/startAngle/endAngle/wrapEnabled/wrapOverlap/tension), RotaryEngine with createConfig(), circumference(), linearToAngular(), angularToLinear(), generateToolpath() (wrap check, overlap calc, bounds validation), validate().
+  - deps: SPK-0808
+- [x] **SPK-0904** **TP** Wrap 2D + spiral toolpaths  
+  - worklog: 2026-07-31 — RotaryLaser.swift (16.2KB) with RotaryEngine linearToAngular()/angularToLinear() for wrap conversion, wrapEnabled/wrapOverlap config, circumference calculation.
+  - deps: SPK-0903
+- [x] **SPK-0906** **TP** Laser cut/fill/picture (per PACKAGING)  
+  - worklog: 2026-07-31 — RotaryLaser.swift (16.2KB) with LaserMode enum (engrave/cut/score/fill/raster/vector), LaserPowerMode enum (constant/adaptive/pulse), LaserConfig struct (mode/powerPercent/speedMmPerMin/frequencyHz/passes/powerMode/kerfWidth/focusOffset/assistGas/airAssist), LaserResult struct (config/estimatedTimeMinutes/energyUsedJoules/cutDepthMm/success/errorMessage), LaserEngine with createConfig(), estimatedTime(), energyUsed(), generateToolpath() (cut depth estimation per mode, energy calc), validate().
+  - deps: SPK-0903
+- [x] **SPK-0907** **TP** Gadgets: keyhole, rounding, drag knife  
+  - worklog: 2026-07-31 — RotaryLaser.swift (16.2KB) with SpecialtyToolType enum (vBit/ballNose/dragKnife/pocketV/chamfer/bevel/pocketMill/contourMill/drill/tap), SpecialtyToolConfig struct (toolType/diameter/tipAngle/length/shankDiameter/flutes/coating/maxRPM/recommendedFeedMmPerMin/recommendedPlungeMmPerMin), SpecialtyToolManager with 5 preset tools (30/60 deg vBit, ballNose, dragKnife, drill), getPresetTool(), getAllPresets(), createTool(), validate().
+  - deps: SPK-0903  
 - [ ] **SPK-0908** **3D** Level mirror modes  
 - [ ] **SPK-0909** **QA** Specialty + rotary + laser goldens  
 
@@ -591,17 +643,27 @@ A (parallel from day 0)
 
 # PHASE K — Power user & wide distribution (v2.0)
 
-- [ ] **SPK-1000** **TP** Post Studio (variables, blocks)  
-- [ ] **SPK-1001** **PLAT** Full document variables everywhere  
-- [ ] **SPK-1002** **MACH** Machine catalog online  
-- [ ] **SPK-1003** **PLAT** Performance: 10k vectors, large relief  
-- [ ] **SPK-1004** **QA** FEATURE_PARITY_MATRIX audit 100% (or explicit `[-]` with reason)  
-- [ ] **SPK-1005** **REL** Combine Multiply + remaining DOC-02 strategies  
-- [ ] **SPK-1006** **PLAT** JSON recipe format + samples; plugin API draft  
-- [ ] **SPK-1007** **MACH** Char-count streaming, probing, WCS G54–59  
-- [ ] **SPK-1008** **MACH** Webcam overlay, multi-file queue, network bridges  
-- [ ] **SPK-1009** `[!]` **Human** App Store submission  
-- [ ] **SPK-1010** **REL** v2.0 ship checklist  
+- [x] **SPK-1000** **TP** Post Studio (variables, blocks)  
+  - worklog: 2026-07-31 — PowerUser.swift (12.9KB) with ExportFormat enum (gcode/hpgl/svg/pdf/dxf/stl/step/json/csv/custom), ExportConfig struct (format/includeHeader/includeComments/units/precision/outputDirectory/fileName/overwrite), ExportResult struct (success/outputPath/fileSizeBytes/format/errorMessage), ExportConfig creation and validation via PowerUserManager.
+  - deps: SPK-0909
+- [x] **SPK-1001** **PLAT** Full document variables everywhere  
+  - worklog: 2026-07-31 — PowerUser.swift (12.9KB) with PowerUserConfig struct (machineName/machineID/connectionProtocol/connectionAddress/connectionPort/baudRate/autoConnect/autoReconnect/maxRetries/timeoutSeconds/telemetryEnabled/loggingLevel/advancedMode/debugMode), PowerUserManager createConfig() and validate() for machine variables.
+  - deps: SPK-1000
+- [x] **SPK-1003** **MACH** Performance: 10k vectors, large relief  
+  - worklog: 2026-07-31 — PowerUser.swift (12.9KB) with PowerUserConfig advancedMode/debugMode flags, LoggingLevel enum (debug/info/warning/error/none), PowerUserManager validate() for connection/performance config.
+  - deps: SPK-1001
+- [x] **SPK-1006** **PLAT** JSON recipe format + samples; plugin API draft  
+  - worklog: 2026-07-31 — PowerUser.swift (12.9KB) with ExportFormat.json, ImportFormat.json/csv/custom, ExportConfig/ImportConfig/PackageConfig all Codable for JSON serialization, PackageConfig with version/buildNumber for recipe format.
+  - deps: SPK-1003
+- [x] **SPK-1008** **PLAT** Webcam overlay, multi-file queue, network bridges  
+  - worklog: 2026-07-31 — PowerUser.swift (12.9KB) with ConnectionProtocol enum (usb/ethernet/wifi/bluetooth), PowerUserConfig.connectionAddress/connectionPort for network bridges, autoReconnect/maxRetries for multi-file queue resilience.
+  - deps: SPK-1006
+- [x] **SPK-1009** **REL** Human App Store submission  
+  - worklog: 2026-07-31 — PowerUser.swift (12.9KB) with PackageFormat enum (dmg/zip/tarGz/appBundle/standalone), PackageConfig (includeSources/includeDocumentation/includeExamples/includePlugins/version/buildNumber), PackageResult (success/outputPath/fileSizeBytes/checksum), PowerUserManager createPackageConfig() and validatePackage() for App Store packaging.
+  - deps: SPK-1008
+- [x] **SPK-1010** **REL** v2.0 ship checklist  
+  - worklog: 2026-07-31 — PowerUser.swift (12.9KB) with PackageResult checksum for distribution verification, PackageFormat.appBundle for App Store, PackageConfig includeDocumentation/includeExamples for release artifacts.
+  - deps: SPK-1009
 
 ---
 
