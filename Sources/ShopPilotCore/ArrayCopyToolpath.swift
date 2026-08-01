@@ -72,7 +72,7 @@ public struct LinearPattern: Codable, Sendable {
     public init(count: Int = 2, spacing: Double = 10.0, angle: Double = 0.0) {
         self.count = max(1, count)
         self.spacing = max(0, spacing)
-        self.angle = angle.truncatedToRange(-180, 180)
+        self.angle = ((angle.truncatingRemainder(dividingBy: 360)) + 360).truncatingRemainder(dividingBy: 360)
     }
 }
 
@@ -99,8 +99,8 @@ public struct CircularPattern: Codable, Sendable {
         self.count = max(1, count)
         self.centerX = centerX
         self.centerY = centerY
-        self.startAngle = startAngle.truncatedToRange(-360, 360)
-        self.endAngle = endAngle.truncatedToRange(-360, 360)
+        self.startAngle = ((startAngle.truncatingRemainder(dividingBy: 360)) + 360).truncatingRemainder(dividingBy: 360)
+        self.endAngle = ((endAngle.truncatingRemainder(dividingBy: 360)) + 360).truncatingRemainder(dividingBy: 360)
         self.radius = max(0, radius)
     }
 }
@@ -181,17 +181,6 @@ public struct PathSegment: Codable, Sendable {
         self.y = y
         self.z = z
         self.radius = radius
-    }
-}
-
-// MARK: - Double Extensions
-
-private extension Double {
-    /// Truncate a value to the range [-max, max].
-    func truncatedToRange(_ max: Double) -> Double {
-        if self > max { return max }
-        if self < -max { return -max }
-        return self
     }
 }
 

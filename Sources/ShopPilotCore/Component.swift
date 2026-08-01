@@ -31,7 +31,7 @@ public struct Component: Identifiable, Codable, Sendable {
         self.children = children
         self.visible = visible
         self.locked = locked
-        self.opacity = opacity.clamped(to: 0.0...1.0)
+        self.opacity = max(0.0, min(1.0, opacity))
         self.color = color
     }
 }
@@ -64,7 +64,7 @@ public struct Level: Identifiable, Codable, Sendable {
         self.components = components
         self.visible = visible
         self.locked = locked
-        self.opacity = opacity.clamped(to: 0.0...1.0)
+        self.opacity = max(0.0, min(1.0, opacity))
         self.blendMode = blendMode
     }
 }
@@ -234,15 +234,4 @@ public final class ComponentTree: Sendable {
     }
 }
 
-// MARK: - Double extension
 
-extension Double {
-    /// Clamps a value to a closed range.
-    /// - Parameter range: The inclusive bounds.
-    /// - Returns: The clamped value.
-    func clamped(to range: ClosedRange<Double>) -> Double {
-        if self < range.lowerBound { return range.lowerBound }
-        if self > range.upperBound { return range.upperBound }
-        return self
-    }
-}

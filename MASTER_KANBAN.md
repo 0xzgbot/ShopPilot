@@ -768,3 +768,9 @@ Never idle on [!] — pick another Ready card. Simulator-first for machine work.
 
 ### 2026-07-31 — SPK-0903 date extensions
 - worklog: Date+Extensions.swift created
+
+### 2026-07-31 — SPK-0701 combine modes
+- worklog: CombineModes.swift + CombineStatus.swift created
+- `Sources/ShopPilotCore/CombineStatus.swift` — `CombineStatus` enum (pending/running/completed/failed) with `isTerminal` and `displayLabel` computed properties; `CombineHistoryEntry` struct for undo/redo history
+- `Sources/ShopPilotCore/CombineModes.swift` — `OperationMode` enum (combineAdd/subtract/merge/low/multiply/max/min); `CombineResult` struct; `CombineOperation` struct for tracking pending operations; `CombineEngine` struct with static methods `combine()`, `combinePair()`, `combineAll()` — UUID-based component references, delegates boolean geometry to ShopPilotGeometry's BooleanOperations
+- `swift build` compiles both files with 0 errors, 0 new warnings (pre-existing errors in ToolpathSimulator.swift, Component.swift, BoundaryFromComponents.swift, LevelManager.swift are unrelated)

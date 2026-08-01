@@ -62,7 +62,7 @@ public final class LevelManager: ObservableObject {
     ///   - opacity: Opacity value clamped to 0.0–1.0.
     public func setOpacity(_ id: UUID, opacity: Double) {
         guard let idx = levels.firstIndex(where: { $0.id == id }) else { return }
-        levels[idx].opacity = opacity.clamped(to: 0.0...1.0)
+        levels[idx].opacity = max(0.0, min(1.0, opacity))
     }
 
     /// Sets the blend mode of a level.
@@ -96,13 +96,4 @@ public final class LevelManager: ObservableObject {
     }
 }
 
-// MARK: - Double extension
 
-extension Double {
-    /// Clamps a value to a closed range.
-    func clamped(to range: ClosedRange<Double>) -> Double {
-        if self < range.lowerBound { return range.lowerBound }
-        if self > range.upperBound { return range.upperBound }
-        return self
-    }
-}

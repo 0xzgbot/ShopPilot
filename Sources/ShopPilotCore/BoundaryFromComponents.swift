@@ -128,11 +128,11 @@ public enum BoundaryFromComponents {
         guard !componentIDs.isEmpty else { return nil }
 
         // Each component contributes a bounding box; merge them.
-        let bboxes = componentIDs.map { _ in
+        let bboxes = componentIDs.map { id in
             // In a real implementation, this would look up the actual component
             // bounding box from a component registry. Here we use a synthetic
             // box based on the UUID hash to demonstrate the API.
-            let hash = componentIDs.firstIndex(of: $0).map { Double($0) } ?? 0.0
+            let hash = Double(componentIDs.firstIndex(of: id) ?? 0)
             let size = 10.0 + (hash * 5.0)
             return BoundingBox(
                 minX: hash * 20.0,
