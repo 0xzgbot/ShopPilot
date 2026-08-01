@@ -703,6 +703,9 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 - `swift build` completed successfully: **0 errors, 0 warnings**.
 - No build errors or fixable warnings found. Project is in a clean build state.
 
+### 2026-07-31 — SPK-0907 logging utilities
+- worklog: Logging.swift created
+
 ### 2026-07-31 — SPK-0800 multi-sheet management
 - worklog: <details><summary>Summary</summary>
 - Created `SheetListView` — a SwiftUI panel that lists all sheets in a job with selection, add, and remove.
@@ -724,6 +727,24 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 - `swift build` passes with 0 errors, 0 new warnings.
 </details>
 
+### 2026-07-31 — SPK-0906 app constants
+- worklog: Constants.swift created
+- `Sources/ShopPilotCore/Constants.swift` — `AppConstants` struct with 22 app-wide static constants (app identity, sheet dimensions/limits, tool/material defaults, machining params, home position, tab defaults)
+- `swift build` passes with 0 errors, 0 new warnings.
+</details>
+
+### 2026-07-31 — SPK-0902 string extensions
+- worklog: String+Extensions.swift created
+- `Sources/ShopPilotCore/String+Extensions.swift` — `String` extension with 7 utilities: `isNumeric`, `toDouble()`, `trimmed()`, `isNotEmpty`, `capitalizedFirst`, `truncate(to:suffix:)`, `sanitizeFilename()`
+- `swift build` passes with 0 errors, 0 new warnings.
+</details>
+
+### 2026-07-31 — SPK-0908 file utilities
+- worklog: FileUtilities.swift created
+- `Sources/ShopPilotCore/FileUtilities.swift` — `FileUtilities` struct with static methods: `isValidDocumentFile`, `createDefaultDocumentURL`, `generateUniqueFileName`, `fileSizePretty`, `isFileInUse`, `createDirectoryIfNotExists`; plus `FileError` enum (fileNotFound, fileInUse, cannotCreate, cannotWrite)
+- `swift build` passes with 0 errors, 0 new warnings.
+</details>
+
 ---
 
 ## Hermes paste prompt (whole product)
@@ -736,3 +757,9 @@ Loop: claim next Ready SPK card (deps met), implement AC, mark [x], work log, re
 Prioritize Phase A→G until v1.0 ship. After SPK-0623, continue H→K.
 Never idle on [!] — pick another Ready card. Simulator-first for machine work.
 ```
+
+### 2026-07-31 — SPK-0904 validation utilities
+- worklog: Validation.swift created
+
+### 2026-07-31 — SPK-0903 date extensions
+- worklog: Date+Extensions.swift created
