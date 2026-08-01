@@ -20,6 +20,13 @@ public struct ImportHubView: View {
     @State private var shapesImported: [VectorShape] = []
     @State private var errorMessage: String?
 
+    /// Called when the user confirms adding imported shapes to the document.
+    var onShapesImported: (([VectorShape]) -> Void)?
+
+    public init(onShapesImported: (([VectorShape]) -> Void)? = nil) {
+        self.onShapesImported = onShapesImported
+    }
+
     // MARK: - Body
 
     public var body: some View {
@@ -36,6 +43,14 @@ public struct ImportHubView: View {
             }
             .pickerStyle(.segmented)
             .padding(.horizontal)
+            .disabled(selectedFormat == .dxf)
+
+            if selectedFormat == .dxf {
+                Text("DXF import is not supported in this build. Use SVG.")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .padding(.horizontal)
+            }
 
             // Import button
             Button(action: openFilePicker) {
@@ -46,6 +61,7 @@ public struct ImportHubView: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .padding(.horizontal)
+            .disabled(selectedFormat == .dxf)
 
             // Supported formats info
             VStack(alignment: .leading, spacing: 8) {
@@ -64,8 +80,19 @@ public struct ImportHubView: View {
 
             // Import result (if any)
             if let result = importResult {
-                ImportResultView(result: result)
-                    .transition(.opacity)
+                ImportResultView(
+                    result: result,
+                    onAdd: {
+                        onShapesImported?(result.shapes)
+                        shapesImported = result.shapes
+                        importResult = nil
+                    },
+                    onDiscard: {
+                        importResult = nil
+                        shapesImported = []
+                    }
+                )
+                .transition(.opacity)
             }
 
             Spacer()
@@ -112,7 +139,6 @@ public struct ImportHubView: View {
         case .svg:
             return try importSVG(content: content, fileName: url.lastPathComponent)
         case .dxf:
-            // DXF is drafted but not passing build — show placeholder message
             throw ImportError.dxfNotAvailable
         }
     }
@@ -181,6 +207,8 @@ private struct FormatRow: View {
 public struct ImportResultView: View {
     
     let result: ImportResult
+    var onAdd: (() -> Void)?
+    var onDiscard: (() -> Void)?
     
     public var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -242,21 +270,21 @@ public struct ImportResultView: View {
             // Action buttons
             HStack(spacing: 12) {
                 if result.success {
-                    Button(action: {}) {
+                    Button(action: { onAdd?() }) {
                         Label("Add to Document", systemImage: "plus.circle.fill")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(.green)
                     
-                    Button(action: {}) {
+                    Button(action: { onDiscard?() }) {
                         Label("Discard", systemImage: "xmark.circle.fill")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
                 } else {
-                    Button(action: {}) {
-                        Label("Try Again", systemImage: "arrow.clockwise")
+                    Button(action: { onDiscard?() }) {
+                        Label("Dismiss", systemImage: "xmark.circle.fill")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
@@ -368,7 +396,7 @@ public enum ImportFormat: String, Codable, Sendable, CaseIterable, Identifiable 
     public var statusText: String {
         switch self {
         case .svg: return "Ready"
-        case .dxf: return "Draft"
+        case .dxf: return "Unsupported"
         }
     }
     
@@ -417,7 +445,7 @@ enum ImportError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .dxfNotAvailable:
-            return "DXF import is currently in development. Please use SVG format."
+            return "DXF import is not supported in this build. Export SVG from your CAD tool and import that instead."
         case .unsupportedFormat(let format):
             return "Unsupported file format: \(format)"
         case .fileReadFailed(let url, let error):

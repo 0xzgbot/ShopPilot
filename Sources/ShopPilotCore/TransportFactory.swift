@@ -36,6 +36,10 @@ public struct TransportFactoryResult {
 
 /// Factory for creating machine transports based on configuration.
 public final class TransportFactory {
+
+    /// App-layer registers real serial construction here (avoids Core → Serial dependency cycle).
+    /// Example (ShopPilot app launch): `TransportFactory.serialTransportBuilder = { _ in RealSerialTransport() }`
+    public static var serialTransportBuilder: ((SerialConfig) -> MachineTransport)?
     
     /// Create a transport based on the specified type and configuration.
     public static func createTransport(for type: TransportType, config: SerialConfig? = nil) -> TransportFactoryResult {
@@ -64,11 +68,15 @@ public final class TransportFactory {
                 errorMessage: "Invalid baud rate: \(config.baudRate)"
             )
         }
-        
-        // For now, serial transport falls back to simulator since RealSerialTransport is in ShopPilotSerial module
-        // In a real implementation, this would create a RealSerialTransport instance
-        let transport = SimulatorTransport()
-        return TransportFactoryResult(transport: transport)
+
+        if let builder = serialTransportBuilder {
+            return TransportFactoryResult(transport: builder(config))
+        }
+
+        return TransportFactoryResult(
+            transport: nil,
+            errorMessage: "Serial transport not registered. App must set TransportFactory.serialTransportBuilder (use Simulator for air-cut)."
+        )
     }
     
     /// List available serial ports for user selection.

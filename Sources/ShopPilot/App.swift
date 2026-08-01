@@ -1,24 +1,63 @@
 import SwiftUI
+import ShopPilotCore
+import ShopPilotSerial
 
 @main
 struct ShopPilotApp: App {
-    @State private var selectedStage: Stage = .setup
+    @StateObject private var session = AppSession()
+
+    init() {
+        // Register real serial transport for Core factory callers (sim remains default in UI).
+        ShopPilotCore.TransportFactory.serialTransportBuilder = { _ in
+            RealSerialTransport()
+        }
+    }
 
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .frame(minWidth: 900, minHeight: 600)
-                .toolbar {
-                    ToolbarItem(placement: .automatic) {
-                        StageRailView(selectedStage: $selectedStage) { stage in
-                            // Switch main content area based on selected stage.
-                            // Real stage-specific views will be wired here as each stage is implemented.
-                            print("Switched to stage: \(stage.title)")
-                        }
-                    }
-                }
+                .environmentObject(session)
+                .frame(minWidth: 1100, minHeight: 700)
         }
-        .windowStyle(.hiddenTitleBar)
         .windowToolbarStyle(.unified)
+        .commands {
+            CommandGroup(replacing: .newItem) {
+                Button("New Job") {
+                    session.selectedStage = .setup
+                }
+                .keyboardShortcut("n", modifiers: .command)
+
+                Button("Command Palette…") {
+                    session.showCommandPalette = true
+                }
+                .keyboardShortcut("k", modifiers: .command)
+            }
+
+            CommandMenu("ShopPilot") {
+                Button("Preferences…") {
+                    session.showPreferences = true
+                }
+                .keyboardShortcut(",", modifiers: .command)
+
+                Button("Show Safety Notice") {
+                    session.showSafetyDisclaimer = true
+                }
+
+                Divider()
+
+                Button("Generate Profile Toolpath") {
+                    session.generateProfileToolpath()
+                }
+
+                Button("Go to Machine") {
+                    session.loadFixtureGCodeIfNeeded()
+                    session.selectedStage = .machine
+                }
+            }
+        }
+
+        Settings {
+            PreferencesView()
+        }
     }
 }

@@ -12,9 +12,10 @@
 | **Stack** | **SwiftUI** (macOS 14+) · geometry/toolpath core · Metal preview · serial IOKit/ORSSerialPort |
 | **Not in first ship** | Illegal reverse-engineering of proprietary CRV; Windows/Linux ports |
 | **Doc status** | Living — agents **must** update task checkboxes + Work log |
-| **Last updated** | 2026-07-31 |
+| **Last updated** | 2026-08-01 |
 | **Current phase focus** | **MASTER_KANBAN** Phase A→G (v1.0 ship), then H→K |
 | **★ Single task board** | [`MASTER_KANBAN.md`](./MASTER_KANBAN.md) — **only** place to claim work |
+| **★ Finish roadmap** | [`docs/planning/FINISH_ROADMAP.md`](./docs/planning/FINISH_ROADMAP.md) — Tracks 1–6 to finish all features |
 | **Legacy boards** | `HERMES_BUILD_TODO.md`, `HERMES_STUDIO_TODO.md` — superseded (reference only) |
 | **Aspire reimagined plan** | [`docs/planning/ASPIRE_REIMAGINED_PRODUCT_PLAN.md`](./docs/planning/ASPIRE_REIMAGINED_PRODUCT_PLAN.md) |
 | **Market pain research** | [`docs/planning/ASPIRE_INGESTION_AND_MARKET_RESEARCH.md`](./docs/planning/ASPIRE_INGESTION_AND_MARKET_RESEARCH.md) |
@@ -28,14 +29,14 @@
 ### 0.1 Startup protocol
 
 1. Read **§1 Mission**, **§2 Non-negotiables (safety)**, **§3 Architecture**, **§4 Agent roles**.
-2. Open **[`MASTER_KANBAN.md`](./MASTER_KANBAN.md)** — **only** task board. Follow §1 Agent protocol.
-3. Pick earliest phase (A→G for v1) with Ready cards (`deps` met). Prefer `// P0`.
+2. Read **[`docs/planning/FINISH_ROADMAP.md`](./docs/planning/FINISH_ROADMAP.md)** — finish order Tracks 1→6.
+3. Open **[`MASTER_KANBAN.md`](./MASTER_KANBAN.md)** — **only** task board. Prefer **SPK-1100–1106** spine cards, then earliest open P0 in the current track.
 4. Claim: `[ ]` → `[~]`, append Work log in MASTER_KANBAN.md.
-5. Implement; meet **AC** on the card.
+5. Implement **Engine + UI + Persist + Verify** for the card (build-only is not done).
 6. Mark `[x]`, Work log exit. If `[!]`, pick next Ready card — **never idle**.
-7. **Never mark `[x]` if build/test/AC fails.**
-8. Do not invent scope outside MASTER_KANBAN phases; add cards there if needed.
-9. After **SPK-0623** (v1 ship gate), continue Phases H→K uninterrupted.
+7. **Never mark `[x]` if Engine/UI/Persist/Verify incomplete.**
+8. Do not invent scope outside MASTER_KANBAN; add cards there if needed.
+9. Do **not** start Phases H→K until **SPK-0623** is `[x]`. Then continue H→K with the same DoD.
 
 ### 0.2 Status legend
 
@@ -225,9 +226,10 @@ Append to `HERMES_BUILD_TODO.md` § Work log:
 
 ```
 You are building ShopPilot at ~/Desktop/ShopPilot.
-Single source of truth: MASTER_KANBAN.md
-Read AGENTS.md safety rules. No Vectric proprietary assets.
-Loop: claim next Ready SPK card (deps met), implement AC, mark [x], work log, repeat.
-Prioritize Phase A→G until v1.0 ship. After SPK-0623, continue H→K.
-Never idle on [!] — pick another Ready card. Simulator-first for machine work.
+Board: MASTER_KANBAN.md. Finish order: docs/planning/FINISH_ROADMAP.md.
+Read AGENTS.md safety. No Vectric proprietary assets.
+DoD: Engine + UI + Persist + Verify — never mark [x] for build-only/file-drop.
+Prefer SPK-1100–1106, then open P0 in current finish track.
+Loop: claim → implement full AC → [x] + work log → repeat.
+No Phase H–K until SPK-0623. Never idle on [!] — next Ready card.
 ```

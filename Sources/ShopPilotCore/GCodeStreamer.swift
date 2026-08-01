@@ -68,11 +68,17 @@ public final class GCodeStreamer: ObservableObject {
     /// Stream G-code lines to the transport using ok-wait protocol.
     public func stream(lines: [String], to transport: MachineTransport) async throws {
         self.transport = transport
-        totalLines = lines.count
+        let executable = lines
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty && !isComment($0) && !$0.hasPrefix("%") && !$0.hasPrefix("O=") }
+        totalLines = executable.count
         currentLine = 0
         state = .streaming
+
+        // Subscribe BEFORE writes so ok responses are not missed (fan-out is live-only).
+        var eventIterator = transport.events.makeAsyncIterator()
         
-        for line in lines {
+        for line in executable {
             guard !Task.isCancelled else { return }
             
             // Skip if paused
@@ -86,8 +92,8 @@ public final class GCodeStreamer: ObservableObject {
                 let data = Data(command.utf8)
                 try await transport.write(data)
                 
-                // Wait for "ok" response from GRBL
-                try await waitForOk(from: transport)
+                // Wait for "ok" response from GRBL on the pre-subscribed stream
+                try await waitForOk(iterator: &eventIterator)
                 
                 currentLine += 1
                 
@@ -169,19 +175,29 @@ public final class GCodeStreamer: ObservableObject {
     
     /// Wait for "ok" response from GRBL after sending a command.
     private func waitForOk(from transport: MachineTransport) async throws {
-        for await event in transport.events {
+        var iterator = transport.events.makeAsyncIterator()
+        try await waitForOk(iterator: &iterator)
+    }
+
+    private func waitForOk(iterator: inout AsyncStream<TransportEvent>.Iterator) async throws {
+        while let event = await iterator.next() {
             switch event {
             case .dataReceived(let data):
                 if let text = String(data: data, encoding: .utf8),
-                   text.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("ok") {
-                    return // Got ok response
+                   text.trimmingCharacters(in: .whitespacesAndNewlines)
+                    .split(whereSeparator: { $0.isNewline })
+                    .contains(where: { $0.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("ok") }) {
+                    return
                 }
             case .error(let msg):
                 throw NSError(domain: "GCodeStreamer", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
+            case .disconnected:
+                throw NSError(domain: "GCodeStreamer", code: 2, userInfo: [NSLocalizedDescriptionKey: "Transport disconnected"])
             default:
                 continue
             }
         }
+        throw NSError(domain: "GCodeStreamer", code: 3, userInfo: [NSLocalizedDescriptionKey: "Event stream ended before ok"])
     }
     
     // MARK: - Control

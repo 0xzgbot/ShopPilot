@@ -249,13 +249,7 @@ public final class VectorValidator {
         // Check for degenerate shapes
         if pointCount < 2 {
             errors.append(.degenerate)
-            fixActions.append(VectorFixAction(
-                description: "Shape has fewer than 2 points and cannot be rendered",
-                action: .simplifyPath,
-                targetShapeId: shapeData.id,
-                confidence: 1.0,
-                estimatedImpact: "High"
-            ))
+            // No implemented auto-fix for degenerate geometry yet.
         }
         
         // Check for zero-length segments
@@ -287,13 +281,7 @@ public final class VectorValidator {
             let intersections = findSelfIntersections(points: points)
             if !intersections.isEmpty {
                 errors.append(.selfIntersection)
-                fixActions.append(VectorFixAction(
-                    description: "Fix \(intersections.count) self-intersection(s)",
-                    action: .splitIntersection,
-                    targetShapeId: shapeData.id,
-                    confidence: 0.7,
-                    estimatedImpact: "High"
-                ))
+                // splitIntersection not implemented — surface error only.
             } else {
                 let nearIntersections = findNearSelfIntersections(points: points, threshold: thresholds.nearIntersectionThreshold)
                 if !nearIntersections.isEmpty {
@@ -305,39 +293,21 @@ public final class VectorValidator {
             let overlaps = findOverlappingSegments(points: points, threshold: thresholds.potentialOverlapThreshold)
             if !overlaps.isEmpty {
                 errors.append(.overlappingSegments)
-                fixActions.append(VectorFixAction(
-                    description: "Trim \(overlaps.count) overlapping segment(s)",
-                    action: .trimOverlap,
-                    targetShapeId: shapeData.id,
-                    confidence: 0.8,
-                    estimatedImpact: "Medium"
-                ))
+                // trimOverlap not implemented — surface error only.
             }
             
             // Check for sharp corners
             let sharpCorners = findSharpCorners(points: points, angleThreshold: thresholds.sharpCornerAngle)
             if !sharpCorners.isEmpty {
                 warnings.append(.sharpCorner)
-                fixActions.append(VectorFixAction(
-                    description: "Smooth \(sharpCorners.count) sharp corner(s) below \(thresholds.sharpCornerAngle) degrees",
-                    action: .removeSharpCorners,
-                    targetShapeId: shapeData.id,
-                    confidence: 0.6,
-                    estimatedImpact: "Low"
-                ))
+                // removeSharpCorners not implemented — surface warning only.
             }
             
             // Check for near-colinear segments
             let colinear = findNearColinearSegments(points: points, threshold: thresholds.nearColinearThreshold)
             if !colinear.isEmpty {
                 warnings.append(.nearColinear)
-                fixActions.append(VectorFixAction(
-                    description: "Merge \(colinear.count) near-colinear segment(s)",
-                    action: .mergeSegments,
-                    targetShapeId: shapeData.id,
-                    confidence: 0.7,
-                    estimatedImpact: "Low"
-                ))
+                // mergeSegments not implemented — surface warning only.
             }
         } else {
             // Open shapes: check for large gaps between points
@@ -611,18 +581,10 @@ public final class VectorValidator {
             return closePath(points: &points, isClosed: &isClosed)
         case .removeDuplicateNodes:
             return removeDuplicates(points: &points)
-        case .splitIntersection:
-            return true // placeholder
-        case .trimOverlap:
-            return true // placeholder
-        case .removeSharpCorners:
-            return true // placeholder
-        case .mergeSegments:
-            return true // placeholder
-        case .simplifyPath:
-            return true // placeholder
-        case .resamplePath:
-            return true // placeholder
+        case .splitIntersection, .trimOverlap, .removeSharpCorners,
+             .mergeSegments, .simplifyPath, .resamplePath:
+            // Not implemented — do not claim success for unimplemented fixes.
+            return false
         }
     }
     

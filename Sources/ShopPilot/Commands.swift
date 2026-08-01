@@ -169,9 +169,12 @@ public struct CommandRegistry {
         }
     }
     
-    /// Execute a command. Stub — delegates to stage-specific handlers.
+    /// Legacy entry point — prefer `AppSession.handleCommand` from the palette.
     public static func perform(_ id: CommandID) {
-        print("⌘K Command executed: \(id.name)")
-        // TODO: Route to stage-specific handler based on current stage
+        NotificationCenter.default.post(name: .shopPilotCommand, object: nil, userInfo: ["id": id.rawValue])
     }
+}
+
+extension Notification.Name {
+    static let shopPilotCommand = Notification.Name("shopPilotCommand")
 }

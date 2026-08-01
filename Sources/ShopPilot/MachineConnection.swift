@@ -110,8 +110,8 @@ public final class TransportFactory {
             )
         }
         
-        // For now, serial transport falls back to simulator since RealSerialTransport is in ShopPilotSerial module
-        let transport = ShopPilotCore.SimulatorTransport()
+        // Real serial transport (IOKit / FileHandle). Never auto-connect on launch.
+        let transport = RealSerialTransport()
         return TransportFactoryResult(transport: transport)
     }
     
@@ -310,6 +310,9 @@ public struct MachineConnectionView: View {
     @State private var preflightPassed = false
     @State private var showRawTXRX = false
     @State private var softLimitWarning: String? = nil
+
+    /// Optional G-code lines from the Cut/Preview stages (session golden path).
+    private let pendingGCode: [String]
     
     private let preflightItems: [PreFlightItem] = [
         PreFlightItem(title: "Work zero set", description: "Confirm X/Y/Z work coordinates are correct"),
@@ -335,7 +338,9 @@ public struct MachineConnectionView: View {
         }
     }
     
-    public init() {}
+    public init(pendingGCode: [String] = []) {
+        self.pendingGCode = pendingGCode
+    }
     
     public var body: some View {
         VStack(spacing: 0) {
@@ -911,12 +916,16 @@ public struct MachineConnectionView: View {
         // Check for recent export files from CutToMachineBridge first,
         // then fall back to user-saved jobs in Documents, then demo G-code.
         let bridgeExportURLs = findRecentBridgeExports()
+        let sessionLines = pendingGCode
         
         Task {
             do {
                 var lines: [String]
                 
-                if !bridgeExportURLs.isEmpty {
+                if !sessionLines.isEmpty {
+                    connectionManager.addSystemMessage("Using session toolpath (\(sessionLines.count) lines)")
+                    lines = sessionLines
+                } else if !bridgeExportURLs.isEmpty {
                     // Use the most recent bridge export (Cut stage output)
                     let latestURL = bridgeExportURLs[0]
                     connectionManager.addSystemMessage("Using exported toolpath: \(latestURL.lastPathComponent)")

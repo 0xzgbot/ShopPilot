@@ -16,9 +16,16 @@ public struct NewJobView: View {
     
     /// The current document's variables, used to customize sign dimensions.
     @ObservedObject private var docVars: DocumentVariablesModel
+
+    /// Called when a job is created from a recipe.
+    var onJobCreated: ((Job) -> Void)?
     
-    public init(docVars: DocumentVariablesModel = DocumentVariablesModel()) {
+    public init(
+        docVars: DocumentVariablesModel = DocumentVariablesModel(),
+        onJobCreated: ((Job) -> Void)? = nil
+    ) {
         self.docVars = docVars
+        self.onJobCreated = onJobCreated
     }
     
     public var body: some View {
@@ -98,6 +105,7 @@ public struct NewJobView: View {
             let job = createSignJobFromRecipe(recipe)
             jobCreated = true
             errorMessage = nil
+            onJobCreated?(job)
             dismiss()
             return
         }
@@ -118,6 +126,7 @@ public struct NewJobView: View {
         
         jobCreated = true
         errorMessage = nil
+        onJobCreated?(job)
         dismiss()
     }
     

@@ -12,6 +12,11 @@ let package = Package(
             dependencies: ["ShopPilotCore", "ShopPilotSerial", "ShopPilotGeometry"],
             path: "Sources/ShopPilot"
         ),
+        .executableTarget(
+            name: "ShopPilotGoldenPath",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotGoldenPath"
+        ),
         .target(
             name: "ShopPilotCore",
             path: "Sources/ShopPilotCore"

@@ -182,15 +182,18 @@ private actor TransportActor {
 
         if text == "?" {
             return statusString()
-        } else if text.hasPrefix("G0 ") || text.hasPrefix("G00 ") {
+        } else if text.hasPrefix("G0 ") || text.hasPrefix("G00 ")
+                    || text.hasPrefix("G0X") || text.hasPrefix("G0Y") || text.hasPrefix("G0Z")
+                    || text.hasPrefix("G1 ") || text.hasPrefix("G01 ")
+                    || text.hasPrefix("G1X") || text.hasPrefix("G1Y") || text.hasPrefix("G1Z") {
+            // Motion commands update simulated position; GRBL replies with ok (not status).
             mPos = try parseAndApplyMove(text)
-            return statusString()
-        } else if text.hasPrefix("G1 ") || text.hasPrefix("G01 ") {
-            mPos = try parseAndApplyMove(text)
-            return statusString()
+            return "ok"
         } else if text == "G28" {
             mPos = (0.0, 0.0, 0.0)
-            return "<Idle|MPos:0.000,0.000,0.000|WPos:0.000,0.000,0.000|FS:0,0>"
+            return "ok"
+        } else if text == "!" || text == "~" {
+            return "ok"
         } else {
             return "ok"
         }
