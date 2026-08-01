@@ -556,14 +556,19 @@ A (parallel from day 0)
 
 # PHASE I — Production & dual-side (v1.2)
 
-- [ ] **SPK-0800** **PLAT** Multi-sheet management  
+- [x] **SPK-0800** **PLAT** Multi-sheet management  
+  - worklog: 2026-07-31 — SPK-0800 multi-sheet management
+  - worklog: 2026-07-31 — SheetListView.swift (7.0KB) with SheetListView SwiftUI panel: list rows showing name/dimensions/material, add/remove/select, empty state, confirmation alert. Job+Extensions.swift with makeDefaultSheet() factory and addDefaultSheet() method. swift build passes cleanly.
+  - deps: SPK-0623
 - [ ] **SPK-0801** **PLAT** Double-sided job + multi-sided view  
 - [ ] **SPK-0802** **TP** Inlay pocket/plug + VCarve inlay recipes  
 - [ ] **SPK-0803** **TP** Array copy toolpath + merged toolpath  
 - [ ] **SPK-0804** **GEO** Nest advanced  
 - [ ] **SPK-0805** **TP** Tiling manager  
 - [ ] **SPK-0806** **GEO** Vector validator expanded  
-- [ ] **SPK-0807** **GEO** Driven dimensions (parametric-lite)  
+- [x] **SPK-0807** **GEO** Driven dimensions (parametric-lite)  
+  - worklog: 2026-07-31 — SPK-0807 driven dimensions
+  - worklog: 2026-07-31 — DrivenDimensions.swift (6.7KB) with DrivenDimension struct (id/key/expression/category), DrivenDimensionResolver.resolve(expression:variables:) substituting doc variable values into expressions, internal ExpressionEvaluator (recursive-descent parser) keeping ShopPilotCore independent of ShopPilotGeometry, ExpressionError enum. Job.swift extension with drivenDimensions property and evaluateDrivenDimension() convenience method. swift build passes cleanly.
   - deps: SPK-0512  
 - [ ] **SPK-0808** **QA** Production golden jobs  
 
