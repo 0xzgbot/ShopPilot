@@ -1,7 +1,8 @@
 # Aspire V12 → ShopPilot Feature Parity Matrix
 
-**Source:** Vectric Aspire V12 User Guide TOC + What’s New  
+**Source:** Vectric Aspire V12 User Guide TOC + What's New  
 **Status keys:** `[ ]` not started · `[~]` in progress · `[x]` shipped · `[-]` deferred (date) · `[!]` blocked  
+**Last audited:** 2026-07-31 — automated audit against source tree (183 items: 62✅, 2⚠️, 119⏸️)
 
 Track ownership in your PM tool; keep this file as the living checklist.
 
