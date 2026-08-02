@@ -13,11 +13,7 @@ struct ContentView: View {
                     .padding(.vertical, 6)
 
                 HSplitView {
-                    LeftPanelView(
-                        jobName: session.job.name,
-                        sheetCount: max(session.sheetCount, 1),
-                        layerCount: max(session.layerCount, session.shapes.isEmpty ? 0 : 1)
-                    )
+                    LeftPanelView(session: session)
                     .frame(minWidth: 180, idealWidth: 220, maxWidth: 280)
 
                     VStack(spacing: 0) {
@@ -32,7 +28,7 @@ struct ContentView: View {
                         statusBar
                     }
 
-                    InspectorShell(currentStage: $session.selectedStage)
+                    InspectorShell(session: session, currentStage: $session.selectedStage)
                         .frame(minWidth: 220, idealWidth: 260, maxWidth: 320)
                 }
             }
@@ -70,7 +66,7 @@ struct ContentView: View {
         case .cut:
             CutStageView(session: session)
         case .preview:
-            PreviewStageView(session: session)
+            ToolpathPreviewView(session: session)
         case .machine:
             MachineConnectionView(pendingGCode: session.gcodeLines)
         }
@@ -188,23 +184,3 @@ private struct CutStageView: View {
     }
 }
 
-private struct PreviewStageView: View {
-    @ObservedObject var session: AppSession
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Preview")
-                .font(.title2.bold())
-            Text(session.lastToolpathSummary)
-                .foregroundStyle(.secondary)
-            Text("Lines: \(session.gcodeLines.count) · Paths: \(session.vectors.count)")
-            DesignCanvasView(session: session)
-            Button("Continue to Machine") {
-                session.loadFixtureGCodeIfNeeded()
-                session.selectedStage = .machine
-            }
-            .buttonStyle(.borderedProminent)
-        }
-        .padding()
-    }
-}

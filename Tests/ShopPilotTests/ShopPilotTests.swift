@@ -471,7 +471,6 @@ final class ShopPilotGeometryTests: XCTestCase {
         let diffs = findGcodeDifferences(gcode, gcode)
         XCTAssertTrue(diffs.isEmpty, "No differences when identical")
     }
-}
     
     // MARK: - ExportBlocker Tests (SPK-0603)
     
@@ -744,5 +743,79 @@ final class ShopPilotGeometryTests: XCTestCase {
         let gcode = "G21\nG90\nM8"
         let diffs = findGcodeDifferences(gcode, gcode)
         XCTAssertTrue(diffs.isEmpty, "No differences when identical")
+    }
+
+    // MARK: - Join / Close Polyline Tests (SPK-0205a)
+
+    func testJoinPolylinesEndToStart() {
+        let ptsA: [VectorPoint] = [.zero, VectorPoint(x: 10, y: 0), VectorPoint(x: 20, y: 0)]
+        let ptsB: [VectorPoint] = [VectorPoint(x: 20, y: 0), VectorPoint(x: 30, y: 0)]
+        let a = VectorShape.freehand(points: ptsA)
+        let b = VectorShape.freehand(points: ptsB)
+
+        let result = ShapeJoinEngine.joinPolylines(a, b)
+        XCTAssertNotNil(result, "Polylines should join at coincident endpoint")
+        if case .freehand(let joined) = result {
+            XCTAssertEqual(joined.count, 4, "Should merge to 4 points (redundant endpoint removed)")
+            XCTAssertEqual(joined[0], VectorPoint(x: 0, y: 0))
+            XCTAssertEqual(joined[3], VectorPoint(x: 30, y: 0))
+        } else {
+            XCTFail("Expected freehand result")
+        }
+    }
+
+    func testJoinPolylinesEndToEnd() {
+        let ptsA: [VectorPoint] = [VectorPoint(x: 0, y: 0), VectorPoint(x: 10, y: 0)]
+        let ptsB: [VectorPoint] = [VectorPoint(x: 30, y: 0), VectorPoint(x: 20, y: 0)]
+        let a = VectorShape.freehand(points: ptsA)
+        let b = VectorShape.freehand(points: ptsB)
+
+        let result = ShapeJoinEngine.joinPolylines(a, b)
+        XCTAssertNotNil(result, "Polylines should join when a-end meets b-end")
+        if case .freehand(let joined) = result {
+            XCTAssertEqual(joined.count, 3, "Should merge to 3 points")
+            XCTAssertEqual(joined[0], VectorPoint(x: 0, y: 0))
+            XCTAssertEqual(joined[2], VectorPoint(x: 30, y: 0))
+        } else {
+            XCTFail("Expected freehand result")
+        }
+    }
+
+    func testJoinPolylinesNoMatch() {
+        let ptsA: [VectorPoint] = [VectorPoint(x: 0, y: 0), VectorPoint(x: 10, y: 0)]
+        let ptsB: [VectorPoint] = [VectorPoint(x: 50, y: 50), VectorPoint(x: 60, y: 50)]
+        let a = VectorShape.freehand(points: ptsA)
+        let b = VectorShape.freehand(points: ptsB)
+
+        let result = ShapeJoinEngine.joinPolylines(a, b)
+        XCTAssertNil(result, "Polylines far apart should not join")
+    }
+
+    func testClosePolylineAlreadyClosed() {
+        let pts: [VectorPoint] = [.zero, VectorPoint(x: 10, y: 0), VectorPoint(x: 10, y: 10), .zero]
+        let shape = VectorShape.freehand(points: pts)
+
+        let result = ShapeJoinEngine.closePolyline(shape)
+        XCTAssertEqual(result.count, 1, "Already-closed polyline returns single shape")
+        if case .freehand(let closed) = result[0] {
+            XCTAssertEqual(closed.count, pts.count, "Points unchanged")
+        } else {
+            XCTFail("Expected freehand result")
+        }
+    }
+
+    func testClosePolylineOpen() {
+        let pts: [VectorPoint] = [.zero, VectorPoint(x: 10, y: 0), VectorPoint(x: 10, y: 10)]
+        let shape = VectorShape.freehand(points: pts)
+
+        let result = ShapeJoinEngine.closePolyline(shape)
+        XCTAssertEqual(result.count, 1, "Open polyline returns single shape")
+        if case .freehand(let closed) = result[0] {
+            XCTAssertEqual(closed.count, pts.count + 1, "First point appended to close")
+            XCTAssertEqual(closed.first, .zero)
+            XCTAssertEqual(closed.last, .zero)
+        } else {
+            XCTFail("Expected freehand result")
+        }
     }
 }

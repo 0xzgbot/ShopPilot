@@ -85,8 +85,7 @@ struct DesignCanvasView: View {
                                 if let idx = selectedIndex, session.shapes.indices.contains(idx) {
                                     let dx = Double(value.translation.width / scale)
                                     let dy = Double(-value.translation.height / scale)
-                                    session.shapes[idx] = session.shapes[idx].translated(by: dx, dy)
-                                    session.vectors = GeometryBridge.toCorePaths(session.shapes)
+                                    session.moveShape(at: idx, by: dx, dy: dy)
                                 }
                                 dragStart = nil
                             }

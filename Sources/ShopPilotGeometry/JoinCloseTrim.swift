@@ -39,32 +39,107 @@ public final class ShapeJoinEngine {
         return nil
     }
     
+    // MARK: - Polyline helpers
+
+    /// Extract the two endpoints of a polyline (freehand with 2+ points).
+    /// Returns (start, end) where start = points[0] and end = points.last.
+    private static func polylineEndpoints(_ shape: VectorShape) -> (VectorPoint, VectorPoint)? {
+        guard case .freehand(let points) = shape, points.count >= 2 else { return nil }
+        return (points[0], points[points.count - 1])
+    }
+
+    /// Join two polylines (freehand with 2+ points) if one endpoint of *a*
+    /// coincides with one endpoint of *b* within tolerance.  Returns a single
+    /// freehand polyline whose points are the concatenation of the two inputs
+    /// (with the coincident endpoint removed).  Returns nil if no join is
+    /// possible.
+    public static func joinPolylines(_ a: VectorShape, _ b: VectorShape) -> VectorShape? {
+        guard case .freehand(let aPts) = a, aPts.count >= 2 else { return nil }
+        guard case .freehand(let bPts) = b, bPts.count >= 2 else { return nil }
+
+        let aStart = aPts[0]
+        let aEnd = aPts[aPts.count - 1]
+        let bStart = bPts[0]
+        let bEnd = bPts[bPts.count - 1]
+        let tolerance: Double = 1e-6
+
+        // a-end connects to b-start  →  aPts + bPts[1...]
+        if hypot(aEnd.x - bStart.x, aEnd.y - bStart.y) <= tolerance {
+            var merged = aPts
+            merged.append(contentsOf: bPts.dropFirst())
+            return .freehand(points: merged)
+        }
+        // a-end connects to b-end  →  aPts + reversed(bPts)
+        if hypot(aEnd.x - bEnd.x, aEnd.y - bEnd.y) <= tolerance {
+            var merged = aPts
+            merged.append(contentsOf: bPts.reversed().dropFirst())
+            return .freehand(points: merged)
+        }
+        // a-start connects to b-start  →  reversed(aPts) + bPts
+        if hypot(aStart.x - bStart.x, aStart.y - bStart.y) <= tolerance {
+            var merged = Array(aPts.reversed().dropLast())
+            merged.append(contentsOf: bPts)
+            return .freehand(points: merged)
+        }
+        // a-start connects to b-end  →  reversed(aPts) + reversed(bPts)
+        if hypot(aStart.x - bEnd.x, aStart.y - bEnd.y) <= tolerance {
+            var merged = Array(aPts.reversed().dropLast())
+            merged.append(contentsOf: bPts.reversed())
+            return .freehand(points: merged)
+        }
+
+        return nil
+    }
+
+    /// Close an open polyline (freehand with 2+ points) by appending a
+    /// segment from the last point back to the first.  The original points
+    /// are preserved; the closing segment is NOT added as a separate shape —
+    /// instead the polyline is returned as-is (the caller may inspect
+    /// `first == last` to know it is closed).  If the polyline is already
+    /// closed (first point ≈ last point) the input is returned unchanged.
+    public static func closePolyline(_ shape: VectorShape) -> [VectorShape] {
+        guard case .freehand(let points) = shape, points.count >= 2 else {
+            return [shape]
+        }
+
+        let first = points[0]
+        let last = points[points.count - 1]
+
+        if hypot(first.x - last.x, first.y - last.y) > 1e-6 {
+            // Not yet closed — append the first point to the end.
+            var closed = points
+            closed.append(first)
+            return [.freehand(points: closed)]
+        }
+        return [shape]
+    }
+
     public static func joinLines(_ shapes: [VectorShape]) -> ([VectorShape], [VectorShape]) {
         guard !shapes.isEmpty else { return ([], []) }
-        
+
         struct LineInfo {
             let shape: VectorShape
             let start: VectorPoint
             let end: VectorPoint
             let sourceIndex: Int
         }
-        
+
         var lines: [LineInfo] = []
         for (index, shape) in shapes.enumerated() {
             if case .line(let s, let e) = shape {
                 lines.append(LineInfo(shape: shape, start: s, end: e, sourceIndex: index))
             }
         }
-        
+
         var result: [VectorShape] = []
         var remaining: [VectorShape] = []
         var usedSource: Set<Int> = []   // indices into the ORIGINAL shapes array
-        
+
         for i in lines.indices where !usedSource.contains(lines[i].sourceIndex) {
             var chainStart = lines[i].start
             var chainEnd = lines[i].end
             usedSource.insert(lines[i].sourceIndex)
-            
+
             var changed = true
             while changed {
                 changed = false
@@ -73,7 +148,7 @@ public final class ShapeJoinEngine {
                     let distToEndA = hypot(chainStart.x - lines[j].end.x, chainStart.y - lines[j].end.y)
                     let distToStartB = hypot(chainEnd.x - lines[j].start.x, chainEnd.y - lines[j].start.y)
                     let distToEndB = hypot(chainEnd.x - lines[j].end.x, chainEnd.y - lines[j].end.y)
-                    
+
                     // When a candidate's endpoint coincides with the chain head,
                     // the chain must extend AWAY from that coincident point —
                     // i.e. the new head is the candidate's OTHER endpoint.
@@ -98,15 +173,15 @@ public final class ShapeJoinEngine {
                     }
                 }
             }
-            
+
             result.append(.line(start: chainStart, end: chainEnd))
         }
-        
+
         // Non-line shapes and unattached lines pass through untouched.
         for (index, shape) in shapes.enumerated() where !usedSource.contains(index) {
             remaining.append(shape)
         }
-        
+
         return (result, remaining)
     }
     

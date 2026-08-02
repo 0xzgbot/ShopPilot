@@ -1,0 +1,202 @@
+import XCTest
+@testable import ShopPilot
+@testable import ShopPilotCore
+@testable import ShopPilotGeometry
+
+/// SPK-1100a — AppSession is the single source of truth for document state:
+/// it owns the job (with layers), the vectors list, the toolpaths list,
+/// selection, the dirty flag, and the undo stack hooks.
+/// Stages read from this session object instead of parallel ad-hoc state.
+@MainActor
+final class AppSessionTests: XCTestCase {
+
+    // MARK: - Document ownership
+
+    func testCreateSessionOwnsDocumentState() {
+        let session = AppSession()
+
+        XCTAssertEqual(session.sheetCount, 1)
+        XCTAssertEqual(session.job.name, "Untitled Job")
+
+        XCTAssertTrue(session.layers.isEmpty)
+        XCTAssertEqual(session.layerCount, 0)
+
+        XCTAssertTrue(session.shapes.isEmpty)
+        XCTAssertTrue(session.vectors.isEmpty)
+
+        XCTAssertTrue(session.toolpaths.isEmpty)
+        XCTAssertEqual(session.toolpathTree.root.name, "Toolpaths")
+
+        XCTAssertTrue(session.selectedVectorIDs.isEmpty)
+        XCTAssertFalse(session.hasSelection)
+
+        XCTAssertFalse(session.isDirty)
+
+        XCTAssertFalse(session.undoManager.canUndo)
+        XCTAssertFalse(session.undo())
+        XCTAssertFalse(session.redo())
+    }
+
+    // MARK: - Dirty tracking
+
+    func testMutatingLayerFlipsDirty() {
+        let session = AppSession()
+        XCTAssertFalse(session.isDirty)
+
+        let layer = session.addLayer(Layer(name: "Vectors"))
+        XCTAssertNotNil(layer)
+        XCTAssertTrue(session.isDirty, "Adding a layer must mark the document dirty")
+        XCTAssertEqual(session.layerCount, 1)
+
+        session.renameLayer(id: layer!.id, to: "Renamed")
+        XCTAssertTrue(session.isDirty)
+        XCTAssertEqual(session.layers.first?.name, "Renamed")
+
+        session.markClean()
+        XCTAssertFalse(session.isDirty)
+        XCTAssertTrue(session.removeLayer(id: layer!.id))
+        XCTAssertTrue(session.isDirty, "Removing a layer must mark the document dirty")
+        XCTAssertEqual(session.layerCount, 0)
+    }
+
+    func testAddingShapesMutatesLayerAndFlipsDirty() {
+        let session = AppSession()
+        session.addDemoRectangle()
+
+        XCTAssertTrue(session.isDirty)
+        XCTAssertEqual(session.shapes.count, 1)
+        XCTAssertEqual(session.vectors.count, 1)
+
+        XCTAssertEqual(session.layerCount, 1)
+        XCTAssertEqual(session.layers.first?.vectors.count, 1)
+    }
+
+    func testMoveShapeSyncsVectorsAndFlipsDirty() {
+        let session = AppSession()
+        session.addDemoRectangle()
+        session.markClean()
+        XCTAssertFalse(session.isDirty)
+
+        session.moveShape(at: 0, by: 10, dy: 5)
+        XCTAssertTrue(session.isDirty)
+        XCTAssertEqual(session.shapes.count, 1)
+        XCTAssertEqual(session.vectors.count, 1)
+    }
+
+    // MARK: - Toolpaths list
+
+    func testGenerateToolpathRecordsOperationInTree() {
+        let session = AppSession()
+        session.addDemoRectangle()
+        session.generateProfileToolpath()
+
+        XCTAssertEqual(session.toolpaths.count, 1, "Session must own a toolpaths list with the generated operation")
+        XCTAssertEqual(session.toolpathTree.allNodes.count, 2)
+        XCTAssertFalse(session.gcodeLines.isEmpty)
+        XCTAssertTrue(session.isDirty)
+    }
+
+    // MARK: - Selection
+
+    func testSelectionIsSessionOwned() {
+        let session = AppSession()
+        let path = VectorPath(
+            name: "Test",
+            points: [VectorPoint(x: 0, y: 0), VectorPoint(x: 10, y: 0)]
+        )
+
+        session.selectVector(path.id)
+        XCTAssertTrue(session.hasSelection)
+        XCTAssertTrue(session.selectedVectorIDs.contains(path.id))
+
+        session.toggleVectorSelection(path.id)
+        XCTAssertFalse(session.hasSelection)
+
+        session.selectVector(path.id)
+        session.clearSelection()
+        XCTAssertFalse(session.hasSelection)
+
+        session.selectVector(path.id)
+        session.deselectVector(path.id)
+        XCTAssertFalse(session.hasSelection)
+    }
+
+    // MARK: - Undo hooks
+
+    func testUndoRestoresPriorDocumentState() {
+        let session = AppSession()
+        session.addDemoRectangle()
+        XCTAssertEqual(session.shapes.count, 1)
+        XCTAssertTrue(session.isDirty)
+
+        XCTAssertTrue(session.undo())
+        XCTAssertEqual(session.shapes.count, 0)
+        XCTAssertEqual(session.vectors.count, 0)
+        XCTAssertTrue(session.isDirty, "Undoing a mutation leaves the document dirty")
+
+        XCTAssertTrue(session.redo())
+        XCTAssertEqual(session.shapes.count, 1)
+        XCTAssertEqual(session.vectors.count, 1)
+    }
+
+    func testUndoRestoresLayerMutation() {
+        let session = AppSession()
+        let layer = session.addLayer(Layer(name: "Vectors"))!
+        XCTAssertEqual(session.layerCount, 1)
+
+        session.renameLayer(id: layer.id, to: "Renamed")
+        XCTAssertEqual(session.layers.first?.name, "Renamed")
+
+        XCTAssertTrue(session.undo())
+        XCTAssertEqual(session.layers.first?.name, "Vectors", "Undo must revert the rename")
+
+        XCTAssertTrue(session.undo())
+        XCTAssertEqual(session.layerCount, 0, "Second undo must revert the layer add")
+    }
+
+    // MARK: - Job lifecycle
+
+    func testReplaceJobStartsClean() {
+        let session = AppSession()
+        session.addDemoRectangle()
+        XCTAssertTrue(session.isDirty)
+
+        var newJob = Job(name: "Fresh")
+        _ = newJob.ensureSingleSheet()
+        session.replaceJob(newJob)
+
+        XCTAssertFalse(session.isDirty, "A fresh document starts clean")
+        XCTAssertTrue(session.shapes.isEmpty)
+        XCTAssertTrue(session.gcodeLines.isEmpty)
+        XCTAssertEqual(session.job.name, "Fresh")
+        XCTAssertFalse(session.undoManager.canUndo, "Fresh document has no undo history")
+    }
+
+    // MARK: - Package round-trip via session
+
+    func testSaveAndOpenPackageRoundTripsSessionState() throws {
+        let session = AppSession()
+        session.addDemoRectangle()
+        session.docVars.addVariable(key: "width", value: "600", category: "Stock")
+        session.job.documentVariables = session.docVars.variables
+        session.generateProfileToolpath()
+
+        let tmp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("spk1100-\(UUID().uuidString).shoppilot")
+
+        try session.savePackage(to: tmp)
+        XCTAssertFalse(session.isDirty)
+
+        let reopened = AppSession()
+        try reopened.openPackage(from: tmp)
+
+        XCTAssertEqual(reopened.job.name, session.job.name)
+        XCTAssertEqual(reopened.vectors.count, session.vectors.count)
+        XCTAssertEqual(reopened.toolpaths.count, session.toolpaths.count)
+        XCTAssertEqual(reopened.docVars.variables.count, 1)
+        XCTAssertEqual(reopened.docVars.variables.first?.key, "width")
+        XCTAssertFalse(reopened.isDirty)
+
+        try? FileManager.default.removeItem(at: tmp)
+    }
+}

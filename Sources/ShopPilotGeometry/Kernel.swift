@@ -259,6 +259,28 @@ public enum VectorShape: Codable, Equatable {
         }
     }
     
+    /// Move the vertex at the given index to a new position.
+    /// Returns a new shape; only `.freehand` (polyline) and `.line` are affected.
+    /// For `.freehand`, `index` must be in `0..<points.count`.
+    /// For `.line`, index 0 moves the start point, index 1 moves the end point.
+    /// For all other shape cases, returns `self` unchanged.
+    public func moveVertex(at index: Int, to point: VectorPoint) -> VectorShape {
+        switch self {
+        case .line(let s, let e):
+            switch index {
+            case 0: return .line(start: point, end: e)
+            case 1: return .line(start: s, end: point)
+            default: return self
+            }
+        case .freehand(var points):
+            guard index >= 0, index < points.count else { return self }
+            points[index] = point
+            return .freehand(points: points)
+        default:
+            return self
+        }
+    }
+    
     // MARK: - Helpers
     
     public var points: [VectorPoint] {

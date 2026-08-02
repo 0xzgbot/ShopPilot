@@ -81,6 +81,7 @@ public struct ProfileToolpathResult: Codable, Sendable {
     public let gcodeLines: [String]
     public let estimatedTimeSeconds: Double
     public let passCount: Int
+    public let path: [String]
     
     /// Whether tabs were added to the toolpath.
     public var hasTabs: Bool { !params.tabWidths.isEmpty }
@@ -192,6 +193,7 @@ public struct ProfileToolpathEngine {
             gcodeLines: allGcodeLines,
             estimatedTimeSeconds: cuttingTime,
             passCount: maxPassCount,
+            path: allGcodeLines,
             boundsMinX: nil,
             boundsMinY: nil,
             boundsMaxX: nil,

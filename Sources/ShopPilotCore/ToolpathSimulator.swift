@@ -23,7 +23,7 @@ public struct Heightmap {
     /// Minimum Y coordinate of the heightmap area.
     public let minY: Double
     
-    init(width: Int, height: Int, cellSizeMm: Double, minX: Double, minY: Double, initialHeight: Double = 0.0) {
+    public init(width: Int, height: Int, cellSizeMm: Double, minX: Double, minY: Double, initialHeight: Double = 0.0) {
         self.width = width
         self.height = height
         self.cellSizeMm = cellSizeMm
@@ -114,7 +114,7 @@ public final class ToolpathSimulator {
     
     private let initialHeightmap: Heightmap
     
-    init(initialHeightmap: Heightmap) {
+    public init(initialHeightmap: Heightmap) {
         self.initialHeightmap = initialHeightmap
     }
     
@@ -217,84 +217,91 @@ public final class ToolpathSimulator {
     public func getHeightmap() -> Heightmap {
         initialHeightmap
     }
+
+    /// Coarse height samples for draft preview (Sendable-friendly; no UI).
+    public static func draftHeightSamples(
+        from gcodeLines: [String],
+        cellSizeMm: Double = 2.0,
+        stockMm: Double = 120,
+        sampleStride: Int = 0
+    ) -> (samples: [(x: Double, y: Double, z: Double)], seconds: Double) {
+        let sim = createDefault(cellSizeMm: cellSizeMm, stockWidthMm: stockMm, stockHeightMm: stockMm)
+        let result = sim.simulate(toolpathGcode: gcodeLines)
+        let hm = result.finalHeightmap
+        let step = sampleStride > 0 ? sampleStride : max(1, hm.width / 40)
+        var samples: [(x: Double, y: Double, z: Double)] = []
+        for gy in stride(from: 0, to: hm.height, by: step) {
+            for gx in stride(from: 0, to: hm.width, by: step) {
+                let world = hm.worldPosition(gx, gy)
+                samples.append((world.x, world.y, hm.getHeight(gx, gy)))
+            }
+        }
+        return (samples, result.simulationTimeSeconds)
+    }
 }
 
 // MARK: - Preview Renderer (Wireframe)
 
 /// Renders toolpath wireframes for preview display.
 public struct WireframeRenderer {
-    
+
+    /// Parse a modal XY position from a motion line (supports `G0 X10 Y20` and `G0X10Y20`).
+    public static func parseXY(from line: String, previousX: Double?, previousY: Double?) -> (x: Double, y: Double, isRapid: Bool)? {
+        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        guard trimmed.hasPrefix("G0") || trimmed.hasPrefix("G1") || trimmed.hasPrefix("G00") || trimmed.hasPrefix("G01") else {
+            return nil
+        }
+        // Reject G2/G3 arcs for this thin preview slice.
+        if trimmed.hasPrefix("G2") || trimmed.hasPrefix("G3") || trimmed.hasPrefix("G02") || trimmed.hasPrefix("G03") {
+            return nil
+        }
+        let isRapid = trimmed.hasPrefix("G0") && !trimmed.hasPrefix("G01") && !trimmed.hasPrefix("G1")
+
+        var x = previousX
+        var y = previousY
+        var i = trimmed.startIndex
+        while i < trimmed.endIndex {
+            let ch = trimmed[i]
+            if ch == "X" || ch == "Y" {
+                let axis = ch
+                i = trimmed.index(after: i)
+                let start = i
+                while i < trimmed.endIndex {
+                    let c = trimmed[i]
+                    if c == "-" || c == "+" || c == "." || c.isNumber { i = trimmed.index(after: i) } else { break }
+                }
+                if let val = Double(trimmed[start..<i]) {
+                    if axis == "X" { x = val } else { y = val }
+                }
+                continue
+            }
+            i = trimmed.index(after: i)
+        }
+        guard let xx = x, let yy = y else { return nil }
+        return (xx, yy, isRapid)
+    }
+
     /// Generate wireframe points from G-code lines.
     public static func generateWireframe(from gcodeLines: [String]) -> [(x: Double, y: Double)] {
-        var points: [(x: Double, y: Double)] = []
-        
-        for line in gcodeLines {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            
-            // Skip non-movement lines
-            if !trimmed.hasPrefix("G0 ") && !trimmed.hasPrefix("G1 ") {
-                continue
-            }
-            
-            var xCoord: Double?
-            var yCoord: Double?
-            
-            let components = trimmed.components(separatedBy: " ")
-            
-            for component in components {
-                if component.hasPrefix("X") {
-                    xCoord = Double(component.dropFirst())
-                } else if component.hasPrefix("Y") {
-                    yCoord = Double(component.dropFirst())
-                }
-            }
-            
-            if let x = xCoord, let y = yCoord {
-                points.append((x, y))
-            }
-        }
-        
-        return points
+        generateSegments(from: gcodeLines).flatMap { [$0.start, $0.end] }
     }
-    
-    /// Generate colored segments based on move type (rapid vs cut).
+
+    /// Generate colored segments based on move type (rapid vs cut). Modal XYZ aware.
     public static func generateSegments(from gcodeLines: [String]) -> [(start: (x: Double, y: Double), end: (x: Double, y: Double), isRapid: Bool)] {
         var segments: [(start: (x: Double, y: Double), end: (x: Double, y: Double), isRapid: Bool)] = []
-        var lastPoint: (x: Double, y: Double)?
-        
+        var lastX: Double?
+        var lastY: Double?
+
         for line in gcodeLines {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            
-            // Skip non-movement lines
-            if !trimmed.hasPrefix("G0 ") && !trimmed.hasPrefix("G1 ") {
-                continue
+            guard let parsed = parseXY(from: line, previousX: lastX, previousY: lastY) else { continue }
+            let current = (parsed.x, parsed.y)
+            if let lx = lastX, let ly = lastY {
+                segments.append((start: (lx, ly), end: current, isRapid: parsed.isRapid))
             }
-            
-            var xCoord: Double?
-            var yCoord: Double?
-            
-            let components = trimmed.components(separatedBy: " ")
-            
-            for component in components {
-                if component.hasPrefix("X") {
-                    xCoord = Double(component.dropFirst())
-                } else if component.hasPrefix("Y") {
-                    yCoord = Double(component.dropFirst())
-                }
-            }
-            
-            if let x = xCoord, let y = yCoord {
-                let currentPoint = (x, y)
-                
-                if let last = lastPoint {
-                    let isRapid = trimmed.hasPrefix("G0 ")
-                    segments.append((last, currentPoint, isRapid))
-                }
-                
-                lastPoint = currentPoint
-            }
+            lastX = parsed.x
+            lastY = parsed.y
         }
-        
+
         return segments
     }
 }

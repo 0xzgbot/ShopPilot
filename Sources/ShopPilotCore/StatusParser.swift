@@ -14,13 +14,42 @@ public struct ParsedMachineStatus {
     public var wPosX: Double = 0.0
     public var wPosY: Double = 0.0
     public var wPosZ: Double = 0.0
+    /// Feed rate and spindle speed (from `FS:` field). `nil` when absent.
+    public var fs: (feed: Double, spindle: Double)?
+    /// Planner block buffer remaining (from `Bf:` field). `nil` when absent.
+    public var buffer: Int?
+    /// Pin states (from `Pn:` field). `nil` when absent.
+    public var pins: PinStatus?
+}
+
+// MARK: - PinStatus
+
+/// GRBL pin status from the `Pn:` field (GRBL 1.0c+).
+///
+/// Format: `Pn:xxx|x|xxx` where:
+/// - First group: homing/limit switches (Z, Y, X) as 3-digit binary string
+/// - Second: probe pin state (single digit, 0 or 1)
+/// - Third: control pins (cycle start, feed hold, reset, safety door) as 4-digit binary
+public struct PinStatus: Sendable {
+    /// Limit switch states: [zTripped, yTripped, xTripped]. 0 = not tripped, 1 = tripped.
+    public var limits: [Int]
+    /// Probe pin state: 0 = not tripped, 1 = tripped.
+    public var probe: Int
+    /// Control pin states: [cycleStart, feedHold, reset, safetyDoor]. 0 or 1.
+    public var controls: [Int]
+
+    public init(limits: [Int], probe: Int, controls: [Int]) {
+        self.limits = limits
+        self.probe = probe
+        self.controls = controls
+    }
 }
 
 // MARK: - StatusParser
 
 /// Parses GRBL v1.x status reports from raw data.
 ///
-/// Expected format: `<State|MPos:x,y,z|WPos:x,y,z|FS:r,s>`
+/// Expected format: `<State|MPos:x,y,z|WPos:x,y,z|FS:r,s|Bf:n|Pn:xxx|x|xxx>`
 public enum StatusParser {
 
     /// Parse a `Data` blob into structured coordinates and state.
@@ -47,6 +76,12 @@ public enum StatusParser {
                 status.wPosX = coords.x
                 status.wPosY = coords.y
                 status.wPosZ = coords.z
+            } else if let fs = parseFS(component) {
+                status.fs = fs
+            } else if let buf = parseBuffer(component) {
+                status.buffer = buf
+            } else if let pins = parsePins(component) {
+                status.pins = pins
             }
         }
 
@@ -83,5 +118,52 @@ public enum StatusParser {
         }
 
         return (x, y, z)
+    }
+
+    /// Parse `FS:r,s` feed rate and spindle speed.
+    private static func parseFS(_ component: String) -> (feed: Double, spindle: Double)? {
+        guard component.hasPrefix("FS:") else { return nil }
+        let values = String(component.dropFirst(3))
+        let parts = values.components(separatedBy: ",")
+
+        func toDouble(_ s: String) -> Double? {
+            Double(s.trimmingCharacters(in: .whitespaces))
+        }
+
+        guard let feed = toDouble(parts[0]) else { return nil }
+        let spindle = parts.count > 1 ? toDouble(parts[1]) ?? 0.0 : 0.0
+        return (feed, spindle)
+    }
+
+    /// Parse `Bf:n` planner buffer remaining.
+    private static func parseBuffer(_ component: String) -> Int? {
+        guard component.hasPrefix("Bf:") else { return nil }
+        let value = String(component.dropFirst(3))
+        return Int(value.trimmingCharacters(in: .whitespaces))
+    }
+
+    /// Parse `Pn:xxx|x|xxx` pin states.
+    private static func parsePins(_ component: String) -> PinStatus? {
+        guard component.hasPrefix("Pn:") else { return nil }
+        let values = String(component.dropFirst(3))
+        let parts = values.components(separatedBy: "|")
+
+        guard parts.count >= 3 else { return nil }
+
+        func parseBinaryGroup(_ s: String) -> [Int] {
+            let trimmed = s.trimmingCharacters(in: .whitespaces)
+            return trimmed.map { ch in
+                if ch == "0" { return 0 }
+                if ch == "1" { return 1 }
+                return 0
+            }
+        }
+
+        let limits = parseBinaryGroup(parts[0])
+        let probeStr = parts[1].trimmingCharacters(in: .whitespaces)
+        let probe: Int = probeStr == "1" ? 1 : 0
+        let controls = parseBinaryGroup(parts[2])
+
+        return PinStatus(limits: limits, probe: probe, controls: controls)
     }
 }

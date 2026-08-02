@@ -4,41 +4,40 @@ import Foundation
 
 /// Saves a Job to a `.shoppilot` package directory bundle.
 public struct DocumentSaver {
-    
+
     /// The file manager used for I/O operations.
     private let fileManager: FileManager
-    
+
     public init(fileManager: FileManager = .default) {
         self.fileManager = fileManager
     }
-    
+
     // MARK: - Save
-    
-    /// Save a Job to the specified URL as a `.shoppilot` package.
-    /// The package is a directory bundle containing manifest.json and sheets/ subdirectory.
-    public func save(_ job: Job, to url: URL) throws {
+
+    /// Save a full package payload (job + toolpaths) to the specified URL.
+    public func save(_ payload: ShopPilotPackagePayload, to url: URL) throws {
         let packageURL = ensurePackageDirectory(at: url)
-        
-        // Write manifest
-        try writeManifest(job, to: packageURL)
-        
-        // Write each sheet as a separate JSON file
+
+        try writeManifest(payload.job, to: packageURL)
+        try writeToolpaths(payload.toolpaths, to: packageURL)
+
         let sheetsDir = packageURL.appendingPathComponent("sheets")
-        for sheet in job.sheets {
+        for sheet in payload.job.sheets {
             let sheetData = try JSONEncoder().encode(sheet)
             let sheetFile = sheetsDir.appendingPathComponent("\(sheet.id.uuidString).json")
             try sheetData.write(to: sheetFile, options: .atomic)
         }
-        
-        // Update the job's updatedAt timestamp
-        var mutableJob = job
-        mutableJob.updatedAt = .now
     }
-    
+
+    /// Save a Job to the specified URL as a `.shoppilot` package (no toolpaths).
+    public func save(_ job: Job, to url: URL) throws {
+        try save(ShopPilotPackagePayload(job: job), to: url)
+    }
+
     /// Ensure a `.shoppilot` package directory exists at the given URL.
     private func ensurePackageDirectory(at url: URL) -> URL {
         let packageURL = url.pathExtension == "shoppilot" ? url : url.appendingPathExtension("shoppilot")
-        
+
         if !fileManager.fileExists(atPath: packageURL.path) {
             try? fileManager.createDirectory(
                 at: packageURL,
@@ -46,8 +45,7 @@ public struct DocumentSaver {
                 attributes: nil
             )
         }
-        
-        // Create sheets subdirectory
+
         let sheetsDir = packageURL.appendingPathComponent("sheets")
         if !fileManager.fileExists(atPath: sheetsDir.path) {
             try? fileManager.createDirectory(
@@ -56,24 +54,38 @@ public struct DocumentSaver {
                 attributes: nil
             )
         }
-        
+
         return packageURL
     }
-    
-    /// Write the manifest.json file for a Job.
+
+    /// Write the manifest.json file for a Job (includes document variables).
     private func writeManifest(_ job: Job, to packageURL: URL) throws {
-        let manifest = [
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let varsData = try encoder.encode(job.documentVariables)
+        let varsJSON = try JSONSerialization.jsonObject(with: varsData)
+
+        let manifest: [String: Any] = [
             "id": job.id.uuidString,
             "name": job.name,
             "createdAt": job.createdAt.iso8601String(),
-            "updatedAt": job.updatedAt.iso8601String(),
-            "version": "0.1",
-            "sheetCount": job.sheets.count
-        ] as [String: Any]
-        
+            "updatedAt": Date.now.iso8601String(),
+            "version": "0.2",
+            "sheetCount": job.sheets.count,
+            "documentVariables": varsJSON,
+        ]
+
         let manifestData = try JSONSerialization.data(withJSONObject: manifest)
         let manifestURL = packageURL.appendingPathComponent("manifest.json")
         try manifestData.write(to: manifestURL, options: .atomic)
+    }
+
+    private func writeToolpaths(_ toolpaths: [PersistedToolpath], to packageURL: URL) throws {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(toolpaths)
+        let toolpathsURL = packageURL.appendingPathComponent("toolpaths.json")
+        try data.write(to: toolpathsURL, options: .atomic)
     }
 }
 

@@ -29,6 +29,10 @@ public protocol MachineTransport: AnyObject, Sendable {
 
     /// Write raw data to the machine/controller.
     func write(_ data: Data) async throws
+
+    /// Read available data from the transport (non-blocking).
+    /// Returns an empty `Data` when no data is available.
+    func read() async throws -> Data
 }
 
 // MARK: - SerialConfig
@@ -153,6 +157,13 @@ public final class SimulatorTransport: MachineTransport {
 
         let response = try await actor.handleCommand(text)
         fanOut.yield(.dataReceived(Data(response.utf8)))
+        try await actor.pushToReadBuffer(Data(response.utf8))
+    }
+
+    // MARK: - Read
+
+    public func read() async throws -> Data {
+        try await actor.drainReadBuffer()
     }
 }
 
@@ -162,20 +173,32 @@ public final class SimulatorTransport: MachineTransport {
 private actor TransportActor {
     private var isConnected = false
     private var mPos: (x: Double, y: Double, z: Double) = (0.0, 0.0, 0.0)
+    private var readBuffer = Data()
 
     func open() throws {
         guard !isConnected else { return }
         isConnected = true
-        // Simulate connection delay — caller handles Task.sleep.
     }
 
     func close() async {
         guard isConnected else { return }
         isConnected = false
         mPos = (0.0, 0.0, 0.0)
+        readBuffer.removeAll()
     }
 
-    func handleCommand(_ text: String) throws -> String {
+    func pushToReadBuffer(_ data: Data) {
+        readBuffer.append(data)
+    }
+
+    func drainReadBuffer() async throws -> Data {
+        guard isConnected else { throw MachineTransportError.disconnected }
+        let data = readBuffer
+        readBuffer.removeAll()
+        return data
+    }
+
+    func handleCommand(_ text: String) async throws -> String {
         guard isConnected else {
             throw MachineTransportError.disconnected
         }

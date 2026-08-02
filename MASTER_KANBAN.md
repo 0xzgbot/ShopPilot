@@ -162,10 +162,11 @@ A (parallel from day 0)
 
 **Goal:** Product-complete vertical slices. Prefer these over scattered legacy cards when both are open.
 
-- [ ] **SPK-1100** **PLAT** Document session spine — AppSession owns job/layers/vectors/toolpaths/undo/dirty; stages bind to it // P0
+- [x] **SPK-1100** **PLAT** Document session spine — AppSession owns job/layers/vectors/toolpaths/undo/dirty; stages bind to it // P0
   - AC: Save/open round-trips vectors+toolpaths+vars; browser/inspector show live data
   - deps: SPK-0100, SPK-0101
   - track: 1
+  - worklog: 2026-08-02 — Cursor finished. AppSession SoT (toolpathTree, dirty/undo, savePackage/openPackage). `.shoppilot` package writes sheets + toolpaths.json + documentVariables. ContentView browser + InspectorShell bind to session; canvas uses moveShape. Verify: `swift run ShopPilotVerify1100` PASS (CLT — no Xcode.app/XCTest). App product builds. Hermes fully stopped during closeout.
 - [ ] **SPK-1101** **GEO** Design editor product — canvas create/select/move/node-edit + layers + measure + ops wired // P0
   - AC: User can build closed design in Design stage and save
   - deps: SPK-1100, SPK-0200
@@ -178,6 +179,12 @@ A (parallel from day 0)
   - AC: Preview shows current toolpaths; UI stays responsive
   - deps: SPK-1102
   - track: 3
+- [x] **SPK-1103a** **TP** Preview wireframe + draft heightfield from session G-code // P0 // parallel-ok
+  - AC: Preview stage shows session vectors + rapid/cut wireframe; Draft sim runs off main path; `swift run ShopPilotVerify1103a` PASS
+  - deps: SPK-1100
+  - track: 3
+  - note: Does **not** close SPK-1103 (full material sim + Cut-tree deps remain)
+  - worklog: 2026-08-02 — Cursor. WireframeRenderer modal XY; ToolpathPreviewView; draftHeightSamples; Verify1103a.
 - [ ] **SPK-1104** **MACH** Machine document handoff — session G-code → sim/serial stream with preflight + Hold/Reset // P0
   - AC: Same job streams on simulator; serial factory real; no auto-run
   - deps: SPK-1100, SPK-0401, SPK-0402
@@ -966,4 +973,14 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 - Reopened false `[x]` across B–G where product AC unmet; H–K remain backlog until SPK-0623.
 - Human blockers marked `[!]`: SPK-0010, 0419, 0614, 0615, 0621, 1009.
 - Added P0 finish-track cards SPK-1100–1106.
+
+### 2026-08-02 — SPK-1100 document spine (Cursor)
+- Claimed/finished **SPK-1100**: AppSession owns job/layers/vectors/toolpaths/selection/dirty/undo; `.shoppilot` save/open round-trips vectors+toolpaths+vars; browser+inspector live-bound.
+- Verify: `swift run ShopPilotVerify1100` PASS; `swift build --product ShopPilot` PASS. XCTest unavailable (CLT only, no Xcode.app).
+- Stopped leftover Hermes gateway/workers that were still thrashing Swift compiles after user shutdown attempt.
+
+### 2026-08-02 — SPK-1103a preview micro (Cursor)
+- Claimed/finished **SPK-1103a** (not full SPK-1103): session-bound Preview stage with vector + rapid/cut wireframe overlay; optional Draft sim via `ToolpathSimulator.draftHeightSamples` on background Task; Fit/pan/zoom.
+- Engine: `WireframeRenderer` modal XY (`G0X`/`G1 Y`); `PreviewMode` wired in UI.
+- Verify: `swift run ShopPilotVerify1103a` PASS. Full SPK-1103 remains open (deps SPK-1102 + richer material sim).
 

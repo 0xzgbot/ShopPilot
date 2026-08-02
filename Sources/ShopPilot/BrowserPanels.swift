@@ -1,4 +1,6 @@
 import SwiftUI
+import ShopPilotCore
+import ShopPilotGeometry
 
 // MARK: - Browser Divider
 
@@ -15,23 +17,29 @@ struct BrowserDivider: View {
 
 // MARK: - Left Panel (Document Tree)
 
-/// Left browser panel showing document structure tree.
+/// Left browser panel showing document structure tree — wired to AppSession.
 struct LeftPanelView: View {
-    let jobName: String
-    let sheetCount: Int
-    let layerCount: Int
-    
-    @State private var selectedRow: String? = nil
+    @ObservedObject var session: AppSession
+    @State private var selectedItemID: String? = nil
     
     var body: some View {
         VStack(spacing: 0) {
             // Header
-            Text("DOCUMENT")
-                .font(.caption2)
-                .fontWeight(.semibold)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
+            HStack {
+                Text("DOCUMENT")
+                    .font(.caption2)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                // Dirty indicator
+                if session.isDirty {
+                    Image(systemName: "circle.fill")
+                        .font(.system(size: 6))
+                        .foregroundStyle(.orange)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
             
             Divider()
             
@@ -40,54 +48,45 @@ struct LeftPanelView: View {
                     // Job root
                     treeItem(
                         id: "job",
-                        title: jobName.isEmpty ? "Untitled" : jobName,
+                        title: session.job.name.isEmpty ? "Untitled" : session.job.name,
                         icon: "folder.fill",
                         isExpanded: true,
-                        selectedRow: $selectedRow
+                        selectedItemID: $selectedItemID
                     )
                     
-                    // Sheets group
-                    if sheetCount > 0 {
+                    // Sheets
+                    ForEach(session.job.sheets, id: \.id) { sheet in
                         treeItem(
-                            id: "sheets",
-                            title: "\(sheetCount) Sheet\(sheetCount > 1 ? "s" : "")",
+                            id: "sheet_\(sheet.id.uuidString)",
+                            title: sheet.name,
                             icon: "doc.fill",
                             isExpanded: true,
-                            selectedRow: $selectedRow
+                            selectedItemID: $selectedItemID
                         )
                         
-                        // Sheet children (stub — real data from Job model)
-                        ForEach(0..<min(sheetCount, 5), id: \.self) { idx in
+                        // Layers inside each sheet
+                        ForEach(sheet.layers, id: \.id) { layer in
                             treeItem(
-                                id: "sheet_\(idx)",
-                                title: "Sheet \(idx + 1)",
-                                icon: "doc",
+                                id: "layer_\(layer.id.uuidString)",
+                                title: layer.name + (layer.isVisible ? "" : " (hidden)"),
+                                icon: layer.isLocked ? "lock.fill" : "layers",
                                 isExpanded: false,
-                                selectedRow: $selectedRow,
+                                selectedItemID: $selectedItemID,
                                 indentLevel: 1
                             )
                         }
                     }
                     
-                    // Layers group
-                    if layerCount > 0 {
-                        treeItem(
-                            id: "layers",
-                            title: "\(layerCount) Layer\(layerCount > 1 ? "s" : "")",
-                            icon: "layers.fill",
-                            isExpanded: true,
-                            selectedRow: $selectedRow
-                        )
-                        
-                        // Layer children (stub — real data from Sheet model)
-                        ForEach(0..<min(layerCount, 5), id: \.self) { idx in
+                    // Toolpaths section
+                    if !session.toolpaths.isEmpty {
+                        ForEach(session.toolpaths, id: \.id) { tp in
                             treeItem(
-                                id: "layer_\(idx)",
-                                title: "Layer \(idx + 1)",
-                                icon: "layers",
+                                id: "tp_\(tp.id.uuidString)",
+                                title: tp.name + (tp.isDirty ? " ⚠" : ""),
+                                icon: "scissors",
                                 isExpanded: false,
-                                selectedRow: $selectedRow,
-                                indentLevel: 1
+                                selectedItemID: $selectedItemID,
+                                indentLevel: 0
                             )
                         }
                     }
@@ -101,7 +100,7 @@ struct LeftPanelView: View {
         title: String,
         icon: String,
         isExpanded: Bool,
-        selectedRow: Binding<String?>,
+        selectedItemID: Binding<String?>,
         indentLevel: Int = 0
     ) -> some View {
         HStack(spacing: 4) {
@@ -118,9 +117,9 @@ struct LeftPanelView: View {
         }
         .padding(.horizontal, CGFloat(12 + indentLevel * 16))
         .padding(.vertical, 4)
-        .background(selectedRow.wrappedValue == id ? Color.accentColor.opacity(0.15) : Color.clear)
+        .background(selectedItemID.wrappedValue == id ? Color.accentColor.opacity(0.15) : Color.clear)
         .onTapGesture {
-            selectedRow.wrappedValue = selectedRow.wrappedValue == id ? nil : id
+            selectedItemID.wrappedValue = selectedItemID.wrappedValue == id ? nil : id
         }
     }
 }
@@ -231,17 +230,8 @@ private struct PropertyRow: View {
 #if canImport(SwiftUI) && DEBUG
 struct BrowserPanels_Previews: PreviewProvider {
     static var previews: some View {
-        HSplitView {
-            LeftPanelView(jobName: "My Project", sheetCount: 2, layerCount: 4)
-                .frame(width: 240)
-            
-            Text("Canvas Area")
-                .font(.title2)
-                .foregroundStyle(.secondary)
-            
-            RightPanelView(selectedItemType: .job(name: "My Project", sheetCount: 2, layerCount: 4))
-                .frame(width: 280)
-        }
+        LeftPanelView(session: AppSession())
+            .frame(width: 240)
     }
 }
 #endif

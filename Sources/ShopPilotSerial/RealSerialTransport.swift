@@ -164,6 +164,19 @@ public final class RealSerialTransport: MachineTransport, @unchecked Sendable {
         }
     }
     
+    public func read() async throws -> Data {
+        guard isConnected else {
+            throw RealSerialTransportError.notConnected
+        }
+        
+        return try serialQueue.sync {
+            guard let handle = fileHandle else {
+                return Data()
+            }
+            return handle.availableData
+        }
+    }
+    
     // MARK: - Serial Configuration
     
     private func configureSerial(baudRate: Int) throws {

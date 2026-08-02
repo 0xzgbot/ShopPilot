@@ -172,6 +172,100 @@ public final class VectorOffsetCalculator {
         let points = sampleArcPoints(center: center, radius: newRadius, startAngle: startAngle, endAngle: endAngle)
         return OffsetResult(original: arc, offsetPath: points, distance: distance)
     }
+
+    // MARK: Closed polyline offset
+
+    /// Offsets a closed polyline (arbitrary polygon) by the given signed distance.
+    /// Each edge is shifted parallel to itself, and consecutive offset edges are
+    /// intersected to produce sharp corners. Positive distance = outward; negative = inward.
+    public static func offsetClosedPolyline(points: [VectorPoint], by distance: Double) -> OffsetResult? {
+        guard points.count >= 3 else { return nil }
+
+        var offsetVerts: [VectorPoint] = []
+        for i in 0..<points.count {
+            let curr = points[i]
+            let prev = points[(i - 1 + points.count) % points.count]
+            let next = points[(i + 1) % points.count]
+
+            let dx1 = curr.x - prev.x
+            let dy1 = curr.y - prev.y
+            let len1 = sqrt(dx1 * dx1 + dy1 * dy1)
+
+            let dx2 = next.x - curr.x
+            let dy2 = next.y - curr.y
+            let len2 = sqrt(dx2 * dx2 + dy2 * dy2)
+
+            guard len1 > 1e-9, len2 > 1e-9 else { continue }
+
+            let nx1 = -dy1 / len1
+            let ny1 = dx1 / len1
+            let nx2 = -dy2 / len2
+            let ny2 = dx2 / len2
+
+            let nx = (nx1 + nx2) / 2.0
+            let ny = (ny1 + ny2) / 2.0
+            let nLen = sqrt(nx * nx + ny * ny)
+            guard nLen > 1e-9 else { continue }
+
+            offsetVerts.append(VectorPoint(
+                x: curr.x + nx / nLen * distance,
+                y: curr.y + ny / nLen * distance
+            ))
+        }
+
+        guard !offsetVerts.isEmpty else { return nil }
+
+        var offsetPath: [VectorPoint] = []
+        for i in 0..<offsetVerts.count {
+            let curr = offsetVerts[i]
+            let next = offsetVerts[(i + 1) % offsetVerts.count]
+            let prev = offsetVerts[(i - 1 + offsetVerts.count) % offsetVerts.count]
+
+            let e1dx = curr.x - prev.x
+            let e1dy = curr.y - prev.y
+            let e2dx = next.x - curr.x
+            let e2dy = next.y - curr.y
+
+            if let intersection = lineIntersection(
+                p1: prev, d1: (e1dx, e1dy),
+                p2: curr, d2: (e2dx, e2dy)
+            ) {
+                offsetPath.append(intersection)
+            }
+        }
+
+        if offsetPath.isEmpty {
+            offsetPath = offsetVerts
+        }
+
+        if let first = offsetPath.first, offsetPath.last != first {
+            offsetPath.append(first)
+        }
+
+        return OffsetResult(
+            original: .freehand(points: points),
+            offsetPath: offsetPath,
+            distance: distance
+        )
+    }
+
+    /// Find intersection point of two lines defined by point + direction.
+    /// Returns nil if lines are parallel.
+    private static func lineIntersection(
+        p1: VectorPoint, d1: (Double, Double),
+        p2: VectorPoint, d2: (Double, Double)
+    ) -> VectorPoint? {
+        let (d1x, d1y) = d1
+        let (d2x, d2y) = d2
+        let denom = d1x * d2y - d1y * d2x
+        guard abs(denom) > 1e-12 else { return nil }
+
+        let dx = p2.x - p1.x
+        let dy = p2.y - p1.y
+
+        let t = (dx * d2y - dy * d2x) / denom
+        return VectorPoint(x: p1.x + t * d1x, y: p1.y + t * d1y)
+    }
 }
 
 // MARK: - Profile Offset Generator

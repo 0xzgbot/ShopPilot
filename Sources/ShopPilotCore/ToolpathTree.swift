@@ -100,7 +100,7 @@ public final class ToolpathTreeManager: ObservableObject {
     /// All nodes in the tree (flat list).
     @Published public var allNodes: [ToolpathTreeNode] = []
     
-    init(rootName: String = "Toolpaths") {
+    public init(rootName: String = "Toolpaths") {
         self.root = ToolpathTreeNode(name: rootName, type: .group(rootName))
         self.allNodes = [root]
     }

@@ -17,6 +17,16 @@ let package = Package(
             dependencies: ["ShopPilotCore"],
             path: "Sources/ShopPilotGoldenPath"
         ),
+        .executableTarget(
+            name: "ShopPilotVerify1100",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1100"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1103a",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1103a"
+        ),
         .target(
             name: "ShopPilotCore",
             path: "Sources/ShopPilotCore"
@@ -28,17 +38,18 @@ let package = Package(
         ),
         .target(
             name: "ShopPilotGeometry",
+            dependencies: ["ShopPilotCore"],
             path: "Sources/ShopPilotGeometry"
         ),
         .testTarget(
             name: "ShopPilotTests",
             dependencies: [
-                "ShopPilot",
                 "ShopPilotCore",
                 "ShopPilotSerial",
                 "ShopPilotGeometry"
             ],
-            path: "Tests/ShopPilotTests"
+            path: "Tests/ShopPilotTests",
+            exclude: ["AppSessionTests.swift.pending"]
         )
     ]
 )
