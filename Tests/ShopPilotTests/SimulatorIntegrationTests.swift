@@ -27,17 +27,19 @@ final class SimulatorIntegrationTests: XCTestCase {
     
     func testConnectToSimulator() async throws {
         let config = SerialConfig(isSimulator: true)
-        try await transport.open(config: config)
-        
-        XCTAssertEqual(transport.events.makeAsyncIterator().next(), .connected)
+        var eventIterator = transport.events.makeAsyncIterator()
+
+try await transport.open(config: config)
+        let firstEvent = await eventIterator.next()
+        XCTAssertEqual(firstEvent, .connected)
     }
     
     func testDisconnectFromSimulator() async throws {
         let config = SerialConfig(isSimulator: true)
-        try await transport.open(config: config)
-        
-        // Simulate receiving events
         var eventIterator = transport.events.makeAsyncIterator()
+
+// Simulate receiving events
+        try await transport.open(config: config)
         let connectedEvent = try await eventIterator.next(timeout: 1.0)
         XCTAssertEqual(connectedEvent, .connected)
         
@@ -51,10 +53,10 @@ final class SimulatorIntegrationTests: XCTestCase {
     
     func testStatusQuery() async throws {
         let config = SerialConfig(isSimulator: true)
-        try await transport.open(config: config)
-        
-        // Simulate receiving events
         var eventIterator = transport.events.makeAsyncIterator()
+
+// Simulate receiving events
+        try await transport.open(config: config)
         _ = try await eventIterator.next(timeout: 1.0) // .connected
         
         try await transport.write(Data("?".utf8))
@@ -70,35 +72,43 @@ final class SimulatorIntegrationTests: XCTestCase {
     
     func testMoveCommand() async throws {
         let config = SerialConfig(isSimulator: true)
-        try await transport.open(config: config)
-        
         var eventIterator = transport.events.makeAsyncIterator()
+
+try await transport.open(config: config)
         _ = try await eventIterator.next(timeout: 1.0)
         
+        // GRBL replies "ok" to motion commands; position is only reported by
+        // a status query (?), so query after the move.
         try await transport.write(Data("G0 X10 Y20".utf8))
+        _ = try await eventIterator.next(timeout: 1.0) // ok
+        
+        try await transport.write(Data("?".utf8))
         
         if let event = try await eventIterator.next(timeout: 1.0) {
             if case .dataReceived(let data) = event {
                 let response = String(decoding: data, as: UTF8.self)
                 XCTAssertTrue(response.contains("MPos:10.000"))
-                XCTAssertTrue(response.contains("MPos:,20.000"))
+                XCTAssertTrue(response.contains("10.000,20.000"))
             }
         }
     }
     
     func testSoftHomeCommand() async throws {
         let config = SerialConfig(isSimulator: true)
-        try await transport.open(config: config)
-        
         var eventIterator = transport.events.makeAsyncIterator()
+
+try await transport.open(config: config)
         _ = try await eventIterator.next(timeout: 1.0)
         
         // Move to a position first
         try await transport.write(Data("G0 X50 Y50".utf8))
-        _ = try await eventIterator.next(timeout: 1.0)
+        _ = try await eventIterator.next(timeout: 1.0) // ok
         
-        // Then soft home
+        // Then soft home — GRBL acks with ok, then query status
         try await transport.write(Data("G28".utf8))
+        _ = try await eventIterator.next(timeout: 1.0) // ok
+        
+        try await transport.write(Data("?".utf8))
         
         if let event = try await eventIterator.next(timeout: 1.0) {
             if case .dataReceived(let data) = event {
@@ -125,9 +135,9 @@ final class SimulatorIntegrationTests: XCTestCase {
     
     func testStreamerPauseAndResume() async throws {
         let config = SerialConfig(isSimulator: true)
-        try await transport.open(config: config)
-        
         var eventIterator = transport.events.makeAsyncIterator()
+
+try await transport.open(config: config)
         _ = try await eventIterator.next(timeout: 1.0)
         
         // Start streaming
@@ -187,9 +197,9 @@ final class SimulatorIntegrationTests: XCTestCase {
     func testFullIntegrationConnectStreamComplete() async throws {
         // Step 1: Connect
         let config = SerialConfig(isSimulator: true)
-        try await transport.open(config: config)
-        
         var eventIterator = transport.events.makeAsyncIterator()
+
+try await transport.open(config: config)
         let connectedEvent = try await eventIterator.next(timeout: 1.0)
         XCTAssertEqual(connectedEvent, .connected)
         
@@ -220,17 +230,26 @@ final class SimulatorIntegrationTests: XCTestCase {
         // Step 5: Disconnect
         await transport.close()
         
-        let disconnectedEvent = try await eventIterator.next(timeout: 1.0)
-        XCTAssertEqual(disconnectedEvent, .disconnected)
+        // The test's iterator never drained the ok acks streamed by the
+        // streamer, so the next unconsumed event may be a stale dataReceived.
+        // Drain until the disconnect (or fail if the stream ends first).
+        var sawDisconnect = false
+        while let event = try await eventIterator.next(timeout: 1.0) {
+            if event == .disconnected {
+                sawDisconnect = true
+                break
+            }
+        }
+        XCTAssertTrue(sawDisconnect, "Should receive .disconnected after close")
     }
     
     // MARK: - Error Handling Tests
     
     func testStreamerErrorOnTransportFailure() async throws {
         let config = SerialConfig(isSimulator: true)
-        try await transport.open(config: config)
-        
         var eventIterator = transport.events.makeAsyncIterator()
+
+try await transport.open(config: config)
         _ = try await eventIterator.next(timeout: 1.0)
         
         // Close transport while streamer is trying to stream
@@ -249,9 +268,9 @@ final class SimulatorIntegrationTests: XCTestCase {
     
     func testEmptyGcodeStream() async throws {
         let config = SerialConfig(isSimulator: true)
-        try await transport.open(config: config)
-        
         var eventIterator = transport.events.makeAsyncIterator()
+
+try await transport.open(config: config)
         _ = try await eventIterator.next(timeout: 1.0)
         
         let emptyLines: [String] = []

@@ -73,15 +73,18 @@ final class BooleanOpsTests: XCTestCase {
 
     func testSubtractBStripsTopEdge() {
         // A: 0,0 to 10,10
-        // B: 2,8 to 8,12 — covers full top strip
+        // B: 2,8 to 8,12 — overlaps only the top-middle strip of A (2×6 region)
         let a = VectorShape.rectangle(origin: VectorPoint(x: 0, y: 0), width: 10, height: 10)
         let b = VectorShape.rectangle(origin: VectorPoint(x: 2, y: 8), width: 6, height: 4)
         let result = BooleanOps.subtract(a, b)
         XCTAssertEqual(result.operation, .subtract)
-        XCTAssertEqual(result.polygons.count, 2)
+        // Decomposition: left strip, right strip, bottom strip (B's extension
+        // above A's top edge removes nothing more).
+        XCTAssertEqual(result.polygons.count, 3)
 
+        // B only removes its overlap with A: 6 wide × 2 tall = 12 mm²
         let totalArea = result.polygons.reduce(0.0) { $0 + $1.area }
-        XCTAssertEqual(totalArea, a.area - b.area, accuracy: 1e-6)
+        XCTAssertEqual(totalArea, a.area - 12.0, accuracy: 1e-6)
     }
 
     // MARK: - Partial overlap: 1 rectangle (B covers full left and right strips)

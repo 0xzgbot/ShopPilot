@@ -109,8 +109,7 @@ final class CalibrationE2ETests: XCTestCase {
         
         let vectorPath = VectorPath(points: points, isClosed: true)
         
-        let pine = Material(name: "Pine", type: .wood, density: 500, hardness: .soft,
-                           maxFeedRateMmPerMin: 4000, maxDepthOfCutMm: 3.0, coolant: .none)
+        let pine = Material.pine
         
         let params = ProfileToolpathParams.fromMaterial(pine, toolDiameter: 6.0)
         
@@ -122,9 +121,9 @@ final class CalibrationE2ETests: XCTestCase {
         )
         
         // Verify material-based parameters
-        XCTAssertEqual(params.feedRateMmPerMin, 2800.0) // 4000 * 0.7
-        XCTAssertEqual(params.plungeFeedRateMmPerMin, 1200.0) // 4000 * 0.3
-        XCTAssertEqual(params.maxDepthOfCutMm, 3.0)
+        XCTAssertEqual(params.feedRateMmPerMin, 4200.0) // 6000 * 0.7
+        XCTAssertEqual(params.plungeFeedRateMmPerMin, 1800.0) // 6000 * 0.3
+        XCTAssertEqual(params.maxDepthOfCutMm, 6.0)
         XCTAssertEqual(params.toolDiameterMm, 6.0)
         
         XCTAssertFalse(result.gcodeLines.isEmpty)
@@ -165,35 +164,22 @@ final class CalibrationE2ETests: XCTestCase {
         let gcodeString = toolpathResult.gcodeLines.joined(separator: "\n")
         
         // Simulate the toolpath
-        let simulation = ToolpathSimulator.simulate(
-            gcode: gcodeString,
-            stockWidth: 100,
-            stockHeight: 100,
-            stockDepth: 12.0,
-            toolDiameter: 6.0,
-            resolution: 0.5
-        )
+        let simulator = ToolpathSimulator.createDefault(cellSizeMm: 0.5, stockWidthMm: 100, stockHeightMm: 100)
+        let simulation = simulator.simulate(toolpathGcode: toolpathResult.gcodeLines)
         
         // Verify simulation completed
-        XCTAssertFalse(simulation.materialRemoval.isEmpty)
-        XCTAssertGreaterThan(simulation.materialRemoval.count, 0)
+        XCTAssertGreaterThan(simulation.finalHeightmap.data.count, 0)
         
-        // Verify material was removed (not all zeros)
-        let removalValues = simulation.materialRemoval.flatMap { $0 }
-        XCTAssertTrue(removalValues.contains { $0 > 0 })
+        // Verify material was removed: some cells should be below the stock height (12.0)
+        XCTAssertTrue(simulation.finalHeightmap.data.contains { $0 < 12.0 })
     }
     
     func testSimulateEmptyGcode() {
-        let simulation = ToolpathSimulator.simulate(
-            gcode: "",
-            stockWidth: 100,
-            stockHeight: 100,
-            stockDepth: 12.0,
-            toolDiameter: 6.0,
-            resolution: 0.5
-        )
+        let simulator = ToolpathSimulator.createDefault(cellSizeMm: 0.5, stockWidthMm: 100, stockHeightMm: 100)
+        let simulation = simulator.simulate(toolpathGcode: [])
         
-        XCTAssertTrue(simulation.materialRemoval.isEmpty)
+        // No G-code → no material removed; all cells remain at stock height (12.0)
+        XCTAssertFalse(simulation.finalHeightmap.data.contains { $0 < 12.0 })
     }
     
     // MARK: - Machine Phase: Stream to Simulator
@@ -269,19 +255,11 @@ final class CalibrationE2ETests: XCTestCase {
         XCTAssertTrue(toolpathResult.gcodeLines.contains { $0.contains("G0 Z5.0") })
         
         // Phase 3: Preview — Simulate material removal
-        let gcodeString = toolpathResult.gcodeLines.joined(separator: "\n")
-        let simulation = ToolpathSimulator.simulate(
-            gcode: gcodeString,
-            stockWidth: 100,
-            stockHeight: 100,
-            stockDepth: 12.0,
-            toolDiameter: 6.0,
-            resolution: 0.5
-        )
+        let simulator = ToolpathSimulator.createDefault(cellSizeMm: 0.5, stockWidthMm: 100, stockHeightMm: 100)
+        let simulation = simulator.simulate(toolpathGcode: toolpathResult.gcodeLines)
         
-        XCTAssertFalse(simulation.materialRemoval.isEmpty)
-        let removalValues = simulation.materialRemoval.flatMap { $0 }
-        XCTAssertTrue(removalValues.contains { $0 > 0 })
+        XCTAssertGreaterThan(simulation.finalHeightmap.data.count, 0)
+        XCTAssertTrue(simulation.finalHeightmap.data.contains { $0 < 12.0 })
         
         // Phase 4: Machine — Stream to simulator
         let config = SerialConfig(isSimulator: true)

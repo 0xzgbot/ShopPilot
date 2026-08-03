@@ -2,7 +2,17 @@ import XCTest
 @testable import ShopPilotGeometry
 
 /// Unit tests for the VectorOffsetCalculator — SPK-0203.
+///
+/// NOTE: `offsetShape` returns `[VectorShape]` (the offset geometry committed
+/// to the session) and returns an empty array when the shape collapses.
 final class VectorOffsetTests: XCTestCase {
+
+    // MARK: - Helpers
+
+    private func freehandPoints(_ shapes: [VectorShape]) -> [VectorPoint]? {
+        guard shapes.count == 1, case .freehand(let pts) = shapes[0] else { return nil }
+        return pts
+    }
 
     // MARK: - Line offset
 
@@ -12,12 +22,12 @@ final class VectorOffsetTests: XCTestCase {
             end: VectorPoint(x: 10, y: 0)
         )
         let result = VectorOffsetCalculator.offsetShape(line, by: 5.0)
-        XCTAssertNotNil(result)
-        XCTAssertEqual(result?.distance, 5.0)
-        XCTAssertEqual(result?.offsetPath.count, 2)
+        let pts = freehandPoints(result)
+        XCTAssertNotNil(pts)
+        XCTAssertEqual(pts?.count, 2)
         // Left normal of (10, 0) is (0, 1), so points should be at y=5
-        XCTAssertEqual(result?.offsetPath[0].y, 5.0, accuracy: 1e-6)
-        XCTAssertEqual(result?.offsetPath[1].y, 5.0, accuracy: 1e-6)
+        XCTAssertEqual(pts?[0].y ?? .nan, 5.0, accuracy: 1e-6)
+        XCTAssertEqual(pts?[1].y ?? .nan, 5.0, accuracy: 1e-6)
     }
 
     func testLineOffsetNegative() {
@@ -26,10 +36,10 @@ final class VectorOffsetTests: XCTestCase {
             end: VectorPoint(x: 10, y: 0)
         )
         let result = VectorOffsetCalculator.offsetShape(line, by: -3.0)
-        XCTAssertNotNil(result)
-        XCTAssertEqual(result?.distance, -3.0)
+        let pts = freehandPoints(result)
+        XCTAssertNotNil(pts)
         // Left normal of (10, 0) is (0, 1), so negative distance gives y=-3
-        XCTAssertEqual(result?.offsetPath[0].y, -3.0, accuracy: 1e-6)
+        XCTAssertEqual(pts?[0].y ?? .nan, -3.0, accuracy: 1e-6)
     }
 
     func testLineOffsetVertical() {
@@ -38,9 +48,10 @@ final class VectorOffsetTests: XCTestCase {
             end: VectorPoint(x: 5, y: 10)
         )
         let result = VectorOffsetCalculator.offsetShape(line, by: 2.0)
-        XCTAssertNotNil(result)
+        let pts = freehandPoints(result)
+        XCTAssertNotNil(pts)
         // Left normal of (0, 10) is (-1, 0), so x should decrease by 2
-        XCTAssertEqual(result?.offsetPath[0].x, 3.0, accuracy: 1e-6)
+        XCTAssertEqual(pts?[0].x ?? .nan, 3.0, accuracy: 1e-6)
     }
 
     func testLineOffsetDegenerate() {
@@ -49,9 +60,8 @@ final class VectorOffsetTests: XCTestCase {
             end: VectorPoint(x: 5, y: 5)
         )
         let result = VectorOffsetCalculator.offsetShape(line, by: 3.0)
-        XCTAssertNotNil(result)
-        XCTAssertEqual(result?.offsetPath.count, 1)
-        XCTAssertEqual(result?.offsetPath[0].x, 2.0, accuracy: 1e-6)
+        // Zero-length line collapses — documented contract returns empty array.
+        XCTAssertTrue(result.isEmpty)
     }
 
     // MARK: - Circle offset
@@ -62,12 +72,14 @@ final class VectorOffsetTests: XCTestCase {
             radius: 10.0
         )
         let result = VectorOffsetCalculator.offsetShape(circle, by: 5.0)
-        XCTAssertNotNil(result)
-        XCTAssertEqual(result?.distance, 5.0)
-        XCTAssertEqual(result?.offsetPath.count, 64)
-        // First point should be at (15, 0) since radius expanded to 15
-        XCTAssertEqual(result?.offsetPath[0].x, 15.0, accuracy: 1e-6)
-        XCTAssertEqual(result?.offsetPath[0].y, 0.0, accuracy: 1e-6)
+        XCTAssertEqual(result.count, 1)
+        guard case .circle(let center, let radius) = result[0] else {
+            return XCTFail("expected circle, got \(result[0])")
+        }
+        XCTAssertEqual(center.x, 0.0, accuracy: 1e-6)
+        XCTAssertEqual(center.y, 0.0, accuracy: 1e-6)
+        // Radius expanded to 15
+        XCTAssertEqual(radius, 15.0, accuracy: 1e-6)
     }
 
     func testCircleOffsetContract() {
@@ -76,10 +88,12 @@ final class VectorOffsetTests: XCTestCase {
             radius: 10.0
         )
         let result = VectorOffsetCalculator.offsetShape(circle, by: -3.0)
-        XCTAssertNotNil(result)
-        XCTAssertEqual(result?.offsetPath.count, 64)
+        XCTAssertEqual(result.count, 1)
+        guard case .circle(_, let radius) = result[0] else {
+            return XCTFail("expected circle, got \(result[0])")
+        }
         // Radius contracted to 7
-        XCTAssertEqual(result?.offsetPath[0].x, 7.0, accuracy: 1e-6)
+        XCTAssertEqual(radius, 7.0, accuracy: 1e-6)
     }
 
     func testCircleOffsetCollapse() {
@@ -88,9 +102,8 @@ final class VectorOffsetTests: XCTestCase {
             radius: 2.0
         )
         let result = VectorOffsetCalculator.offsetShape(circle, by: -5.0)
-        XCTAssertNotNil(result)
-        // Collapsed to a point
-        XCTAssertEqual(result?.offsetPath.count, 1)
+        // Collapses (radius <= 0) → empty array
+        XCTAssertTrue(result.isEmpty)
     }
 
     // MARK: - Rectangle offset
@@ -101,13 +114,15 @@ final class VectorOffsetTests: XCTestCase {
             width: 20, height: 10
         )
         let result = VectorOffsetCalculator.offsetShape(rect, by: 5.0)
-        XCTAssertNotNil(result)
-        XCTAssertEqual(result?.distance, 5.0)
-        // Expanded: minX=-5, minY=-5, maxX=25, maxY=15
-        XCTAssertEqual(result?.offsetPath[0].x, -5.0, accuracy: 1e-6)
-        XCTAssertEqual(result?.offsetPath[0].y, -5.0, accuracy: 1e-6)
-        XCTAssertEqual(result?.offsetPath[2].x, 25.0, accuracy: 1e-6)
-        XCTAssertEqual(result?.offsetPath[2].y, 15.0, accuracy: 1e-6)
+        XCTAssertEqual(result.count, 1)
+        guard case .rectangle(let origin, let w, let h) = result[0] else {
+            return XCTFail("expected rectangle, got \(result[0])")
+        }
+        // Expanded: minX=-5, minY=-5, width=30, height=20
+        XCTAssertEqual(origin.x, -5.0, accuracy: 1e-6)
+        XCTAssertEqual(origin.y, -5.0, accuracy: 1e-6)
+        XCTAssertEqual(w, 30.0, accuracy: 1e-6)
+        XCTAssertEqual(h, 20.0, accuracy: 1e-6)
     }
 
     func testRectangleOffsetContract() {
@@ -116,10 +131,15 @@ final class VectorOffsetTests: XCTestCase {
             width: 20, height: 10
         )
         let result = VectorOffsetCalculator.offsetShape(rect, by: -3.0)
-        XCTAssertNotNil(result)
-        // Contracted: minX=3, minY=3, maxX=17, maxY=7
-        XCTAssertEqual(result?.offsetPath[0].x, 3.0, accuracy: 1e-6)
-        XCTAssertEqual(result?.offsetPath[0].y, 3.0, accuracy: 1e-6)
+        XCTAssertEqual(result.count, 1)
+        guard case .rectangle(let origin, let w, let h) = result[0] else {
+            return XCTFail("expected rectangle, got \(result[0])")
+        }
+        // Contracted: minX=3, minY=3, width=14, height=4
+        XCTAssertEqual(origin.x, 3.0, accuracy: 1e-6)
+        XCTAssertEqual(origin.y, 3.0, accuracy: 1e-6)
+        XCTAssertEqual(w, 14.0, accuracy: 1e-6)
+        XCTAssertEqual(h, 4.0, accuracy: 1e-6)
     }
 
     func testRectangleOffsetCollapse() {
@@ -128,9 +148,8 @@ final class VectorOffsetTests: XCTestCase {
             width: 10, height: 5
         )
         let result = VectorOffsetCalculator.offsetShape(rect, by: -100.0)
-        XCTAssertNotNil(result)
         // Collapsed to empty
-        XCTAssertTrue(result?.offsetPath.isEmpty ?? false)
+        XCTAssertTrue(result.isEmpty)
     }
 
     // MARK: - Arc offset
@@ -143,10 +162,10 @@ final class VectorOffsetTests: XCTestCase {
             endAngle: .pi
         )
         let result = VectorOffsetCalculator.offsetShape(arc, by: 3.0)
-        XCTAssertNotNil(result)
-        XCTAssertEqual(result?.distance, 3.0)
-        // Radius expanded to 13
-        XCTAssertEqual(result?.offsetPath[0].x, 13.0, accuracy: 1e-6)
+        let pts = freehandPoints(result)
+        XCTAssertNotNil(pts)
+        // Radius expanded to 13 → first sample at (13, 0)
+        XCTAssertEqual(pts?[0].x ?? .nan, 13.0, accuracy: 1e-6)
     }
 
     func testArcOffsetContract() {
@@ -157,9 +176,10 @@ final class VectorOffsetTests: XCTestCase {
             endAngle: .pi
         )
         let result = VectorOffsetCalculator.offsetShape(arc, by: -5.0)
-        XCTAssertNotNil(result)
-        // Radius contracted to 5
-        XCTAssertEqual(result?.offsetPath[0].x, 5.0, accuracy: 1e-6)
+        let pts = freehandPoints(result)
+        XCTAssertNotNil(pts)
+        // Radius contracted to 5 → first sample at (5, 0)
+        XCTAssertEqual(pts?[0].x ?? .nan, 5.0, accuracy: 1e-6)
     }
 
     // MARK: - Ellipse offset
@@ -172,11 +192,13 @@ final class VectorOffsetTests: XCTestCase {
             rotation: 0
         )
         let result = VectorOffsetCalculator.offsetShape(ellipse, by: 5.0)
-        XCTAssertNotNil(result)
-        XCTAssertEqual(result?.distance, 5.0)
-        XCTAssertEqual(result?.offsetPath.count, 64)
-        // First point should be at (25, 0) since rx expanded to 25
-        XCTAssertEqual(result?.offsetPath[0].x, 25.0, accuracy: 1e-6)
+        XCTAssertEqual(result.count, 1)
+        guard case .ellipse(_, let rx, let ry, _) = result[0] else {
+            return XCTFail("expected ellipse, got \(result[0])")
+        }
+        // rx expanded to 25, ry to 15
+        XCTAssertEqual(rx, 25.0, accuracy: 1e-6)
+        XCTAssertEqual(ry, 15.0, accuracy: 1e-6)
     }
 
     func testEllipseOffsetContract() {
@@ -187,9 +209,13 @@ final class VectorOffsetTests: XCTestCase {
             rotation: 0
         )
         let result = VectorOffsetCalculator.offsetShape(ellipse, by: -5.0)
-        XCTAssertNotNil(result)
+        XCTAssertEqual(result.count, 1)
+        guard case .ellipse(_, let rx, let ry, _) = result[0] else {
+            return XCTFail("expected ellipse, got \(result[0])")
+        }
         // rx=15, ry=5
-        XCTAssertEqual(result?.offsetPath[0].x, 15.0, accuracy: 1e-6)
+        XCTAssertEqual(rx, 15.0, accuracy: 1e-6)
+        XCTAssertEqual(ry, 5.0, accuracy: 1e-6)
     }
 
     // MARK: - Polygon offset
@@ -202,17 +228,12 @@ final class VectorOffsetTests: XCTestCase {
             rotation: 0
         )
         let result = VectorOffsetCalculator.offsetShape(polygon, by: 5.0)
-        XCTAssertNotNil(result)
-        XCTAssertEqual(result?.distance, 5.0)
-        // Should produce a closed polygon with more points
-        XCTAssertGreaterThan(result?.offsetPath.count ?? 0, 0)
-        // Path should be closed (first ≈ last)
-        if result?.offsetPath.count ?? 0 > 1 {
-            let first = result!.offsetPath.first!
-            let last = result!.offsetPath.last!
-            XCTAssertEqual(first.x, last.x, accuracy: 1e-6)
-            XCTAssertEqual(first.y, last.y, accuracy: 1e-6)
+        XCTAssertEqual(result.count, 1)
+        guard case .polygon(_, let radius, let sides, _) = result[0] else {
+            return XCTFail("expected polygon, got \(result[0])")
         }
+        XCTAssertEqual(radius, 15.0, accuracy: 1e-6)
+        XCTAssertEqual(sides, 4)
     }
 
     func testPolygonOffsetContract() {
@@ -223,8 +244,11 @@ final class VectorOffsetTests: XCTestCase {
             rotation: 0
         )
         let result = VectorOffsetCalculator.offsetShape(polygon, by: -3.0)
-        XCTAssertNotNil(result)
-        XCTAssertGreaterThan(result?.offsetPath.count ?? 0, 0)
+        XCTAssertEqual(result.count, 1)
+        guard case .polygon(_, let radius, _, _) = result[0] else {
+            return XCTFail("expected polygon, got \(result[0])")
+        }
+        XCTAssertEqual(radius, 7.0, accuracy: 1e-6)
     }
 
     // MARK: - Star offset
@@ -238,11 +262,14 @@ final class VectorOffsetTests: XCTestCase {
             rotation: 0
         )
         let result = VectorOffsetCalculator.offsetShape(star, by: 3.0)
-        XCTAssertNotNil(result)
-        XCTAssertEqual(result?.distance, 3.0)
-        XCTAssertEqual(result?.offsetPath.count, 10) // 5 outer + 5 inner
-        // Outer radius expanded to 18
-        XCTAssertEqual(result?.offsetPath[0].x, 18.0, accuracy: 1e-6)
+        XCTAssertEqual(result.count, 1)
+        guard case .star(_, let outer, let inner, let pts, _) = result[0] else {
+            return XCTFail("expected star, got \(result[0])")
+        }
+        // Outer expanded to 18, inner to 11
+        XCTAssertEqual(outer, 18.0, accuracy: 1e-6)
+        XCTAssertEqual(inner, 11.0, accuracy: 1e-6)
+        XCTAssertEqual(pts, 5)
     }
 
     func testStarOffsetContract() {
@@ -254,9 +281,13 @@ final class VectorOffsetTests: XCTestCase {
             rotation: 0
         )
         let result = VectorOffsetCalculator.offsetShape(star, by: -5.0)
-        XCTAssertNotNil(result)
-        // Outer radius contracted to 10
-        XCTAssertEqual(result?.offsetPath[0].x, 10.0, accuracy: 1e-6)
+        XCTAssertEqual(result.count, 1)
+        guard case .star(_, let outer, let inner, _, _) = result[0] else {
+            return XCTFail("expected star, got \(result[0])")
+        }
+        // Outer contracted to 10, inner to 3
+        XCTAssertEqual(outer, 10.0, accuracy: 1e-6)
+        XCTAssertEqual(inner, 3.0, accuracy: 1e-6)
     }
 
     // MARK: - Freehand offset
@@ -271,10 +302,9 @@ final class VectorOffsetTests: XCTestCase {
             ]
         )
         let result = VectorOffsetCalculator.offsetShape(freehand, by: 3.0)
-        XCTAssertNotNil(result)
-        XCTAssertEqual(result?.distance, 3.0)
-        // Should produce offset points
-        XCTAssertGreaterThan(result?.offsetPath.count ?? 0, 0)
+        let pts = freehandPoints(result)
+        XCTAssertNotNil(pts)
+        XCTAssertGreaterThan(pts?.count ?? 0, 0)
     }
 
     func testFreehandOffsetContract() {
@@ -286,12 +316,14 @@ final class VectorOffsetTests: XCTestCase {
             ]
         )
         let result = VectorOffsetCalculator.offsetShape(freehand, by: -2.0)
-        XCTAssertNotNil(result)
-        XCTAssertGreaterThan(result?.offsetPath.count ?? 0, 0)
+        let pts = freehandPoints(result)
+        XCTAssertNotNil(pts)
+        XCTAssertGreaterThan(pts?.count ?? 0, 0)
     }
 
     // MARK: - ProfileOffsetGenerator
 
+    @MainActor
     func testProfileOffsetGenerator() {
         let generator = ProfileOffsetGenerator()
         let shapes: [VectorShape] = [
@@ -310,6 +342,7 @@ final class VectorOffsetTests: XCTestCase {
         XCTAssertEqual(results[0].distance, 3.0, accuracy: 1e-6)
     }
 
+    @MainActor
     func testDualProfileOffsets() {
         let generator = ProfileOffsetGenerator()
         let shapes: [VectorShape] = [
@@ -365,10 +398,10 @@ final class VectorOffsetTests: XCTestCase {
         // Bounds: expanded square should be [-5, -5] to [15, 15]
         let xs = result!.offsetPath.map { $0.x }
         let ys = result!.offsetPath.map { $0.y }
-        XCTAssertEqual(xs.min(), -5.0, accuracy: 1e-6)
-        XCTAssertEqual(xs.max(), 15.0, accuracy: 1e-6)
-        XCTAssertEqual(ys.min(), -5.0, accuracy: 1e-6)
-        XCTAssertEqual(ys.max(), 15.0, accuracy: 1e-6)
+        XCTAssertEqual(xs.min()!, -5.0, accuracy: 1e-6)
+        XCTAssertEqual(xs.max()!, 15.0, accuracy: 1e-6)
+        XCTAssertEqual(ys.min()!, -5.0, accuracy: 1e-6)
+        XCTAssertEqual(ys.max()!, 15.0, accuracy: 1e-6)
         // Path should be closed (first ≈ last)
         XCTAssertEqual(result!.offsetPath.first!.x, result!.offsetPath.last!.x, accuracy: 1e-6)
         XCTAssertEqual(result!.offsetPath.first!.y, result!.offsetPath.last!.y, accuracy: 1e-6)
@@ -390,10 +423,10 @@ final class VectorOffsetTests: XCTestCase {
         // Bounds: contracted square should be [3, 3] to [7, 7]
         let xs = result!.offsetPath.map { $0.x }
         let ys = result!.offsetPath.map { $0.y }
-        XCTAssertEqual(xs.min(), 3.0, accuracy: 1e-6)
-        XCTAssertEqual(xs.max(), 7.0, accuracy: 1e-6)
-        XCTAssertEqual(ys.min(), 3.0, accuracy: 1e-6)
-        XCTAssertEqual(ys.max(), 7.0, accuracy: 1e-6)
+        XCTAssertEqual(xs.min()!, 3.0, accuracy: 1e-6)
+        XCTAssertEqual(xs.max()!, 7.0, accuracy: 1e-6)
+        XCTAssertEqual(ys.min()!, 3.0, accuracy: 1e-6)
+        XCTAssertEqual(ys.max()!, 7.0, accuracy: 1e-6)
     }
 
     func testClosedPolylineTriangle() {
@@ -407,16 +440,17 @@ final class VectorOffsetTests: XCTestCase {
         let result = VectorOffsetCalculator.offsetClosedPolyline(points: points, by: 2.0)
         XCTAssertNotNil(result)
         XCTAssertEqual(result?.distance, 2.0)
-        // Vertex count matches input
-        XCTAssertEqual(result?.offsetPath.count, 3)
+        // Vertex count: 3 corners + explicit closing point.
+        XCTAssertEqual(result?.offsetPath.count, 4)
         // Path should be closed
         XCTAssertEqual(result!.offsetPath.first!.x, result!.offsetPath.last!.x, accuracy: 1e-6)
         XCTAssertEqual(result!.offsetPath.first!.y, result!.offsetPath.last!.y, accuracy: 1e-6)
-        // All points should be outside original bounds
+        // All points should be outside original bounds — the apex (5,0) is
+        // pushed below the original bottom edge (y=0) by the offset.
         let xs = result!.offsetPath.map { $0.x }
         let ys = result!.offsetPath.map { $0.y }
-        XCTAssertLessThanOrEqual(xs.min()!, -2.0, accuracy: 1e-6)
-        XCTAssertGreaterThanOrEqual(ys.min()!, 0.0)
+        XCTAssertLessThanOrEqual(xs.min()!, -2.0)
+        XCTAssertLessThanOrEqual(ys.min()!, -2.0)
     }
 
     func testClosedPolylineNonConvex() {
@@ -433,15 +467,15 @@ final class VectorOffsetTests: XCTestCase {
         let result = VectorOffsetCalculator.offsetClosedPolyline(points: points, by: 3.0)
         XCTAssertNotNil(result)
         XCTAssertEqual(result?.distance, 3.0)
-        // Vertex count matches input
-        XCTAssertEqual(result?.offsetPath.count, 6)
+        // Vertex count: 6 corners + explicit closing point.
+        XCTAssertEqual(result?.offsetPath.count, 7)
         // Bounds expanded outward by 3
         let xs = result!.offsetPath.map { $0.x }
         let ys = result!.offsetPath.map { $0.y }
-        XCTAssertEqual(xs.min(), -3.0, accuracy: 1e-6)
-        XCTAssertEqual(xs.max(), 13.0, accuracy: 1e-6)
-        XCTAssertEqual(ys.min(), -3.0, accuracy: 1e-6)
-        XCTAssertEqual(ys.max(), 13.0, accuracy: 1e-6)
+        XCTAssertEqual(xs.min()!, -3.0, accuracy: 1e-6)
+        XCTAssertEqual(xs.max()!, 13.0, accuracy: 1e-6)
+        XCTAssertEqual(ys.min()!, -3.0, accuracy: 1e-6)
+        XCTAssertEqual(ys.max()!, 13.0, accuracy: 1e-6)
     }
 
     func testClosedPolylineTooFewPoints() {
@@ -463,7 +497,9 @@ final class VectorOffsetTests: XCTestCase {
         ]
         let result = VectorOffsetCalculator.offsetClosedPolyline(points: points, by: 2.0)
         XCTAssertNotNil(result)
-        XCTAssertEqual(result?.offsetPath.count, 4)
+        // Input without an explicit closing vertex is treated as closed:
+        // output = 4 offset corners + explicit closing point.
+        XCTAssertEqual(result?.offsetPath.count, 5)
         // Result should be closed (first == last)
         XCTAssertEqual(result!.offsetPath.first!.x, result!.offsetPath.last!.x, accuracy: 1e-6)
         XCTAssertEqual(result!.offsetPath.first!.y, result!.offsetPath.last!.y, accuracy: 1e-6)
@@ -494,7 +530,7 @@ final class VectorOffsetTests: XCTestCase {
     // MARK: - Shape type coverage
 
     func testAllShapeTypesSupported() {
-        // Verify that offsetShape returns non-nil for every VectorShape case
+        // Verify that offsetShape returns a non-empty result for every VectorShape case
         let shapes: [VectorShape] = [
             .line(start: VectorPoint(x: 0, y: 0), end: VectorPoint(x: 10, y: 0)),
             .circle(center: VectorPoint(x: 5, y: 5), radius: 10.0),
@@ -512,9 +548,7 @@ final class VectorOffsetTests: XCTestCase {
 
         for shape in shapes {
             let result = VectorOffsetCalculator.offsetShape(shape, by: 2.0)
-            XCTAssertNotNil(result, "offsetShape should return non-nil for \(shape)")
-            XCTAssertEqual(result?.original, shape)
-            XCTAssertEqual(result?.distance, 2.0)
+            XCTAssertFalse(result.isEmpty, "offsetShape should return non-empty for \(shape)")
         }
     }
 }

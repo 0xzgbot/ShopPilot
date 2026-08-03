@@ -418,3 +418,51 @@ All four strategies share these positional/selection fields:
 ### CSV output
 
 A summary CSV is available at `docs/planning/form_fields_mapping.csv` with columns: Strategy, Field Name, Type, Default, Description — covering all 87 fields across the four strategies.
+
+---
+
+## R. Installer-verified evidence (2026-08-03)
+
+**Source:** `AspireTrialEdition_Setup.exe` (V12.5.1.0 Build 12738) unpacked + 4 analysis passes.
+Full breakdown: `docs/planning/ASPIRE_INSTALLER_BREAKDOWN.md`. Reports: `/tmp/aspire_reports/01_toolpaths.md` (strategy parameter surface), `02_posts.md` (964 posts, .pp format), `03_assets.md` (tool DB, 72 sheets, textures), `04_ui_surface.md` (UI/feature surface).
+
+### R1. New rows discovered (add to sections above on next edit)
+
+| ID | Capability | Pri | Installer evidence |
+| --- | --- | --- | --- |
+| F34 | Drill Bank Toolpath | P1 | `uiDrillBankForm` — grid W×H, pitch, unique drill numbers, through/brad-point; needs post support |
+| F35 | Toolpath Groups | P1 | Grouping in toolpath tree; recalc per group |
+| F36 | Toolpath Dicer | P2 | Split toolpaths into machineable tiles |
+| F37 | Multi-tool pocketing | P1 | `uiMultiToolPocketForm` — area-clearance tool + final tool, included-angle checks |
+| F38 | Rest machining (3D) | P1 | `RestBoundaryOffset`/`RestOffset`/`RestThreshold` — "minimum height for rest" |
+| F39 | Laser Sketch Engraving | P2 | V12.5 — `uiLaserSketchCarve` |
+| F40 | Plasma Profile Toolpath | P2 | `mcPlasmaCuttingTool`, plasma fillet type |
+| F41 | Create Component from Toolpath Preview | P2 | Component from preview simulation |
+| F42 | Toolpath import (PVC/V3M/V3D) | P2 | PhotoVCarve/Machinist/Cut3D toolpaths |
+| F43 | Wrapped toolpath drawing toggle | P1 | Must be off to calculate rotary toolpaths |
+| F44 | Toolpath templates | P1 | `*.ToolpathTemplate` save/load/all-visible |
+| G11 | Post database (964) + GRBL posts | P0 | `postp.ppdb` SQLite: Grbl in/mm, Grbl WrapY2A, Easel-Grbl, Shapeoko, BobsCNC, Avid, X-Carve Pro, Openbuilds, LinuxCNC, Mach2/3, Centroid, Masso, Duet, ShopBot×28 |
+| G12 | Machine config packages | P2 | `MachineConfig` table: OEM make/model/series → config package |
+| G13 | Cutting data per machine/material/tool | P1 | `db_mach_cut_data_id` linkage; "A machine and a material are required to be setup" |
+| G14 | HTML job-sheet template | P1 | `HtmlTemplates/PrintSheetTemplate.html` (A4 CSS) |
+| G15 | Tool DB online backup / remote | P3 | "Backup Tool Database Online", "Remote Tool Database" |
+| H09 | Cabinet import (KCD/Mozaik/etc.) | P2 | `CabinetryImport/PartListMappings/` 6 JSON mappings + schema |
+| I07 | Rotary wrap view | P1 | Auto-Wrapping view; wrapped toolpath drawing; Simplify unwrapped vectors |
+
+### R2. Verified facts to annotate existing rows
+
+- **F03 Profile** — form `uiProfileMachineForm` pages: `uiProfileTabsPage`, `uiProfileRampingPage`, `uiProfileLeadsPage`, `uiProfileCornersPage`, `uiProfileSequencePage`, `uiProfileStartpointPage`, `uiProfileAdvancedTabs`. Params: `CutDepth/StartDepth/PassDepth/GeometryDepthOffset/Allowance`, `ProfileType ON/OUTSIDE/INSIDE`, `CutDirection Climb/Conventional`, tabs (`TabLength/TabThickness/TabDistance/NumTabs/TabArc/TabLine/Use3dTabs`), ramping (`RampingType` 5 enums: START, START_END, LINEAR, SMOOTH, ZIG_ZAG), leads (`LeadInArc/LeadInLine/LeadOutLine/LeadLength/LeadAngle`), corners (`PreserveCorners/SharpCornerAngle/SquareCorners/OvercutDistance`).
+- **F04 Pocket** — `uiPocketMachineForm` + `uiMultiToolPocketForm`; `PocketMode` offset/raster, `RasterAngle`, `RasterOptimizer`, `DoRasterClearance`, `ClearStepover`, `UseAreaClearTool`, `FillOrder`, `OptimizePocketOrderForNoUpstands`.
+- **F05 Drill** — `uiDrillForm`; `ToolNumber`, `PlungeRate`, `PlungeLength`, `mPeckDrill`/`PeckRetractGap`, `UseDwell/DwellTime`, `RetractGap`, `RetractAboveModel`; helical ramps (`HelicalRamps/HelixRampAngle`).
+- **F06 V-Carve** — `uiVCarveForm`; `DoEngraving`, `EngravingStepover`, `FlatDepth/FlatDepthFormula`, `MaxDepth`, `OvercutDistance`, `VCarveToolpathTolerance`.
+- **F25 Keep-Out Zones** — `uiKeepOutZonesForm`: create from selection, clearance, collision icon, violation blocks calc; non-rotary, tiling-incompatible.
+- **F28 Preview** — colors (machined area / material / toolpath), playback, 2x–16x quality, `Create Component from Toolpath Preview`.
+- **G01 Tool database** — 13 tool classes (`mc*Tool`), 17 default tool assignments (Profile→End Mill 1/4", V-Carve→V-Bit 90° 1¼", QuickEngrave→Diamond Drag, Laser→3.8W 0.3mm…), DB-link keys `db_geom_id`/`db_cut_data_id`/`db_mach_cut_data_id`.
+- **G04 Post library** — trial ships 75 .pp; full catalog 964 in `postp.ppdb`; `.pp` grammar: `POST_NAME`, `FILE_EXTENSION`, `UNITS`, `LINE_ENDING`, `VAR X_POSITION = [X|C|X|1.3]`.
+- **A02/A03/A04 Job setup** — 72 stock presets (6 imperial sizes × 6 thickness, 6 metric × 6 thickness); double-sided = side-flip + two-sided nest; rotary = wrap %, axis, auto-wrap view.
+- **K03** — import list verified: dxf/dwg/eps/ai/pdf/svg/stl/3dm/skp/3dClip/v3m/v3d/pvc + bitmaps; export: DXF/SVG/STL/grayscale/PDF.
+- **Gadgets H01–H06** — verified on disk: Wrapping/Create_Rounding_Toolpath, Wrapping/Fluting_Layout, Wrapping/Spiral_Layout, Keyhole_Toolpath, Dragknife_Toolpath, Celtic_Weave_Creator, DXF_Batch_Processor, __Trial_Setup_Sheet; gadget = Lua + HTML dialog.
+
+### R3. Trial limitations (affect live-capture expectations)
+
+Vector/model export disabled; laser module gated; startup/tutorial content remote-fed (no local what's-new text); some strategies (e.g. 3D sculpt, laser) require module or are watermark-limited in trial.

@@ -65,7 +65,27 @@ public enum StatusParser {
 
         var status = ParsedMachineStatus()
 
-        for component in components {
+        // The Pn field itself contains pipe separators (`Pn:000|0|0000`), so
+        // the component split above fragments it. Walk with an index and, on a
+        // `Pn:` prefix, re-join following bare-value segments (no `:`) into one
+        // group before handing it to parsePins. A real GRBL `Pn:P` token stays
+        // single-segment and simply yields nil pins.
+        var index = 0
+        while index < components.count {
+            let component = components[index]
+            if component.hasPrefix("Pn:") {
+                var group = component
+                var cursor = index + 1
+                while cursor < components.count,
+                      !components[cursor].contains(":"),
+                      group.components(separatedBy: "|").count < 3 {
+                    group += "|" + components[cursor]
+                    cursor += 1
+                }
+                status.pins = parsePins(group)
+                index = cursor
+                continue
+            }
             if let state = parseState(component) {
                 status.state = state
             } else if let coords = try? parseCoordinates(component, prefix: "MPos:") {
@@ -80,9 +100,8 @@ public enum StatusParser {
                 status.fs = fs
             } else if let buf = parseBuffer(component) {
                 status.buffer = buf
-            } else if let pins = parsePins(component) {
-                status.pins = pins
             }
+            index += 1
         }
 
         return status

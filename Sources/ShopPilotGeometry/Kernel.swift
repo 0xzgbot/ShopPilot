@@ -1,4 +1,5 @@
 import Foundation
+import ShopPilotCore
 
 // MARK: - Rect
 
@@ -23,15 +24,10 @@ public struct Rect: Codable, Equatable {
 // MARK: - Vector Point
 
 /// A 2D point in the design coordinate space.
-public struct VectorPoint: Codable, Equatable, Hashable {
-    public let x: Double
-    public let y: Double
-    
-    public init(x: Double = 0.0, y: Double = 0.0) {
-        self.x = x
-        self.y = y
-    }
-}
+///
+/// Single source of truth lives in `ShopPilotCore` — Geometry re-exports it so
+/// both modules share one `VectorPoint` type (avoids cross-module ambiguity).
+public typealias VectorPoint = ShopPilotCore.VectorPoint
 
 // MARK: - Vector Shape
 

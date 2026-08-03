@@ -89,7 +89,9 @@ final class ToolpathTemplateManagerTests: XCTestCase {
         XCTAssertEqual(loaded.name, "Fine V-Carve")
         XCTAssertEqual(loaded.toolpathType, .vcarve)
         XCTAssertEqual(loaded.paramsJson, paramsJson)
-        XCTAssertEqual(loaded.createdAt, template.createdAt)
+        // ISO8601 persistence truncates sub-second precision — compare within
+        // one second rather than exact equality.
+        XCTAssertEqual(loaded.createdAt.timeIntervalSince(template.createdAt), 0, accuracy: 1.0)
     }
     
     func testLoadEmptyWhenNoFile() {
@@ -237,7 +239,9 @@ final class ToolpathTemplateManagerTests: XCTestCase {
         encoder.outputFormatting = .sortedKeys
         
         let data = try! encoder.encode(template)
-        let decoded = try! JSONDecoder().decode(ToolpathTemplate.self, from: data)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let decoded = try! decoder.decode(ToolpathTemplate.self, from: data)
         
         XCTAssertEqual(decoded.name, "Coded Template")
         XCTAssertEqual(decoded.toolpathType, .pocket)

@@ -58,7 +58,10 @@ public struct EngravingFont: Identifiable, Equatable {
     }
 
     public static func == (lhs: EngravingFont, rhs: EngravingFont) -> Bool {
-        lhs.name == rhs.name && lhs.category == rhs.category
+        lhs.name == rhs.name
+            && lhs.category == rhs.category
+            && lhs.size == rhs.size
+            && lhs.weight == rhs.weight
     }
 }
 
@@ -221,11 +224,15 @@ public enum EngravingFontPack {
 
     /// Checks whether all fonts in the curated pack are available on the system.
     ///
-    /// - Returns: Dictionary mapping font names to their availability status.
+    /// Keyed by font identity (`name (weight)`), so weight variants of the same
+    /// family each get their own availability entry.
+    ///
+    /// - Returns: Dictionary mapping font identity to availability status.
     public static func checkAllAvailability() -> [String: Bool] {
         var result: [String: Bool] = [:]
         for font in engravingFonts() {
-            result[font.name] = isFontAvailableOnSystem(font.name)
+            let key = "\(font.name) (\(font.weight))"
+            result[key] = isFontAvailableOnSystem(font.name)
         }
         return result
     }

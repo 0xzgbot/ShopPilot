@@ -63,11 +63,11 @@ final class GCodeStreamerHoldResumeResetTests: XCTestCase {
         try await Task.sleep(nanoseconds: 100_000_000)
 
         // Hold
-        streamer.pause()
+        await streamer.pause()
         try await Task.sleep(nanoseconds: 50_000_000)
 
         // Resume
-        streamer.resume()
+        await streamer.resume()
         try await Task.sleep(nanoseconds: 50_000_000)
 
         task.cancel()
@@ -94,7 +94,7 @@ final class GCodeStreamerHoldResumeResetTests: XCTestCase {
         try await Task.sleep(nanoseconds: 100_000_000)
 
         // Reset
-        streamer.reset()
+        await streamer.reset()
         try await Task.sleep(nanoseconds: 50_000_000)
 
         // Let it finish
@@ -119,7 +119,7 @@ final class GCodeStreamerHoldResumeResetTests: XCTestCase {
         try await Task.sleep(nanoseconds: 150_000_000)
 
         // Reset
-        streamer.reset()
+        await streamer.reset()
         try await Task.sleep(nanoseconds: 50_000_000)
 
         // State should be idle after reset
@@ -135,8 +135,8 @@ final class GCodeStreamerHoldResumeResetTests: XCTestCase {
         try await transport.open(config: SerialConfig(isSimulator: true))
 
         // No error should be thrown even when hold is called
-        streamer.pause()
-        streamer.resume()
+        await streamer.pause()
+        await streamer.resume()
 
         // If we got here without throwing, the test passes
         XCTAssertTrue(true, "hold/resume should not throw")
@@ -154,22 +154,22 @@ final class GCodeStreamerHoldResumeResetTests: XCTestCase {
         try await Task.sleep(nanoseconds: 100_000_000)
 
         // Hold
-        streamer.pause()
+        await streamer.pause()
         try await Task.sleep(nanoseconds: 50_000_000)
 
         // Resume
-        streamer.resume()
+        await streamer.resume()
         try await Task.sleep(nanoseconds: 50_000_000)
 
         task.cancel()
         _ = try? await task.value
 
-        // Verify exact sequence
+        // Verify exact sequence. `!` / `~` are single-byte realtime commands
+        // (no trailing newline), so check the raw text rather than split lines.
         let text = transport.writtenText
-        let lines = text.split(whereSeparator: \.isNewline).filter { !$0.isEmpty }
-        XCTAssertTrue(lines.contains("G21"), "Should have G21")
-        XCTAssertTrue(lines.contains("!"), "Should have !")
-        XCTAssertTrue(lines.contains("~"), "Should have ~")
+        XCTAssertTrue(text.contains("G21"), "Should have G21")
+        XCTAssertTrue(text.contains("!"), "Should have !")
+        XCTAssertTrue(text.contains("~"), "Should have ~")
     }
 }
 
@@ -309,6 +309,9 @@ final class MachineSessionHoldResumeResetTests: XCTestCase {
         let streamer = GCodeStreamer()
 
         try await session.connect(transport: transport)
+        // Mirror production wiring (MachineConnection.connectToMachine attaches
+        // the streamer after connect) so hold() can pause it.
+        session.attachStreamer(streamer)
 
         // Start streaming via streamer directly
         let streamTask = Task {

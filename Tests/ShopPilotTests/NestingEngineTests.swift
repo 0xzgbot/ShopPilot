@@ -25,8 +25,8 @@ final class NestingEngineTests: XCTestCase {
         let result = NestingEngine.nest(parts: [rect], sheetWidth: 100, sheetHeight: 100)
         XCTAssertEqual(result.parts.count, 1)
         XCTAssertEqual(result.unplacedCount, 0)
-        // Utilization = 50*30 / 100*100 = 0.015
-        XCTAssertEqual(result.utilization, 0.015, accuracy: 1e-9)
+        // Utilization = 50*30 / 100*100 = 0.15
+        XCTAssertEqual(result.utilization, 0.15, accuracy: 1e-9)
     }
 
     // MARK: - Multiple rectangles — largest first
@@ -150,7 +150,8 @@ final class NestingEngineTests: XCTestCase {
         // Need: part fits when rotated. E.g. part 85x50 on 90x60 usable sheet
         // Normal: 85<=90 && 50<=60 → fits! No rotation needed.
         // Let's just verify rotation is set when it happens.
-        let result = NestingEngine.nest(parts: [tall], sheetWidth: 100, sheetHeight: 100)
+        let tallPart = VectorShape.rectangle(origin: VectorPoint(x: 0, y: 0), width: 85, height: 50)
+        let result = NestingEngine.nest(parts: [tallPart], sheetWidth: 100, sheetHeight: 100)
         XCTAssertNotNil(result)
     }
 

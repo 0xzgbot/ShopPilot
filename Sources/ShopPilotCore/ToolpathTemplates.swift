@@ -64,7 +64,8 @@ public final class ToolpathTemplateManager: ObservableObject {
     /// All saved templates, published for SwiftUI binding.
     @Published public var templates: [ToolpathTemplate] = []
     
-    private let fileURL: URL
+    /// Location of the templates JSON file on disk.
+    let fileURL: URL
     
     // MARK: - Initialization
     

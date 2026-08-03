@@ -23,7 +23,15 @@ public final class MaterialDatabase {
         return groups
     }
     
-    private init() {}
+    private init() {
+        // Populate the built-in presets on first access so lookups from the
+        // setup UI (and MaterialStore.defaultMaterial) never hit an empty DB.
+        // NOTE: must NOT go through `shared` here — that would re-enter the
+        // `dispatch_once` initializing `shared` and deadlock (EXC_BAD_INSTRUCTION).
+        for material in Self.defaultPresets {
+            _materials[material.name] = material
+        }
+    }
     
     // MARK: - Singleton
     
@@ -44,20 +52,22 @@ public final class MaterialDatabase {
     }
     
     // MARK: - Preload Defaults
-    
+
+    /// Built-in material presets.
+    public static let defaultPresets: [Material] = [
+        .pine,
+        .oak,
+        .maple,
+        .aluminum6061,
+        .steel,
+        .acrylic,
+        .mdf,
+        .plywood
+    ]
+
     /// Load the built-in material presets. Call once at app launch.
     public static func preloadDefaults() {
-        let defaults: [Material] = [
-            .pine,
-            .oak,
-            .maple,
-            .aluminum6061,
-            .steel,
-            .acrylic,
-            .mdf,
-            .plywood
-        ]
-        shared.register(materials: defaults)
+        shared.register(materials: defaultPresets)
     }
     
     // MARK: - Lookup

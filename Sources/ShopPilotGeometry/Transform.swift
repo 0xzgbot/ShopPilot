@@ -52,6 +52,7 @@ public enum AlignmentMode: String, Codable {
 
 /// Applies transform operations to vector shapes.
 public final class ShapeTransformer {
+    public init() {}
     
     /// Move all shapes by (dx, dy).
     public func move(shapes: [VectorShape], dx: Double, dy: Double) -> [VectorShape] {

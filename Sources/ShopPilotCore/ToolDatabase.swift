@@ -71,11 +71,13 @@ public final class ToolDatabase: ObservableObject {
     
     @Published public var tools: [Tool] = []
     
-    private static let userDefaultsKey = "shopPilotTools"
+    /// Storage key. Internal so tests can clear it for isolation.
+    static let userDefaultsKey = "shopPilotTools"
     
     public init() {
-        load()
-        if tools.isEmpty {
+        // Preload defaults only on a genuine first run — when nothing has ever
+        // been persisted. An explicitly saved empty list must stay empty.
+        if !load() {
             preloadDefaultTools()
         }
     }
@@ -109,14 +111,31 @@ public final class ToolDatabase: ObservableObject {
         }
     }
     
-    public func load() {
+    /// Load tools from persisted storage.
+    /// - Returns: `true` when persisted data existed and was loaded.
+    @discardableResult
+    public func load() -> Bool {
         guard let data = UserDefaults.standard.data(forKey: ToolDatabase.userDefaultsKey),
               let decoded = try? JSONDecoder().decode([Tool].self, from: data) else {
-            return
+            return false
         }
         tools = decoded
+        return true
     }
     
+    // MARK: - Lookup
+
+    /// Find a tool by id, or nil if unknown.
+    public func tool(withID id: UUID?) -> Tool? {
+        guard let id else { return nil }
+        return tools.first { $0.id == id }
+    }
+
+    /// Tools restricted to the given types (order preserved).
+    public func tools(ofTypes types: Set<ToolType>) -> [Tool] {
+        tools.filter { types.contains($0.type) }
+    }
+
     // MARK: - Calculations
     
     /// Recommended feed rate in mm/min based on tool diameter.
@@ -160,7 +179,8 @@ public final class ToolDatabase: ObservableObject {
             )
             tools.append(tool)
         }
-        
-        save()
+        // Deliberately NOT persisted here: defaults are first-run seeds only.
+        // They land on disk via the next explicit save (add/remove/update), so
+        // an empty persisted store stays empty and a fresh launch re-seeds.
     }
 }

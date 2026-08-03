@@ -13,6 +13,7 @@
 | **Parity detail** | [`docs/planning/FEATURE_PARITY_MATRIX.md`](./docs/planning/FEATURE_PARITY_MATRIX.md) |
 | **Market pain research** | [`docs/planning/ASPIRE_INGESTION_AND_MARKET_RESEARCH.md`](./docs/planning/ASPIRE_INGESTION_AND_MARKET_RESEARCH.md) |
 | **Finish roadmap** | [`docs/planning/FINISH_ROADMAP.md`](./docs/planning/FINISH_ROADMAP.md) — **how to finish all features** |
+| **Installer build plan** | [`docs/planning/INSTALLER_BUILD_PLAN.md`](./docs/planning/INSTALLER_BUILD_PLAN.md) — 2026-08-03: installer-verified data + form parity (SPK-1132–1136) |
 | **Legacy boards** | `HERMES_BUILD_TODO.md`, `HERMES_STUDIO_TODO.md` → **superseded**; do not open new work there |
 
 ---
@@ -171,23 +172,50 @@ A (parallel from day 0)
   - AC: User can build closed design in Design stage and save
   - deps: SPK-1100, SPK-0200
   - track: 2
+  - note: Epic parked on Hermes — work via micros `1101a+` (1120/1123/1125 already done)
+- [x] **SPK-1101a** **GEO** Select + move shape updates session vectors // P0 // parallel-ok
+  - deps: SPK-1100
+  - track: 2
+- [x] **SPK-1101b** **GEO** Node-edit move one vertex on selected polyline // P0 // parallel-ok
+  - deps: SPK-1100, SPK-0201a
+  - track: 2
+- [x] **SPK-1101c** **GEO** Measure two-point distance in Design UI // P0 // parallel-ok
+  - deps: SPK-1100
+  - track: 2
 - [ ] **SPK-1102** **TP** Cut stage product — toolpath tree Profile/Pocket/Drill/V-Carve + dirty/recalc/export block + GRBL post // P0
   - AC: Saved job regenerates toolpaths and exports GRBL from tree
   - deps: SPK-1101, SPK-0302
+  - track: 3
+  - note: Epic parked — micros `1102a/b`
+- [x] **SPK-1102a** **TP** Profile op regenerates G-code into session // P0 // parallel-ok
+  - deps: SPK-1100, SPK-0302a
+  - track: 3
+- [x] **SPK-1102b** **TP** Export blocked while toolpath node dirty // P0 // parallel-ok
+  - deps: SPK-1100
   - track: 3
 - [ ] **SPK-1103** **TP** Preview stage product — toolpath overlay + material sim non-blocking // P0
   - AC: Preview shows current toolpaths; UI stays responsive
   - deps: SPK-1102
   - track: 3
+  - note: Epic parked — `1103a` [x]; remaining `1103b/c`
 - [x] **SPK-1103a** **TP** Preview wireframe + draft heightfield from session G-code // P0 // parallel-ok
   - AC: Preview stage shows session vectors + rapid/cut wireframe; Draft sim runs off main path; `swift run ShopPilotVerify1103a` PASS
   - deps: SPK-1100
   - track: 3
   - note: Does **not** close SPK-1103 (full material sim + Cut-tree deps remain)
   - worklog: 2026-08-02 — Cursor. WireframeRenderer modal XY; ToolpathPreviewView; draftHeightSamples; Verify1103a.
+- [x] **SPK-1103b** **TP** Draft heightfield cancel keeps Preview UI responsive // P0 // parallel-ok
+  - deps: SPK-1103a
+  - track: 3
+- [x] **SPK-1103c** **TP** Preview highlights selected toolpath from session tree // P0 // parallel-ok
+  - deps: SPK-1103a
+  - track: 3
 - [ ] **SPK-1104** **MACH** Machine document handoff — session G-code → sim/serial stream with preflight + Hold/Reset // P0
   - AC: Same job streams on simulator; serial factory real; no auto-run
   - deps: SPK-1100, SPK-0401, SPK-0402
+  - track: 4
+- [x] **SPK-1104a** **MACH** Session gcodeLines load into MachineSession buffer // P0 // parallel-ok
+  - deps: SPK-1100, SPK-0414a
   - track: 4
 - [ ] **SPK-1105** **QA** XCTest suite green under Xcode/CI (not build-only smoke) // P0
   - AC: `swift test` passes on Xcode toolchain; CI documents requirement
@@ -196,6 +224,31 @@ A (parallel from day 0)
 - [ ] **SPK-1106** **UX** Sign recipe product E2E — recipe → text→curves → V-Carve → preview → machine // P0
   - AC: Full sign path in document session without orphan panels
   - deps: SPK-1102, SPK-1103, SPK-0504
+  - track: 3
+
+## Installer-verified cards (2026-08-03) — plan: `docs/planning/INSTALLER_BUILD_PLAN.md`
+
+**Source:** Aspire V12.5.1.0 installer unpacked + 4 analysis passes; evidence in `FEATURE_PARITY_MATRIX.md` §R. Data-first additions to Tracks 1–3.
+
+- [x] **SPK-1132** **TP** Stock sheet presets — 72 presets as data + Job Setup picker // P0
+  - AC: Engine: preset table (6 imperial × 6 thickness, 6 metric × 6 thickness: 2'×2'…8'×4' × ⅛″–1″; 610×610…2438×1219mm × 3–25mm); UI: Job Setup lists presets, one-click material sheet; Persist: preset selection saves in `.shoppilot`; Verify: golden test that all 72 presets produce correct sheet dims
+  - deps: SPK-1100
+  - track: 3
+- [ ] **SPK-1136** **TP** P0 strategy form-field parity (Profile/Pocket/V-Carve/Drill) — installer-verified fields // P0
+  - AC: Engine: param models cover the §R2 key set (Profile 7 pages incl. tabs/ramps/leads/corners/order; Pocket offset/raster + clearance pass; V-Carve engraving/flat-depth/overcut; Drill peck/dwell/retract/helical); UI: forms expose the verified surface; Persist: all params round-trip; Verify: one XCTest per strategy asserting every §R2 key present in the model
+  - deps: SPK-1102
+  - track: 3
+- [ ] **SPK-1133** **TP** Tool DB seed (13 classes, 17 defaults) + 3-part linkage (geom/cut-data/machine-cut-data) // P1
+  - AC: Engine: 13 tool classes, 17 seeded defaults (Profile→End Mill ¼", V-Carve→V-Bit 90° 1¼", QuickEngrave→Diamond Drag…); geometry/cut-data/machine-cut-data split with per-machine cutting data; UI: tool editor groups by class; Persist: JSON schema (our own); Verify: golden — seeding yields expected default per strategy
+  - deps: SPK-0301
+  - track: 3
+- [ ] **SPK-1134** **TP** Post engine v2 — template grammar (format specifiers) + GRBL in/mm + rotary wrap // P1
+  - AC: Engine: template-based post, own grammar modeled on observed `.pp` pattern (`[X|C|X|1.3]` style); two shipped templates: GRBL in/mm, GRBL rotary wrap (Y2A); UI: post picker in Save Toolpaths; Persist: templates bundled; Verify: golden G-code per template matches hand-written reference
+  - deps: SPK-0313
+  - track: 3
+- [ ] **SPK-1135** **TP** HTML job sheet → PDF (A4 template pattern) // P1
+  - AC: Engine: HTML template filled from toolpath/session data; UI: print/export sheet from Output; Persist: template bundled; Verify: golden — rendered PDF contains toolpath name, tool, feeds/speeds, dims, time estimate
+  - deps: SPK-0508
   - track: 3
 
 # PHASE A — Research & packaging (start immediately)
@@ -984,3 +1037,54 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 - Engine: `WireframeRenderer` modal XY (`G0X`/`G1 Y`); `PreviewMode` wired in UI.
 - Verify: `swift run ShopPilotVerify1103a` PASS. Full SPK-1103 remains open (deps SPK-1102 + richer material sim).
 
+### 2026-08-02 — Hermes board repair (Cursor)
+- Reclaimed/parked fat epics **SPK-1101 / 1102 / 1103** (Hermes was running 1101+1103 product cards).
+- Seeded Ready micros: 1101a/b/c, 1102a/b, 1103b/c, 1104a (SPEED + swift_locked rules in bodies).
+- Killed orphan worker on completed SPK-0414a. Ready queue refilled for coder/spark.
+### 2026-08-02 — SPK-1123 Layers CRUD micro (Hermes coder)
+- Claimed/finished **SPK-1123** (micro-slice of SPK-1101, which stays `[ ]`): session layer CRUD + interactive Layers UI.
+- Session (`AppSession`): `setLayerVisible` / `setLayerLocked` / `moveLayer(id:toIndex:)` / `moveLayerUp` / `moveLayerDown` / `addLayer(named:)` — all undo-point + dirty. `removeLayer` clears stale `.layer` selection.
+- Engine (`Sheet`): `moveLayer(from:to:)` reorder with clamping + no-op guard.
+- UI (`BrowserPanels`): left panel layer rows now have eye (vis), lock, vector count, up/down reorder chevrons, inline rename (double-click / context menu), delete (context menu), and a LAYERS header "+" add button; row tap sets session selection.
+- Verify: `./scripts/verify_locked.sh ShopPilotVerify1123` PASS (CRUD + reorder clamp/no-op + `.shoppilot` round-trip of layer order/flags); `swift build --target ShopPilot` green.
+
+### 2026-08-02 — SPK-1131 Tool database picker micro (Hermes coder)
+- Claimed/finished **SPK-1131** (Hermes micro, parent SPK-0301 stays `[ ]`): tool database picker attached to toolpath operation nodes.
+- Engine (`ToolpathTreeNode`): `toolID` + `assignTool(_:)` — set/clear/no-op guard, invalidates stale result, dirty cascade to ancestors. `ToolDatabase`: `tool(withID:)` + `tools(ofTypes:)` lookup/filter.
+- Persist (`PersistedToolpath`): `toolID` field added; `.shoppilot` round-trip preserves per-op tool assignment.
+- Session/UI (`AppSession`, `ToolpathTreeView`, `ContentView`): session-owned `toolDatabase`; `assignTool(_:toToolpath:)` route (undo-point + dirty); `ToolPickerMenu` (end mill + V-bit only) in tree rows (compact) and selected-node detail pane.
+- Verify: `./scripts/verify_locked.sh ShopPilotVerify1131` PASS (lookup/filter, assign semantics, persistence round-trip); `swift build --target ShopPilot` green.
+
+
+### 2026-08-03 — Aspire installer unpacked; installer-verified build plan (SPK-1132–1136)
+- Unpacked `AspireTrialEdition_Setup.exe` (V12.5.1.0 Build 12738, 520MB → 867MB / 1,368 files) with 7z (NSIS). Inventory: 75 .pp posts + `postp.ppdb` SQLite (964 posts incl. GRBL/Shapeoko/Avid/LinuxCNC/Mach3), 17 ToolpathDefaults, 2 .vtdb tool DBs, 91 gadgets, 72 stock sheet templates, 51 preview textures, 6 cabinetry mappings, 15,831 exe UI strings, 140 UI screenshots.
+- 4 parallel analysis passes → `/tmp/aspire_reports/01_toolpaths.md` (17-strategy parameter surface, Keep-Out Zones, node handles), `02_posts.md` (.pp grammar `[X|C|X|1.3]`, machine DB, HTML job sheet), `03_assets.md` (13 tool classes, 17 default tools, 72 presets, textures), `04_ui_surface.md` (full UI/feature surface, V12.5 headlines, trial limits).
+- Docs added: `ASPIRE_INSTALLER_BREAKDOWN.md` (feature surface + 9-item basic-app feature set), `INSTALLER_BUILD_PLAN.md` (new build plan), `ASPIRE_WINDOWS_EXPLORER_PROMPT.md` (pending live-capture on Windows trial PC).
+- `FEATURE_PARITY_MATRIX.md` §R added: 19 new rows (F34–F44, G11–G15, H09, I07) + verified annotations for F03–F06/F25/F28/G01/G04/A02–A04/K03/gadgets + trial limitations.
+- New kanban cards: **SPK-1132** stock presets (P0), **SPK-1136** P0 form-field parity (P0), **SPK-1133** tool DB seed + 3-part linkage (P1), **SPK-1134** post engine v2 template grammar (P1), **SPK-1135** HTML job sheet (P1). All Track 3; AC per INSTALLER_BUILD_PLAN.md.
+- Next claim: SPK-1132 (data asset, quick win) → SPK-1101 remaining → SPK-1102 + SPK-1136.
+
+### 2026-08-03 — SPK-1132 Stock sheet presets (direct write)
+- Claimed and finished **SPK-1132** (P0): 72 stock sheet presets + Job Setup picker.
+- Engine (`ShopPilotCore/StockSheetPresets.swift`): `StockSheetPreset` struct + `StockSheetPresets` catalog — 6 imperial sizes (2'x2'…8'x4', 609.6–2438.4 mm) × 6 thicknesses (⅛″–1″ = 3.175–25.4 mm) and 6 metric sizes (610×610…2438×1219) × 6 thicknesses (3–25 mm) = 72 presets; name lookup; `apply(_:to:)` sets sheet name/W/D/H. `Sheet.stockPresetName: String?` added for persistence (backward-compatible decode).
+- UI (`MaterialSetupView.swift`): "STOCK SHEET PRESET" picker — Custom… / Imperial / Metric groups; selection = `sheet.stockPresetName`; applies via new `AppSession.applyStockPreset(_:)` (undo point + dirty + status).
+- Persist: `stockPresetName` Codable round-trips through `.shoppilot` payload; legacy docs decode with nil (tested).
+- Verify: `./scripts/verify_locked.sh ShopPilotVerify1132` PASS — 72 presets (36/36), exact dim goldens (4'x8'x0.375'' = 1219.2×2438.4×9.525; 8'x4'x1'' = 25.4 mm; 1219x2438x18 mm…), apply() correctness, Codable round-trip, legacy-doc compatibility. `swift build --target ShopPilot` green.
+- Next: SPK-1101 remaining → SPK-1102 + SPK-1136.
+
+### 2026-08-03 — Finish-wave audit: 4 micros verified already-implemented (worktree audit)
+- **SPK-1101a** [x] — `DesignCanvasView.swift:273` drag → `session.moveShape(at:by:dy:)` (undo+dirty); selection via `selectedShapeIndices`.
+- **SPK-1102a** [x] — `AppSession.swift:744` `ProfileToolpathEngine.compute(...)` → `node.toolpathResult` (G-code into session tree).
+- **SPK-1103b** [x] — `ToolpathPreviewView.swift:196` draft heightfield on background task with cancellation; UI stays responsive.
+- **SPK-1104a** [x] — `MachineConnection.swift:323` `machineSession.loadGCode(pendingGCode)` on appear; bridge posts raw G-code (GRBL post in CutToMachineBridge).
+- Verify evidence: full `swift build` green (exit 0) + per-feature code audit above. XCTest suite still gated on Xcode toolchain (SPK-1105).
+- Dispatched finish wave (4 parallel subagents, one file each): 1101b+1101c (DesignCanvasView), 1102b+G05 save flow (ContentView), 1103c (ToolpathPreviewView), ⌘K routing (Commands.swift). Build verify after wave.
+
+### 2026-08-03 — Finish wave 1 (4 parallel subagents) + fixes: 1101b/1101c/1102b/G05/1103c/⌘K
+- **SPK-1101b** [x] Node edit — DesignCanvasView: node-edit toggle, vertex handles rendered for selected polyline, drag vertex → session.updateShape (undo+dirty). Geometry verified by ShopPilotVerify1101b (registered, passes).
+- **SPK-1101c** [x] Measure — ruler toggle, two-click distance with line+label overlay, statusMessage "Distance: %.1f mm".
+- **SPK-1102b** [x] Export block — CutStageView "Save Toolpaths…" runs ExportBlocker.validateForExport(); dirty nodes → alert "Recalculate before saving" + expert override. Save flow (G05): NSSavePanel → CutToMachineBridge GRBL post → write .gcode; status reports actual written line count (fixed: bridge lineCount ≠ file newlines).
+- **SPK-1103c** [x] Preview highlight — ToolpathPreviewView draws selected node's G-code segments in accent color + "Selected: <name> (<n> lines)" legend; nil selection keeps old behavior. Agent harness 16/16 PASS.
+- **⌘K routing** — Commands.swift: 9 routable commands (new/open/save/export_gcode/undo/redo/profile_tp/connect_machine/air_cut), 16 marked coming-soon; no stub leaks. Harness PASS.
+- Fixes: Package.swift registered orphan verify targets 1101b/1101i/1131; 1101i rewritten against real AlignmentMode (topLeft/centerCenter/bottomRight/distribute) + ShapeTransformer init made public; all 9 verify targets green; full swift build exit 0.
+- Remaining for v1: SPK-1101 epic (text/offset/boolean reachable — micros 1120/1125 done, 1101 itself still open), SPK-1102 main card close, SPK-1103 main card close, SPK-1104 main card close, SPK-1105 XCTest (Xcode-gated), SPK-1106 sign recipe, Track 5 gate.

@@ -19,6 +19,9 @@ public struct OffsetResult: Codable, Equatable {
         self.offsetPath = offsetPath
         self.distance = distance
     }
+
+    /// True when at least one offset point was produced.
+    public var isValid: Bool { !offsetPath.isEmpty }
 }
 
 // MARK: - Arc helpers (private)
@@ -177,76 +180,143 @@ public final class VectorOffsetCalculator {
 
     /// Offsets a closed polyline (arbitrary polygon) by the given signed distance.
     /// Each edge is shifted parallel to itself, and consecutive offset edges are
-    /// intersected to produce sharp corners. Positive distance = outward; negative = inward.
+    /// intersected (miter join) to produce sharp corners. Positive distance =
+    /// outward; negative = inward — regardless of the polygon's winding.
     public static func offsetClosedPolyline(points: [VectorPoint], by distance: Double) -> OffsetResult? {
         guard points.count >= 3 else { return nil }
 
-        var offsetVerts: [VectorPoint] = []
-        for i in 0..<points.count {
-            let curr = points[i]
-            let prev = points[(i - 1 + points.count) % points.count]
-            let next = points[(i + 1) % points.count]
-
-            let dx1 = curr.x - prev.x
-            let dy1 = curr.y - prev.y
-            let len1 = sqrt(dx1 * dx1 + dy1 * dy1)
-
-            let dx2 = next.x - curr.x
-            let dy2 = next.y - curr.y
-            let len2 = sqrt(dx2 * dx2 + dy2 * dy2)
-
-            guard len1 > 1e-9, len2 > 1e-9 else { continue }
-
-            let nx1 = -dy1 / len1
-            let ny1 = dx1 / len1
-            let nx2 = -dy2 / len2
-            let ny2 = dx2 / len2
-
-            let nx = (nx1 + nx2) / 2.0
-            let ny = (ny1 + ny2) / 2.0
-            let nLen = sqrt(nx * nx + ny * ny)
-            guard nLen > 1e-9 else { continue }
-
-            offsetVerts.append(VectorPoint(
-                x: curr.x + nx / nLen * distance,
-                y: curr.y + ny / nLen * distance
-            ))
+        // Normalize: an explicit closing duplicate (first == last) is dropped so
+        // each corner is processed exactly once.
+        var pts = points
+        if pts.count > 1, pts.first == pts.last {
+            pts.removeLast()
         }
+        guard pts.count >= 3 else { return nil }
 
-        guard !offsetVerts.isEmpty else { return nil }
+        // Winding via signed area (shoelace). Positive = CCW.
+        var area2 = 0.0
+        for i in 0..<pts.count {
+            let a = pts[i]
+            let b = pts[(i + 1) % pts.count]
+            area2 += a.x * b.y - b.x * a.y
+        }
+        let isCCW = area2 > 0
 
-        var offsetPath: [VectorPoint] = []
-        for i in 0..<offsetVerts.count {
-            let curr = offsetVerts[i]
-            let next = offsetVerts[(i + 1) % offsetVerts.count]
-            let prev = offsetVerts[(i - 1 + offsetVerts.count) % offsetVerts.count]
-
-            let e1dx = curr.x - prev.x
-            let e1dy = curr.y - prev.y
-            let e2dx = next.x - curr.x
-            let e2dy = next.y - curr.y
-
-            if let intersection = lineIntersection(
-                p1: prev, d1: (e1dx, e1dy),
-                p2: curr, d2: (e2dx, e2dy)
-            ) {
-                offsetPath.append(intersection)
+        // Outward unit normal of edge (from → to):
+        //   CCW → right normal (dy, -dx)/len;  CW → left normal (-dy, dx)/len.
+        func outwardNormal(_ from: VectorPoint, _ to: VectorPoint) -> (Double, Double)? {
+            let dx = to.x - from.x
+            let dy = to.y - from.y
+            let len = sqrt(dx * dx + dy * dy)
+            guard len > 1e-9 else { return nil }
+            if isCCW {
+                return (dy / len, -dx / len)
+            } else {
+                return (-dy / len, dx / len)
             }
         }
 
-        if offsetPath.isEmpty {
-            offsetPath = offsetVerts
+        // Miter join: vertex v is replaced by the intersection of its two offset
+        // edge lines. With outward unit normals n1 (incoming edge) and n2
+        // (outgoing edge):  v' = v + d * (n1 + n2) / (1 + n1·n2).
+        var offsetVerts: [VectorPoint] = []
+        let n = pts.count
+        for i in 0..<n {
+            let prev = pts[(i - 1 + n) % n]
+            let curr = pts[i]
+            let next = pts[(i + 1) % n]
+
+            guard let n1 = outwardNormal(prev, curr),
+                  let n2 = outwardNormal(curr, next) else { continue }
+
+            let dot = n1.0 * n2.0 + n1.1 * n2.1
+            let denom = 1.0 + dot
+            // Denom ≈ 0 → edges are (near-)collinear in opposite directions
+            // (spike); drop the degenerate corner rather than explode.
+            guard abs(denom) > 1e-9 else { continue }
+
+            let scale = distance / denom
+            offsetVerts.append(VectorPoint(
+                x: curr.x + (n1.0 + n2.0) * scale,
+                y: curr.y + (n1.1 + n2.1) * scale
+            ))
         }
 
-        if let first = offsetPath.first, offsetPath.last != first {
-            offsetPath.append(first)
-        }
+        guard offsetVerts.count >= 3 else { return nil }
+
+        // Always emit an explicitly closed path: corners + closing point.
+        var offsetPath = offsetVerts
+        offsetPath.append(offsetVerts[0])
 
         return OffsetResult(
             original: .freehand(points: points),
             offsetPath: offsetPath,
             distance: distance
         )
+    }
+
+    // MARK: Shape-level dispatcher
+
+    /// Offset any shape by a signed distance, returning concrete `VectorShape`s
+    /// the design editor can commit to the session. Positive = outward.
+    ///
+    /// - line → offset line segment (freehand polyline, 2 points)
+    /// - circle → circle with adjusted radius
+    /// - rectangle → rectangle with expanded/contracted extents
+    /// - arc → freehand polyline along the offset arc
+    /// - freehand (closed) → offset closed polyline
+    /// - ellipse/polygon/star → freehand polyline of the offset outline
+    ///
+    /// Returns an empty array when the shape collapses (offset larger than the
+    /// shape) or the input type cannot be offset.
+    public static func offsetShape(_ shape: VectorShape, by distance: Double) -> [VectorShape] {
+        switch shape {
+        case .line:
+            guard let r = offsetLine(shape, by: distance), r.offsetPath.count >= 2 else { return [] }
+            return [.freehand(points: r.offsetPath)]
+
+        case .circle(let center, let radius):
+            let newRadius = radius + distance
+            guard newRadius > 1e-9 else { return [] }
+            return [.circle(center: center, radius: newRadius)]
+
+        case .rectangle(let origin, let w, let h):
+            guard let r = offsetRectangle(rect: shape, by: distance), r.offsetPath.count >= 4 else { return [] }
+            // Rebuild a rectangle from the offset box corners.
+            let xs = r.offsetPath.map { $0.x }
+            let ys = r.offsetPath.map { $0.y }
+            let minX = xs.min() ?? origin.x
+            let maxX = xs.max() ?? (origin.x + w)
+            let minY = ys.min() ?? origin.y
+            let maxY = ys.max() ?? (origin.y + h)
+            guard maxX - minX > 1e-9, maxY - minY > 1e-9 else { return [] }
+            return [.rectangle(origin: VectorPoint(x: minX, y: minY), width: maxX - minX, height: maxY - minY)]
+
+        case .arc:
+            guard let r = offsetArc(arc: shape, by: distance), r.offsetPath.count >= 2 else { return [] }
+            return [.freehand(points: r.offsetPath)]
+
+        case .ellipse(let center, let rx, let ry, let rotation):
+            let newRX = rx + distance
+            let newRY = ry + distance
+            guard newRX > 1e-9, newRY > 1e-9 else { return [] }
+            return [.ellipse(center: center, radiusX: newRX, radiusY: newRY, rotation: rotation)]
+
+        case .polygon(let center, let radius, let sides, let rotation):
+            let newRadius = radius + distance
+            guard newRadius > 1e-9 else { return [] }
+            return [.polygon(center: center, radius: newRadius, sides: sides, rotation: rotation)]
+
+        case .star(let center, let outer, let inner, let points, let rotation):
+            let newOuter = outer + distance
+            let newInner = inner + distance
+            guard newOuter > 1e-9, newInner > 1e-9 else { return [] }
+            return [.star(center: center, outerRadius: newOuter, innerRadius: newInner, points: points, rotation: rotation)]
+
+        case .freehand(let pts):
+            guard let r = offsetClosedPolyline(points: pts, by: distance), r.offsetPath.count >= 3 else { return [] }
+            return [.freehand(points: r.offsetPath)]
+        }
     }
 
     /// Find intersection point of two lines defined by point + direction.

@@ -176,6 +176,7 @@ public final class VectorSelector: ObservableObject {
     /// Select all available vectors.
     public func selectAll() {
         selectedSet.vectors = availableVectors
+        selectedSet.mode = .allInLayer
     }
     
     /// Clear the selection.

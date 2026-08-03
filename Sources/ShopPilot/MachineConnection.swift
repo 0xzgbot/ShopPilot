@@ -314,6 +314,17 @@ public struct MachineConnectionView: View {
     /// Optional G-code lines from the Cut/Preview stages (session golden path).
     private let pendingGCode: [String]
     
+    /// MachineSession facade for hold/resume/reset and buffer loading.
+    @State private var machineSession = MachineSession()
+    
+    /// Load pending G-code into MachineSession when the view appears.
+    private func loadPendingGCode() {
+        if !pendingGCode.isEmpty {
+            machineSession.loadGCode(pendingGCode)
+            connectionManager.addSystemMessage("Loaded \(pendingGCode.count) G-code lines into session buffer")
+        }
+    }
+    
     private let preflightItems: [PreFlightItem] = [
         PreFlightItem(title: "Work zero set", description: "Confirm X/Y/Z work coordinates are correct"),
         PreFlightItem(title: "Tool loaded", description: "Verify correct tool is in spindle"),
@@ -368,6 +379,7 @@ public struct MachineConnectionView: View {
             // Pre-flight checklist (shown when connected, before streaming)
             preflightChecklist
         }
+        .task { loadPendingGCode() }
         // NOTE: No auto-connect on appear. Safety Req #9: never auto-connect
         // or auto-run on application launch. User must explicitly press Connect.
     }
@@ -748,10 +760,10 @@ public struct MachineConnectionView: View {
                     
                     // Stream job button (when connected, not already streaming)
                     if connectionManager.connectionState.isConnected && !isStreamingJob {
-                        Button(action: streamJobFromFile) {
+                        Button(action: { Task { await streamJob() } }) {
                             HStack {
                                 Image(systemName: "play.fill")
-                                Text("Stream Job from File")
+                                Text(machineSession.gcodeBuffer.isEmpty ? "Stream Job from File" : "Run Job (\(machineSession.gcodeBuffer.count) lines)")
                                     .font(.caption2)
                             }
                         }
@@ -786,7 +798,7 @@ public struct MachineConnectionView: View {
     
     // MARK: - Safety Chrome
     
-    /// Always-visible safety controls (Hold/Reset) shown when connected, connecting, or in alarm.
+    /// Always-visible safety controls (Hold/Resume/Reset) shown when connected, connecting, or in alarm.
     private var safetyChrome: some View {
         Group {
             if connectionManager.connectionState.isConnected
@@ -809,6 +821,21 @@ public struct MachineConnectionView: View {
                     .controlSize(.large)
                     .keyboardShortcut(KeyEquivalent("h"), modifiers: .command)
                     
+                    // Resume button — resumes a held machine
+                    Button(action: resumeMachine) {
+                        VStack(spacing: 4) {
+                            Image(systemName: "play.circle.fill")
+                                .font(.title2)
+                            Text("Resume")
+                                .font(.caption2)
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.green)
+                    .controlSize(.large)
+                    .keyboardShortcut(KeyEquivalent("r"), modifiers: .command)
+                    
                     // Reset button — clears alarms and resets state
                     Button(action: resetMachine) {
                         VStack(spacing: 4) {
@@ -822,7 +849,7 @@ public struct MachineConnectionView: View {
                     .buttonStyle(.borderedProminent)
                     .tint(.red)
                     .controlSize(.large)
-                    .keyboardShortcut(KeyEquivalent("r"), modifiers: .command)
+                    .keyboardShortcut(KeyEquivalent("x"), modifiers: .command)
                 }
                 .padding(8)
             }
@@ -833,25 +860,44 @@ public struct MachineConnectionView: View {
     
     private func connectToMachine() async {
         await connectionManager.connect(to: selectedTransportType)
+        // Wire up MachineSession transport after connection so hold/resume/reset
+        // realtime commands (!, ~, 0x18) reach the connected transport.
+        if let transport = connectionManager.transport, connectionManager.connectionState == .connected {
+            machineSession.connectionState = connectionManager.connectionState
+            machineSession.attach(transport: transport)
+            machineSession.attachStreamer(streamer)
+        }
     }
     
     private func disconnectFromMachine() async {
         await connectionManager.disconnect()
+        // ConnectionManager owns the transport lifecycle — session detaches
+        // (no double-close) and resets its own state.
+        machineSession.detach()
     }
     
-    /// Send GRBL hold command (pause machine motion).
+    /// Send GRBL hold command (pause machine motion) via MachineSession.
     private func holdMachine() {
         Task {
-            await connectionManager.sendCommand("!") // GRBL hold (exclamation mark)
+            await machineSession.hold()
+            await streamer.pause()
             connectionManager.addSystemMessage("Hold sent — machine paused")
         }
     }
     
-    /// Send GRBL reset command (clear alarms, return to idle).
+    /// Resume a held machine via MachineSession.
+    private func resumeMachine() {
+        Task {
+            await machineSession.resume()
+            await streamer.resume()
+            connectionManager.addSystemMessage("Resume sent — machine resuming")
+        }
+    }
+    
+    /// Send GRBL reset command (clear alarms, return to idle) via MachineSession.
     private func resetMachine() {
         Task {
-            let resetCmd = "\u{18}" // GRBL reset (Ctrl+X)
-            await connectionManager.sendCommand(resetCmd)
+            await machineSession.reset()
             connectionManager.addSystemMessage("Reset sent — machine cleared")
         }
     }
@@ -904,9 +950,36 @@ public struct MachineConnectionView: View {
     
     // MARK: - Stream Job Actions
     
-    /// Run the job (one-click CTA after preflight passes).
+    /// Run the job (preflight CTA). Uses MachineSession buffer when available,
+    /// otherwise falls back to file-based streaming.
     private func runJob() {
-        streamJobFromFile()
+        if !machineSession.gcodeBuffer.isEmpty {
+            Task { await runJobFromSession() }
+        } else {
+            streamJobFromFile()
+        }
+    }
+    
+    /// Stream G-code from the MachineSession buffer via the connected transport.
+    private func runJobFromSession() async {
+        guard let transport = connectionManager.transport else {
+            connectionManager.addSystemMessage("Error: Not connected")
+            return
+        }
+        
+        isStreamingJob = true
+        await streamer.reset()
+        machineSession.attachStreamer(streamer)
+        
+        do {
+            connectionManager.addSystemMessage("Streaming \(machineSession.gcodeBuffer.count) lines from session buffer")
+            try await streamer.stream(lines: machineSession.gcodeBuffer, to: transport)
+            isStreamingJob = false
+            connectionManager.addSystemMessage("Stream complete — \(streamer.currentLine) lines")
+        } catch {
+            isStreamingJob = false
+            connectionManager.addSystemMessage("Stream error: \(error.localizedDescription)")
+        }
     }
     
     /// Open file picker and stream selected G-code job.
@@ -977,6 +1050,15 @@ public struct MachineConnectionView: View {
         }
     }
     
+    /// Stream G-code from the MachineSession buffer (called from the "Run Job" button).
+    private func streamJob() async {
+        if !machineSession.gcodeBuffer.isEmpty {
+            await runJobFromSession()
+        } else {
+            streamJobFromFile()
+        }
+    }
+    
     /// Find recent export files from CutToMachineBridge (sorted newest first).
     private func findRecentBridgeExports() -> [URL] {
         let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("ShopPilotExports")
@@ -1023,13 +1105,7 @@ public struct MachineConnectionView: View {
             
             connectionManager.addSystemMessage("Exported \(result.postProcessorType.displayName) G-code → \(result.outputFileURL?.lastPathComponent ?? "unknown")")
             
-            guard let transport = connectionManager.transport else {
-                isStreamingJob = false
-                connectionManager.addSystemMessage("Error: Not connected to machine")
-                return
-            }
-            
-            // Step 2: Load and stream the exported file
+            // Step 2: Load into MachineSession buffer (primary handoff path)
             guard let outputFileURL = result.outputFileURL,
                   FileManager.default.fileExists(atPath: outputFileURL.path) else {
                 isStreamingJob = false
@@ -1038,9 +1114,20 @@ public struct MachineConnectionView: View {
             }
             
             let lines = try await streamer.load(from: outputFileURL)
+            machineSession.loadGCode(lines)
+            connectionManager.addSystemMessage("Loaded \(lines.count) lines into MachineSession buffer")
+            
+            // Step 3: Stream if connected
+            guard let transport = connectionManager.transport else {
+                isStreamingJob = false
+                connectionManager.addSystemMessage("Not connected — G-code loaded into buffer for later use")
+                return
+            }
+            
+            machineSession.attachStreamer(streamer)
             try await streamer.stream(lines: lines, to: transport)
             
-            // Step 3: Update result with actual streamed line count
+            // Step 4: Update result with actual streamed line count
             connectionManager.addSystemMessage("Stream complete — \(streamer.currentLine) lines")
             
         } catch {

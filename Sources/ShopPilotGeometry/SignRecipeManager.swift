@@ -1,17 +1,16 @@
-import SwiftUI
+import Foundation
 import ShopPilotCore
-import ShopPilotGeometry
 
 // MARK: - Sign Recipe Manager
 
 /// Creates a sign job from a recipe selection, pre-wiring text-on-curve,
 /// decorative border, and V-Carve toolpath for a complete sign-making workflow.
-final class SignRecipeManager {
+public enum SignRecipeManager {
 
     // MARK: - Create Sign Job
 
     /// Create a complete sign job from the signage recipe.
-    static func createSignJob(
+    public static func createSignJob(
         jobName: String = "Sign Job",
         text: String = "SHOP",
         font: String = "Helvetica Neue",
@@ -44,7 +43,7 @@ final class SignRecipeManager {
         var textLayer = ShopPilotCore.Layer(name: "Text")
         let textShapes = TextTool.textOnCurve(
             text: text,
-            curvePoints: arcPoints(center: ShopPilotGeometry.VectorPoint(x: recipe.stockWidth / 2, y: recipe.stockDepth / 2 + 50),
+            curvePoints: arcPoints(center: VectorPoint(x: recipe.stockWidth / 2, y: recipe.stockDepth / 2 + 50),
                                    radius: 120,
                                    startAngle: -0.8,
                                    endAngle: 0.8,
@@ -73,8 +72,17 @@ final class SignRecipeManager {
 
         // Layer 2: Decorative border
         var borderLayer = ShopPilotCore.Layer(name: "Border")
+        // Border is drawn centered on the origin — translate it into the stock
+        // (sheet coordinates span 0..width × 0..depth), leaving a 20mm margin.
         let border = createDecorativeBorder(width: recipe.stockWidth - 40, height: recipe.stockDepth - 40)
-        borderLayer.addVector(border)
+        var borderInStock = border
+        borderInStock.points = border.points.map {
+            ShopPilotCore.VectorPoint(
+                x: $0.x + recipe.stockWidth / 2,
+                y: $0.y + recipe.stockDepth / 2
+            )
+        }
+        borderLayer.addVector(borderInStock)
         sheet.addLayer(borderLayer)
 
         // Create the job
@@ -191,19 +199,19 @@ final class SignRecipeManager {
     // MARK: - Arc Helpers
 
     private static func arcPoints(
-        center: ShopPilotGeometry.VectorPoint,
+        center: VectorPoint,
         radius: Double,
         startAngle: Double,
         endAngle: Double,
         segments: Int
-    ) -> [ShopPilotGeometry.VectorPoint] {
-        var points: [ShopPilotGeometry.VectorPoint] = []
+    ) -> [VectorPoint] {
+        var points: [VectorPoint] = []
         for i in 0...segments {
             let t = Double(i) / Double(segments)
             let angle = startAngle + (endAngle - startAngle) * t
             let x = center.x + radius * cos(angle)
             let y = center.y + radius * sin(angle)
-            points.append(ShopPilotGeometry.VectorPoint(x: x, y: y))
+            points.append(VectorPoint(x: x, y: y))
         }
         return points
     }

@@ -441,7 +441,8 @@ enum ImportError: LocalizedError {
     case dxfNotAvailable
     case unsupportedFormat(String)
     case fileReadFailed(URL, Error)
-    
+    case svgParseFailed(String)
+
     var errorDescription: String? {
         switch self {
         case .dxfNotAvailable:
@@ -450,6 +451,8 @@ enum ImportError: LocalizedError {
             return "Unsupported file format: \(format)"
         case .fileReadFailed(let url, let error):
             return "Failed to read '\(url.lastPathComponent)': \(error.localizedDescription)"
+        case .svgParseFailed(let message):
+            return "SVG import failed: \(message)"
         }
     }
 }

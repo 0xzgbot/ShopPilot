@@ -147,8 +147,9 @@ final class NodeEditorTests: XCTestCase {
         XCTAssertEqual(nodes.count, 3, "extracted 3 nodes from 3-point polyline")
 
         // Move the middle node
-        nodes[1].point = VectorPoint(x: 5, y: 5)
-        let updated = shape.updateFromNodes(nodes)
+        var moved = nodes
+        moved[1].point = VectorPoint(x: 5, y: 5)
+        let updated = shape.updateFromNodes(moved)
 
         if case .freehand(let newPts) = updated {
             XCTAssertEqual(newPts[0], pts[0], "first point unchanged")

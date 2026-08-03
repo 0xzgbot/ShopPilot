@@ -114,6 +114,11 @@ public final class ToolpathSimulator {
     
     private let initialHeightmap: Heightmap
     
+    /// The stock surface Z (top of material) before any cutting.
+    public var stockTopHeight: Double {
+        initialHeightmap.data.first ?? 0.0
+    }
+    
     public init(initialHeightmap: Heightmap) {
         self.initialHeightmap = initialHeightmap
     }
@@ -154,6 +159,7 @@ public final class ToolpathSimulator {
         }
         
         // Parse G-code and apply material removal simulation
+        var currentZ: Double = stockTopHeight
         for line in toolpathGcode {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             
@@ -167,9 +173,37 @@ public final class ToolpathSimulator {
                 continue
             }
             
-            // Parse G1 (linear move) with Z depth changes
+            // Parse G1 (linear move) with Z depth changes.
+            // G-code from ShopPilot emits plunge (Z-only) and move (XY-only) on
+            // separate lines, so Z depth is tracked across lines.
             if trimmed.hasPrefix("G1 ") {
-                simulateCut(line: trimmed, heightmap: &workingHeightmap, zeroPlane: zeroPlane)
+                var xCoord: Double?
+                var yCoord: Double?
+                var zCoord: Double?
+                
+                let components = trimmed.components(separatedBy: " ")
+                for component in components {
+                    if component.hasPrefix("X") {
+                        xCoord = Double(component.dropFirst())
+                    } else if component.hasPrefix("Y") {
+                        yCoord = Double(component.dropFirst())
+                    } else if component.hasPrefix("Z") {
+                        zCoord = Double(component.dropFirst())
+                    }
+                }
+                
+                if let z = zCoord {
+                    currentZ = z
+                }
+                
+                // Material is removed where the cutter is below the stock top.
+                if let x = xCoord, let y = yCoord, currentZ < stockTopHeight {
+                    let gridPos = workingHeightmap.gridPosition(x, y)
+                    let currentHeight = workingHeightmap.getHeight(gridPos.x, gridPos.y)
+                    if currentZ < currentHeight {
+                        workingHeightmap.setHeight(currentZ, gridPos.x, gridPos.y)
+                    }
+                }
             }
         }
         
@@ -180,37 +214,6 @@ public final class ToolpathSimulator {
             finalHeightmap: workingHeightmap,
             simulationTimeSeconds: simulationTime
         )
-    }
-    
-    /// Simulate a single cut operation on the heightmap.
-    private func simulateCut(line: String, heightmap: inout Heightmap, zeroPlane: ZeroPlane?) {
-        // Parse X, Y, Z coordinates from G-code line
-        var xCoord: Double?
-        var yCoord: Double?
-        var zCoord: Double?
-        
-        let components = line.components(separatedBy: " ")
-        
-        for component in components {
-            if component.hasPrefix("X") {
-                xCoord = Double(component.dropFirst())
-            } else if component.hasPrefix("Y") {
-                yCoord = Double(component.dropFirst())
-            } else if component.hasPrefix("Z") {
-                zCoord = Double(component.dropFirst())
-            }
-        }
-        
-        // If we have a Z depth, update the heightmap at that position
-        if let z = zCoord, let x = xCoord, let y = yCoord {
-            let gridPos = heightmap.gridPosition(x, y)
-            
-            // Update height at this position (material removal)
-            let currentHeight = heightmap.getHeight(gridPos.x, gridPos.y)
-            if z < currentHeight {
-                heightmap.setHeight(z, gridPos.x, gridPos.y)
-            }
-        }
     }
     
     /// Get the current heightmap state.

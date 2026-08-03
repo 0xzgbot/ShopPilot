@@ -107,6 +107,7 @@ public struct ProfileToolpathEngine {
     ) -> ProfileToolpathResult {
         
         var allGcodeLines: [String] = []
+        var allPathSegments: [String] = []
         let feedRate = params.feedRateMmPerMin
         let plungeFeed = params.plungeFeedRateMmPerMin
         
@@ -122,12 +123,30 @@ public struct ProfileToolpathEngine {
             guard !vector.points.isEmpty else { continue }
             
             // Calculate offset based on cut mode and tool diameter
-            let offset = calculateOffset(for: params.cutMode, toolRadius: params.toolDiameterMm / 2)
+            let toolRadius = params.toolDiameterMm / 2.0
+            let offsetDistance: Double
             
-            // Generate offset path points
-            var offsetPoints: [VectorPoint] = []
-            for pt in vector.points {
-                offsetPoints.append(VectorPoint(x: pt.x + offset.dx, y: pt.y + offset.dy))
+            switch params.cutMode {
+            case .outCut:
+                offsetDistance = toolRadius
+            case .inCut:
+                offsetDistance = -toolRadius
+            case .onCut:
+                offsetDistance = 0
+            }
+            
+            // For closed polylines, use proper perpendicular offset
+            let offsetPoints: [VectorPoint]
+            if vector.isClosed && vector.points.count >= 3 {
+                if let result = offsetClosedPolyline(points: vector.points, by: offsetDistance) {
+                    offsetPoints = result
+                } else {
+                    // Fallback to naive offset
+                    offsetPoints = vector.points.map { VectorPoint(x: $0.x + offsetDistance, y: $0.y) }
+                }
+            } else {
+                // Open polylines: simple axis-aligned offset
+                offsetPoints = vector.points.map { VectorPoint(x: $0.x + offsetDistance, y: $0.y + offsetDistance) }
             }
             
             // Calculate depth passes
@@ -152,24 +171,28 @@ public struct ProfileToolpathEngine {
                     
                     // Move to start with lead-in
                     allGcodeLines.append("G1 X\(String(format: "%.3f", startPoint.x)) Y\(String(format: "%.3f", startPoint.y)) F\(Int(feedRate))")
+                    allPathSegments.append("G1 X\(String(format: "%.3f", startPoint.x)) Y\(String(format: "%.3f", startPoint.y)) F\(Int(feedRate))")
                 }
                 
                 // Follow the offset path
                 for i in 1..<offsetPoints.count {
                     let point = offsetPoints[i]
                     allGcodeLines.append("G1 X\(String(format: "%.3f", point.x)) Y\(String(format: "%.3f", point.y)) F\(Int(feedRate))")
+                    allPathSegments.append("G1 X\(String(format: "%.3f", point.x)) Y\(String(format: "%.3f", point.y)) F\(Int(feedRate))")
                 }
                 
                 // Close the path if vector is closed
                 if vector.isClosed && offsetPoints.count > 2 {
                     let firstPoint = offsetPoints.first!
                     allGcodeLines.append("G1 X\(String(format: "%.3f", firstPoint.x)) Y\(String(format: "%.3f", firstPoint.y)) F\(Int(feedRate))")
+                    allPathSegments.append("G1 X\(String(format: "%.3f", firstPoint.x)) Y\(String(format: "%.3f", firstPoint.y)) F\(Int(feedRate))")
                 }
                 
                 // Lead-out at end point
                 if let endPoint = offsetPoints.last {
                     let leadOutX = endPoint.x + params.leadOutDistanceMm
                     allGcodeLines.append("G1 X\(String(format: "%.3f", leadOutX)) Y\(String(format: "%.3f", endPoint.y)) F\(Int(feedRate))")
+                    allPathSegments.append("G1 X\(String(format: "%.3f", leadOutX)) Y\(String(format: "%.3f", endPoint.y)) F\(Int(feedRate))")
                 }
                 
                 // Rapid to safe height
@@ -193,7 +216,7 @@ public struct ProfileToolpathEngine {
             gcodeLines: allGcodeLines,
             estimatedTimeSeconds: cuttingTime,
             passCount: maxPassCount,
-            path: allGcodeLines,
+            path: allPathSegments,
             boundsMinX: nil,
             boundsMinY: nil,
             boundsMaxX: nil,
@@ -201,13 +224,101 @@ public struct ProfileToolpathEngine {
         )
     }
     
-    /// Calculate the offset direction based on cut mode and tool radius.
+    /// Calculate the offset direction based on cut mode and tool diameter.
     private static func calculateOffset(for mode: ProfileCutMode, toolRadius: Double) -> (dx: Double, dy: Double) {
         switch mode {
         case .outCut: return (toolRadius, -toolRadius) // Offset outward
         case .inCut: return (-toolRadius, toolRadius)   // Offset inward
         case .onCut: return (0, 0)                       // No offset
         }
+    }
+    
+    // MARK: - Perpendicular offset for closed polylines
+    
+    /// Offsets a closed polyline outward/inward by a signed distance using
+    /// perpendicular-edge intersection (same algorithm as VectorOffsetCalculator.offsetClosedPolyline).
+    private static func offsetClosedPolyline(points: [VectorPoint], by distance: Double) -> [VectorPoint]? {
+        guard points.count >= 3 else { return nil }
+        
+        var offsetVerts: [VectorPoint] = []
+        for i in 0..<points.count {
+            let curr = points[i]
+            let prev = points[(i - 1 + points.count) % points.count]
+            let next = points[(i + 1) % points.count]
+            
+            let dx1 = curr.x - prev.x
+            let dy1 = curr.y - prev.y
+            let len1 = sqrt(dx1 * dx1 + dy1 * dy1)
+            
+            let dx2 = next.x - curr.x
+            let dy2 = next.y - curr.y
+            let len2 = sqrt(dx2 * dx2 + dy2 * dy2)
+            
+            guard len1 > 1e-9, len2 > 1e-9 else { continue }
+            
+            let nx1 = -dy1 / len1
+            let ny1 = dx1 / len1
+            let nx2 = -dy2 / len2
+            let ny2 = dx2 / len2
+            
+            let nx = (nx1 + nx2) / 2.0
+            let ny = (ny1 + ny2) / 2.0
+            let nLen = sqrt(nx * nx + ny * ny)
+            guard nLen > 1e-9 else { continue }
+            
+            offsetVerts.append(VectorPoint(
+                x: curr.x + nx / nLen * distance,
+                y: curr.y + ny / nLen * distance
+            ))
+        }
+        
+        guard !offsetVerts.isEmpty else { return nil }
+        
+        var offsetPath: [VectorPoint] = []
+        for i in 0..<offsetVerts.count {
+            let curr = offsetVerts[i]
+            let next = offsetVerts[(i + 1) % offsetVerts.count]
+            let prev = offsetVerts[(i - 1 + offsetVerts.count) % offsetVerts.count]
+            
+            let e1dx = curr.x - prev.x
+            let e1dy = curr.y - prev.y
+            let e2dx = next.x - curr.x
+            let e2dy = next.y - curr.y
+            
+            if let intersection = lineIntersection(
+                p1: prev, d1: (e1dx, e1dy),
+                p2: curr, d2: (e2dx, e2dy)
+            ) {
+                offsetPath.append(intersection)
+            }
+        }
+        
+        if offsetPath.isEmpty {
+            offsetPath = offsetVerts
+        }
+        
+        if let first = offsetPath.first, offsetPath.last != first {
+            offsetPath.append(first)
+        }
+        
+        return offsetPath
+    }
+    
+    /// Find intersection point of two lines defined by point + direction.
+    private static func lineIntersection(
+        p1: VectorPoint, d1: (Double, Double),
+        p2: VectorPoint, d2: (Double, Double)
+    ) -> VectorPoint? {
+        let (d1x, d1y) = d1
+        let (d2x, d2y) = d2
+        let denom = d1x * d2y - d1y * d2x
+        guard abs(denom) > 1e-12 else { return nil }
+        
+        let dx = p2.x - p1.x
+        let dy = p2.y - p1.y
+        
+        let t = (dx * d2y - dy * d2x) / denom
+        return VectorPoint(x: p1.x + t * d1x, y: p1.y + t * d1y)
     }
 }
 

@@ -2,6 +2,7 @@
 .build/
 Package.resolved
 .swiftpm/
+.swift.lock
 
 # Xcode
 *.xcodeproj/
@@ -37,3 +38,7 @@ __MACOSX/
 
 # SwiftLint (keep .swiftlint.yml; ignore generated reports)
 swiftlint_report.*
+
+# Local Hermes attachments (large installers) + worktrees
+.hermes/
+.worktrees/

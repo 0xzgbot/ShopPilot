@@ -61,15 +61,19 @@ extension VectorShape {
                 NodeHandle(point: start),
                 NodeHandle(point: end)
             ]
-        case .circle(let center, _):
-            // Circle represented by center + 4 cardinal points for editing
+        case .circle(let center, let radius):
+            // Circle: center handle + rim handle (drag rim to resize).
             return [
                 NodeHandle(id: UUID(), point: center),
-                NodeHandle(id: UUID(), point: VectorPoint(x: center.x + 1.0, y: center.y))
+                NodeHandle(id: UUID(), point: VectorPoint(x: center.x + radius, y: center.y))
             ]
-        case .rectangle(let origin, _, _):
-            // Rectangle represented by origin corner for editing
-            return [NodeHandle(point: origin)]
+        case .rectangle(let origin, let width, let height):
+            // Rectangle: 4 corner handles (order: origin, maxX, maxX+maxY, maxY).
+            let p0 = origin
+            let p1 = VectorPoint(x: origin.x + width, y: origin.y)
+            let p2 = VectorPoint(x: origin.x + width, y: origin.y + height)
+            let p3 = VectorPoint(x: origin.x, y: origin.y + height)
+            return [p0, p1, p2, p3].map { NodeHandle(point: $0) }
         case .arc(let center, _, _, _):
             // Arc represented by center point
             return [NodeHandle(point: center)]
@@ -114,7 +118,21 @@ extension VectorShape {
             return self
             
         case .rectangle(let origin, let width, let height):
-            if nodes.count >= 1 {
+            if nodes.count >= 4 {
+                // 4-corner editing: node 0 is the origin corner, node 2 the
+                // opposite corner. Drag either to reshape; the other two follow.
+                let newOrigin = nodes[0].point
+                let opposite = nodes[2].point
+                let newWidth = opposite.x - newOrigin.x
+                let newHeight = opposite.y - newOrigin.y
+                guard abs(newWidth) > 1e-9, abs(newHeight) > 1e-9 else { return self }
+                // Keep the origin corner fixed and allow signed extents.
+                return .rectangle(
+                    origin: newOrigin,
+                    width: newWidth,
+                    height: newHeight
+                )
+            } else if nodes.count >= 1 {
                 let dx = nodes[0].point.x - origin.x
                 let dy = nodes[0].point.y - origin.y
                 return .rectangle(origin: VectorPoint(x: origin.x + dx, y: origin.y + dy),

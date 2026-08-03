@@ -1,10 +1,15 @@
 import Foundation
 import ShopPilotCore
-import ShopPilotGeometry
 
 /// Converts geometry-kernel shapes into Core `VectorPath`s for toolpath engines.
-enum GeometryBridge {
-    static func toCorePaths(_ shapes: [ShopPilotGeometry.VectorShape]) -> [ShopPilotCore.VectorPath] {
+///
+/// Lives in the geometry module so create-tool factories and the canvas can
+/// share one conversion path (SPK-1120).
+public enum GeometryBridge {
+    /// Convert design shapes to core vector paths. `.line`/`.arc` are always
+    /// open; `.freehand` polylines are open unless the vertex list closes on
+    /// itself (first == last); everything else is closed.
+    public static func toCorePaths(_ shapes: [ShopPilotGeometry.VectorShape]) -> [ShopPilotCore.VectorPath] {
         shapes.enumerated().compactMap { index, shape in
             let pts = samplePoints(shape)
             guard pts.count >= 2 else { return nil }
@@ -12,6 +17,8 @@ enum GeometryBridge {
             switch shape {
             case .line, .arc:
                 closed = false
+            case .freehand(let freehandPoints):
+                closed = freehandPoints.count >= 3 && freehandPoints.first == freehandPoints.last
             default:
                 closed = true
             }

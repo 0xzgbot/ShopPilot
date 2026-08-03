@@ -27,7 +27,7 @@ public final class ExportBlocker: ObservableObject {
     @Published public var blockedReason: String = ""
     @Published public var dirtyNodeNames: [String] = []
     
-    init(treeManager: ToolpathTreeManager) {
+    public init(treeManager: ToolpathTreeManager) {
         self.treeManager = treeManager
     }
     

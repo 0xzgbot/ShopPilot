@@ -118,7 +118,7 @@ public struct NewJobView: View {
             depth: recipe.stockDepth,
             height: recipe.stockHeight
         )
-        sheet.material = MaterialDatabase.shared.lookup(byName: "MDF")
+        sheet.material = MaterialStore().defaultMaterial()
         job.addSheet(sheet)
         
         // Store doc variables in job

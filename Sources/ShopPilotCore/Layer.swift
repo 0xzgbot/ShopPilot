@@ -3,9 +3,11 @@ import Foundation
 // MARK: - Vector (2D path on a layer)
 
 /// A 2D point in mm coordinates. Codable-compatible struct.
-public struct VectorPoint: Codable, Sendable {
+public struct VectorPoint: Codable, Sendable, Equatable, Hashable {
     public var x: Double
     public var y: Double
+
+    public static let zero = VectorPoint(x: 0, y: 0)
 
     public init(x: Double = 0, y: Double = 0) {
         self.x = x

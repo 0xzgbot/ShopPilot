@@ -179,7 +179,8 @@ final class QuickEngraveEngineTests: XCTestCase {
         let gcode = result.gcodeLines.joined(separator: "\n")
         
         XCTAssertTrue(gcode.contains("G0 X45.000"), "Lead-in should start 5mm before")
-        XCTAssertTrue(gcode.contains("G0 X105.000"), "Lead-out should end 5mm after")
+        // Lead-out is a cutting move (G1 at depth), not a rapid (G0).
+        XCTAssertTrue(gcode.contains("G1 X105.000"), "Lead-out should end 5mm after")
     }
     
     // MARK: - Closed Vector Path
@@ -214,11 +215,22 @@ final class QuickEngraveEngineTests: XCTestCase {
     // MARK: - Multiple Vectors
     
     func testMultipleVectors() {
-        let vectors = (0..<5).map { i in
-            VectorPath(
-                id: UUID(), name: "v\(i)",
-                points: [VectorPoint(x: Double(i * 10), y: 0), VectorPoint(x: Double(i * 10 + 50), y: 0)],
-                isClosed: false, layerId: UUID()
+        var vectors: [VectorPath] = []
+        for i in 0..<5 {
+            let startX = Double(i * 10)
+            let endX = Double(i * 10 + 50)
+            let points = [
+                VectorPoint(x: startX, y: 0),
+                VectorPoint(x: endX, y: 0)
+            ]
+            vectors.append(
+                VectorPath(
+                    id: UUID(),
+                    name: "v\(i)",
+                    points: points,
+                    isClosed: false,
+                    layerId: UUID()
+                )
             )
         }
         

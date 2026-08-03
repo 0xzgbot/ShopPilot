@@ -10,25 +10,28 @@ When creating, splitting, or dispatching Hermes kanban tasks for ShopPilot:
 ## Lanes
 - `coder` → Nous Portal `deepseek/deepseek-v4-flash-0731`
 - `spark` → local Qwen `unsloth/Qwen3.6-35B-A3B-NVFP4` @ `:8888`
-- **max_in_progress_per_profile = 2** (do not raise while Swift thrash is the limit)
+- **max_in_progress_per_profile = 3** (builds serialized via `swift_locked`; watch exit-124 before going to 4)
 
 ## Hardware / throughput reality
 - Bottleneck is **parallel `swift build`/`swift test` + fat prompts + epic cards**, not GPU seq count
 - 8–16 concurrent agents on one Mac anti-throughput for this repo
+- **Fix:** keep 2+2 coding; serialize Swift via `./scripts/swift_locked.sh`
 
 ## Card size (mandatory)
 One card = **one thin vertical slice**, finishable in **≤45–90 minutes** wall-clock.
+Prefer `--max-runtime 45m` or `60m`.
 
 Each card MUST include:
 1. Parent SPK id (from `MASTER_KANBAN.md`)
 2. **AC** — 1–3 bullets, testable
 3. **Out of scope** — explicit
-4. **Verify** — one concrete check, prefer:
+4. **Verify** — one concrete check, prefer in order:
+   - `./scripts/verify_locked.sh ShopPilotVerifyXXXX`
    - `scripts/verify_*.py` / standalone
-   - `swift test --filter ExactTypeOrSuite`
-   - `swift build --target OneTarget` only if unavoidable
-   - **Never** default to full-package `swift build`
+   - `./scripts/swift_locked.sh build --target OneTarget` only if unavoidable
+   - **Never** default to full-package `swift build` or bare `swift test` (CLT has no XCTest)
 5. workspace **worktree**; assignee `coder` or `spark`
+6. Body must require: all swift via `swift_locked.sh`; never `rm -rf .build`; worktree-only Sources edits
 
 ## Never put on one card
 - Full Engine+UI+Persist+Verify for a whole feature family
@@ -43,4 +46,5 @@ Keep product DoD (Engine/UI/Persist/Verify) on the **parent** SPK in `MASTER_KAN
 Micros may close with only the slice’s Verify; parent stays `[ ]` until slices cover DoD.
 
 ## Concurrency
-At most **2** running per profile. Serialize cards that edit the same hot files.
+At most **3** running per profile (6 total). Serialize cards that edit the same hot files.
+One Swift compile at a time via the lock — do not start a second `swift` while waiting.

@@ -1,7 +1,6 @@
 import XCTest
 @testable import ShopPilotCore
 @testable import ShopPilotGeometry
-@testable import ShopPilot
 
 // MARK: - Sign Recipe E2E Tests
 
@@ -92,8 +91,8 @@ final class SignRecipeE2ETests: XCTestCase {
     func testSignJobHasVCarveMetadata() {
         let job = SignRecipeManager.createSignJob(
             text: "SHOP",
-            vCarveDepth: 0.5,
-            vBitAngle: 90.0
+            vBitAngle: 90.0,
+            vCarveDepth: 0.5
         )
         
         XCTAssertGreaterThan(job.vcarvePasses, 0, "V-Carve should generate passes")
@@ -146,11 +145,13 @@ final class SignRecipeE2ETests: XCTestCase {
         let smallLayer = smallJob.sheets[0].layers.first { $0.name == "Text" }!
         let largeLayer = largeJob.sheets[0].layers.first { $0.name == "Text" }!
         
-        // Larger font = more points per vector (more detail)
-        let avgPointsSmall = smallLayer.vectors.map { $0.points.count }.reduce(0, +) / max(smallLayer.vectors.count, 1)
-        let avgPointsLarge = largeLayer.vectors.map { $0.points.count }.reduce(0, +) / max(largeLayer.vectors.count, 1)
-        
-        XCTAssertGreaterThan(avgPointsLarge, avgPointsSmall, "Larger font should have more detail points")
+        // Larger font = larger glyph geometry (bounding box scales with the
+        // font size; point count stays constant because bezier flattening uses
+        // fixed parametric strides).
+        let boundsSmall = smallLayer.vectors.boundingRect
+        let boundsLarge = largeLayer.vectors.boundingRect
+        XCTAssertGreaterThan(boundsLarge.width, boundsSmall.width, "Larger font should produce wider glyph bounds")
+        XCTAssertGreaterThan(boundsLarge.height, boundsSmall.height, "Larger font should produce taller glyph bounds")
     }
     
     // MARK: - Document Variables Integration

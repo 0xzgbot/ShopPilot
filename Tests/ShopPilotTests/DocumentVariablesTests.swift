@@ -1,5 +1,4 @@
 import XCTest
-@testable import ShopPilot
 @testable import ShopPilotCore
 
 /// Unit tests for DocumentVariablesModel — add, update, delete, filter, and persistence.
@@ -17,7 +16,7 @@ final class DocumentVariablesModelTests: XCTestCase {
         )
         try? FileManager.default.createDirectory(at: testDir, withIntermediateDirectories: true)
         
-        let mockFM = FileManager(fileSystemRepresentation: testDir.path)
+        let mockFM = FileManager.default
         model = DocumentVariablesModel(fileManager: mockFM, storageKey: "test_vars")
     }
     
@@ -166,9 +165,8 @@ final class DocumentVariablesModelTests: XCTestCase {
         
         // Create a fresh model and load
         let freshModel = DocumentVariablesModel(fileManager: FileManager.default, storageKey: "test_vars")
-        // Need to point to the same directory — create with custom file manager
-        let mockFM = FileManager(fileSystemRepresentation: testDir.path)
-        let loadedModel = DocumentVariablesModel(fileManager: mockFM, storageKey: "test_vars")
+        // Load from the same directory
+        let loadedModel = DocumentVariablesModel(fileManager: FileManager.default, storageKey: "test_vars")
         
         let loaded = await loadedModel.load()
         XCTAssertTrue(loaded)

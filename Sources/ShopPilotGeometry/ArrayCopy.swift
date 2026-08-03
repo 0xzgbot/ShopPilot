@@ -100,7 +100,8 @@ public extension VectorShape {
 
 // MARK: - Rotation Helper (needed for circular array)
 
-private extension VectorShape {
+public extension VectorShape {
+    /// Rotate the shape around a center point by the given angle in radians.
     func rotated(around center: VectorPoint, by radians: Double) -> VectorShape {
         let cos = cos(radians)
         let sin = sin(radians)

@@ -3,7 +3,7 @@ import Foundation
 // MARK: - TransportEvent
 
 /// Events emitted by a MachineTransport over its AsyncStream.
-public enum TransportEvent: Sendable {
+public enum TransportEvent: Sendable, Equatable {
     /// Transport successfully opened and ready for I/O.
     case connected
     /// Transport closed or lost connection.

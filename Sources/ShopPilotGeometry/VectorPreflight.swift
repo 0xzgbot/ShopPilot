@@ -82,7 +82,7 @@ public final class VectorPreflight {
                 ))
             }
 
-            if !isClosedShape(shape) {
+            if !isClosedShape(shape, tolerance: tolerance) {
                 issues.append(PreflightResult(
                     issue: .openPath,
                     severity: .error,
@@ -167,12 +167,17 @@ public final class VectorPreflight {
         }
     }
 
-    private static func isClosedShape(_ shape: VectorShape) -> Bool {
+    private static func isClosedShape(_ shape: VectorShape, tolerance: Double) -> Bool {
         switch shape {
         case .circle, .rectangle, .ellipse, .polygon, .star:
             return true
-        case .arc, .line, .freehand:
+        case .arc, .line:
             return false
+        case .freehand(let pts):
+            // A freehand path whose first and last points coincide is closed
+            // (e.g. a hand-drawn rectangle) and must not be flagged open.
+            guard let first = pts.first, let last = pts.last, pts.count >= 3 else { return false }
+            return hypot(first.x - last.x, first.y - last.y) <= tolerance
         }
     }
 
@@ -180,13 +185,29 @@ public final class VectorPreflight {
         guard points.count >= 3 else { return false }
         for i in 0..<(points.count - 1) {
             for j in (i + 1)..<(points.count - 1) {
-                if j == i || j == i + 1 || j + 1 == i { continue }
+                // Skip pairs sharing an endpoint — covers adjacent segments
+                // AND the closing segment of a closed path (whose end touches
+                // the first segment's start at the closure vertex). Touching
+                // at a vertex is not a crossing.
+                if segmentsShareEndpoint((points[i], points[i + 1]), (points[j], points[j + 1])) { continue }
                 let a = (points[i], points[i + 1])
                 let b = (points[j], points[j + 1])
                 if segmentsIntersect(a, b) { return true }
             }
         }
         return false
+    }
+
+    private static func segmentsShareEndpoint(
+        _ a: (VectorPoint, VectorPoint),
+        _ b: (VectorPoint, VectorPoint)
+    ) -> Bool {
+        let (a1, a2) = a
+        let (b1, b2) = b
+        let coincident = { (p: VectorPoint, q: VectorPoint) in
+            hypot(p.x - q.x, p.y - q.y) <= 1e-9
+        }
+        return coincident(a1, b1) || coincident(a1, b2) || coincident(a2, b1) || coincident(a2, b2)
     }
 
     private static func segmentsIntersect(

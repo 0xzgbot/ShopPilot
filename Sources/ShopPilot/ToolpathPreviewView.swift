@@ -19,6 +19,29 @@ struct ToolpathPreviewView: View {
         WireframeRenderer.generateSegments(from: session.gcodeLines)
     }
 
+    /// SPK-1103c — the currently selected toolpath tree node (recursive lookup,
+    /// covers nested groups). nil when nothing is selected.
+    private var selectedToolpathNode: ToolpathTreeNode? {
+        guard let id = session.selectedToolpathID else { return nil }
+        return session.toolpathTree.root.findNode(id: id)
+    }
+
+    /// SPK-1103c — G-code segments of the selected node only, parsed with the
+    /// same renderer as the full wireframe. nil when no selection or no result.
+    private var selectedSegments: [(start: (x: Double, y: Double), end: (x: Double, y: Double), isRapid: Bool)]? {
+        guard let node = selectedToolpathNode, let result = node.toolpathResult else { return nil }
+        let lines = result.split(separator: "\n", omittingEmptySubsequences: true).map(String.init)
+        return WireframeRenderer.generateSegments(from: lines)
+    }
+
+    /// SPK-1103c — legend/status line for the preview toolbar.
+    private var selectionLegend: String {
+        guard let node = selectedToolpathNode else { return "No toolpath selected" }
+        guard let result = node.toolpathResult else { return "Selected: \(node.name) (no result)" }
+        let lineCount = result.split(separator: "\n", omittingEmptySubsequences: true).count
+        return "Selected: \(node.name) (\(lineCount) lines)"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -40,6 +63,9 @@ struct ToolpathPreviewView: View {
             Text(simStatus)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
+            Text(selectionLegend)
+                .font(.caption2)
+                .foregroundStyle(selectedToolpathNode == nil ? Color.secondary : Color.accentColor)
 
             HStack {
                 Picker("Mode", selection: $mode) {
@@ -147,6 +173,16 @@ struct ToolpathPreviewView: View {
                 p.addLine(to: worldToView(seg.end.x, seg.end.y, size: size))
                 let color: Color = seg.isRapid ? .orange.opacity(0.7) : .red
                 context.stroke(p, with: .color(color), lineWidth: seg.isRapid ? 1 : 2)
+            }
+        }
+
+        // SPK-1103c — selected toolpath highlight, drawn on top of the full wireframe.
+        if (mode == .wireframe || mode == .combined), let selected = selectedSegments {
+            for seg in selected {
+                var p = Path()
+                p.move(to: worldToView(seg.start.x, seg.start.y, size: size))
+                p.addLine(to: worldToView(seg.end.x, seg.end.y, size: size))
+                context.stroke(p, with: .color(Color.accentColor), lineWidth: 3)
             }
         }
 

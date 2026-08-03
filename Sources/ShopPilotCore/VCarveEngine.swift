@@ -62,7 +62,7 @@ public struct VCarveParams: Codable, Sendable {
     /// Tip width at a given depth for this V-bit angle.
     /// At depth z, the cutting width = 2 * |z| * tan(halfAngle).
     public func tipWidthAtDepth(_ depth: Double) -> Double {
-        abs(depth) * tan(halfAngleRadians)
+        2.0 * abs(depth) * tan(halfAngleRadians)
     }
 }
 

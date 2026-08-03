@@ -2,25 +2,6 @@ import SwiftUI
 import ShopPilotCore
 import ShopPilotGeometry
 
-// MARK: - Job Recipe Model
-
-/// A predefined job template that users can select when creating a new project.
-struct JobRecipe: Identifiable {
-    let id = UUID()
-    let name: String
-    let description: String
-    let icon: String
-    let stockWidth: Double  // mm
-    let stockDepth: Double  // mm
-    let stockHeight: Double // mm
-    let recommendedStrategy: String
-    
-    var displayDimensions: String {
-        String(format: "%.1f × %.1f × %.2f in", 
-               stockWidth / 25.4, stockDepth / 25.4, stockHeight / 25.4)
-    }
-}
-
 // MARK: - Recipe Picker View
 
 /// Shows a grid of predefined job recipes for users to select from when creating a new project.
@@ -194,49 +175,6 @@ private struct InfoRow: View {
                 .font(.caption)
         }
     }
-}
-
-// MARK: - Default Recipes
-
-extension JobRecipe {
-    static let defaultRecipes: [JobRecipe] = [
-        JobRecipe(
-            name: "Portrait Relief",
-            description: "Portrait-style relief carving with fine detail in the face area and simpler background.",
-            icon: "person.crop.circle",
-            stockWidth: 304.8,   // 12 inches
-            stockDepth: 457.2,   // 18 inches
-            stockHeight: 19.05,  // 0.75 inches
-            recommendedStrategy: "Adaptive Z-level roughing + parallel finishing"
-        ),
-        JobRecipe(
-            name: "Decorative Panel",
-            description: "Symmetrical decorative panel for furniture or wall mounting.",
-            icon: "square.grid.2x2",
-            stockWidth: 609.6,   // 24 inches
-            stockDepth: 609.6,   // 24 inches
-            stockHeight: 19.05,  // 0.75 inches
-            recommendedStrategy: "Z-level contouring with radial finishing"
-        ),
-        JobRecipe(
-            name: "Signage",
-            description: "Single-face sign with lettering and decorative graphics.",
-            icon: "textformat.abc",
-            stockWidth: 457.2,   // 18 inches
-            stockDepth: 609.6,   // 24 inches
-            stockHeight: 19.05,  // 0.75 inches
-            recommendedStrategy: "Profile + V-Carve lettering"
-        ),
-        JobRecipe(
-            name: "Custom",
-            description: "Blank canvas — define your own dimensions and start from scratch.",
-            icon: "plus.circle",
-            stockWidth: 304.8,   // 12 inches (default)
-            stockDepth: 304.8,   // 12 inches (default)
-            stockHeight: 25.4,   // 1 inch (default)
-            recommendedStrategy: "User-defined"
-        )
-    ]
 }
 
 // MARK: - Preview (only in debug builds with SwiftUI available)

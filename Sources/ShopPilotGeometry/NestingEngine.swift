@@ -24,35 +24,43 @@ public struct NestPart: Codable, Equatable {
     
     /// Bounding rectangle of this part at its placed position.
     public var boundingBox: Rect {
+        let local: Rect
         switch shape {
         case .line(let s, let e):
-            return Rect(minX: min(s.x, e.x), minY: min(s.y, e.y),
-                       maxX: max(s.x, e.x), maxY: max(s.y, e.y))
+            local = Rect(minX: min(s.x, e.x), minY: min(s.y, e.y),
+                         maxX: max(s.x, e.x), maxY: max(s.y, e.y))
         case .circle(let c, let r):
-            return Rect(minX: c.x - r, minY: c.y - r,
-                       maxX: c.x + r, maxY: c.y + r)
+            local = Rect(minX: c.x - r, minY: c.y - r,
+                         maxX: c.x + r, maxY: c.y + r)
         case .rectangle(let o, let w, let h):
-            return Rect(minX: min(o.x, o.x + w), minY: min(o.y, o.y + h),
-                       maxX: max(o.x, o.x + w), maxY: max(o.y, o.y + h))
+            local = Rect(minX: min(o.x, o.x + w), minY: min(o.y, o.y + h),
+                         maxX: max(o.x, o.x + w), maxY: max(o.y, o.y + h))
         case .arc(let c, let r, _, _):
-            return Rect(minX: c.x - r, minY: c.y - r,
-                       maxX: c.x + r, maxY: c.y + r)
+            local = Rect(minX: c.x - r, minY: c.y - r,
+                         maxX: c.x + r, maxY: c.y + r)
         case .ellipse(let c, let rx, let ry, _):
-            return Rect(minX: c.x - rx, minY: c.y - ry,
-                       maxX: c.x + rx, maxY: c.y + ry)
+            local = Rect(minX: c.x - rx, minY: c.y - ry,
+                         maxX: c.x + rx, maxY: c.y + ry)
         case .polygon(let c, let r, _, _):
-            return Rect(minX: c.x - r, minY: c.y - r,
-                       maxX: c.x + r, maxY: c.y + r)
+            local = Rect(minX: c.x - r, minY: c.y - r,
+                         maxX: c.x + r, maxY: c.y + r)
         case .star(let c, let outer, _, _, _):
-            return Rect(minX: c.x - outer, minY: c.y - outer,
-                       maxX: c.x + outer, maxY: c.y + outer)
+            local = Rect(minX: c.x - outer, minY: c.y - outer,
+                         maxX: c.x + outer, maxY: c.y + outer)
         case .freehand(let points):
             guard !points.isEmpty else { return Rect() }
             let xs = points.map(\.x)
             let ys = points.map(\.y)
-            return Rect(minX: xs.min()!, minY: ys.min()!,
-                       maxX: xs.max()!, maxY: ys.max()!)
+            local = Rect(minX: xs.min()!, minY: ys.min()!,
+                         maxX: xs.max()!, maxY: ys.max()!)
         }
+        // Translate local bounds to the placed position.
+        return Rect(
+            minX: local.minX + position.x,
+            minY: local.minY + position.y,
+            maxX: local.maxX + position.x,
+            maxY: local.maxY + position.y
+        )
     }
     
     public init(shape: VectorShape, position: VectorPoint, rotation: Double, index: Int) {

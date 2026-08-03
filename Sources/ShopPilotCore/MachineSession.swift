@@ -79,10 +79,33 @@ public final class MachineSession: ObservableObject {
         }
     }
 
+    /// Adopt an already-open transport (e.g. one opened by `ConnectionManager`)
+    /// without re-opening it. Wires status polling and marks the session
+    /// connected so hold/resume/reset reach the machine.
+    public func attach(transport: MachineTransport) {
+        guard self.transport !== transport else { return }
+        self.transport = transport
+        connectionState = .connected
+        startStatusPolling(transport: transport)
+    }
+
     public func disconnect() async {
         statusPollTask?.cancel()
         statusPollTask = nil
         await transport?.close()
+        transport = nil
+        connectionState = .disconnected
+        machineState = "unknown"
+        mPosX = 0.0; mPosY = 0.0; mPosZ = 0.0
+        wPosX = 0.0; wPosY = 0.0; wPosZ = 0.0
+    }
+
+    /// Drop the session's transport reference without closing it (used when an
+    /// external owner — e.g. `ConnectionManager` — manages the transport's
+    /// lifecycle). Stops status polling and resets local state.
+    public func detach() {
+        statusPollTask?.cancel()
+        statusPollTask = nil
         transport = nil
         connectionState = .disconnected
         machineState = "unknown"
@@ -137,6 +160,75 @@ public final class MachineSession: ObservableObject {
         }
     }
 
+    // MARK: - G-code Buffer
+
+    /// G-code lines loaded from the Cut stage (post-processed).
+    @Published public var gcodeBuffer: [String] = []
+
+    /// Load G-code lines into the session buffer.
+    public func loadGCode(_ lines: [String]) {
+        gcodeBuffer = lines
+    }
+
+    /// Run the buffered G-code through the streamer to the connected transport.
+    public func runJob() async throws {
+        guard let transport = transport, isConnected else {
+            throw MachineSessionError.notConnected
+        }
+        guard !gcodeBuffer.isEmpty else {
+            throw MachineSessionError.commandFailed("No G-code loaded")
+        }
+
+        let streamer = GCodeStreamer()
+        try await streamer.stream(lines: gcodeBuffer, to: transport)
+    }
+
+    // MARK: - Hold / Resume / Reset (GRBL control)
+
+    /// Send GRBL hold command (bang).
+    public func hold() async {
+        guard isConnected else { return }
+        guard let transport = transport else { return }
+        // Pause the streamer if it is streaming
+        await streamer?.pause()
+        do {
+            try await transport.write(Data("!".utf8))
+        } catch {
+            // Best-effort: hold should not crash
+        }
+    }
+
+    /// Send GRBL resume command (tilde).
+    public func resume() async {
+        guard isConnected else { return }
+        guard let transport = transport else { return }
+        await streamer?.resume()
+        do {
+            try await transport.write(Data("~".utf8))
+        } catch {
+            // Best-effort
+        }
+    }
+
+    /// Send GRBL reset (CAN byte 0x18).
+    public func reset() async {
+        guard isConnected else { return }
+        guard let transport = transport else { return }
+        await streamer?.reset()
+        do {
+            try await transport.write(Data([0x18]))
+        } catch {
+            // Best-effort
+        }
+        // Reset local state
+        await MainActor.run { [weak self] in
+            guard let self else { return }
+            self.machineState = "unknown"
+            self.mPosX = 0.0; self.mPosY = 0.0; self.mPosZ = 0.0
+            self.wPosX = 0.0; self.wPosY = 0.0; self.wPosZ = 0.0
+        }
+    }
+
     // MARK: - Command Sending
 
     public func sendCommand(_ command: String) async throws {
@@ -145,6 +237,15 @@ public final class MachineSession: ObservableObject {
         }
         let data = (command + "\n").data(using: .utf8) ?? Data()
         try await transport?.write(data)
+    }
+
+    // MARK: - Streamer access
+
+    private var streamer: GCodeStreamer?
+
+    /// Attach a streamer to this session for hold/resume/reset coordination.
+    public func attachStreamer(_ streamer: GCodeStreamer) {
+        self.streamer = streamer
     }
 }
 

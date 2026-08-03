@@ -104,6 +104,42 @@ public enum CommandID: String, CaseIterable {
         case .airCut: return nil
         }
     }
+
+    // MARK: - Backing action (Track 1 exit: "⌘K routes to session actions, not stubs")
+
+    /// Whether selecting this command from the ⌘K palette performs a REAL
+    /// session action in `AppSession.handleCommand`.
+    ///
+    /// Commands with no backing action are filtered out of every palette
+    /// listing (`CommandRegistry.flatCommands` / `allCommands` / `search`)
+    /// instead of silently no-oping when selected. They remain in the enum
+    /// (so tier checks, icon audits and `CommandID.allCases` consumers keep
+    /// compiling) and should be re-enabled as soon as a real session action
+    /// exists.
+    ///
+    /// Currently removed from the palette as "coming soon":
+    /// - Edit: Cut / Copy / Paste / Delete Vector — no clipboard or shape-delete
+    ///   routing in `AppSession.handleCommand` (clipboard ops need the canvas
+    ///   selection + pasteboard, which the session does not own yet).
+    /// - View: Zoom to Fit / Zoom In / Zoom Out / Reset View — the session has
+    ///   no zoom state; canvas zoom lives in `DesignCanvasView` local state.
+    /// - Toolpaths: Pocket / V-Carve / 3D Rough / 3D Finish — only Profile has a
+    ///   real engine call. `vcCarveTP` currently falls back to profile
+    ///   generation, which would silently produce the wrong toolpath, so it is
+    ///   hidden until a real V-carve engine routing exists.
+    /// - Machine: Disconnect / Jog to Home / Zero All Axes — live-serial ops
+    ///   that belong to the Machine stage's connection layer, not the session.
+    var isComingSoon: Bool {
+        switch self {
+        case .newJob, .openJob, .saveJob, .exportGcode,
+             .undo, .redo,
+             .profileTP,
+             .connectMachine, .airCut:
+            return false
+        default:
+            return true
+        }
+    }
 }
 
 // MARK: - Command Category
@@ -130,10 +166,17 @@ public enum CommandCategory: String, CaseIterable {
 
 public struct CommandRegistry {
     
+    /// Commands that actually route to a real session action
+    /// (`CommandID.isComingSoon == false`). Every palette listing is built
+    /// from this so the ⌘K palette never shows a stub command.
+    private static var routableCommands: [CommandID] {
+        CommandID.allCases.filter { !$0.isComingSoon }
+    }
+    
     /// Filter commands available for the given product tier.
     /// Core tier: no 3D toolpath commands. Studio3D: all commands available.
     public static func availableCommands(for tier: ProductTier) -> [CommandID] {
-        CommandID.allCases.filter { cmd in
+        routableCommands.filter { cmd in
             switch cmd {
             case .rough3DTP, .finish3DTP:
                 return tier.has3D
@@ -146,7 +189,7 @@ public struct CommandRegistry {
     /// All available commands, grouped by category.
     public static var allCommands: [CommandCategory: [CommandID]] {
         Dictionary(
-            grouping: CommandID.allCases,
+            grouping: routableCommands,
             by: { $0.category }
         ).sorted { $0.key.displayOrder < $1.key.displayOrder }.reduce(into: [:]) { result, pair in
             result[pair.key] = pair.value
@@ -156,7 +199,7 @@ public struct CommandRegistry {
     /// Flat list of all commands (for search).
     public static var flatCommands: [(category: CommandCategory, command: CommandID)] {
         CommandCategory.allCases.flatMap { category in
-            CommandID.allCases.filter { $0.category == category }.map { (category, $0) }
+            routableCommands.filter { $0.category == category }.map { (category, $0) }
         }
     }
     

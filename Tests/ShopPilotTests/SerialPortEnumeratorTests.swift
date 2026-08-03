@@ -118,12 +118,9 @@ final class SerialPortEnumeratorTests: XCTestCase {
     // MARK: - Description generation
 
     func testDescribeFTDI() {
-        SerialPortEnumerator._testDescribe = { path in
-            SerialPortEnumerator.describePort(path)
-        }
-        // We need to call describePort which is private, so we use _testDescribe to capture it
-        let result = SerialPortEnumerator.enumerate()
-        // Instead, set _testDescribe to capture and assert
+        // Set the describe hook to a real description and assert enumerate()
+        // surfaces it. (Earlier code here self-referentially recursed —
+        // _testDescribe calling describePort which consults _testDescribe.)
         var captured = ""
         SerialPortEnumerator._testDescribe = { path in
             captured = path

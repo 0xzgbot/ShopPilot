@@ -79,13 +79,13 @@ public final class GCodeStreamer: ObservableObject {
         var eventIterator = transport.events.makeAsyncIterator()
         
         for line in executable {
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled else { break }
             
             // Skip if paused
             while isPaused && !Task.isCancelled {
                 try await Task.sleep(nanoseconds: 100_000_000) // 100ms
             }
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled else { break }
             
             do {
                 let command = line + "\n"
@@ -103,6 +103,11 @@ public final class GCodeStreamer: ObservableObject {
                     progress = Double(currentLine) / Double(totalLines)
                     lastProgressUpdateTime = now
                 }
+            } catch is CancellationError {
+                // Cancellation is a stop request, not a stream failure —
+                // exit gracefully so callers can distinguish cancel from error.
+                state = .idle
+                return
             } catch {
                 state = .error(error.localizedDescription)
                 lastError = error.localizedDescription
@@ -110,9 +115,10 @@ public final class GCodeStreamer: ObservableObject {
             }
         }
         
-        // Stream complete
+        // Stream complete — cancelled streams exit here via `break`, so always
+        // settle to idle (progress only when actually finished).
+        state = .idle
         if !Task.isCancelled {
-            state = .idle
             progress = 1.0
             currentLine = totalLines
         }
@@ -132,15 +138,21 @@ public final class GCodeStreamer: ObservableObject {
         totalLines = allLines.count
         currentLine = 0
         state = .streaming
-        
+
+        // Subscribe BEFORE writes so ok responses are not missed (fan-out is
+        // live-only, and AsyncStream registers the continuation lazily on the
+        // first next()). Using one iterator for the whole stream avoids the
+        // race where a fresh per-line iterator misses an already-yielded ok.
+        var eventIterator = transport.events.makeAsyncIterator()
+
         for line in allLines {
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled else { break }
             
             // Skip if paused
             while isPaused && !Task.isCancelled {
                 try await Task.sleep(nanoseconds: 100_000_000) // 100ms
             }
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled else { break }
             
             do {
                 let command = line + "\n"
@@ -148,7 +160,7 @@ public final class GCodeStreamer: ObservableObject {
                 try await transport.write(data)
                 
                 // Wait for "ok" response from GRBL
-                try await waitForOk(from: transport)
+                try await waitForOk(iterator: &eventIterator)
                 
                 currentLine += 1
                 
@@ -158,6 +170,10 @@ public final class GCodeStreamer: ObservableObject {
                     progress = Double(currentLine) / Double(totalLines)
                     lastProgressUpdateTime = now
                 }
+            } catch is CancellationError {
+                // Cancellation is a stop request, not a stream failure.
+                state = .idle
+                return
             } catch {
                 state = .error(error.localizedDescription)
                 lastError = error.localizedDescription
@@ -165,9 +181,10 @@ public final class GCodeStreamer: ObservableObject {
             }
         }
         
-        // Stream complete
+        // Stream complete — cancelled streams exit here via `break`, so always
+        // settle to idle (progress only when actually finished).
+        state = .idle
         if !Task.isCancelled {
-            state = .idle
             progress = 1.0
             currentLine = totalLines
         }

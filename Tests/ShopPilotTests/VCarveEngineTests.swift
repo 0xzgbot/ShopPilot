@@ -129,8 +129,9 @@ final class VCarveEngineTests: XCTestCase {
         
         let result = VCarveEngine.compute(vectors: [vector], params: params)
         
-        // In flat-bottom mode, all passes should use Z = -2.0 (constant depth)
-        let zLines = result.gcodeLines.filter { $0.contains("Z=") }
+        // In flat-bottom mode, all passes should use Z = -2.0 (constant depth).
+        // Filter G1 moves only — the pass comment uses `Z=` display format.
+        let zLines = result.gcodeLines.filter { $0.contains("G1 Z") }
         for line in zLines {
             XCTAssertTrue(line.contains("Z-2.000"), "Flat bottom mode should use constant Z=-2.000, got: \(line)")
         }
@@ -183,16 +184,22 @@ final class VCarveEngineTests: XCTestCase {
     // MARK: - Multiple Vectors
     
     func testMultipleVectors() {
-        let vectors = (0..<5).map { i in
-            VectorPath(
-                id: UUID(),
-                name: "vector_\(i)",
-                points: [
-                    VectorPoint(x: Double(i * 10), y: 0),
-                    VectorPoint(x: Double(i * 10 + 50), y: 0)
-                ],
-                isClosed: false,
-                layerId: UUID()
+        var vectors: [VectorPath] = []
+        for i in 0..<5 {
+            let startX = Double(i * 10)
+            let endX = Double(i * 10 + 50)
+            let points = [
+                VectorPoint(x: startX, y: 0),
+                VectorPoint(x: endX, y: 0)
+            ]
+            vectors.append(
+                VectorPath(
+                    id: UUID(),
+                    name: "vector_\(i)",
+                    points: points,
+                    isClosed: false,
+                    layerId: UUID()
+                )
             )
         }
         
@@ -293,9 +300,9 @@ final class VCarveEngineTests: XCTestCase {
             feedRateMmPerMin: 1000,
             plungeFeedRateMmPerMin: 300,
             maxDepthOfCutMm: 2.0,
-            stepOverMm: 1.0,
             leadInDistanceMm: 5.0,
-            leadOutDistanceMm: 5.0
+            leadOutDistanceMm: 5.0,
+            stepOverMm: 1.0
         )
         
         let result = VCarveEngine.compute(vectors: [vector], params: params)
@@ -304,8 +311,8 @@ final class VCarveEngineTests: XCTestCase {
         // Lead-in: X should be 50 - 5 = 45
         XCTAssertTrue(gcode.contains("G0 X45.000"), "Lead-in should start 5mm before vector start")
         
-        // Lead-out: X should be 100 + 5 = 105
-        XCTAssertTrue(gcode.contains("G0 X105.000"), "Lead-out should end 5mm after vector end")
+        // Lead-out is a cutting move (G1 at depth), not a rapid (G0).
+        XCTAssertTrue(gcode.contains("G1 X105.000"), "Lead-out should end 5mm after vector end")
     }
     
     // MARK: - Safety Checks
@@ -394,8 +401,11 @@ final class VCarveEngineTests: XCTestCase {
         let result = VCarveEngine.compute(vectors: [vector], params: params)
         let gcode = result.gcodeLines.joined(separator: "\n")
         
-        // Should contain Z values in G1 moves (shading)
-        XCTAssertTrue(gcode.contains("G1 X50.000 Y50.000 Z"), "Should have Z variation for shading")
+        // Shading: the vector's far end (Y=100) must be cut shallower than the
+        // near end (Y=0). For a 90° bit at 2mm depth, 4 passes (width 4.0 /
+        // stepover 1.0); final pass Z = -2.0 * (0.3 + 0.7*normalizedY).
+        XCTAssertTrue(gcode.contains("G1 X50.000 Y100.000 Z-0.600"), "Shallow end (Y=100) should be lighter, got: \(gcode)")
+        XCTAssertTrue(gcode.contains("G1 X50.000 Y0.000"), "Deep end (Y=0) should be cut at full depth")
     }
     
     // MARK: - Closed Vector Path

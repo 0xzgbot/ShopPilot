@@ -102,7 +102,7 @@ public final class SerialPortEnumerator {
         return true
     }
 
-    private static func describePort(_ path: String) -> String {
+    static func describePort(_ path: String) -> String {
         if let custom = _testDescribe {
             return custom(path)
         }

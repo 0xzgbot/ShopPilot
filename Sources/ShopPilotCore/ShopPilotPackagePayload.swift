@@ -9,19 +9,23 @@ public struct PersistedToolpath: Codable, Sendable, Equatable, Identifiable {
     public var toolpathResult: String?
     public var estimatedTimeSeconds: Double
     public var isDirty: Bool
+    /// ID of the tool assigned to this operation (nil = none).
+    public var toolID: UUID?
 
     public init(
         id: UUID = UUID(),
         name: String,
         toolpathResult: String? = nil,
         estimatedTimeSeconds: Double = 0,
-        isDirty: Bool = false
+        isDirty: Bool = false,
+        toolID: UUID? = nil
     ) {
         self.id = id
         self.name = name
         self.toolpathResult = toolpathResult
         self.estimatedTimeSeconds = estimatedTimeSeconds
         self.isDirty = isDirty
+        self.toolID = toolID
     }
 
     /// Build from a live toolpath tree operation node.
@@ -31,6 +35,7 @@ public struct PersistedToolpath: Codable, Sendable, Equatable, Identifiable {
         self.toolpathResult = node.toolpathResult
         self.estimatedTimeSeconds = node.estimatedTimeSeconds
         self.isDirty = node.isDirty
+        self.toolID = node.toolID
     }
 }
 
@@ -60,6 +65,7 @@ public struct ShopPilotPackagePayload: Codable, Sendable {
             node.toolpathResult = persisted.toolpathResult
             node.estimatedTimeSeconds = persisted.estimatedTimeSeconds
             node.isDirty = persisted.isDirty
+            node.toolID = persisted.toolID
         }
         return manager
     }

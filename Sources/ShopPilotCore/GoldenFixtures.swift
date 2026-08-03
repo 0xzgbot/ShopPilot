@@ -7,10 +7,21 @@ public func normalizeGcode(_ gcode: String) -> String {
     var normalizedLines: [String] = []
     
     for line in lines {
-        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        // Strip inline comments first: `;` to end-of-line and parenthesized
+        // `(...)` blocks (which may appear mid-line in real G-code).
+        var content = line
+        if let semicolon = content.firstIndex(of: ";") {
+            content = String(content[..<semicolon])
+        }
+        if let paren = content.firstIndex(of: "(") {
+            content = String(content[..<paren])
+        }
         
-        // Skip comments and empty lines
-        if trimmed.isEmpty || trimmed.hasPrefix(";") || trimmed.hasPrefix("(") {
+        let trimmed = content.trimmingCharacters(in: .whitespaces)
+        
+        // Skip empty lines and structural wrappers that are not machine
+        // commands (`%` program delimiters, `O=` program-name headers).
+        if trimmed.isEmpty || trimmed == "%" || trimmed.hasPrefix("O=") {
             continue
         }
         
@@ -101,22 +112,7 @@ public final class GoldenFixtureManager {
     
     /// Normalize G-code for comparison (remove comments, whitespace variations).
     public static func normalizeGcode(_ gcode: String) -> String {
-        let lines = gcode.components(separatedBy: "\n")
-        
-        var normalizedLines: [String] = []
-        
-        for line in lines {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            
-            // Skip comments and empty lines
-            if trimmed.isEmpty || trimmed.hasPrefix(";") || trimmed.hasPrefix("(") {
-                continue
-            }
-            
-            normalizedLines.append(trimmed)
-        }
-        
-        return normalizedLines.joined(separator: "\n")
+        ShopPilotCore.normalizeGcode(gcode)
     }
     
     /// Find line-by-line differences between two G-code strings.
@@ -202,22 +198,7 @@ public final class GoldenFixtureManager {
     
     /// Normalize G-code for comparison (remove comments, whitespace variations).
     private func normalizeGcode(_ gcode: String) -> String {
-        let lines = gcode.components(separatedBy: "\n")
-        
-        var normalizedLines: [String] = []
-        
-        for line in lines {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            
-            // Skip comments and empty lines
-            if trimmed.isEmpty || trimmed.hasPrefix(";") || trimmed.hasPrefix("(") {
-                continue
-            }
-            
-            normalizedLines.append(trimmed)
-        }
-        
-        return normalizedLines.joined(separator: "\n")
+        ShopPilotCore.normalizeGcode(gcode)
     }
     
     /// Find line-by-line differences between two G-code strings.

@@ -25,7 +25,7 @@ final class PreflightVCarveTests: XCTestCase {
     }
     
     func testPreflightDetectsOpenLine() {
-        let shape = VectorShape.line(from: VectorPoint(x: 0, y: 0), to: VectorPoint(x: 10, y: 10))
+        let shape = VectorShape.line(start: VectorPoint(x: 0, y: 0), end: VectorPoint(x: 10, y: 10))
         let report = VectorPreflight.check(shapes: [shape])
         
         XCTAssertTrue(report.issues.contains { $0.issue == .openPath })
@@ -48,7 +48,7 @@ final class PreflightVCarveTests: XCTestCase {
     }
     
     func testPreflightAllowsClosedPolygon() {
-        let shape = VectorShape.polygon(center: VectorPoint(x: 50, y: 50), radius: 30, points: 6)
+        let shape = VectorShape.polygon(center: VectorPoint(x: 50, y: 50), radius: 30, sides: 6)
         let report = VectorPreflight.check(shapes: [shape])
         
         XCTAssertTrue(report.isClean)
@@ -74,7 +74,8 @@ final class PreflightVCarveTests: XCTestCase {
     // MARK: - Test: Preflight detects degenerate shapes
     
     func testPreflightDetectsDegenerateLine() {
-        let shape = VectorShape.line(from: VectorPoint(x: 0, y: 0), to: VectorPoint(x: 0.0001, y: 0.0001))
+        // Length ≈ 1.4e-5, well under the 1e-4 degenerate tolerance.
+        let shape = VectorShape.line(start: VectorPoint(x: 0, y: 0), end: VectorPoint(x: 0.00001, y: 0.00001))
         let report = VectorPreflight.check(shapes: [shape])
         
         XCTAssertFalse(report.isClean)
@@ -123,14 +124,14 @@ final class PreflightVCarveTests: XCTestCase {
     }
     
     func testPreflightReportWorstSeverity() {
-        let openShape = VectorShape.line(from: VectorPoint(x: 0, y: 0), to: VectorPoint(x: 10, y: 10))
+        let openShape = VectorShape.line(start: VectorPoint(x: 0, y: 0), end: VectorPoint(x: 10, y: 10))
         let report = VectorPreflight.check(shapes: [openShape])
         
         XCTAssertEqual(report.worstSeverity, .error)
     }
     
     func testPreflightReportIssueCount() {
-        let openShape = VectorShape.line(from: VectorPoint(x: 0, y: 0), to: VectorPoint(x: 10, y: 10))
+        let openShape = VectorShape.line(start: VectorPoint(x: 0, y: 0), end: VectorPoint(x: 10, y: 10))
         let report = VectorPreflight.check(shapes: [openShape])
         
         XCTAssertGreaterThan(report.issues.count, 0)
@@ -139,7 +140,7 @@ final class PreflightVCarveTests: XCTestCase {
     // MARK: - Test: Fix actions
     
     func testFixActionsForOpenPath() {
-        let shape = VectorShape.line(from: VectorPoint(x: 0, y: 0), to: VectorPoint(x: 10, y: 10))
+        let shape = VectorShape.line(start: VectorPoint(x: 0, y: 0), end: VectorPoint(x: 10, y: 10))
         let report = VectorPreflight.check(shapes: [shape])
         let actions = VectorPreflight.fixActions(for: report)
         
@@ -179,7 +180,7 @@ final class PreflightVCarveTests: XCTestCase {
     }
     
     func testFixActionHasSeverity() {
-        let shape = VectorShape.line(from: VectorPoint(x: 0, y: 0), to: VectorPoint(x: 10, y: 10))
+        let shape = VectorShape.line(start: VectorPoint(x: 0, y: 0), end: VectorPoint(x: 10, y: 10))
         let report = VectorPreflight.check(shapes: [shape])
         let actions = VectorPreflight.fixActions(for: report)
         
@@ -188,7 +189,7 @@ final class PreflightVCarveTests: XCTestCase {
     }
     
     func testFixActionHasSuggestedFix() {
-        let shape = VectorShape.line(from: VectorPoint(x: 0, y: 0), to: VectorPoint(x: 10, y: 10))
+        let shape = VectorShape.line(start: VectorPoint(x: 0, y: 0), end: VectorPoint(x: 10, y: 10))
         let report = VectorPreflight.check(shapes: [shape])
         let actions = VectorPreflight.fixActions(for: report)
         
@@ -257,7 +258,7 @@ final class PreflightVCarveTests: XCTestCase {
     
     func testPreflightMultipleShapesMixed() {
         let closedRect = VectorShape.rectangle(origin: VectorPoint(x: 0, y: 0), width: 50, height: 50)
-        let openLine = VectorShape.line(from: VectorPoint(x: 100, y: 0), to: VectorPoint(x: 150, y: 50))
+        let openLine = VectorShape.line(start: VectorPoint(x: 100, y: 0), end: VectorPoint(x: 150, y: 50))
         let degenerate = VectorShape.freehand(points: [VectorPoint(x: 0, y: 0)])
         
         let report = VectorPreflight.check(shapes: [closedRect, openLine, degenerate])
@@ -271,7 +272,7 @@ final class PreflightVCarveTests: XCTestCase {
     // MARK: - Test: Preflight severity ordering
     
     func testPreflightSeverityOrdering() {
-        let openShape = VectorShape.line(from: VectorPoint(x: 0, y: 0), to: VectorPoint(x: 10, y: 10))
+        let openShape = VectorShape.line(start: VectorPoint(x: 0, y: 0), end: VectorPoint(x: 10, y: 10))
         let report = VectorPreflight.check(shapes: [openShape])
         
         let errors = report.issues.filter { $0.severity == .error }
@@ -367,7 +368,7 @@ final class PreflightVCarveTests: XCTestCase {
     // MARK: - Test: Preflight result properties
     
     func testPreflightResultHasAllProperties() {
-        let shape = VectorShape.line(from: VectorPoint(x: 0, y: 0), to: VectorPoint(x: 10, y: 10))
+        let shape = VectorShape.line(start: VectorPoint(x: 0, y: 0), end: VectorPoint(x: 10, y: 10))
         let report = VectorPreflight.check(shapes: [shape])
         
         XCTAssertFalse(report.issues.isEmpty)

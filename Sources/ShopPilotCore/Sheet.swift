@@ -15,6 +15,11 @@ public struct Sheet: Identifiable, Codable, Sendable {
     /// Material this sheet is made from. Defaults to Pine if not set.
     public var material: Material?
 
+    /// Name of the stock sheet preset this sheet was created from
+    /// (e.g. `4'x8'x0.375''`), if any. Persisted so the Job Setup picker
+    /// shows the applied preset after save/open. Nil = custom dimensions.
+    public var stockPresetName: String?
+
     /// Z offset for the back side of a double-sided sheet.
     public var backSideZOffset: Double { -height }
 
@@ -25,7 +30,8 @@ public struct Sheet: Identifiable, Codable, Sendable {
         depth: Double = 400,
         height: Double = 25,
         layers: [Layer] = [],
-        isDoubleSided: Bool = false
+        isDoubleSided: Bool = false,
+        stockPresetName: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -34,6 +40,7 @@ public struct Sheet: Identifiable, Codable, Sendable {
         self.height = height
         self.layers = layers
         self.isDoubleSided = isDoubleSided
+        self.stockPresetName = stockPresetName
     }
 
     /// Add a layer to this sheet.
@@ -57,6 +64,18 @@ public struct Sheet: Identifiable, Codable, Sendable {
         let newLayer = Layer(name: "Layer 1")
         addLayer(newLayer)
         return newLayer
+    }
+
+    /// Move a layer to a new index (0-based) within this sheet's layer list.
+    /// Reorders the array; returns false if the index is out of range or a no-op.
+    @discardableResult
+    public mutating func moveLayer(from sourceIndex: Int, to destinationIndex: Int) -> Bool {
+        guard layers.indices.contains(sourceIndex) else { return false }
+        let clamped = min(max(destinationIndex, 0), layers.count - 1)
+        guard sourceIndex != clamped else { return false }
+        let layer = layers.remove(at: sourceIndex)
+        layers.insert(layer, at: clamped)
+        return true
     }
 
     /// Total area in square mm.

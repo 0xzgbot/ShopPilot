@@ -1,5 +1,8 @@
 import SwiftUI
 import ShopPilotCore
+import AppKit
+import ShopPilotSerial
+import UniformTypeIdentifiers
 
 struct ContentView: View {
     @EnvironmentObject private var session: AppSession
@@ -100,6 +103,7 @@ private struct SetupStageView: View {
                 NewJobView(docVars: session.docVars) { job in
                     session.replaceJob(job)
                 }
+                MaterialSetupView(session: session)
                 DocumentVariablesPanelView(model: session.docVars)
                     .frame(minHeight: 240)
             }
@@ -143,12 +147,21 @@ private struct ModelStageLockedView: View {
 private struct CutStageView: View {
     @ObservedObject var session: AppSession
 
+    /// Blocker instance whose expert override is confirmed via the dirty-toolpath alert.
+    @State private var exportBlocker: ExportBlocker?
+    @State private var showExportBlockAlert = false
+    @State private var exportBlockMessage = ""
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Cut")
-                .font(.title2.bold())
-            Text("Vectors: \(session.vectors.count) · G-code lines: \(session.gcodeLines.count)")
-                .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Cut")
+                    .font(.title2.bold())
+                Spacer()
+                Text("Vectors: \(session.vectors.count) · Ops: \(session.toolpaths.count) · G-code lines: \(session.gcodeLines.count)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
 
             HStack {
                 Button("Generate Profile Toolpath") {
@@ -161,26 +174,216 @@ private struct CutStageView: View {
                 }
 
                 Button("Send to Machine Stage") {
-                    session.loadFixtureGCodeIfNeeded()
-                    session.selectedStage = .machine
+                    session.sendToMachineStage()
                 }
+
+                Spacer()
+
+                Button {
+                    handleSaveToolpaths()
+                } label: {
+                    Label("Save Toolpaths…", systemImage: "square.and.arrow.up")
+                }
+                .help("Export GRBL G-code to a file")
             }
 
-            if session.gcodeLines.isEmpty {
-                Text("No toolpath yet. Add shapes in Design, then generate Profile.")
-                    .foregroundStyle(.secondary)
-            } else {
-                ScrollView {
-                    Text(session.gcodeLines.prefix(80).joined(separator: "\n"))
-                        .font(.system(.caption, design: .monospaced))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .background(Color(NSColor.textBackgroundColor))
-                .cornerRadius(8)
+            HSplitView {
+                ToolpathTreeView(session: session)
+                    .frame(minWidth: 200, idealWidth: 240, maxWidth: 300)
+
+                selectedDetail
             }
-            Spacer()
+
+            Spacer(minLength: 0)
         }
         .padding()
+        .alert(
+            "Toolpaths are not up to date — recalculate before saving",
+            isPresented: $showExportBlockAlert
+        ) {
+            Button("Cancel", role: .cancel) {}
+            Button("Save Anyway (Expert)") {
+                _ = exportBlocker?.overrideExportBlock()
+                saveToolpaths()
+            }
+        } message: {
+            Text(exportBlockMessage)
+        }
+    }
+
+    // MARK: - Save toolpaths to file (SPK-1102b)
+
+    /// Entry point for the "Save Toolpaths…" button: validate the toolpath
+    /// tree for export, then either save immediately or ask for an expert
+    /// override when dirty nodes would be exported.
+    private func handleSaveToolpaths() {
+        guard !session.allToolpathGCode.isEmpty else {
+            session.statusMessage = "No G-code to save — generate a toolpath first"
+            return
+        }
+
+        let blocker = ExportBlocker(treeManager: session.toolpathTree)
+        let result = blocker.validateForExport()
+
+        if result.isValid {
+            saveToolpaths()
+        } else {
+            exportBlocker = blocker
+            exportBlockMessage = "Recalculate before saving: \(result.dirtyNodes.joined(separator: ", "))"
+            showExportBlockAlert = true
+        }
+    }
+
+    /// Present the save panel, post-process the session G-code through
+    /// CutToMachineBridge, and write the GRBL file to the chosen URL.
+    private func saveToolpaths() {
+        let gcode = session.allToolpathGCode
+        guard !gcode.isEmpty else {
+            session.statusMessage = "No G-code to save — generate a toolpath first"
+            return
+        }
+
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.plainText]
+        panel.nameFieldStringValue = "job.gcode"
+        panel.canCreateDirectories = true
+        panel.title = "Save Toolpaths"
+
+        guard panel.runModal() == .OK, let destinationURL = panel.url else {
+            return // User cancelled
+        }
+
+        do {
+            let result = try CutToMachineBridge.export(
+                gcodeLines: gcode,
+                toolInfo: nil,
+                machineProfile: grblProfile,
+                fileName: destinationURL.deletingPathExtension().lastPathComponent
+            )
+
+            if let errorMessage = result.errorMessage {
+                session.statusMessage = "Save failed: \(errorMessage)"
+                return
+            }
+            guard let exportedURL = result.outputFileURL else {
+                session.statusMessage = "Save failed: bridge produced no output file"
+                return
+            }
+
+            // The bridge writes post-processed G-code to its temp export
+            // directory; copy it to the user-chosen destination.
+            let data = try Data(contentsOf: exportedURL)
+            try data.write(to: destinationURL, options: .atomic)
+
+            // Report the line count actually written to disk (the bridge's
+            // lineCount counts post-processor output rows, which can differ
+            // from the file's newline count).
+            let writtenText = String(data: data, encoding: .utf8) ?? ""
+            let writtenLineCount = writtenText.split(whereSeparator: \.isNewline).count
+
+            session.statusMessage =
+                "Saved \(destinationURL.lastPathComponent) (\(writtenLineCount) lines)"
+            session.lastToolpathSummary =
+                "\(result.postProcessorType.displayName) — \(writtenLineCount) lines"
+        } catch {
+            session.statusMessage = "Save failed: \(error.localizedDescription)"
+        }
+    }
+
+    /// GRBL machine profile used to post-process exported G-code.
+    private var grblProfile: MachineProfile {
+        MachineProfile(name: "GRBL", config: .simulator, machineType: .grbl)
+    }
+
+    /// The toolpath node currently selected in the tree, if any.
+    private var selectedNode: ToolpathTreeNode? {
+        guard let id = session.selectedToolpathID else { return nil }
+        return session.toolpathTree.findNode(id: id)
+    }
+
+    @ViewBuilder
+    private var selectedDetail: some View {
+        if let node = selectedNode {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(node.name)
+                        .font(.headline)
+                    if node.isDirty {
+                        Image(systemName: "exclamationmark.circle.fill")
+                            .foregroundStyle(.orange)
+                            .help("Needs recalculation")
+                    }
+                    Spacer()
+                    Text(Self.timeString(node.estimatedTimeSeconds))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                if case .operation = node.type {
+                    HStack(spacing: 6) {
+                        Text("Tool")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        ToolPickerMenu(
+                            selectedToolID: node.toolID,
+                            tools: session.toolDatabase.tools(ofTypes: [.endMill, .vBit]),
+                            onSelect: { session.assignTool($0, toToolpath: node.id) }
+                        )
+                        Spacer()
+                    }
+                    .padding(6)
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .cornerRadius(6)
+                }
+
+                let lines = (node.toolpathResult ?? "")
+                    .components(separatedBy: .newlines)
+                    .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+                if lines.isEmpty {
+                    Text("No G-code for this toolpath yet.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ScrollView {
+                        Text(lines.joined(separator: "\n"))
+                            .font(.system(.caption, design: .monospaced))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .textSelection(.enabled)
+                    }
+                    .background(Color(NSColor.textBackgroundColor))
+                    .cornerRadius(8)
+                }
+                Spacer()
+            }
+            .padding(10)
+        } else {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Session G-code")
+                    .font(.headline)
+                if session.gcodeLines.isEmpty {
+                    Text("No toolpath yet. Add shapes in Design, then generate Profile.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ScrollView {
+                        Text(session.gcodeLines.prefix(120).joined(separator: "\n"))
+                            .font(.system(.caption, design: .monospaced))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .background(Color(NSColor.textBackgroundColor))
+                    .cornerRadius(8)
+                }
+                Spacer()
+            }
+            .padding(10)
+        }
+    }
+
+    private static func timeString(_ seconds: Double) -> String {
+        if seconds < 60 {
+            return String(format: "%.0fs", seconds)
+        }
+        return String(format: "%.1fm", seconds / 60)
     }
 }
 

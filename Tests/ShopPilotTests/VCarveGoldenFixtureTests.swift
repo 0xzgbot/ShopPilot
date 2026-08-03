@@ -27,11 +27,11 @@ final class VCarveGoldenFixtureTests: XCTestCase {
             vBitAngleDegrees: 90.0,
             feedRateMmPerMin: 1000,
             plungeFeedRateMmPerMin: 300,
-            depthMm: 2.0,
-            stepOverMm: 1.0,
+            maxDepthOfCutMm: 2.0,
             leadInDistanceMm: 5.0,
             leadOutDistanceMm: 5.0,
-            flatBottomDepthMm: nil,
+            stepOverMm: 1.0,
+            flatBottomMode: false,
             vectorDepths: [squareId: 2.0]
         )
         
@@ -42,7 +42,7 @@ final class VCarveGoldenFixtureTests: XCTestCase {
         XCTAssertTrue(result.gcodeLines.contains("M30"), "Should have M30 footer")
         
         // Verify pass count: tipWidth = 2*2*tan(pi/8) = 0.828, passes = ceil(0.828/1) = 1
-        let tipWidth = params.tipWidthAtDepth(params.depthMm)
+        let tipWidth = params.tipWidthAtDepth(params.maxDepthOfCutMm)
         let expectedPasses = Int(ceil(tipWidth / params.stepOverMm))
         XCTAssertEqual(result.passCount, expectedPasses, "Pass count should match tipWidth/stepOver")
         
@@ -76,11 +76,11 @@ final class VCarveGoldenFixtureTests: XCTestCase {
             vBitAngleDegrees: 45.0,
             feedRateMmPerMin: 1000,
             plungeFeedRateMmPerMin: 300,
-            depthMm: 2.0,
-            stepOverMm: 0.5,
+            maxDepthOfCutMm: 2.0,
             leadInDistanceMm: 5.0,
             leadOutDistanceMm: 5.0,
-            flatBottomDepthMm: nil,
+            stepOverMm: 0.5,
+            flatBottomMode: false,
             vectorDepths: [vectorId: 2.0]
         )
         
@@ -89,7 +89,7 @@ final class VCarveGoldenFixtureTests: XCTestCase {
         // 45° bit: tipWidth = 2*2*tan(pi/8) ≈ 0.828 for 90°, but for 45°:
         // halfAngle = 22.5°, tipWidth = 2*2*tan(22.5°) ≈ 1.657
         // passes = ceil(1.657/0.5) = 4
-        let tipWidth = params.tipWidthAtDepth(params.depthMm)
+        let tipWidth = params.tipWidthAtDepth(params.maxDepthOfCutMm)
         let expectedPasses = Int(ceil(tipWidth / params.stepOverMm))
         XCTAssertEqual(result.passCount, expectedPasses, "Multi-pass count should match")
         
@@ -121,11 +121,13 @@ final class VCarveGoldenFixtureTests: XCTestCase {
             vBitAngleDegrees: 90.0,
             feedRateMmPerMin: 800,
             plungeFeedRateMmPerMin: 200,
-            depthMm: 1.5,
-            stepOverMm: 0.75,
+            maxDepthOfCutMm: 1.5,
             leadInDistanceMm: 3.0,
             leadOutDistanceMm: 3.0,
-            flatBottomDepthMm: nil,
+            stepOverMm: 0.75,
+            // A calibration cut must be constant-depth — flat-bottom mode keeps
+            // every pass at the calibration Z instead of progressive shading.
+            flatBottomMode: true,
             vectorDepths: [textId: 1.5]
         )
         
@@ -170,11 +172,11 @@ final class VCarveGoldenFixtureTests: XCTestCase {
             vBitAngleDegrees: 90.0,
             feedRateMmPerMin: 1000,
             plungeFeedRateMmPerMin: 300,
-            depthMm: 2.0,
-            stepOverMm: 1.0,
+            maxDepthOfCutMm: 2.0,
             leadInDistanceMm: 5.0,
             leadOutDistanceMm: 5.0,
-            flatBottomDepthMm: 1.0,
+            stepOverMm: 1.0,
+            flatBottomMode: true,
             vectorDepths: [vectorId: 2.0]
         )
         
@@ -185,7 +187,7 @@ final class VCarveGoldenFixtureTests: XCTestCase {
         XCTAssertTrue(result.gcodeLines.contains("M30"))
         
         // Verify pass count with flat bottom
-        let tipWidth = params.tipWidthAtDepth(params.depthMm)
+        let tipWidth = params.tipWidthAtDepth(params.maxDepthOfCutMm)
         let expectedPasses = Int(ceil(tipWidth / params.stepOverMm))
         XCTAssertEqual(result.passCount, expectedPasses)
     }
@@ -212,11 +214,11 @@ final class VCarveGoldenFixtureTests: XCTestCase {
             vBitAngleDegrees: 90.0,
             feedRateMmPerMin: 1000,
             plungeFeedRateMmPerMin: 300,
-            depthMm: 2.0,
-            stepOverMm: 1.0,
+            maxDepthOfCutMm: 2.0,
             leadInDistanceMm: 5.0,
             leadOutDistanceMm: 5.0,
-            flatBottomDepthMm: nil,
+            stepOverMm: 1.0,
+            flatBottomMode: false,
             vectorDepths: [id1: 2.0, id2: 1.0]
         )
         
@@ -249,23 +251,21 @@ final class VCarveGoldenFixtureTests: XCTestCase {
     // MARK: - Golden V-Carve Fixture: Tip Width Math Verification
     
     func testTipWidthMath() {
-        // 90° bit at 2mm depth
-        let params90 = VCarveParams(vBitAngleDegrees: 90.0, depthMm: 2.0)
+        // Full cutting width at depth d for included angle θ: 2·d·tan(θ/2).
+        // 90° bit at 2mm depth → 2·2·tan(45°) = 4.0
+        let params90 = VCarveParams(vBitAngleDegrees: 90.0, maxDepthOfCutMm: 2.0)
         let tipWidth90 = params90.tipWidthAtDepth(2.0)
-        // tipWidth = 2*2*tan(pi/8) = 4*0.4142 = 1.657
-        XCTAssertEqual(tipWidth90, 1.65685424949238, accuracy: 1e-6)
+        XCTAssertEqual(tipWidth90, 4.0, accuracy: 1e-6)
         
-        // 45° bit at 2mm depth
-        let params45 = VCarveParams(vBitAngleDegrees: 45.0, depthMm: 2.0)
+        // 45° bit at 2mm depth → 2·2·tan(22.5°) = 4·0.4142 = 1.657
+        let params45 = VCarveParams(vBitAngleDegrees: 45.0, maxDepthOfCutMm: 2.0)
         let tipWidth45 = params45.tipWidthAtDepth(2.0)
-        // tipWidth = 2*2*tan(pi/16) = 4*0.1989 = 0.7956
-        XCTAssertEqual(tipWidth45, 0.79668072579338, accuracy: 1e-6)
+        XCTAssertEqual(tipWidth45, 1.65685424949238, accuracy: 1e-6)
         
-        // 30° bit at 2mm depth
-        let params30 = VCarveParams(vBitAngleDegrees: 30.0, depthMm: 2.0)
+        // 30° bit at 2mm depth → 2·2·tan(15°) = 4·0.2679 = 1.072
+        let params30 = VCarveParams(vBitAngleDegrees: 30.0, maxDepthOfCutMm: 2.0)
         let tipWidth30 = params30.tipWidthAtDepth(2.0)
-        // tipWidth = 2*2*tan(pi/24) = 4*0.1317 = 0.5268
-        XCTAssertEqual(tipWidth30, 0.52655616967386, accuracy: 1e-6)
+        XCTAssertEqual(tipWidth30, 1.0717967697244, accuracy: 1e-6)
     }
     
     // MARK: - Golden V-Carve Fixture: Time Estimate
@@ -281,11 +281,11 @@ final class VCarveGoldenFixtureTests: XCTestCase {
             vBitAngleDegrees: 90.0,
             feedRateMmPerMin: 1000,
             plungeFeedRateMmPerMin: 300,
-            depthMm: 1.0,
-            stepOverMm: 0.5,
+            maxDepthOfCutMm: 1.0,
             leadInDistanceMm: 5.0,
             leadOutDistanceMm: 5.0,
-            flatBottomDepthMm: nil,
+            stepOverMm: 0.5,
+            flatBottomMode: false,
             vectorDepths: [:]
         )
         

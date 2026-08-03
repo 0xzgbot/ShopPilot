@@ -302,7 +302,7 @@ public final class TextRenderer {
                     y: -glyphPositions[i].y * scale // Flip Y axis
                 )
                 
-                if let path = renderGlyph(glyphID: glyphID, ctFont: ctFont, at: position) {
+                if let path = renderGlyph(glyphID: glyphID, ctFont: ctFont, at: position, scale: scale) {
                     shapes.append(path)
                 }
             }
@@ -319,7 +319,8 @@ public final class TextRenderer {
     private static func renderGlyph(
         glyphID: CGGlyph,
         ctFont: CTFont,
-        at position: CGPoint
+        at position: CGPoint,
+        scale: Double
     ) -> VectorShape? {
         
         // Create a path for this glyph
@@ -328,7 +329,17 @@ public final class TextRenderer {
         }
         
         // Convert CGPath to VectorShape
-        return convertCGPathToVectorShape(cgPath, at: position)
+        guard let shape = convertCGPathToVectorShape(cgPath, at: position) else {
+            return nil
+        }
+        
+        // The glyph outline is produced at font size; `position` is already
+        // scaled. Scale the outline itself (about origin, before the position
+        // translation is re-applied) so scale affects glyph size, not just
+        // placement.
+        let unscaled = shape.translated(by: -position.x, -position.y)
+        return unscaled.scaled(by: scale, about: .zero)
+            .translated(by: position.x, position.y)
     }
     
     /// Convert a CGPath to a VectorShape.freehand path.
@@ -458,7 +469,7 @@ public final class TextRenderer {
                     y: -glyphPositions[i].y * scale // Flip Y axis
                 )
                 
-                if let path = renderGlyph(glyphID: glyphID, ctFont: ctFont, at: position) {
+                if let path = renderGlyph(glyphID: glyphID, ctFont: ctFont, at: position, scale: scale) {
                     let advance = Double(advances[i].width) * scale
                     let glyphPos = VectorPoint(x: position.x, y: position.y)
                     
