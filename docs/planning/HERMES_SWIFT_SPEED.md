@@ -41,4 +41,4 @@ Verify: ./scripts/verify_locked.sh ShopPilotVerifyXXXX
 - A newer Mac (more RAM + cores, e.g. M-series 32GB+) helps a lot: parallel agents spend less time thrashing under memory pressure; the lock still serializes full builds, but each build finishes faster.
 - **Windows cannot build/run this SwiftUI macOS app.** Agents may draft pure logic remotely, but compile + UI + verify must run on macOS (this Mac or a remote Mac builder).
 
-See also: [KANBAN_MICRO_CARD_PROMPT.md](./KANBAN_MICRO_CARD_PROMPT.md), [HERMES_START_PROMPT.md](../../HERMES_START_PROMPT.md).
+See also: [KANBAN_MICRO_CARD_PROMPT.md](./KANBAN_MICRO_CARD_PROMPT.md), [HERMES_START_PROMPT.md](../../HERMES_START_PROMPT.md), [NEW_COMPUTER_MIGRATE.md](./NEW_COMPUTER_MIGRATE.md).
