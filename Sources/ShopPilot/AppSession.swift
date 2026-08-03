@@ -642,6 +642,87 @@ final class AppSession: ObservableObject {
         return true
     }
 
+    /// Nudge every selected shape by (dx, dy) mm.
+    @discardableResult
+    func applyNudge(dx: Double, dy: Double) -> Bool {
+        let sel = selectedShapeIndices.compactMap { shapes.indices.contains($0) ? shapes[$0] : nil }
+        guard !sel.isEmpty else {
+            statusMessage = "Nudge needs a selected shape"
+            return false
+        }
+        let output = sel.map { $0.translated(by: dx, dy) }
+        replaceSelectedShapes(with: output)
+        statusMessage = String(format: "Nudged %d shape(s) by (%.2f, %.2f) mm", sel.count, dx, dy)
+        return true
+    }
+
+    /// Nudge every selected shape +1 mm in X.
+    @discardableResult
+    func applyNudgeX() -> Bool { applyNudge(dx: 1, dy: 0) }
+
+    /// Mirror selected shapes across the vertical centerline of the selection.
+    @discardableResult
+    func applyFlipHorizontal() -> Bool {
+        let sel = selectedShapeIndices.compactMap { shapes.indices.contains($0) ? shapes[$0] : nil }
+        guard !sel.isEmpty else {
+            statusMessage = "Flip needs a selected shape"
+            return false
+        }
+        guard let centroid = selectionCentroid(of: sel) else {
+            statusMessage = "Flip needs a selection with geometry"
+            return false
+        }
+        let output = ShapeTransformer().flipHorizontal(shapes: sel, about: centroid)
+        replaceSelectedShapes(with: output)
+        statusMessage = "Flipped \(sel.count) shape(s) horizontally across the selection centerline"
+        return true
+    }
+
+    /// Rotate selected shapes by `degrees` CCW around the selection centroid.
+    @discardableResult
+    func applyRotate(degrees: Double) -> Bool {
+        let sel = selectedShapeIndices.compactMap { shapes.indices.contains($0) ? shapes[$0] : nil }
+        guard !sel.isEmpty else {
+            statusMessage = "Rotate needs a selected shape"
+            return false
+        }
+        guard let centroid = selectionCentroid(of: sel) else {
+            statusMessage = "Rotate needs a selection with geometry"
+            return false
+        }
+        let output = ShapeTransformer().rotate(shapes: sel, angle: degrees, about: centroid)
+        replaceSelectedShapes(with: output)
+        statusMessage = "Rotated \(sel.count) shape(s) \(Int(degrees))° around selection centroid"
+        return true
+    }
+
+    @discardableResult
+    func applyRotate90() -> Bool { applyRotate(degrees: 90) }
+
+    /// Scale selected shapes uniformly about the selection centroid.
+    @discardableResult
+    func applyScale(factor: Double) -> Bool {
+        let sel = selectedShapeIndices.compactMap { shapes.indices.contains($0) ? shapes[$0] : nil }
+        guard !sel.isEmpty else {
+            statusMessage = "Scale needs a selected shape"
+            return false
+        }
+        guard let centroid = selectionCentroid(of: sel) else {
+            statusMessage = "Scale needs a selection with geometry"
+            return false
+        }
+        let output = ShapeTransformer().scale(shapes: sel, factor: factor, about: centroid)
+        replaceSelectedShapes(with: output)
+        statusMessage = String(
+            format: "Scaled %d shape(s) by %.2f× around selection centroid",
+            sel.count, factor
+        )
+        return true
+    }
+
+    @discardableResult
+    func applyScale110() -> Bool { applyScale(factor: 1.1) }
+
     func addDemoRectangle() {
         let shape = VectorShape.rectangle(
             origin: ShopPilotGeometry.VectorPoint(x: 10, y: 10),

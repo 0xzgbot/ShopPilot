@@ -196,10 +196,12 @@ struct ToolpathPreviewView: View {
             }
         }
 
-        if session.gcodeLines.isEmpty && session.vectors.isEmpty {
-            let text = Text("No toolpath yet — generate a profile from Design/Cut")
+        if PreviewEmptyState.isEmpty(gcodeCount: session.gcodeLines.count, vectorCount: session.vectors.count),
+           let copy = PreviewEmptyState.copy(gcodeCount: session.gcodeLines.count, vectorCount: session.vectors.count) {
+            let text = Text("\(copy.title)\n\(copy.message)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
             context.draw(text, at: CGPoint(x: size.width / 2, y: size.height / 2), anchor: .center)
         }
     }

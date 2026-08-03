@@ -50,6 +50,24 @@ public enum AlignmentMode: String, Codable {
 
 // MARK: - Shape Transformer
 
+/// Centroid of a set of shapes: the center of the union bounding box.
+/// Returns nil for an empty selection.
+public func selectionCentroid(of shapes: [VectorShape]) -> VectorPoint? {
+    guard !shapes.isEmpty else { return nil }
+    var minX = Double.greatestFiniteMagnitude
+    var minY = Double.greatestFiniteMagnitude
+    var maxX = -Double.greatestFiniteMagnitude
+    var maxY = -Double.greatestFiniteMagnitude
+    for shape in shapes {
+        let r = shape.boundingRect
+        minX = min(minX, r.minX)
+        minY = min(minY, r.minY)
+        maxX = max(maxX, r.maxX)
+        maxY = max(maxY, r.maxY)
+    }
+    return VectorPoint(x: (minX + maxX) / 2.0, y: (minY + maxY) / 2.0)
+}
+
 /// Applies transform operations to vector shapes.
 public final class ShapeTransformer {
     public init() {}
@@ -57,6 +75,16 @@ public final class ShapeTransformer {
     /// Move all shapes by (dx, dy).
     public func move(shapes: [VectorShape], dx: Double, dy: Double) -> [VectorShape] {
         return shapes.map { $0.translated(by: dx, dy) }
+    }
+
+    /// Mirror all shapes across the vertical line `x = center.x` (flip horizontal).
+    public func flipHorizontal(shapes: [VectorShape], about center: VectorPoint) -> [VectorShape] {
+        shapes.map { $0.flippedHorizontally(about: center) }
+    }
+
+    /// Uniform scale about a center (SPK-1101k).
+    public func scale(shapes: [VectorShape], factor: Double, about center: VectorPoint) -> [VectorShape] {
+        shapes.map { $0.scaled(by: factor, about: center) }
     }
     
     /// Rotate all shapes around a center point.

@@ -78,6 +78,117 @@ let package = Package(
             path: "Sources/ShopPilotVerifyProfileToolpath"
         ),
 
+        .executableTarget(
+            name: "ShopPilotVerify0201b",
+            dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
+            path: "Sources/ShopPilotVerify0201b"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify0203c",
+            dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
+            path: "Sources/ShopPilotVerify0203c"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify0310a",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify0310a"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify0404a",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify0404a"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify0404c",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify0404c"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify0412a",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify0412a"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify0417a",
+            dependencies: ["ShopPilotCore", "ShopPilotSerial"],
+            path: "Sources/ShopPilotVerify0417a"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify0500",
+            dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
+            path: "Sources/ShopPilotVerify0500"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1101",
+            dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
+            path: "Sources/ShopPilotVerify1101"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1101FlipH",
+            dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
+            path: "Sources/ShopPilotVerify1101FlipH"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1101h",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1101h"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1101j",
+            dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
+            path: "Sources/ShopPilotVerify1101j"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1101k",
+            dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
+            path: "Sources/ShopPilotVerify1101k"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1102e",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1102e"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1102f",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1102f"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1102h",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1102h"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1102i",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1102i"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1103",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1103"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1103c",
+            dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
+            path: "Sources/ShopPilotVerify1103c"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1104",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1104"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1104a",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1104a"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1104c",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1104c"
+        ),
+
         .target(
             name: "ShopPilotCore",
             path: "Sources/ShopPilotCore"

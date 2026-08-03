@@ -254,6 +254,44 @@ public enum VectorShape: Codable, Equatable {
             return .freehand(points: points.map { $0.scaled(factor, about: center) })
         }
     }
+
+    /// Mirror this shape across the vertical line `x = center.x`.
+    public func flippedHorizontally(about center: VectorPoint) -> VectorShape {
+        func mirror(_ p: VectorPoint) -> VectorPoint {
+            VectorPoint(x: 2 * center.x - p.x, y: p.y)
+        }
+        switch self {
+        case .line(let start, let end):
+            return .line(start: mirror(start), end: mirror(end))
+        case .circle(let c, let r):
+            return .circle(center: mirror(c), radius: r)
+        case .rectangle(let o, let w, let h):
+            let corners = [
+                o,
+                VectorPoint(x: o.x + w, y: o.y),
+                VectorPoint(x: o.x + w, y: o.y + h),
+                VectorPoint(x: o.x, y: o.y + h),
+            ]
+            let m = corners.map(mirror)
+            let xs = m.map(\.x)
+            let ys = m.map(\.y)
+            return .rectangle(
+                origin: VectorPoint(x: xs.min()!, y: ys.min()!),
+                width: xs.max()! - xs.min()!,
+                height: ys.max()! - ys.min()!
+            )
+        case .arc(let c, let r, let sa, let ea):
+            return .arc(center: mirror(c), radius: r, startAngle: .pi - ea, endAngle: .pi - sa)
+        case .ellipse(let c, let rx, let ry, let rot):
+            return .ellipse(center: mirror(c), radiusX: rx, radiusY: ry, rotation: -rot)
+        case .polygon(let c, let r, let s, let rot):
+            return .polygon(center: mirror(c), radius: r, sides: s, rotation: -rot)
+        case .star(let c, let or, let ir, let p, let rot):
+            return .star(center: mirror(c), outerRadius: or, innerRadius: ir, points: p, rotation: -rot)
+        case .freehand(let points):
+            return .freehand(points: points.map(mirror))
+        }
+    }
     
     /// Move the vertex at the given index to a new position.
     /// Returns a new shape; only `.freehand` (polyline) and `.line` are affected.
