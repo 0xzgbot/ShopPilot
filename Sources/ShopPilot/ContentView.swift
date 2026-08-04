@@ -886,6 +886,20 @@ private struct VCarveParamsForm: View {
                 }
             }
 
+            // SPK-VCarveClear — clearance-tool pass before the V-bit.
+            GroupBox("Clearance (before V-Bit)") {
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle("Clearance pass enabled", isOn: $params.clearancePassEnabled)
+                    if params.clearancePassEnabled {
+                        Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                            numRow("Tool dia (mm)", $params.clearanceToolDiameterMm)
+                            numRow("Clear depth (mm)", $params.clearanceDepthMm)
+                            numRow("Step-over × dia", $params.clearanceStepOverMm)
+                        }
+                    }
+                }
+            }
+
             Button("Apply Params — Regenerate") {
                 onApply(params)
             }

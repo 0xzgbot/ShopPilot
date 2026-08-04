@@ -43,6 +43,16 @@ public struct VCarveParams: Codable, Sendable {
     public var useVectorSelectionOrder: Bool
     public var safeZHeightMm: Double
     public var rampPlungeMoves: Bool
+
+    // SPK-VCarveClear — clearance-tool pass before the V-bit for wide/deep
+    // areas (LEAN P0). A flat end mill clears the open bands inside the
+    // vectors' bounding box (minus a tool-radius margin around every vector)
+    // down to `clearanceDepthMm`; the V-bit then cuts the fine detail.
+    // Additive with defaults — existing docs and call sites decode unchanged.
+    public var clearancePassEnabled: Bool
+    public var clearanceToolDiameterMm: Double
+    public var clearanceDepthMm: Double
+    public var clearanceStepOverMm: Double
     
     public init(
         vBitAngleDegrees: Double = 90.0,
@@ -60,7 +70,11 @@ public struct VCarveParams: Codable, Sendable {
         useVectorStartPoints: Bool = true,
         useVectorSelectionOrder: Bool = false,
         safeZHeightMm: Double = 3.2,
-        rampPlungeMoves: Bool = false
+        rampPlungeMoves: Bool = false,
+        clearancePassEnabled: Bool = false,
+        clearanceToolDiameterMm: Double = 6.0,
+        clearanceDepthMm: Double = 1.0,
+        clearanceStepOverMm: Double = 0.4
     ) {
         self.vBitAngleDegrees = vBitAngleDegrees
         self.feedRateMmPerMin = feedRateMmPerMin
@@ -78,6 +92,10 @@ public struct VCarveParams: Codable, Sendable {
         self.useVectorSelectionOrder = useVectorSelectionOrder
         self.safeZHeightMm = safeZHeightMm
         self.rampPlungeMoves = rampPlungeMoves
+        self.clearancePassEnabled = clearancePassEnabled
+        self.clearanceToolDiameterMm = clearanceToolDiameterMm
+        self.clearanceDepthMm = clearanceDepthMm
+        self.clearanceStepOverMm = clearanceStepOverMm
     }
     
     /// Half-angle of the V-bit in radians (used for width calculations).
@@ -100,6 +118,8 @@ public struct VCarveParams: Codable, Sendable {
         case flatBottomMode, vectorDepths
         case startDepthMm, flatDepthMm, cornerSharpen, useVectorStartPoints
         case useVectorSelectionOrder, safeZHeightMm, rampPlungeMoves
+        case clearancePassEnabled, clearanceToolDiameterMm, clearanceDepthMm
+        case clearanceStepOverMm
     }
 
     public init(from decoder: Decoder) throws {
@@ -120,6 +140,10 @@ public struct VCarveParams: Codable, Sendable {
         useVectorSelectionOrder = try c.decodeIfPresent(Bool.self, forKey: .useVectorSelectionOrder) ?? false
         safeZHeightMm = try c.decodeIfPresent(Double.self, forKey: .safeZHeightMm) ?? 3.2
         rampPlungeMoves = try c.decodeIfPresent(Bool.self, forKey: .rampPlungeMoves) ?? false
+        clearancePassEnabled = try c.decodeIfPresent(Bool.self, forKey: .clearancePassEnabled) ?? false
+        clearanceToolDiameterMm = try c.decodeIfPresent(Double.self, forKey: .clearanceToolDiameterMm) ?? 6.0
+        clearanceDepthMm = try c.decodeIfPresent(Double.self, forKey: .clearanceDepthMm) ?? 1.0
+        clearanceStepOverMm = try c.decodeIfPresent(Double.self, forKey: .clearanceStepOverMm) ?? 0.4
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -140,6 +164,10 @@ public struct VCarveParams: Codable, Sendable {
         try c.encode(useVectorSelectionOrder, forKey: .useVectorSelectionOrder)
         try c.encode(safeZHeightMm, forKey: .safeZHeightMm)
         try c.encode(rampPlungeMoves, forKey: .rampPlungeMoves)
+        try c.encode(clearancePassEnabled, forKey: .clearancePassEnabled)
+        try c.encode(clearanceToolDiameterMm, forKey: .clearanceToolDiameterMm)
+        try c.encode(clearanceDepthMm, forKey: .clearanceDepthMm)
+        try c.encode(clearanceStepOverMm, forKey: .clearanceStepOverMm)
     }
 }
 
@@ -209,9 +237,20 @@ public struct VCarveEngine {
         var allGcodeLines: [String] = []
         let feedRate = params.feedRateMmPerMin
         let plungeFeed = params.plungeFeedRateMmPerMin
-        
+
         // Generate G-code header
         allGcodeLines.append("%")
+        if params.clearancePassEnabled,
+           let minX = boundsMinX, let minY = boundsMinY,
+           let maxX = boundsMaxX, let maxY = boundsMaxY {
+            // SPK-VCarveClear: clearance pass FIRST (flat end mill clears the
+            // wide open areas), then the V-bit detail pass.
+            allGcodeLines.append(contentsOf: clearanceGcode(
+                vectors: vectors,
+                params: params,
+                bounds: (minX, minY, maxX, maxY)
+            ))
+        }
         allGcodeLines.append("O=V_CARVE_TOOLPATH")
         allGcodeLines.append("(V-Bit: \(Int(params.vBitAngleDegrees))°)")
         allGcodeLines.append("(Flat Bottom: \(params.flatBottomMode ? "Yes" : "No"))")
@@ -326,5 +365,99 @@ public struct VCarveEngine {
             boundsMaxX: boundsMaxX,
             boundsMaxY: boundsMaxY
         )
+    }
+
+    /// SPK-VCarveClear — clearance pass emitted BEFORE the V-bit detail pass.
+    /// A flat end mill (clearance tool) raster-clears the WIDE open bands
+    /// inside the vectors' bounding box — every X-range not covered by a
+    /// vector's own bounding box expanded by (tool radius + 1mm margin), so
+    /// the letter strokes survive — down to `clearanceDepthMm`. The V-bit then
+    /// only has to engrave the fine detail. Raster rows are spaced
+    /// `clearanceStepOverMm × toolDiameter`, alternating direction.
+    private static func clearanceGcode(
+        vectors: [VectorPath],
+        params: VCarveParams,
+        bounds: (minX: Double, minY: Double, maxX: Double, maxY: Double)
+    ) -> [String] {
+        let toolR = params.clearanceToolDiameterMm / 2.0
+        let step = params.clearanceStepOverMm * params.clearanceToolDiameterMm
+        let margin = toolR + 1.0
+        guard toolR > 1e-9, step > 1e-9,
+              bounds.maxX - bounds.minX > 2 * toolR,
+              bounds.maxY - bounds.minY > 2 * toolR else {
+            return []
+        }
+
+        // Exclusion bands: each PROTECTED vector's X-range expanded by the
+        // clearance radius + margin, with its Y-range for row overlap.
+        // A vector is protected when it is strictly inside the global bounds
+        // (e.g. letters inside a sign board). When nothing is strictly inside
+        // (letters-only, or a single shape), every vector is protected and the
+        // union bbox is the clearable region — so the clearance clears the
+        // bands BETWEEN shapes, never inside one.
+        let strictlyInside: [VectorPath] = vectors.filter { v in
+            guard !v.points.isEmpty else { return false }
+            let xs = v.points.map { $0.x }
+            let ys = v.points.map { $0.y }
+            return xs.min()! > bounds.minX + 1e-6
+                && xs.max()! < bounds.maxX - 1e-6
+                && ys.min()! > bounds.minY + 1e-6
+                && ys.max()! < bounds.maxY - 1e-6
+        }
+        let protectAll = strictlyInside.isEmpty
+        let exclusions: [(minX: Double, maxX: Double, minY: Double, maxY: Double)] = vectors.compactMap { v in
+            guard !v.points.isEmpty else { return nil }
+            let xs = v.points.map { $0.x }
+            let ys = v.points.map { $0.y }
+            let vMinX = xs.min()!, vMaxX = xs.max()!, vMinY = ys.min()!, vMaxY = ys.max()!
+            let isInside = vMinX > bounds.minX + 1e-6
+                && vMaxX < bounds.maxX - 1e-6
+                && vMinY > bounds.minY + 1e-6
+                && vMaxY < bounds.maxY - 1e-6
+            guard protectAll || isInside else { return nil }
+            return (vMinX - margin, vMaxX + margin, vMinY, vMaxY)
+        }
+
+        let depth = -params.clearanceDepthMm
+        var lines: [String] = []
+        lines.append("")
+        lines.append("O=VCARVE_CLEARANCE")
+        lines.append("(Clearance tool: \(String(format: "%.1f", params.clearanceToolDiameterMm))mm)")
+        lines.append("(Clearance depth: \(String(format: "%.2f", params.clearanceDepthMm))mm)")
+
+        var y = bounds.minY + toolR
+        var leftToRight = true
+        while y <= bounds.maxY - toolR {
+            // Open gaps on this row: [minX+toolR, maxX-toolR] minus the bands
+            // of vectors whose Y-range overlaps this row.
+            let rowBands = exclusions
+                .filter { y >= $0.minY - toolR && y <= $0.maxY + toolR }
+                .sorted { $0.minX < $1.minX }
+            var gaps: [(Double, Double)] = []
+            var cursor = bounds.minX + toolR
+            for band in rowBands {
+                let bandStart = max(cursor, band.minX)
+                if bandStart < bounds.maxX - toolR && bandStart > cursor + 1e-6 {
+                    gaps.append((cursor, min(bandStart, bounds.maxX - toolR)))
+                }
+                cursor = max(cursor, band.maxX)
+                if cursor >= bounds.maxX - toolR { break }
+            }
+            if cursor < bounds.maxX - toolR - 1e-6 {
+                gaps.append((cursor, bounds.maxX - toolR))
+            }
+
+            for gap in gaps {
+                let x0 = leftToRight ? gap.0 : gap.1
+                let x1 = leftToRight ? gap.1 : gap.0
+                lines.append("G0 Z5.0")
+                lines.append("G0 X\(String(format: "%.3f", x0)) Y\(String(format: "%.3f", y))")
+                lines.append("G1 Z\(String(format: "%.3f", depth)) F\(Int(params.plungeFeedRateMmPerMin))")
+                lines.append("G1 X\(String(format: "%.3f", x1)) Y\(String(format: "%.3f", y)) F\(Int(params.feedRateMmPerMin))")
+                leftToRight.toggle()
+            }
+            y += step
+        }
+        return lines
     }
 }

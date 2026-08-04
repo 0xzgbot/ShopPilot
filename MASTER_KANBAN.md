@@ -235,6 +235,11 @@ A (parallel from day 0)
   - deps: SPK-1106a, SPK-1103d, SPK-1104b
   - track: 3
   - worklog: 2026-08-04 — Hermes coder. Audit: every leg of the chain already shipped (1106a recipe→tree node; 1103d/1103e preview reads `allToolpathGCode`; 1104b/1104d machine handoff + preflight + no-auto-run; ContentView:105-106 NewJobView → session.replaceJob), so the honest gap was a single E2E proof. Verify `ShopPilotVerify1106b` PASS — one flow: `SignRecipeManager.createSignJob` → Job round-trip (persist) → replaceJob mirror materializes a clean V-Carve node → full-tree buffer (mirror of `session.allToolpathGCode`) → `WireframeRenderer.generateSegments` yields cut+rapid segments spanning the glyph region inside the sheet bounds (Preview shows the sign path) → `MachineSession.loadGCode` sends ZERO bytes to `SimulatorTransport` (no auto-run) → fresh `PreflightGate` blocks Start → ack arms → explicit `runJob` streams the sign V-Carve and completes. 1106a/1104d regression green; app build green. Parent SPK-1106 AC met (recipe picker → replaceJob glue at ContentView:105) → parent closed.
+- [x] **SPK-VCarveClear** **TP** V-Carve clearance-tool pass before the V-bit (LEAN P0) // P0
+  - AC: Engine: clearance pass emitted BEFORE the V-bit block (flat end mill raster-clears the wide open bands inside the vectors' bbox, skipping a tool-radius+margin band around every protected vector — letters inside a board are protected; letters-only case clears BETWEEN shapes); UI: Cut inspector V-Carve form gains a Clearance section (toggle + tool dia/clear depth/step-over); Persist: additive VCarveParams fields round-trip, legacy JSON decodes with pass disabled; `swift run ShopPilotVerifyVCarveClear` PASS
+  - deps: SPK-1136d
+  - track: 3
+  - worklog: 2026-08-04 — Hermes coder. Engine (VCarveEngine): `clearancePassEnabled`/`clearanceToolDiameterMm`/`clearanceDepthMm`/`clearanceStepOverMm` (additive, backward-compatible Codable) + `clearanceGcode` — interval-exclusion raster: rows at stepOver×dia, gaps = [minX+toolR, maxX−toolR] minus protected-vector bands (bbox + radius + 1mm margin). Protection rule: vectors strictly inside the global bbox are protected; when none are, all are protected (letters-only → clears between shapes; single shape → no clearance, nothing to clear). Emitted after `%` and before `O=V_CARVE_TOOLPATH` — clearance runs first, V-bit detail second, one program. UI: VCarveParamsForm "Clearance (before V-Bit)" GroupBox (toggle + 3 fields), Apply→Regenerate already routes via `applyVCarveParams`. Verify `ShopPilotVerifyVCarveClear` PASS — default off (no marker), clearance-before-V-bit order, glyph band skipped (no cut in (40,60)) with open bands left+right cleared, full-width rows below the glyph, letters-only gap cleared without touching letter interiors, Codable round-trip + legacy-JSON defaults. Regressions 1136d/1106a/1106b/1102d/1102c green; app build green.
 - [x] **SPK-1102d** **TP** Add Pocket / Drill / V-Carve ops from Cut (like Profile) // P0 // parallel-ok
   - AC: Cut "Add Toolpath" menu (Profile/Pocket/Drill/V-Carve) → session generate*Toolpath → real engine G-code into tree nodes; dirty flags sane; buffer concatenates; `swift run ShopPilotVerify1102d` PASS
   - deps: SPK-1102a, SPK-0303, SPK-0304
@@ -1068,6 +1073,9 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 ---
 
 ## 12. Work log
+
+### 2026-08-04 — SPK-VCarveClear clearance-tool pass (Hermes coder)
+- Claimed/finished **SPK-VCarveClear**: V-Carve engine now emits a flat-end-mill clearance pass BEFORE the V-bit block — interval-exclusion raster over the wide open bands (protected-vector bbox + tool-radius + 1mm margin skipped; board+letters → letters protected; letters-only → clears between shapes). Additive params (toggle, tool dia, clear depth, step-over) with backward-compatible Codable; VCarveParamsForm Clearance section; `ShopPilotVerifyVCarveClear` PASS (default-off, order, glyph-band skip, letters-only gap, persist/legacy). Regressions 1136d/1106a/1106b/1102d/1102c green.
 
 ### 2026-08-04 — SPK-0600 Calibration job E2E (Hermes coder)
 - Claimed/finished **SPK-0600**: `ShopPilotVerify0600` PASS — design closed rect → Profile (stored params) → dirty/recalc (block → regen F1500 → unblock) → Preview wireframe + sheet-aware material sim → Machine (zero bytes, preflight gate, run completes).
