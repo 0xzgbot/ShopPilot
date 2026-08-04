@@ -344,10 +344,11 @@ A (parallel from day 0)
   - deps: SPK-1102
   - track: 3
   - worklog: 2026-08-04 — Hermes coder (parent close-out audit). All four slices `[x]` and independently verified: 1136a (Profile §R2), 1136b (Pocket §M), 1136c (Drill §N), 1136d (V-Carve §O). Audit evidence: 4 param models on disk (ProfileToolpathParams/PocketToolpathParams/DrillToolpathParams/VCarveParams), 4 Cut-inspector forms dispatched per node strategy in ContentView (ProfileParamsForm/PocketParamsForm/DrillParamsForm/VCarveParamsForm), per-op params persist via `ToolpathTreeNode.paramsJSON` + `PersistedToolpath` (backward-compatible decode), recalc regenerates with stored params. Full sweep `ShopPilotVerify1136a/b/c/d` all PASS (50/50 target sweep green, build exit 0). AC met → parent `[x]`.
-- [ ] **SPK-1133** **TP** Tool DB seed (13 classes, 17 defaults) + 3-part linkage (geom/cut-data/machine-cut-data) // P1
+- [x] **SPK-1133** **TP** Tool DB seed (13 classes, 17 defaults) + 3-part linkage (geom/cut-data/machine-cut-data) // P1
   - AC: Engine: 13 tool classes, 17 seeded defaults (Profile→End Mill ¼", V-Carve→V-Bit 90° 1¼", QuickEngrave→Diamond Drag…); geometry/cut-data/machine-cut-data split with per-machine cutting data; UI: tool editor groups by class; Persist: JSON schema (our own); Verify: golden — seeding yields expected default per strategy
   - deps: SPK-0301
   - track: 3
+  - worklog: 2026-08-04 — Hermes coder (medium slice per wave brief: classes + seeds + real feeds; **3-part cut-data linkage is a noted follow-up — SPK-1133b**). Engine: ToolType expanded to the installer-verified 13-class taxonomy (endMill/radiusedEndMill/ballNose/vBit/engraving/radiusedEngraving/drill/diamondDrag/laser/threadMill/multiThreadMill/plasma/form; slotCutter retained for legacy decode); `ToolDatabase.defaultToolCatalog` = 17 strategy→tool assignments (Aspire V12.5 seed); first-run seed yields the 10 distinct physical tools; `defaultTool(forStrategy:)`; feed calc made static. Feeds: `recalculateDirtyToolpaths(…, tools:)` derives feed/plunge from an assigned tool when the stored feed is still the placeholder 1000 (user feeds win); session auto-assigns the strategy default tool to new ops and passes `toolDatabase.tools` into recalc. UI: ToolBrowserView (was unmounted) now grouped by class + mounted in the Cut stage left pane under the toolpath tree. Persist: existing UserDefaults JSON. Verify `ShopPilotVerify1133` PASS — 13 classes, 17 catalog entries / 10 seeded tools, Profile→End Mill ¼" + V-Carve→V-Bit 90° 1¼" + QuickEngrave→Diamond Drag + Drilling→Drill mappings, recalc emits the tool feed (not F1000) + tool plunge, explicit F1500 preserved through recalc, Tool Codable round-trip + new-case decode. Regressions 1131/1102c/1136a-d green; app build green.
 - [ ] **SPK-1134** **TP** Post engine v2 — template grammar (format specifiers) + GRBL in/mm + rotary wrap // P1
   - AC: Engine: template-based post, own grammar modeled on observed `.pp` pattern (`[X|C|X|1.3]` style); two shipped templates: GRBL in/mm, GRBL rotary wrap (Y2A); UI: post picker in Save Toolpaths; Persist: templates bundled; Verify: golden G-code per template matches hand-written reference
   - deps: SPK-0313
@@ -1073,6 +1074,10 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 ---
 
 ## 12. Work log
+
+### 2026-08-04 — SPK-1133 Tool DB seed + real feeds (Hermes coder)
+- Claimed/finished **SPK-1133** (medium slice): ToolType → 13-class taxonomy; `defaultToolCatalog` 17 strategy→tool assignments; first-run seed = 10 distinct physical tools; `defaultTool(forStrategy:)`; recalc derives feeds from assigned tools (placeholder F1000 replaced by tool feed/plunge; explicit user feeds win); session auto-assigns strategy defaults to new ops + passes tools into recalc; ToolBrowserView (previously unmounted) grouped by class and mounted in Cut's left pane. `ShopPilotVerify1133` PASS. Regressions 1131/1102c/1136a-d green.
+- **Follow-up noted**: the card's original 3-part linkage (geometry/cut-data/machine-cut-data per-machine cutting data) not in this slice — SPK-1133b.
 
 ### 2026-08-04 — SPK-VCarveClear clearance-tool pass (Hermes coder)
 - Claimed/finished **SPK-VCarveClear**: V-Carve engine now emits a flat-end-mill clearance pass BEFORE the V-bit block — interval-exclusion raster over the wide open bands (protected-vector bbox + tool-radius + 1mm margin skipped; board+letters → letters protected; letters-only → clears between shapes). Additive params (toggle, tool dia, clear depth, step-over) with backward-compatible Codable; VCarveParamsForm Clearance section; `ShopPilotVerifyVCarveClear` PASS (default-off, order, glyph-band skip, letters-only gap, persist/legacy). Regressions 1136d/1106a/1106b/1102d/1102c green.

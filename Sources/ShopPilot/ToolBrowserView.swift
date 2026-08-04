@@ -27,14 +27,28 @@ struct ToolBrowserView: View {
             Divider()
             
             ScrollView {
-                LazyVStack(spacing: 0) {
-                    ForEach(database.tools) { tool in
-                        ToolRowView(
-                            tool: tool,
-                            isSelected: selectedToolID == tool.id
-                        )
-                        .onTapGesture {
-                            selectedToolID = tool.id
+                // SPK-1133: tools grouped by class (installer 13-class
+                // taxonomy), empty classes hidden.
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    ForEach(ToolType.allCases, id: \.self) { type in
+                        let tools = database.tools.filter { $0.type == type }
+                        if !tools.isEmpty {
+                            Text(type.displayName.uppercased())
+                                .font(.caption2)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 12)
+                                .padding(.top, 8)
+                                .padding(.bottom, 2)
+                            ForEach(tools) { tool in
+                                ToolRowView(
+                                    tool: tool,
+                                    isSelected: selectedToolID == tool.id
+                                )
+                                .onTapGesture {
+                                    selectedToolID = tool.id
+                                }
+                            }
                         }
                     }
                 }
@@ -87,22 +101,33 @@ private struct ToolRowView: View {
     
     private var toolTypeIcon: String {
         switch tool.type {
-        case .endMill: return "circle.fill"
+        case .endMill, .radiusedEndMill: return "circle.fill"
         case .vBit: return "triangle.fill"
         case .ballNose: return "circle.slash.fill"
         case .drill: return "pin.fill"
         case .slotCutter: return "rectangle.fill"
+        case .engraving, .radiusedEngraving: return "pencil.tip"
+        case .diamondDrag: return "sparkles"
+        case .laser: return "bolt.fill"
+        case .threadMill, .multiThreadMill: return "gearshape"
+        case .plasma: return "flame.fill"
+        case .form: return "square.dashed"
         }
     }
 
     private var toolSpecsString: String {
         switch tool.type {
-        case .endMill, .ballNose, .slotCutter:
+        case .endMill, .radiusedEndMill, .ballNose, .slotCutter, .engraving,
+             .radiusedEngraving, .threadMill, .multiThreadMill, .plasma, .form:
             return String(format: "%.1f mm · %d flutes", tool.diameter, tool.flutes)
         case .vBit:
             return String(format: "%.1f mm V-Bit", tool.diameter)
         case .drill:
             return String(format: "%.1f mm drill", tool.diameter)
+        case .diamondDrag:
+            return String(format: "%.1f mm drag", tool.diameter)
+        case .laser:
+            return String(format: "%.1f mm laser", tool.diameter)
         }
     }
 }

@@ -228,6 +228,8 @@ private struct CutStageView: View {
     @State private var exportBlocker: ExportBlocker?
     @State private var showExportBlockAlert = false
     @State private var exportBlockMessage = ""
+    /// SPK-1133 — selected tool in the grouped tool browser (left pane).
+    @State private var selectedBrowserToolID: UUID?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -284,8 +286,17 @@ private struct CutStageView: View {
             }
 
             HSplitView {
-                ToolpathTreeView(session: session)
-                    .frame(minWidth: 200, idealWidth: 240, maxWidth: 300)
+                VStack(spacing: 0) {
+                    ToolpathTreeView(session: session)
+                        .frame(minWidth: 200, idealWidth: 240, maxWidth: 300)
+                    Divider()
+                    // SPK-1133: tool browser grouped by class (left pane).
+                    ToolBrowserView(
+                        database: session.toolDatabase,
+                        selectedToolID: $selectedBrowserToolID
+                    )
+                    .frame(minWidth: 200, idealWidth: 240, maxWidth: 300, minHeight: 140, maxHeight: 220)
+                }
 
                 selectedDetail
             }

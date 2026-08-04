@@ -6,19 +6,42 @@ import Combine
 
 // MARK: - Tool Type
 
-public enum ToolType: String, Codable {
+/// Tool classes. SPK-1133: expanded to the installer-verified 13-class
+/// taxonomy (end mill, radiused end mill, ball nose, V-bit, engraving,
+/// radiused engraving, drill, diamond drag, laser, thread mill, multi
+/// thread mill, plasma, form). `slotCutter` is retained for backward
+/// decode of pre-1133 persisted tools.
+public enum ToolType: String, Codable, CaseIterable {
     case endMill
-    case vBit
+    case radiusedEndMill
     case ballNose
+    case vBit
+    case engraving
+    case radiusedEngraving
     case drill
-    case slotCutter
-    
+    case diamondDrag
+    case laser
+    case threadMill
+    case multiThreadMill
+    case plasma
+    case form
+    case slotCutter // legacy pre-1133 case, kept for persisted decode
+
     public var displayName: String {
         switch self {
         case .endMill: return "End Mill"
-        case .vBit: return "V-Bit"
+        case .radiusedEndMill: return "Radiused End Mill"
         case .ballNose: return "Ball Nose"
+        case .vBit: return "V-Bit"
+        case .engraving: return "Engraving"
+        case .radiusedEngraving: return "Radiused Engraving"
         case .drill: return "Drill"
+        case .diamondDrag: return "Diamond Drag"
+        case .laser: return "Laser"
+        case .threadMill: return "Thread Mill"
+        case .multiThreadMill: return "Multi Thread Mill"
+        case .plasma: return "Plasma"
+        case .form: return "Form"
         case .slotCutter: return "Slot Cutter"
         }
     }
@@ -137,9 +160,10 @@ public final class ToolDatabase: ObservableObject {
     }
 
     // MARK: - Calculations
-    
-    /// Recommended feed rate in mm/min based on tool diameter.
-    public func recommendedFeedRate(diameter: Double, material: String = "hardwood") -> Double {
+
+    /// Recommended feed rate in mm/min based on tool diameter (SPK-1133:
+    /// static so toolpath recalc can derive feeds without a database instance).
+    public static func recommendedFeedRate(diameter: Double, material: String = "hardwood") -> Double {
         let baseRate: [String: Double] = [
             "hardwood": 3.0,
             "softwood": 4.0,
@@ -150,32 +174,72 @@ public final class ToolDatabase: ObservableObject {
         let materialFactor = baseRate[material.lowercased()] ?? 3.0
         return 10 * diameter * sqrt(diameter) * materialFactor
     }
+
+    /// Recommended plunge rate as a fraction of the cut feed rate.
+    public static func recommendedPlungeRate(diameter: Double, material: String = "hardwood") -> Double {
+        recommendedFeedRate(diameter: diameter, material: material) * 0.4
+    }
+
+    /// Recommended feed rate in mm/min based on tool diameter.
+    public func recommendedFeedRate(diameter: Double, material: String = "hardwood") -> Double {
+        Self.recommendedFeedRate(diameter: diameter, material: material)
+    }
     
     /// Recommended plunge rate as percentage of cut feed rate.
     public func recommendedPlungeRate(for tool: Tool, in material: String = "hardwood") -> Double {
-        let cutRate = recommendedFeedRate(diameter: tool.diameter, material: material)
-        return cutRate * 0.4
+        Self.recommendedPlungeRate(diameter: tool.diameter, material: material)
     }
     
     // MARK: - Defaults
-    
+
+    /// SPK-1133 — the installer-verified 17 default tool assignments, keyed by
+    /// strategy name (Aspire V12.5 seed catalog). Used for first-run seeding
+    /// AND the strategy→default mapping so Cut ops start with a real tool.
+    public static let defaultToolCatalog: [(strategy: String, name: String, type: ToolType, diameterMm: Double)] = [
+        ("Profile", "End Mill 1/4\"", .endMill, 6.35),
+        ("Pocket", "End Mill 1/8\"", .endMill, 3.175),
+        ("V-Carve", "V-Bit 90° 1¼\"", .vBit, 31.75),
+        ("V-Inlay", "V-Bit 90° 1¼\"", .vBit, 31.75),
+        ("3Carve", "V-Bit 60° 1/4\"", .vBit, 6.35),
+        ("Finish", "Ball Nose 1/8\"", .ballNose, 3.175),
+        ("Rough", "End Mill 1/4\"", .endMill, 6.35),
+        ("Drilling", "Drill 118° 1/4\"", .drill, 6.35),
+        ("Chamfer", "V-Bit 60° 1/4\"", .vBit, 6.35),
+        ("Fluting", "Ball Nose 1/4\"", .ballNose, 6.35),
+        ("SweptProfile", "Ball Nose 1/4\"", .ballNose, 6.35),
+        ("Texture", "Ball Nose 1/4\"", .ballNose, 6.35),
+        ("QuickEngrave", "Diamond Drag 90° 1/8\" 0.002\"", .diamondDrag, 3.175),
+        ("BevelCarving", "V-Bit 90° 1¼\"", .vBit, 31.75),
+        ("ThreadMilling", "Thread Mill 60° 3/4\"", .threadMill, 19.05),
+        ("LaserEngrave", "Laser Cutter 3.8W 0.3mm", .laser, 0.3),
+        ("PhotoVCarve", "V-Bit 60° 1/4\"", .vBit, 6.35),
+    ]
+
+    /// Default tool for a strategy name ("Profile", "V-Carve", …), or nil when
+    /// the strategy has no catalog entry or the tool isn't in the database.
+    public func defaultTool(forStrategy strategy: String) -> Tool? {
+        guard let entry = ToolDatabase.defaultToolCatalog.first(where: {
+            $0.strategy.caseInsensitiveCompare(strategy) == .orderedSame
+        }) else { return nil }
+        return tools.first { $0.name == entry.name && $0.type == entry.type }
+    }
+
     private func preloadDefaultTools() {
-        let defaults: [(String, ToolType, Double, Double, Double, Double, Int)] = [
-            ("3mm End Mill", .endMill, 3.0, 9.0, 25.0, 6.0, 2),
-            ("6mm End Mill", .endMill, 6.0, 14.0, 30.0, 8.0, 2),
-            ("90° V-Bit", .vBit, 3.0, 8.0, 25.0, 6.0, 1),
-            ("Ball Nose 3mm", .ballNose, 3.0, 4.0, 20.0, 6.0, 2)
-        ]
-        
-        for (name, type, diameter, cuttingLength, totalLength, shankDiameter, flutes) in defaults {
+        // The 17 installer-verified defaults, one tool per distinct catalog
+        // entry (several strategies share the same physical tool).
+        var seen = Set<String>()
+        for entry in ToolDatabase.defaultToolCatalog {
+            let key = "\(entry.name)|\(entry.type.rawValue)"
+            guard !seen.contains(key) else { continue }
+            seen.insert(key)
             let tool = Tool(
-                name: name,
-                type: type,
-                diameter: diameter,
-                cuttingLength: cuttingLength,
-                totalLength: totalLength,
-                shankDiameter: shankDiameter,
-                flutes: flutes
+                name: entry.name,
+                type: entry.type,
+                diameter: entry.diameterMm,
+                cuttingLength: max(4.0, entry.diameterMm * 3),
+                totalLength: max(20.0, entry.diameterMm * 5),
+                shankDiameter: min(entry.diameterMm, 6.35),
+                flutes: entry.type == .vBit || entry.type == .drill || entry.type == .diamondDrag ? 1 : 2
             )
             tools.append(tool)
         }

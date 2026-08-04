@@ -1133,7 +1133,8 @@ final class AppSession: ObservableObject {
         let regenerated = toolpathTree.recalculateDirtyToolpaths(
             vectors: vectors,
             material: nil,
-            stockHeightMm: job.sheets.first?.height ?? 6.0
+            stockHeightMm: job.sheets.first?.height ?? 6.0,
+            tools: toolDatabase.tools
         )
         let all = allToolpathGCode
         if !all.isEmpty {
@@ -1161,6 +1162,12 @@ final class AppSession: ObservableObject {
         estimatedTime: Double
     ) -> ToolpathTreeNode {
         let node = toolpathTree.addOperation(name)
+        // SPK-1133: new ops start with the strategy's default tool (installer
+        // catalog), so Cut uses real tools — recalc derives feeds from them.
+        if node.toolID == nil {
+            let strategy = ["Profile", "Pocket", "Drill", "V-Carve"].first { name.hasPrefix($0) } ?? name
+            node.toolID = toolDatabase.defaultTool(forStrategy: strategy)?.id
+        }
         node.toolpathResult = gcode.joined(separator: "\n")
         node.estimatedTimeSeconds = estimatedTime
         let all = allToolpathGCode

@@ -351,12 +351,16 @@ public final class ToolpathTreeManager: ObservableObject {
     ///   Drill   → DrillToolpathEngine     (points from closed-vector
     ///             centroids, stored §N depth/dwell)
     ///   V-Carve → VCarveEngine            (stored §O params)
-    /// Ops with no stored params use strategy defaults. Unknown ops stay
+    /// Ops with no stored params use strategy defaults. When `tools` is
+    /// provided and a dirty node has an assigned tool, the tool's recommended
+    /// feeds replace the placeholder default feed (SPK-1133) — explicitly
+    /// configured feeds (user form values) are preserved. Unknown ops stay
     /// dirty. Returns the regenerated nodes in tree order.
     public func recalculateDirtyToolpaths(
         vectors: [VectorPath],
         material: Material?,
-        stockHeightMm: Double
+        stockHeightMm: Double,
+        tools: [Tool] = []
     ) -> [ToolpathTreeNode] {
         var regenerated: [ToolpathTreeNode] = []
         for node in root.allDirtyNodes {
@@ -364,7 +368,7 @@ public final class ToolpathTreeManager: ObservableObject {
             case .profile:
                 let result = ProfileToolpathEngine.compute(
                     vectors: vectors,
-                    params: node.profileParams(),
+                    params: withToolFeeds(node.profileParams(), node: node, tools: tools),
                     material: material,
                     stockHeightMm: stockHeightMm
                 )
@@ -376,7 +380,7 @@ public final class ToolpathTreeManager: ObservableObject {
             case .pocket:
                 let result = PocketToolpathEngine.compute(
                     vectors: vectors,
-                    params: node.pocketParams(),
+                    params: withToolFeeds(node.pocketParams(), node: node, tools: tools),
                     material: material,
                     stockHeightMm: stockHeightMm
                 )
@@ -386,7 +390,7 @@ public final class ToolpathTreeManager: ObservableObject {
                 regenerated.append(node)
 
             case .drill:
-                let params = node.drillParams()
+                let params = withToolFeeds(node.drillParams(), node: node, tools: tools)
                 let points: [DrillPoint] = vectors.compactMap { path in
                     guard path.isClosed, !path.points.isEmpty else { return nil }
                     let xs = path.points.map(\.x)
@@ -413,7 +417,7 @@ public final class ToolpathTreeManager: ObservableObject {
             case .vcarve:
                 let result = VCarveEngine.compute(
                     vectors: vectors,
-                    params: node.vcarveParams(),
+                    params: withToolFeeds(node.vcarveParams(), node: node, tools: tools),
                     stockHeightMm: stockHeightMm
                 )
                 node.toolpathResult = result.gcodeLines.joined(separator: "\n")
@@ -427,12 +431,43 @@ public final class ToolpathTreeManager: ObservableObject {
         }
         return regenerated
     }
+
+    /// SPK-1133 — apply the assigned tool's recommended feeds to a params
+    /// struct that still carries the placeholder default feed (1000 mm/min).
+    /// Explicitly configured feeds (user form values, or a stored feed that
+    /// was never the placeholder) are preserved.
+    private func withToolFeeds<T: ToolFeedApplicable>(
+        _ params: T,
+        node: ToolpathTreeNode,
+        tools: [Tool]
+    ) -> T {
+        var p = params
+        guard let toolID = node.toolID,
+              let tool = tools.first(where: { $0.id == toolID }),
+              abs(p.feedRateMmPerMin - 1000) < 1e-6 else { return p }
+        p.feedRateMmPerMin = ToolDatabase.recommendedFeedRate(diameter: tool.diameter)
+        p.plungeFeedRateMmPerMin = ToolDatabase.recommendedPlungeRate(diameter: tool.diameter)
+        return p
+    }
     
     /// Get count of dirty nodes.
     public var dirtyNodeCount: Int {
         root.allDirtyNodes.count
     }
 }
+
+// MARK: - Tool feed application (SPK-1133)
+
+/// Strategy params that carry feed/plunge rates the assigned tool can derive.
+public protocol ToolFeedApplicable {
+    var feedRateMmPerMin: Double { get set }
+    var plungeFeedRateMmPerMin: Double { get set }
+}
+
+extension ProfileToolpathParams: ToolFeedApplicable {}
+extension PocketToolpathParams: ToolFeedApplicable {}
+extension DrillToolpathParams: ToolFeedApplicable {}
+extension VCarveParams: ToolFeedApplicable {}
 
 // MARK: - Preview (Xcode only — not available in CLI builds)
 
