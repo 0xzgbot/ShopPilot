@@ -182,6 +182,11 @@ A (parallel from day 0)
 - [x] **SPK-1101c** **GEO** Measure two-point distance in Design UI // P0 // parallel-ok
   - deps: SPK-1100
   - track: 2
+- [x] **SPK-1101d** **GEO** Design ops UI — Offset / Weld / Subtract / Join / Close / Trim reachable + persist + verify // P0 // parallel-ok
+  - AC: Ops bar in Design stage routes to session apply* (undo + dirty); canvas publishes selection to session (⌘/⇧ multi-select); Trim clips open vectors to selected closed shapes' bounds (freehand clipping); op results persist via .shoppilot; `swift run ShopPilotVerify1101d` PASS
+  - deps: SPK-1100, SPK-1137
+  - track: 2
+  - worklog: 2026-08-03 — Hermes coder. UI: DesignStageView ops bar (Offset… w/ distance alert, Weld, Subtract, Intersect, Join, Close, Trim; selection-count gating + help; live "N selected"). Canvas now publishes selection to `session.selectedShapeIndices` (⌘/⇧-click toggles multi-select via NSEvent.modifierFlags; click-empty clears; highlight driven by session set). Session: new `applyTrimToSelection()` — boundary = union bbox of selected closed shapes (`VectorShape.isClosedShape` new), targets = open vectors; targeted index-rebased replacement (layer-faithful via shapeLayerIDs), undo+dirty+status. Engine: `trimToBox` now clips freehand — closed polylines via Sutherland–Hodgman (refactored `clipLineToRect` → `clipPolygonToRect`, loop re-closed), open polylines segment-wise with contiguous-run grouping. Verify: `./scripts/verify_locked.sh ShopPilotVerify1101d` PASS (join/close/weld/subtract/intersect/offset/trim engine semantics, boundary detection, .shoppilot round-trip of op results). Full `swift build` exit 0; sweep 36/36 PASS.
 - [ ] **SPK-1102** **TP** Cut stage product — toolpath tree Profile/Pocket/Drill/V-Carve + dirty/recalc/export block + GRBL post // P0
   - AC: Saved job regenerates toolpaths and exports GRBL from tree
   - deps: SPK-1101, SPK-0302
@@ -973,6 +978,11 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 ---
 
 ## 12. Work log
+
+### 2026-08-03 — SPK-1101d Design ops UI (Hermes coder)
+- Claimed/finished **SPK-1101d**: Design stage Ops bar — Offset/Weld/Subtract/Intersect/Join/Close/Trim routed through session apply* (undo+dirty+persist). Details on the card. `ShopPilotVerify1101d` PASS; sweep **36/36** PASS; full `swift build` exit 0.
+- Key wiring: canvas selection now publishes to the session (⌘/⇧ multi-select), which the ops gating + Trim boundary logic depend on; `applyTrimToSelection` (new) clips open vectors to selected closed shapes' bounds; `trimToBox` gained freehand clipping (Sutherland–Hodgman for closed, segment-runs for open).
+- Next: SPK-1101 remaining (SVG import hub → session, transforms UI), then SPK-1102 + SPK-1136, SPK-1104 close-out, SPK-1105 XCTest.
 
 ### 2026-08-03 — SPK-1137 layer hide/lock wiring + stranded-micro tree repair (Hermes coder)
 - Claimed/finished **SPK-1137** (P0-B): canvas honors per-layer hide/lock; layer-faithful save/open. Full details on the card. `ShopPilotVerify1137` PASS.

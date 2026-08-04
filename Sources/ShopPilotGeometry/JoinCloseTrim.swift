@@ -239,6 +239,46 @@ public final class ShapeJoinEngine {
             }
             return []
             
+        case .freehand(let points):
+            // Closed polyline: Sutherland–Hodgman polygon clip against the box.
+            if points.count >= 3, points.first == points.last {
+                var clipped = clipPolygonToRect(points, rect: box)
+                guard clipped.count >= 3 else { return [] }
+                // The clip drops the duplicate closing vertex; restore the
+                // closed-loop invariant (first == last).
+                if clipped.first != clipped.last {
+                    clipped.append(clipped[0])
+                }
+                return [.freehand(points: clipped)]
+            }
+            // Open polyline: clip each segment; keep maximal contiguous runs
+            // (segments fully outside the box split the output into pieces).
+            var kept: [VectorPoint] = []
+            var output: [VectorShape] = []
+            func flushRun() {
+                if kept.count >= 2 {
+                    output.append(.freehand(points: kept))
+                }
+                kept = []
+            }
+            for i in 0..<(points.count - 1) {
+                let seg = clipLineToRect(points[i], points[i + 1], rect: box)
+                if seg.count >= 2 {
+                    if kept.isEmpty {
+                        kept = seg
+                    } else if seg.first == kept.last {
+                        kept.append(contentsOf: seg.dropFirst())
+                    } else {
+                        flushRun()
+                        kept = seg
+                    }
+                } else {
+                    flushRun()
+                }
+            }
+            flushRun()
+            return output
+            
         default:
             return [shape]
         }
@@ -281,48 +321,57 @@ public final class ShapeJoinEngine {
     }
     
     private static func clipLineToRect(_ start: VectorPoint, _ end: VectorPoint, rect: Rect) -> [VectorPoint] {
-        var points = [start, end]
-        
+        Array(clipPolygonToRect([start, end], rect: rect).prefix(2))
+    }
+
+    /// Sutherland–Hodgman polygon clip: keeps every vertex of `points` inside
+    /// `rect`, inserting boundary intersections. Handles both closed loops
+    /// (first == last) and open polylines; open inputs keep their endpoint
+    /// structure unless the result is a single degenerate point.
+    private static func clipPolygonToRect(_ points: [VectorPoint], rect: Rect) -> [VectorPoint] {
+        var current = points
+        guard !current.isEmpty else { return [] }
+
         let edges: [(minOrMax: Bool, axis: Int)] = [
             (false, 0), (true, 0), (false, 1), (true, 1)
         ]
-        
+
         for edge in edges {
+            guard !current.isEmpty else { return [] }
             var newPoints: [VectorPoint] = []
-            
-            for i in 0..<points.count {
-                let current = points[i]
-                let next = points[(i + 1) % points.count]
-                
+
+            for i in 0..<current.count {
+                let currentPoint = current[i]
+                let next = current[(i + 1) % current.count]
+
                 let currentInside = edge.axis == 0
-                    ? (edge.minOrMax ? current.x <= rect.maxX : current.x >= rect.minX)
-                    : (edge.minOrMax ? current.y <= rect.maxY : current.y >= rect.minY)
-                
+                    ? (edge.minOrMax ? currentPoint.x <= rect.maxX : currentPoint.x >= rect.minX)
+                    : (edge.minOrMax ? currentPoint.y <= rect.maxY : currentPoint.y >= rect.minY)
+
                 let nextInside = edge.axis == 0
                     ? (edge.minOrMax ? next.x <= rect.maxX : next.x >= rect.minX)
                     : (edge.minOrMax ? next.y <= rect.maxY : next.y >= rect.minY)
-                
+
                 if currentInside {
-                    newPoints.append(current)
+                    newPoints.append(currentPoint)
                 }
-                
+
                 if currentInside != nextInside {
-                    let t = computeIntersectionT(start: current, end: next, edge: edge, rect: rect)
+                    let t = computeIntersectionT(start: currentPoint, end: next, edge: edge, rect: rect)
                     if t >= 0 && t <= 1 {
                         let intersect = VectorPoint(
-                            x: current.x + t * (next.x - current.x),
-                            y: current.y + t * (next.y - current.y)
+                            x: currentPoint.x + t * (next.x - currentPoint.x),
+                            y: currentPoint.y + t * (next.y - currentPoint.y)
                         )
                         newPoints.append(intersect)
                     }
                 }
             }
-            
-            points = newPoints
-            if points.isEmpty { return [] }
+
+            current = newPoints
         }
-        
-        return Array(points.prefix(2))
+
+        return current
     }
     
     private static func computeIntersectionT(start: VectorPoint, end: VectorPoint, edge: (minOrMax: Bool, axis: Int), rect: Rect) -> Double {

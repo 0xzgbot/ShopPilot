@@ -114,15 +114,76 @@ private struct SetupStageView: View {
 
 private struct DesignStageView: View {
     @ObservedObject var session: AppSession
+    @State private var showOffsetDialog = false
+    @State private var offsetDistance = "3.0"
 
     var body: some View {
-        HSplitView {
-            DesignCanvasView(session: session)
-            ImportHubView { shapes in
-                session.addShapes(shapes)
+        VStack(spacing: 0) {
+            opsBar
+            Divider()
+            HSplitView {
+                DesignCanvasView(session: session)
+                ImportHubView { shapes in
+                    session.addShapes(shapes)
+                }
+                .frame(minWidth: 280, idealWidth: 320)
             }
-            .frame(minWidth: 280, idealWidth: 320)
         }
+        .alert("Offset Vectors", isPresented: $showOffsetDialog) {
+            TextField("Distance (mm)", text: $offsetDistance)
+            Button("Offset") { applyOffset() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Positive = outward, negative = inward.")
+        }
+    }
+
+    /// SPK-1101d: Design ops bar — Offset / Weld / Subtract / Intersect /
+    /// Join / Close / Trim, all routed through the session apply* methods
+    /// (undo-point + dirty + persist via syncLayerVectors).
+    private var opsBar: some View {
+        HStack(spacing: 8) {
+            Text("Ops:")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Button("Offset…") { showOffsetDialog = true }
+                .disabled(session.selectedShapeIndices.isEmpty)
+                .help("Offset selected vectors by a distance (positive = outward)")
+            Button("Weld") { _ = session.applyWeld() }
+                .disabled(session.selectedShapeIndices.count < 2)
+                .help("Union selected vectors into one region")
+            Button("Subtract") { _ = session.applySubtract() }
+                .disabled(session.selectedShapeIndices.count < 2)
+                .help("Subtract the 2nd..nth selected shapes from the first")
+            Button("Intersect") { _ = session.applyIntersect() }
+                .disabled(session.selectedShapeIndices.count < 2)
+                .help("Keep the overlap of all selected shapes")
+            Button("Join") { _ = session.applyJoin() }
+                .disabled(session.selectedShapeIndices.count < 2)
+                .help("Join selected lines/polylines that share endpoints")
+            Button("Close") { _ = session.applyClose() }
+                .disabled(session.selectedShapeIndices.isEmpty)
+                .help("Close selected open polylines")
+            Button("Trim") { _ = session.applyTrimToSelection() }
+                .disabled(session.selectedShapeIndices.count < 2)
+                .help("Clip open vectors to the selected closed shapes' bounds")
+            Spacer()
+            Text("\(session.selectedShapeIndices.count) selected")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .controlSize(.small)
+    }
+
+    private func applyOffset() {
+        let normalized = offsetDistance.replacingOccurrences(of: ",", with: ".")
+        guard let distance = Double(normalized) else {
+            session.statusMessage = "Offset: enter a number"
+            return
+        }
+        _ = session.applyOffset(distance: distance)
     }
 }
 

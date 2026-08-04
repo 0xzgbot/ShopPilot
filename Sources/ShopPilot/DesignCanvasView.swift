@@ -207,7 +207,7 @@ struct DesignCanvasView: View {
             for idx in session.visibleShapeIndices {
                 guard session.shapes.indices.contains(idx) else { continue }
                 let path = path(for: session.shapes[idx])
-                let selected = selectedIndex == idx
+                let selected = session.selectedShapeIndices.contains(idx)
                 context.stroke(
                     path,
                     with: .color(selected ? Color.accentColor : .primary),
@@ -387,6 +387,21 @@ struct DesignCanvasView: View {
         if dragStart == nil {
             dragStart = value.startLocation
             selectedIndex = hitTest(value.startLocation)
+            // Publish to the session so Design ops act on the canvas selection
+            // (SPK-1101d). ⌘/⇧-click toggles membership for multi-shape ops
+            // (Weld/Subtract/Intersect/Join); plain click replaces; clicking
+            // empty space clears.
+            let flags = NSEvent.modifierFlags
+            let isMulti = flags.contains(.command) || flags.contains(.shift)
+            if let idx = selectedIndex {
+                if isMulti {
+                    session.selectedShapeIndices.formSymmetricDifference([idx])
+                } else {
+                    session.selectedShapeIndices = [idx]
+                }
+            } else if !isMulti {
+                session.selectedShapeIndices = []
+            }
         }
         guard let idx = selectedIndex, session.shapes.indices.contains(idx) else {
             offset = CGSize(
@@ -458,6 +473,7 @@ struct DesignCanvasView: View {
             guard let hit = hitTestVertex(value.startLocation) else { return }
             nodeDrag = hit
             selectedIndex = hit.shapeIndex
+            session.selectedShapeIndices = [hit.shapeIndex]
         }
         guard var drag = nodeDrag, drag.points.indices.contains(drag.vertexIndex) else { return }
         let p = model(value.location)

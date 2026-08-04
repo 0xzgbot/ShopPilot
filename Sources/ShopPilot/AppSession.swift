@@ -797,6 +797,91 @@ final class AppSession: ObservableObject {
     @discardableResult
     func applyScale110() -> Bool { applyScale(factor: 1.1) }
 
+    /// Trim: clip every selected OPEN vector to the union bounds of the
+    /// selected CLOSED shapes (the boundary). The boundary shapes stay in
+    /// place; each open vector is replaced by its clipped pieces (SPK-1101d).
+    /// Selection is updated to the trimmed results plus the boundaries.
+    @discardableResult
+    func applyTrimToSelection() -> Bool {
+        let indices = selectedShapeIndices.sorted()
+        guard !indices.isEmpty, indices.allSatisfy({ shapes.indices.contains($0) }) else {
+            statusMessage = "Trim needs a selected shape"
+            return false
+        }
+
+        // Boundary = union bbox of selected closed shapes; targets = open vectors.
+        var boundary: Rect?
+        var targetIndices: [Int] = []
+        for index in indices {
+            let shape = shapes[index]
+            if shape.isClosedShape {
+                let r = shape.boundingRect
+                if var box = boundary {
+                    box = Rect(
+                        minX: min(box.minX, r.minX), minY: min(box.minY, r.minY),
+                        maxX: max(box.maxX, r.maxX), maxY: max(box.maxY, r.maxY)
+                    )
+                    boundary = box
+                } else {
+                    boundary = r
+                }
+            } else {
+                targetIndices.append(index)
+            }
+        }
+
+        guard let box = boundary, !targetIndices.isEmpty else {
+            statusMessage = "Trim needs a closed shape (boundary) + open vectors to trim"
+            return false
+        }
+
+        registerUndoPoint()
+
+        // Clip each open target; keep pieces that differ from the input.
+        let piecesByTarget: [[VectorShape]] = targetIndices.map { index in
+            let pieces = ShapeJoinEngine.trimToBox(shapes[index], in: box)
+            if pieces.count == 1, pieces[0] == shapes[index] {
+                return []
+            }
+            return pieces
+        }
+        let trimmedCount = piecesByTarget.filter { !$0.isEmpty }.count
+        let flat = piecesByTarget.flatMap { $0 }
+
+        // Remove targets highest-first, rebasing the surviving (boundary)
+        // selection indices as indices above each removed target shift down.
+        var keptSelection = selectedShapeIndices.filter { !targetIndices.contains($0) }
+        for removed in targetIndices {
+            keptSelection = Set(keptSelection.map { $0 > removed ? $0 - 1 : $0 })
+        }
+        for index in targetIndices.reversed() {
+            shapes.remove(at: index)
+            shapeLayerIDs.remove(at: index)
+        }
+        // Insert pieces at the lowest target index (same layer as the first
+        // target), rebasing boundary indices above the insertion point.
+        let insertAt = targetIndices.first ?? 0
+        let resultLayerID = shapeLayerIDs.indices.contains(insertAt)
+            ? shapeLayerIDs[insertAt]
+            : (layers.first?.id ?? UUID())
+        shapes.insert(contentsOf: flat, at: min(insertAt, shapes.count))
+        shapeLayerIDs.insert(
+            contentsOf: Array(repeating: resultLayerID, count: flat.count),
+            at: min(insertAt, shapeLayerIDs.count)
+        )
+        if !flat.isEmpty {
+            keptSelection = Set(keptSelection.map { $0 >= insertAt ? $0 + flat.count : $0 })
+            keptSelection.formUnion(Set(insertAt..<(insertAt + flat.count)))
+        }
+        selectedShapeIndices = keptSelection
+        syncLayerVectors()
+        markDirty()
+        statusMessage = trimmedCount == 0
+            ? "Trim: nothing to trim (selection needs open vectors crossing the boundary)"
+            : "Trimmed \(trimmedCount) shape(s) to the boundary bounds"
+        return true
+    }
+
     func addDemoRectangle() {
         let shape = VectorShape.rectangle(
             origin: ShopPilotGeometry.VectorPoint(x: 10, y: 10),

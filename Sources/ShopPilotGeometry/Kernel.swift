@@ -146,6 +146,21 @@ public enum VectorShape: Codable, Equatable {
         }
     }
     
+    /// Whether the shape is a closed loop (boundary): rectangles, circles,
+    /// ellipses, polygons and stars are always closed; lines and arcs are
+    /// open; a freehand polyline is closed only when its vertex list closes on
+    /// itself (SPK-1101d trim boundary detection).
+    public var isClosedShape: Bool {
+        switch self {
+        case .line, .arc:
+            return false
+        case .freehand(let points):
+            return points.count >= 3 && points.first == points.last
+        default:
+            return true
+        }
+    }
+
     /// Whether the given point lies inside or on the boundary of this shape.
     public func contains(_ point: VectorPoint) -> Bool {
         switch self {
