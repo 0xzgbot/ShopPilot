@@ -757,10 +757,10 @@ A (parallel from day 0)
 
 ### G1 — Functional acceptance
 
-- [ ] **SPK-0600** **QA** Calibration job E2E on simulator (design→cut→preview→machine)
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0600** **QA** Calibration job E2E on simulator (design→cut→preview→machine)
+  - AC: One CLT proves the full product spine: design closed shape → Profile (real engine) → dirty/recalc (export blocked while dirty, unblocked after regen with stored params) → Preview wireframe + sheet-aware material sim → Machine connect→preflight→Start→complete; `swift run ShopPilotVerify0600` PASS
   - deps: SPK-0403, SPK-0410, SPK-0504, SPK-0610
-  - worklog: 2026-07-30 — Direct write. CalibrationE2ETests.swift (12.9KB) in ShopPilotTests. Tests: design vectors, profile toolpath, preview simulation, machine streaming, full E2E pipeline, golden fixture verification, error handling. Build passes cleanly.
+  - worklog: 2026-08-04 — Hermes coder. Verify `ShopPilotVerify0600` PASS — one flow: closed 50×50 calibration rect → Profile engine into the tree (stored params feed 1500) → markDirty → ExportBlocker blocks → `recalculateDirtyToolpaths` regenerates with the real engine + stored params (F1500 in G-code) → export unblocked → wireframe segments span the rect in-sheet → sheet-aware material sim carves the cutter path (edges) while interior/outside stock stays → MachineSession loadGCode sends ZERO bytes → fresh PreflightGate blocks Start → ack arms → runJob completes. **Real engine bug fixed (E2E-caught)**: `ProfileToolpathEngine.offsetClosedPolyline` dropped the start/end corner of closed shapes with a duplicated closing point (modulo wrap made prev==curr → zero-length edge skipped) — the profile path missed one corner and closed the loop with a diagonal across the part interior (would ruin any closed-shape profile cut; 1102g golden only checked move parity). Fixed with the same duplicate normalization VectorOffset.offsetClosedPolyline already has (VectorOffset.swift:188). Regressions 1102g/1102c/1102d/1136a green; app build green.
 - [ ] **SPK-0601** **QA** Sign job E2E on simulator
   - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
   - deps: SPK-0510, SPK-0414
@@ -1068,6 +1068,11 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 ---
 
 ## 12. Work log
+
+### 2026-08-04 — SPK-0600 Calibration job E2E (Hermes coder)
+- Claimed/finished **SPK-0600**: `ShopPilotVerify0600` PASS — design closed rect → Profile (stored params) → dirty/recalc (block → regen F1500 → unblock) → Preview wireframe + sheet-aware material sim → Machine (zero bytes, preflight gate, run completes).
+- **Real engine bug fixed (E2E-caught)**: `ProfileToolpathEngine.offsetClosedPolyline` skipped the start/end corner of closed shapes whose first point duplicates the last (modulo wrap → zero-length edge → corner dropped). A closed-rect profile missed one corner and closed the loop with a diagonal across the part interior — would ruin every closed-shape profile cut. Fixed with the duplicate normalization already present in VectorOffset.offsetClosedPolyline. Regressions 1102g/1102c/1102d/1136a green.
+- Full 50-target verify sweep green (see sweep log).
 
 ### 2026-08-04 — SPK-1106b Sign recipe E2E (Hermes coder)
 - Claimed/finished **SPK-1106b**: one CLT proves the whole sign path — recipe → text-on-curve glyphs → V-Carve tree node → Preview wireframe segments in-sheet → Machine buffer load (ZERO bytes, no auto-run) → fresh PreflightGate blocks Start → ack → explicit runJob completes. `ShopPilotVerify1106b` PASS.

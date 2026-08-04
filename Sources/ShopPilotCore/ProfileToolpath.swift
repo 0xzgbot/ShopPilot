@@ -396,12 +396,24 @@ public struct ProfileToolpathEngine {
     /// perpendicular-edge intersection (same algorithm as VectorOffsetCalculator.offsetClosedPolyline).
     private static func offsetClosedPolyline(points: [VectorPoint], by distance: Double) -> [VectorPoint]? {
         guard points.count >= 3 else { return nil }
-        
+
+        // Normalize: an explicit closing duplicate (first == last) is dropped so
+        // each corner is processed exactly once. Without this, the modulo wrap
+        // makes prev == curr at index 0 (zero-length edge), the start/end corner
+        // is skipped, and a closed rect profile misses one corner and closes the
+        // loop with a diagonal across the part interior (SPK-0600 E2E-caught;
+        // mirrors the fix already in VectorOffset.offsetClosedPolyline).
+        var pts = points
+        if pts.count > 1, pts.first == pts.last {
+            pts.removeLast()
+        }
+        guard pts.count >= 3 else { return nil }
+
         var offsetVerts: [VectorPoint] = []
-        for i in 0..<points.count {
-            let curr = points[i]
-            let prev = points[(i - 1 + points.count) % points.count]
-            let next = points[(i + 1) % points.count]
+        for i in 0..<pts.count {
+            let curr = pts[i]
+            let prev = pts[(i - 1 + pts.count) % pts.count]
+            let next = pts[(i + 1) % pts.count]
             
             let dx1 = curr.x - prev.x
             let dy1 = curr.y - prev.y
