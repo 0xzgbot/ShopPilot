@@ -1115,7 +1115,36 @@ final class AppSession: ObservableObject {
         ) {
             issues.append(drift)
         }
+        // R019 (FM-12): a multi-tool tree saved to ONE file with a post that
+        // cannot change tools mid-file → error (blocks save), split CTA.
+        let post = machineProfiles.profiles.first?.autoPostProcessorType ?? .grbl
+        if let multiTool = ToolpathPreflight.multiToolSingleFile(
+            tree: toolpathTree,
+            postSupportsToolChange: post.supportsToolChange
+        ) {
+            issues.append(multiTool)
+        }
         return issues
+    }
+
+    /// Ordered per-tool G-code groups for the R019 split CTA: every operation
+    /// node's computed G-code bucketed by its assigned tool, in first-appearance
+    /// order (nil toolID → "Unassigned" bucket).
+    func toolpathGroupsByTool() -> [(toolName: String, gcode: [String])] {
+        var order: [String] = []
+        var buckets: [String: [String]] = [:]
+        for node in toolpathTree.allNodes where node.isOperation {
+            let name: String
+            if let toolID = node.toolID, let tool = toolDatabase.tool(withID: toolID) {
+                name = tool.name
+            } else {
+                name = "Unassigned"
+            }
+            if buckets[name] == nil { order.append(name) }
+            let gcode = (node.toolpathResult ?? "").split(whereSeparator: \.isNewline).map(String.init)
+            buckets[name, default: []].append(contentsOf: gcode)
+        }
+        return order.map { ($0, buckets[$0] ?? []) }
     }
 
     /// R017 fix CTA: adopt the machine profile's measured material thickness

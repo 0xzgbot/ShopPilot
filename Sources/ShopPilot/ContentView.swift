@@ -371,6 +371,11 @@ private struct CutStageView: View {
                     session.applyMeasuredThickness()
                 }
             }
+            if toolpathPreflightIssues.contains(where: { $0.fix.isSplitFilesFix }) {
+                Button("Split to Multiple Files") {
+                    splitToolpaths()
+                }
+            }
         } message: {
             Text(toolpathPreflightMessage)
         }
@@ -469,6 +474,61 @@ private struct CutStageView: View {
         } catch {
             session.statusMessage = "Save failed: \(error.localizedDescription)"
         }
+    }
+
+    /// R019 split CTA: write each per-tool G-code group as its own
+    /// post-processed file (`<base>-<n>-<tool>.gcode`) in the destination
+    /// folder, in tree order. One save panel seeds the folder + base name.
+    private func splitToolpaths() {
+        let groups = session.toolpathGroupsByTool()
+        guard !groups.isEmpty else { return }
+
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.plainText]
+        panel.nameFieldStringValue = "job-\(sanitizedFileName(groups[0].toolName)).gcode"
+        panel.canCreateDirectories = true
+        panel.title = "Split Toolpaths (first file)"
+
+        guard panel.runModal() == .OK, let destinationURL = panel.url else { return }
+        let directory = destinationURL.deletingLastPathComponent()
+        let base = destinationURL.deletingPathExtension().lastPathComponent
+
+        var written = 0
+        for (index, group) in groups.enumerated() {
+            let fileName = "\(base)-\(index + 1)-\(sanitizedFileName(group.toolName)).gcode"
+            let destination = directory.appendingPathComponent(fileName)
+            do {
+                let result = try CutToMachineBridge.export(
+                    gcodeLines: group.gcode,
+                    toolInfo: nil,
+                    machineProfile: activeMachineProfile,
+                    fileName: fileName
+                )
+                if let errorMessage = result.errorMessage {
+                    session.statusMessage = "Split failed: \(errorMessage)"
+                    return
+                }
+                guard let exportedURL = result.outputFileURL else {
+                    session.statusMessage = "Split failed: bridge produced no output"
+                    return
+                }
+                let data = try Data(contentsOf: exportedURL)
+                try data.write(to: destination, options: .atomic)
+                written += 1
+            } catch {
+                session.statusMessage = "Split failed: \(error.localizedDescription)"
+                return
+            }
+        }
+        session.statusMessage = "Split into \(written) ordered per-tool file(s) in \(directory.lastPathComponent)"
+        session.lastToolpathSummary = "\(written) per-tool file(s) written"
+    }
+
+    /// Filesystem-safe token for tool names in split file names.
+    private func sanitizedFileName(_ name: String) -> String {
+        let cleaned = name.replacingOccurrences(of: "/", with: "-")
+            .replacingOccurrences(of: " ", with: "-")
+        return cleaned.isEmpty ? "tool" : cleaned
     }
 
     /// Machine profile used to post-process exported G-code (SPK-0415): the

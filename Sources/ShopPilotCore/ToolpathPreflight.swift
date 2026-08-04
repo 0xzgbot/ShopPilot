@@ -51,6 +51,12 @@ public enum ToolpathPreflightFix: Sendable, Equatable {
         if case .useMeasuredValue = self { return true }
         return false
     }
+
+    /// True when this fix is the R019 split-to-multiple-files CTA.
+    public var isSplitFilesFix: Bool {
+        if case .splitFiles = self { return true }
+        return false
+    }
 }
 
 /// A single toolpath-level preflight issue found on a tree node.
@@ -184,6 +190,36 @@ public enum ToolpathPreflight {
             message: "“\(nodeName)” cuts the part free with nothing holding it — "
                 + "it can fly out of place on the last pass. Add tabs or use hold-down.",
             fix: .addTabs
+        )
+    }
+
+    // MARK: - R019 — Multi-tool single-file save without ATC (FM-12)
+
+    /// R019 check: saving toolpaths that use ≥2 distinct tools (an unassigned
+    /// node counts as its own bucket) into ONE file is only safe when the post
+    /// processor handles tool changes (ATC). GRBL/Universal posts do not →
+    /// error (blocks save) with a "Split to Multiple Files" CTA.
+    public static func multiToolSingleFile(
+        tree: ToolpathTreeManager,
+        postSupportsToolChange: Bool,
+        nodeID: UUID = UUID(),
+        nodeName: String = "Save Toolpaths"
+    ) -> ToolpathPreflightIssue? {
+        if postSupportsToolChange { return nil }
+        let ops = tree.allNodes.filter { $0.isOperation }
+        // Set<UUID?> — nil (unassigned tool) is its own bucket.
+        let distinctTools = Set(ops.map { $0.toolID })
+        guard distinctTools.count >= 2 else { return nil }
+        let toolCount = distinctTools.count
+        return ToolpathPreflightIssue(
+            nodeID: nodeID,
+            nodeName: nodeName,
+            ruleID: "R019",
+            severity: .error,
+            message: "These toolpaths use \(toolCount) different tools and the selected post "
+                + "processor cannot change tools mid-file. Split to multiple files (ordered) "
+                + "or use an ATC post.",
+            fix: .splitFiles
         )
     }
 

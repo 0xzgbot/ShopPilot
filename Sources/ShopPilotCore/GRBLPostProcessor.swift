@@ -15,6 +15,15 @@ public enum PostProcessorType: String, Codable, Sendable {
         case .universal: return "Universal G-Code"
         }
     }
+
+    /// Whether this post handles mid-file tool changes (ATC). Neither GRBL nor
+    /// Universal does — a multi-tool tree must be split into ordered per-tool
+    /// files (SPK-FM-R019). Future ATC posts return true here.
+    public var supportsToolChange: Bool {
+        switch self {
+        case .grbl, .universal: return false
+        }
+    }
     
     /// File extension for this post processor type.
     public var fileExtension: String {
