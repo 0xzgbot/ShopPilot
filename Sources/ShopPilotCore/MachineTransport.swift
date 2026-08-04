@@ -44,10 +44,17 @@ public struct SerialConfig: Codable, Identifiable, Sendable {
     public let portName: String
     public let isSimulator: Bool
 
-    public init(baudRate: Int = 115200, portName: String = "/dev/ttyUSB0", isSimulator: Bool = false) {
+    /// Simulated per-line processing delay. `nil` = the GRBL-realistic 50ms;
+    /// a stress/fast-sim path (e.g. the 10k-line stream verify) can pass 0.
+    /// Optional so legacy stored configs decode unchanged.
+    public let simulationDelayNanoseconds: UInt64?
+
+    public init(baudRate: Int = 115200, portName: String = "/dev/ttyUSB0", isSimulator: Bool = false,
+                simulationDelayNanoseconds: UInt64? = nil) {
         self.baudRate = baudRate
         self.portName = portName
         self.isSimulator = isSimulator
+        self.simulationDelayNanoseconds = simulationDelayNanoseconds
     }
 
     // Custom CodingKeys to exclude computed `id` from JSON encoding.
@@ -55,6 +62,7 @@ public struct SerialConfig: Codable, Identifiable, Sendable {
         case baudRate
         case portName
         case isSimulator
+        case simulationDelayNanoseconds
     }
 }
 
@@ -140,6 +148,7 @@ public final class SimulatorTransport: MachineTransport {
 
     public func open(config: SerialConfig) async throws {
         try await actor.open()
+        await actor.setSimulationDelay(config.simulationDelayNanoseconds)
         fanOut.yield(.connected)
     }
 
@@ -158,8 +167,11 @@ public final class SimulatorTransport: MachineTransport {
 
         let text = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
 
-        // Simulate processing delay.
-        try await Task.sleep(nanoseconds: 50_000_000) // 50 ms
+        // Simulate processing delay (configurable so stress runs can go fast).
+        let delay = await actor.simulationDelay()
+        if delay > 0 {
+            try await Task.sleep(nanoseconds: delay)
+        }
 
         let response = try await actor.handleCommand(text)
         fanOut.yield(.dataReceived(Data(response.utf8)))
@@ -206,8 +218,20 @@ private actor TransportActor {
     /// shape the UI alarm banner is built to surface) (SPK-1104 verify repair).
     private var isAlarmLatched = false
 
+    /// Per-line simulated processing delay; overridable via SerialConfig for
+    /// fast stress runs (SPK-0418). Defaults to the GRBL-realistic 50ms.
+    private var simulationDelayNanoseconds: UInt64 = 50_000_000
+
     /// Simulated travel envelope (mm) for soft-limit detection.
     private let travelLimitMM: Double = 500
+
+    func setSimulationDelay(_ ns: UInt64?) {
+        simulationDelayNanoseconds = ns ?? 50_000_000
+    }
+
+    func simulationDelay() -> UInt64 {
+        simulationDelayNanoseconds
+    }
 
     func open() throws {
         guard !isConnected else { return }

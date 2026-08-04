@@ -50,10 +50,14 @@ if [[ "$XCTEST_AVAILABLE" == "true" ]]; then
     echo "$TEST_OUTPUT"
     echo "---"
 
-    # Extract summary from XCTest output
-    TOTAL=$(echo "$TEST_OUTPUT" | grep -oP '\d+ test' | head -1 | grep -oP '^\d+' || echo "0")
-    PASSED=$(echo "$TEST_OUTPUT" | grep -c "Test Case '-.*' passed" || echo "0")
-    FAILED=$(echo "$TEST_OUTPUT" | grep -c "Test Case '-.*' failed" || echo "0")
+    # The --parallel reporter emits no "Executed N tests" line on an all-green
+    # run — only "[n/total] Testing …" progress lines (failing runs add
+    # "Test Case … failed" details). The exit code above is the verdict;
+    # parse real counts for the report.
+    TOTAL=$(echo "$TEST_OUTPUT" | grep -Eo "\[[0-9]+/[0-9]+\]" | sed -E 's/\[([0-9]+)\/[0-9]+\]/\1/' | sort -n | tail -1 || true)
+    TOTAL=${TOTAL:-0}
+    FAILED=$(echo "$TEST_OUTPUT" | grep -c "Test Case '-.*' failed" || true)
+    PASSED=$(( TOTAL - FAILED ))
 
     echo ""
     echo "=== Test Summary ==="

@@ -179,11 +179,14 @@ final class PreflightVCarveTests: XCTestCase {
     }
     
     func testFixActionsForGap() {
+        // The engine's gap probe is deliberate: only shapes NEAR each other
+        // (within the 1mm probe) but not touching are "meant to be joined"
+        // gaps — far-apart shapes are separate design elements (SPK-0211/0212).
         let shape1 = VectorShape.rectangle(origin: VectorPoint(x: 0, y: 0), width: 10, height: 10)
-        let shape2 = VectorShape.rectangle(origin: VectorPoint(x: 100, y: 100), width: 10, height: 10)
+        let shape2 = VectorShape.rectangle(origin: VectorPoint(x: 10.5, y: 0), width: 10, height: 10)
         let report = VectorPreflight.check(shapes: [shape1, shape2])
         let actions = VectorPreflight.fixActions(for: report)
-        
+
         XCTAssertTrue(actions.contains { $0.title == "Bridge gap" })
     }
     
@@ -274,7 +277,10 @@ final class PreflightVCarveTests: XCTestCase {
         XCTAssertFalse(report.isClean)
         XCTAssertTrue(report.issues.contains { $0.issue == .openPath })
         XCTAssertTrue(report.issues.contains { $0.issue == .degenerate })
-        XCTAssertFalse(report.issues.contains { $0.issue == .openPath && $0.affectedShapeIds.isEmpty })
+        // SPK-0211/0212: the open-path issue must point at the offending shape
+        // via real indices (the legacy affectedShapeIds are fabricated and
+        // always empty — selection uses affectedShapeIndices).
+        XCTAssertFalse(report.issues.contains { $0.issue == .openPath && $0.affectedShapeIndices.isEmpty })
     }
     
     // MARK: - Test: Preflight severity ordering
