@@ -1096,11 +1096,15 @@ final class AppSession: ObservableObject {
     /// design vectors and sheet material. Blocks export on `.error` issues.
     func exportPreflightIssues() -> [ToolpathPreflightIssue] {
         let materialThickness = job.sheets.first?.height ?? 25.0
+        // R014: the active machine profile decides whether the table holds the
+        // work down (no vacuum → through-cuts need tabs).
+        let vacuum = machineProfiles.profiles.first?.vacuumHoldDown ?? false
         return ToolpathPreflight.checkTree(
             toolpathTree,
             vectors: vectors,
             materialThicknessMm: materialThickness,
-            dismissedNodeIDs: toolpathPreflightDismissed
+            dismissedNodeIDs: toolpathPreflightDismissed,
+            vacuumHoldDown: vacuum
         )
     }
 
@@ -1132,6 +1136,26 @@ final class AppSession: ObservableObject {
     func dismissPunchThrough(nodeID: UUID) {
         toolpathPreflightDismissed.insert(nodeID)
         statusMessage = "Punch-through warning dismissed for this session"
+    }
+
+    /// R014 fix CTA: enable tabs on the through-cut profile node (default
+    /// geometry: length 6mm / thickness 3mm / spacing 25mm). The node is
+    /// marked dirty — recalc regenerates with the tabs (the fix persists
+    /// through `paramsJSON`).
+    func applyAddTabsFix(nodeID: UUID) {
+        guard let node = toolpathTree.findNode(id: nodeID),
+              node.isProfileOperation,
+              let paramsJSON = node.paramsJSON,
+              let paramsData = paramsJSON.data(using: .utf8),
+              var params = try? JSONDecoder().decode(ProfileToolpathParams.self, from: paramsData) else {
+            statusMessage = "No Profile params to fix"
+            return
+        }
+        params.addTabs = true
+        node.paramsJSON = encodeParams(params)
+        node.markDirty()
+        statusMessage = "Tabs added to \(node.name) — recalculate to regenerate the toolpath"
+        markDirty()
     }
 
     // MARK: - Shape selection (design canvas)

@@ -100,6 +100,12 @@ public struct MachineProfile: Identifiable, Codable, Sendable {
     /// millimeter; decoded with a fallback so legacy profiles keep working.
     public var units: GCodeUnits
 
+    /// Whether the machine holds the work down with a vacuum table (FM-07 →
+    /// R014: a through-cut profile with no tabs is only safe when the machine
+    /// has vacuum hold-down). Legacy-safe: profiles saved before this field
+    /// decode as false (no vacuum — the warning fires conservatively).
+    public var vacuumHoldDown: Bool
+
     public var createdAt: Date
     public var updatedAt: Date
 
@@ -119,6 +125,7 @@ public struct MachineProfile: Identifiable, Codable, Sendable {
         isSimulator: Bool = false,
         machineType: MachineProfileType = .grbl,
         units: GCodeUnits = .millimeter,
+        vacuumHoldDown: Bool = false,
         createdAt: Date = .now,
         updatedAt: Date = .now
     ) {
@@ -128,6 +135,7 @@ public struct MachineProfile: Identifiable, Codable, Sendable {
         self.isSimulator = isSimulator
         self.machineType = machineType
         self.units = units
+        self.vacuumHoldDown = vacuumHoldDown
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
@@ -136,7 +144,7 @@ public struct MachineProfile: Identifiable, Codable, Sendable {
     // "units" and "machineType" — decode with defaults).
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, config, isSimulator, machineType, units, createdAt, updatedAt
+        case id, name, config, isSimulator, machineType, units, vacuumHoldDown, createdAt, updatedAt
     }
 
     public init(from decoder: Decoder) throws {
@@ -147,6 +155,7 @@ public struct MachineProfile: Identifiable, Codable, Sendable {
         isSimulator = try c.decodeIfPresent(Bool.self, forKey: .isSimulator) ?? false
         machineType = try c.decodeIfPresent(MachineProfileType.self, forKey: .machineType) ?? .grbl
         units = try c.decodeIfPresent(GCodeUnits.self, forKey: .units) ?? .millimeter
+        vacuumHoldDown = try c.decodeIfPresent(Bool.self, forKey: .vacuumHoldDown) ?? false
         createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? .now
         updatedAt = try c.decodeIfPresent(Date.self, forKey: .updatedAt) ?? .now
     }
@@ -159,6 +168,7 @@ public struct MachineProfile: Identifiable, Codable, Sendable {
         try c.encode(isSimulator, forKey: .isSimulator)
         try c.encode(machineType, forKey: .machineType)
         try c.encode(units, forKey: .units)
+        try c.encode(vacuumHoldDown, forKey: .vacuumHoldDown)
         try c.encode(createdAt, forKey: .createdAt)
         try c.encode(updatedAt, forKey: .updatedAt)
     }

@@ -36,6 +36,12 @@ public enum ToolpathPreflightFix: Sendable, Equatable {
         if case .setFlatDepth = self { return true }
         return false
     }
+
+    /// True when this fix is the R014 add-tabs CTA.
+    public var isAddTabsFix: Bool {
+        if case .addTabs = self { return true }
+        return false
+    }
 }
 
 /// A single toolpath-level preflight issue found on a tree node.
@@ -146,16 +152,44 @@ public enum ToolpathPreflight {
         )
     }
 
+    // MARK: - R014 — Through-cut without hold-down (FM-07)
+
+    /// R014 check: a profile cut through the full material thickness with no
+    /// tabs and no vacuum hold-down will let the part fly out on the last
+    /// pass. Warning (override) with an "Add Tabs" CTA.
+    public static func throughCutWithoutHoldDown(
+        params: ProfileToolpathParams,
+        materialThicknessMm: Double,
+        vacuumHoldDown: Bool,
+        nodeID: UUID = UUID(),
+        nodeName: String = "Profile"
+    ) -> ToolpathPreflightIssue? {
+        guard params.maxDepthOfCutMm >= materialThicknessMm else { return nil }
+        if params.addTabs { return nil }
+        if vacuumHoldDown { return nil }
+        return ToolpathPreflightIssue(
+            nodeID: nodeID,
+            nodeName: nodeName,
+            ruleID: "R014",
+            severity: .warning,
+            message: "“\(nodeName)” cuts the part free with nothing holding it — "
+                + "it can fly out of place on the last pass. Add tabs or use hold-down.",
+            fix: .addTabs
+        )
+    }
+
     // MARK: - Tree-level runner
 
     /// Run every toolpath preflight rule over the tree's operation nodes.
     /// `dismissedNodeIDs` are expert overrides already accepted this session
-    /// (skipped, matching the 0603 override contract).
+    /// (skipped, matching the 0603 override contract). `vacuumHoldDown` comes
+    /// from the active machine profile (R014).
     public static func checkTree(
         _ tree: ToolpathTreeManager,
         vectors: [VectorPath],
         materialThicknessMm: Double,
-        dismissedNodeIDs: Set<UUID> = []
+        dismissedNodeIDs: Set<UUID> = [],
+        vacuumHoldDown: Bool = false
     ) -> [ToolpathPreflightIssue] {
         var issues: [ToolpathPreflightIssue] = []
         for node in tree.allNodes {
@@ -168,6 +202,20 @@ public enum ToolpathPreflight {
                     params: params,
                     vectors: vectors,
                     materialThicknessMm: materialThicknessMm,
+                    nodeID: node.id,
+                    nodeName: node.name
+                ) {
+                    issues.append(issue)
+                }
+            }
+            if node.isProfileOperation,
+               let paramsJSON = node.paramsJSON,
+               let paramsData = paramsJSON.data(using: .utf8),
+               let params = try? JSONDecoder().decode(ProfileToolpathParams.self, from: paramsData) {
+                if let issue = throughCutWithoutHoldDown(
+                    params: params,
+                    materialThicknessMm: materialThicknessMm,
+                    vacuumHoldDown: vacuumHoldDown,
                     nodeID: node.id,
                     nodeName: node.name
                 ) {

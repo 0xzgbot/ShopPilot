@@ -359,6 +359,13 @@ private struct CutStageView: View {
                     }
                 }
             }
+            if toolpathPreflightIssues.contains(where: { $0.fix.isAddTabsFix }) {
+                Button("Add Tabs") {
+                    for issue in toolpathPreflightIssues {
+                        session.applyAddTabsFix(nodeID: issue.nodeID)
+                    }
+                }
+            }
         } message: {
             Text(toolpathPreflightMessage)
         }

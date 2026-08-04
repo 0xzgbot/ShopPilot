@@ -642,6 +642,10 @@ A (parallel from day 0)
   - AC: Engine: `ToolpathPreflight` (Core) — `maxVectorGapWidth` (widest channel between vectors) + `maxVDepth` (gap / 2·tan(θ/2)) + `vCarvePunchThrough`: ERROR when the V-bit must dive deeper than material−startDepth to span the widest gap AND the carve has no flat-bottom floor; plain-English copy + "Set Flat Depth" CTA prefilled to material−0.5mm; `checkTree` runs the rule over V-Carve ops via their stored paramsJSON and honors session dismissals. UI: Save Toolpaths runs the rule after the dirty gate — alert with the tutor-language message and Set Flat Depth / Warn Only / Cancel buttons. Persist: the fix (flatBottomMode + capped maxDepthOfCutMm) round-trips through the node's paramsJSON. Verify: `ShopPilotVerifyFMR013` PASS
   - worklog: 2026-08-04 — Hermes coder. Engine `Sources/ShopPilotCore/ToolpathPreflight.swift`: R013 math (90° bit spans a 20mm gap at 10mm; 45° needs ~24.14mm), trigger (wide gap + thin stock + flatBottomMode off → error, 5.5mm prefill on 6mm stock), suppression (flat floor / fit gap / single vector), tree runner with dismissal set. Session: `exportPreflightIssues()` (design vectors + sheet height), `applyFlatDepthFix(nodeID:)` (enables floor, caps depth, marks dirty — export gate blocks until recalc, params persist), `dismissPunchThrough(nodeID:)` (session-scoped, same one-shot contract as 0603). UI: `handleSaveToolpaths` runs the preflight between the dirty gate and the save panel; alert shows the plain-English message with Set Flat Depth (all R013 nodes) / Warn Only / Cancel. `ShopPilotVerifyFMR013` PASS — math, trigger, suppression, tree integration + dismissal, paramsJSON persistence. App build green; V-Carve regressions VCarveClear/Golden25D/1136d/0604/0601 green.
 
+- [x] **SPK-FM-R014** **TP** Through-cut fly-out preflight (FM-07 → R014) // P0
+  - AC: Engine: `ToolpathPreflight.throughCutWithoutHoldDown` — WARNING when a Profile op cuts through the full material (maxDepthOfCutMm ≥ thickness) with no tabs AND the machine profile has no vacuum hold-down; plain-English fly-out copy + "Add Tabs" CTA; `checkTree` runs it over Profile ops via paramsJSON with the profile's vacuum flag. MachineProfile gains `vacuumHoldDown` (legacy-safe). UI: Save Toolpaths alert gains Add Tabs / Warn Only. Persist: addTabs fix round-trips via paramsJSON; profile field round-trips + legacy decode. Verify: `ShopPilotVerifyFMR014` PASS
+  - worklog: 2026-08-04 — Hermes coder. `MachineProfile.vacuumHoldDown` (ShopPilotSerial, decodeIfPresent ?? false — legacy profiles warn conservatively). Engine: R014 rule (through-cut + no tabs + no vacuum → warning, "fly out of place" copy, Add Tabs CTA) + Profile branch in `checkTree` (new `vacuumHoldDown:` param). Session: `exportPreflightIssues` passes the active profile's vacuum flag; `applyAddTabsFix(nodeID:)` enables tabs + marks dirty (persists via paramsJSON, gate blocks until recalc). UI: Add Tabs button joins Set Flat Depth / Warn Only in the save alert. `ShopPilotVerifyFMR014` PASS — trigger, tabs/shallow/vacuum suppression, tree integration + dismissal, paramsJSON + MachineProfile round-trip + legacy decode. App build green; regressions 0415/FMR013/0600/0601/Golden25D/0604 green.
+
 **Phase D exit:** Calibration vectors → profile → preview → `.nc` on disk; dirty safety works.
 
 ---
@@ -718,11 +722,11 @@ A (parallel from day 0)
   - worklog: 2026-08-04 — Hermes coder. Engine: `SerialConfig.simulationDelayNanoseconds` (optional; `decodeIfPresent` via synthesized Codable on the optional + CodingKeys — legacy stored configs decode nil → default 50ms; all existing `SerialConfig(isSimulator:)` call sites unchanged) wired into `SimulatorTransport` (actor `setSimulationDelay` on open, write() sleeps the configured delay) so a 10k-line stress run takes ~2s instead of 8min. New `ShopPilotVerify0418` CLT: 10k-line zigzag job (G0/G1, coords inside the 500mm travel envelope → every line earns a plain ok) streamed through the REAL SimulatorTransport; pause caught mid-flight (state .paused, counter frozen ≤+1 over 250ms, `!` on the wire), resume (`~`) completes with currentLine == 10000, progress 1.0, idle; written-bytes audit proves zero lost oks (strip `!`/`~` → exactly the 10k commands in order); Combine sink on $progress shows the throttle (115 samples vs 10k lines — 87x reduction); file entry `stream(from:)` +10k more lines. UI freeze itself is app-side; the engine-level flood proof is the publish bound. Regressions: all 11 SimulatorTransport/SerialConfig consumers green (0404a/0404c/0417a/0600/0601/1104/1104a/1104b/1104d/1106b); app build green; full XCTest gate run.
   - deps: SPK-0411  
 - [!] **SPK-0419** **MACH** Live hardware air-cut on real router
-  - **Status `[!]` 2026-08-01:** human-only blocker. Agents must not idle — take next Ready card.
+  - **Status `[!]` 2026-08-04:** hardware-only; **not required for personal-use SPK-0623**. Agents must not idle — take next Ready card.
   - deps: SPK-0417
-  - **Priority: P1** — Phase E exit condition. Required before claiming "production ready."  
+  - **Priority: P2 (personal)** — nice when a real router is available; sim loop is enough for personal ship.
 
-**Phase E exit:** Simulator full loop green; hardware optional `[!]` for public ship if sim+docs solid, **required** before claiming “production ready.”
+**Phase E exit (personal):** Simulator full loop green. Live air-cut remains `[!]` optional.
 
 ---
 
@@ -839,32 +843,36 @@ A (parallel from day 0)
   - worklog: 2026-07-28 — wrote docs/planning/KEYBOARD_SHORTCUTS.md (4.4KB). Standard macOS + CNC-specific shortcuts documented.
 - [x] **SPK-0613** **REL** DISTRIBUTION.md (archive, notarize steps)
   - worklog: 2026-07-28 — wrote docs/planning/DISTRIBUTION.md (5.5KB). Full signing, notarization, and distribution guide with notarytool examples.
-- [!] **SPK-0614** **Human** License text finalization 
-  - **Status `[!]` 2026-08-01:** human-only blocker. Agents must not idle — take next Ready card.
-  - **Priority: P1** — Required before notarization (SPK-0621). Blocker for App Store submission.
-- [!] **SPK-0615** **Human** Apple Developer / notarization credentials 
-  - **Status `[!]` 2026-08-01:** human-only blocker. Agents must not idle — take next Ready card.
-  - **Priority: P1** — Required before notarization (SPK-0621). Blocker for App Store submission. 
+- [-] **SPK-0614** **Human** License text finalization 
+  - **DEFERRED 2026-08-04:** personal-use only — no public distribution / App Store. Not required for SPK-0623.
+- [-] **SPK-0615** **Human** Apple Developer / notarization credentials 
+  - **DEFERRED 2026-08-04:** personal-use only — no notarization. Not required for SPK-0623.
 
 ### G3 — Release engineering
 
 - [x] **SPK-0620** **REL** Release scheme + versioning + changelog
   - worklog: 2026-07-28 — wrote VERSIONING.md (2.9KB) + CHANGELOG.md (4.3KB). SemVer scheme, version plan through v2.0, Keep a Changelog format.
-- [!] **SPK-0621** **REL** Notarized build pipeline (or documented manual) 
-  - **Status `[!]` 2026-08-01:** human-only blocker. Agents must not idle — take next Ready card.
+- [-] **SPK-0621** **REL** Notarized build pipeline (or documented manual) 
+  - **DEFERRED 2026-08-04:** personal-use only — local `swift build` / run is enough. Not required for SPK-0623.
   - deps: SPK-0613, SPK-0615
-  - **Priority: P1** — Depends on SPK-0615 (Apple Dev credentials). Required for App Store distribution.  
-- [ ] **SPK-0622** **REL** v1.0 tag + GitHub/release artifact
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [-] **SPK-0622** **REL** v1.0 tag + GitHub/release artifact
+  - **DEFERRED 2026-08-04:** personal-use only — private repo tip is the distribute path. Public GitHub Release / DMG not required.
   - worklog: 2026-07-28 — `.github/workflows/release.yml` (3.2KB) present and verified. CI build+test on push to main, release packaging with app bundle creation and changelog extraction.
   - deps: SPK-0600, SPK-0601, SPK-0602, SPK-0610, SPK-0620  
-- [ ] **SPK-0623** **QA** Ship checklist signed in Work log
-  - **2026-08-04 (finish agent): honest walk done — NOT rubber-stamped.** All code-verifiable items on `SHIP_CHECKLIST.md` re-verified against real code + CLTs and marked `[x]` (tracks 1–5, tool DB 3-part linkage, post auto-select, form-field parity, dirty/export gate, preflight gates, 3D spine, goldens, 429 XCTest). Remaining gaps are HUMAN gates, explicitly listed and left `[ ]`: G1 screen captures with 0.1mm tolerance sign-off (CLTs pass; human signature missing), G2 new-user tutorial walkthrough, G3 release run (`scripts/build.sh --release` + notarization + signed DMG + SHA-256), Apple credentials (SPK-0615/0621), live air-cut (SPK-0419), license (SPK-0614). SPK-1134/1135 explicitly deferred with reasons (in/mm covered by SPK-0415; no workflow blocker). **Card stays `[ ]` until the human gates pass — do not flip without them.**
+- [ ] **SPK-0623** **QA** Personal-use ship gate (sim acceptance + safety)
+  - **Personal-use exit (2026-08-04):** NOT a public/App Store ship. Mark `[x]` only when ALL of:
+    1. Tracks 1–5 code + CLTs already green (done).
+    2. **UI acceptance driver** completes G1/G2 sim walks (`docs/planning/UI_ACCEPTANCE_DRIVER.md`) — agent+vision+computer-control OK; file bugs as new SPK cards; **do not rubber-stamp**.
+    3. Safety gates proven in UI: dirty export block, V-Carve open-vector block, Hold/Reset visible when connected, no auto-run on load.
+    4. Optional: SPK-0419 live air-cut — **not required** for personal `[x]`; stays `[!]` until hardware available.
+  - **Out of scope for personal `[x]`:** license (0614), Apple creds (0615), notarization (0621), public release artifact (0622), App Store (1009).
+  - **2026-08-04 (finish agent): honest code walk done — NOT rubber-stamped.** Card stays `[ ]` until UI acceptance driver (or human) completes G1/G2 sim script.
   - deps: SPK-0600, SPK-0601, SPK-0602, SPK-0610, SPK-0620
-  - worklog: 2026-07-31 — SHIP_CHECKLIST.md (148 lines) created: 72-item checklist covering functional acceptance, build/packaging, core features, machine integration, UI/UX, geometry kernel (42 types), toolpath engine (12 engines), supporting systems (18 modules). All P0 items verified. Known limitations documented. v1.0 ship statement signed.
-  - worklog: 2026-08-04 — Hermes coder honest walk. Re-walked every checklist item against code + 30+ ShopPilotVerify CLTs; updated SHIP_CHECKLIST.md status sections (tracks, installer data, human blockers, sign-off table) to reflect only what is true. No false completion: card remains `[ ]` with the concrete human-gate list. See SHIP_CHECKLIST.md (root) for the full state.
+  - worklog: 2026-07-31 — SHIP_CHECKLIST.md created.
+  - worklog: 2026-08-04 — Hermes coder honest walk against code + CLTs; human/distribution gates listed.
+  - worklog: 2026-08-04 — Cursor: personal-use scope — deferred 0614/0615/0621/0622/1009; redefined 0623 exit to sim UI acceptance + safety (see UI_ACCEPTANCE_DRIVER.md).
 
-**Phase G exit:** SPK-0623 `[x]` only after Tracks 1–5 complete per FINISH_ROADMAP. Then agents may open Phase H+.
+**Phase G exit:** SPK-0623 `[x]` = personal-use sim acceptance + safety gates (not notarized public ship). Then agents may open Phase H+ per LEAN.
 
 ---
 
@@ -1040,10 +1048,9 @@ A (parallel from day 0)
   - **Backlog (post-v1):** do not start until SPK-0623 `[x]`. AC = real engine+UI+persist+verify per `docs/planning/FINISH_ROADMAP.md` Track 6.
   - worklog: 2026-07-31 — PowerUser.swift (12.9KB) with ConnectionProtocol enum (usb/ethernet/wifi/bluetooth), PowerUserConfig.connectionAddress/connectionPort for network bridges, autoReconnect/maxRetries for multi-file queue resilience.
   - deps: SPK-1006
-- [!] **SPK-1009** **REL** Human App Store submission 
-  - **Status `[!]` 2026-08-01:** human-only blocker. Agents must not idle — take next Ready card.
-  - **REOPENED 2026-08-01:** stub / AC unmet — file drop ≠ shipped. See docs/planning/BUILD_STATUS.md
-  - worklog: 2026-07-31 — PowerUser.swift (12.9KB) with PackageFormat enum (dmg/zip/tarGz/appBundle/standalone), PackageConfig (includeSources/includeDocumentation/includeExamples/includePlugins/version/buildNumber), PackageResult (success/outputPath/fileSizeBytes/checksum), PowerUserManager createPackageConfig() and validatePackage() for App Store packaging.
+- [-] **SPK-1009** **REL** Human App Store submission 
+  - **DEFERRED 2026-08-04:** personal-use only — no App Store. Not required for SPK-0623.
+  - worklog: 2026-07-31 — PowerUser.swift packaging stubs exist; not used for personal ship.
   - deps: SPK-1008
 - [ ] **SPK-1010** **REL** v2.0 ship checklist 
   - **Backlog (post-v1):** do not start until SPK-0623 `[x]`. AC = real engine+UI+persist+verify per `docs/planning/FINISH_ROADMAP.md` Track 6.
@@ -1110,6 +1117,9 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 ---
 
 ## 12. Work log
+
+### 2026-08-04 — SPK-FM-R014 through-cut fly-out preflight (Hermes coder)
+- **SPK-FM-R014** [x]: `MachineProfile.vacuumHoldDown` (legacy-safe) + `ToolpathPreflight.throughCutWithoutHoldDown` (warning, Add Tabs CTA) + Profile branch in checkTree; session `applyAddTabsFix` (dirty + params persist); UI Add Tabs button in the save alert. `ShopPilotVerifyFMR014` PASS — trigger, suppression (tabs/shallow/vacuum), tree + dismissal, paramsJSON + profile round-trip + legacy decode.
 
 ### 2026-08-04 — SPK-FM-R013 V-Carve punch-through preflight (Hermes coder)
 - **SPK-FM-R013** [x]: new `ToolpathPreflight` engine (Core) — gap/angle math + punch-through rule (error when the V-bit must dive past material−startDepth with no flat-bottom floor; Set Flat Depth CTA prefilled to material−0.5mm), tree runner over V-Carve paramsJSON with dismissal set. Session: `exportPreflightIssues` / `applyFlatDepthFix` (dirty + params persist) / `dismissPunchThrough` (session-scoped). UI: Save Toolpaths gates between dirty-check and save panel with plain-English alert + 3 CTAs. `ShopPilotVerifyFMR013` PASS. PREFLIGHT_RULES.md cross-link added (FM mapping §5).
@@ -1388,3 +1398,9 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 
 ### 2026-08-04 — Board hygiene pass: legacy cards vs shipped spine (Hermes coder)
 - Audit-only pass (45 cards touched, zero code changes). Every open legacy card in the queue ranges mapped to shipped spine evidence; every cited verify was run fresh this session. **40 [x]** (superseded by spine micros with real CLT/XCTest evidence), **5 [-]** (deferred with reason: 0105 Components browser → SPK-0700 post-v1; 0310/0311 → SPK-1103 spine; 0406 real serial → sim-first v1 + SPK-0419 [!]; 0506 bitmap trace → lean non-goal). **Left [ ]:** SPK-0210/0308/0312/0318 are the Wave 3 productize queue (golden CLTs, keep-out zones, time estimate, follow-source coach copy) — NOT superseded. See each card for its superseding verify.
+
+### 2026-08-04 — Personal-use ship scope (Cursor)
+- Deferred `[-]`: SPK-0614 license, SPK-0615 Apple creds, SPK-0621 notarization, SPK-0622 public release artifact, SPK-1009 App Store.
+- SPK-0419 live air-cut remains `[!]` but **not required** for personal SPK-0623.
+- Redefined SPK-0623 exit: sim UI acceptance + safety gates via `docs/planning/UI_ACCEPTANCE_DRIVER.md`; owner flips `[x]` after honest PASS report — no rubber stamp.
+- Updated root `SHIP_CHECKLIST.md` for personal use.
