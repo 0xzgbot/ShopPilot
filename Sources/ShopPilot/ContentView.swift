@@ -24,8 +24,14 @@ struct ContentView: View {
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                         if !proSkip {
-                            CoachPanelView(currentStage: session.selectedStage)
-                                .padding(8)
+                            // SPK-0318: pass the follow-source state so the Cut
+                            // coach explains the current contract.
+                            CoachPanelView(
+                                currentStage: session.selectedStage,
+                                followSourceMode: session.linkManager.followSourceMode,
+                                activeFollowLinkCount: session.linkManager.activeFollowLinkCount
+                            )
+                            .padding(8)
                         }
 
                         statusBar

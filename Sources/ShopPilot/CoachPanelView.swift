@@ -9,9 +9,17 @@ public struct CoachPanelView: View {
     @State private var lastActivityTime = Date.now
     
     let currentStage: Stage
+
+    /// SPK-0318 — follow-source state driving the Cut coach copy.
+    let followSourceMode: FollowSourceMode?
+    let activeFollowLinkCount: Int
     
-    init(currentStage: Stage) {
+    init(currentStage: Stage,
+         followSourceMode: FollowSourceMode? = nil,
+         activeFollowLinkCount: Int = 0) {
         self.currentStage = currentStage
+        self.followSourceMode = followSourceMode
+        self.activeFollowLinkCount = activeFollowLinkCount
     }
     
     private var coachMessage: String {
@@ -26,6 +34,12 @@ public struct CoachPanelView: View {
             }
             return "Create 3D reliefs, combine components, or sculpt surfaces. Use the shape tools to add depth and detail to your design."
         case .cut:
+            // SPK-0318: the coach explains the follow-source contract in the
+            // state the toggle is in (OFF = toolpaths don't follow art; ON =
+            // edits mark linked ops stale, recalc is explicit).
+            if let mode = followSourceMode {
+                return CoachCopy.followSourceCutMessage(mode: mode, activeLinkCount: activeFollowLinkCount)
+            }
             if !FeatureFlag.isAvailable(.quickEngrave, tier: ProductTier.studio) {
                 return "Choose a toolpath strategy (Profile, Pocket, Drill) and link it to vectors on your layers. Toolpaths don't follow art unless linked — select your vectors first, then apply the strategy."
             }

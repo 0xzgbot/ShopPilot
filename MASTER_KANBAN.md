@@ -629,9 +629,9 @@ A (parallel from day 0)
   - deps: SPK-3D-spine-b
   - track: 3
   - worklog: 2026-08-04 — Hermes coder. Engine: `HeightfieldRoughParams.previousToolDiameterMm` (optional, `decodeIfPresent ?? 0` → legacy paramsJSON stays plain rough) + `isRestRough`; in the z-level row loop a run at least as wide as the previous tool's diameter is SKIPPED (already cleared by the big tool) and only narrower valleys are cut by the smaller rest tool; header becomes "(Rest Rough: 2.0mm after 3.5mm, N z-levels)". `ShopPilotVerify3DRest` PASS on an 8×7 fixture (row profile [2,2,2,2,6,6,2,2]: 4mm-wide low run + 2mm-wide valley split by a 6mm wall): plain rough cuts both runs (Z=-2.000); rest after 3.5mm skips the 4mm run and cuts the 2mm valley; rest after 5mm re-cuts both; rest after 2mm cuts nothing; legacy decode + Codable round-trip. Verify debug caught TWO real issues (both in my test harness, not the engine): run-start must come from the preceding G0 line (the cut G1 carries only the end), and `dropFirst(2)` eats the first digit of `X3.500` (→ `.500` = 0.5) — fixed to `dropFirst(1)`. Regressions 3Da/3Db/3DGolden/3DUI/Golden25D/1133b green; app build green.
-- [ ] **SPK-0318** **UX** Coach: "toolpaths don't follow art unless linked" 
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
-  - worklog: 2026-07-30 — Direct write. Updated CoachPanelView.swift cut stage message to explicitly warn users that toolpaths don't follow art unless linked, instructing them to select vectors first then apply strategy. swift build passes cleanly.
+- [x] **SPK-0318** **UX** Coach: "toolpaths don't follow art unless linked" (state-driven)
+  - AC: Engine: `CoachCopy.followSourceCutMessage(mode:activeLinkCount:)` — link OFF warns toolpaths don't follow art (edits don't update existing toolpaths; recalc is the remedy); link ON explains dirty-on-edit (art edits mark linked ops stale/dirty, export blocked until recalc, never silent) and quotes the stale link count. UI: CoachPanelView accepts the session's follow-source state; Cut coach copy switches with the Follow Source toggle. Verify: `ShopPilotVerify0318` PASS
+  - worklog: 2026-08-04 — Hermes coder. Audit: 2026-07-30 claim was a static one-line tweak; the coach never knew the toggle state. Added `CoachCopy` (Core) — manual copy (does NOT update, recalc remedy) vs autoFollow copy (stale → dirty → export block, "never recalculate silently", link count). CoachPanelView gains `followSourceMode`/`activeFollowLinkCount` (defaulted — old call sites unchanged) and ContentView passes `session.linkManager` state. `ShopPilotVerify0318` PASS — OFF copy, ON copy (stale/dirty/export/never-silent), 3-link count quoted, and the copy's claims checked against the REAL 0319 engine (auto-follow link goes dirty on sourcesDidChange with G-code untouched). App build green; regressions 0319/0312/0308 green.
   - deps: SPK-0305
 - [x] **SPK-0319** **TP** Optional Follow-source link mode (default off) 
   - AC: Engine: `ToolpathLinkManager.sourcesDidChange(toolpathTree:)` marks linked toolpaths stale + tree nodes dirty in follow mode (never silent recalc); UI: Follow Source toggle in Cut + stale badge; Persist: mode via Job `followSourceModeRaw` (optional, legacy-safe); Verify: `ShopPilotVerify0319` PASS
@@ -1125,6 +1125,9 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 ---
 
 ## 12. Work log
+
+### 2026-08-04 — SPK-0318 follow-source coach copy (Hermes coder)
+- **SPK-0318** [x]: `CoachCopy.followSourceCutMessage` (Core) — OFF copy warns toolpaths don't follow art; ON copy explains stale→dirty→export-block + never-silent, quotes link count. CoachPanelView takes session follow-source state; ContentView wires it. `ShopPilotVerify0318` PASS — copy claims verified against the real 0319 engine (dirty on sourcesDidChange, G-code untouched).
 
 ### 2026-08-04 — SPK-0308 keep-out zones productized (Hermes coder)
 - **SPK-0308** [x]: rule (`keepOutZoneViolation` — cut-only, names zone, warn-only), session CRUD + `Job.keepOutZones` (legacy-safe), `KeepOutZonesPanel` (add/edit/toggle/delete) + Preview red-dashed overlay, save-preflight integration. `ShopPilotVerify0308` PASS — geometry, cut-vs-zone warning, rapid exemption, tree-level flagging, Job round-trip + legacy nil.
