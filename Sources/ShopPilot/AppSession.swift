@@ -918,6 +918,28 @@ final class AppSession: ObservableObject {
         return result.shapes.count
     }
 
+    // MARK: - DXF import (SPK-1101g)
+
+    /// Import an ASCII DXF file into the session document.
+    ///
+    /// Reads the file, parses it via `DXFParser` (LINE / LWPOLYLINE / CIRCLE /
+    /// ARC entities; unsupported entities skipped tolerantly), and adds every
+    /// resulting shape through the normal `addShapes` path (undo point, layer
+    /// vectors, dirty flag, status). Returns the number of shapes imported.
+    @discardableResult
+    func importDXF(from url: URL) throws -> Int {
+        let content = try String(contentsOf: url, encoding: .utf8)
+        let result = DXFParser.parse(content)
+        guard !result.shapes.isEmpty else {
+            statusMessage = "No drawable entities found in \(url.lastPathComponent) (LINE/Polyline/Circle/Arc only)"
+            return 0
+        }
+        addShapes(result.shapes)
+        let skipped = result.errors.isEmpty ? "" : " — \(result.errors.count) entity warning(s)"
+        statusMessage = "Imported \(result.shapes.count) shape(s) from \(url.lastPathComponent)\(skipped)"
+        return result.shapes.count
+    }
+
     // MARK: - Selection
 
     func selectVector(_ id: UUID) {

@@ -214,6 +214,11 @@ A (parallel from day 0)
   - deps: SPK-1104b, SPK-0412
   - track: 4
   - worklog: 2026-08-03 — Hermes coder. No UI change needed — RUN is already gated on connected+preflightPassed (SPK-0412/0413); the gap was a single end-to-end proof. Engine: `SimulatorTransport` now logs every raw write (`writtenBytesSnapshot`) — the read buffer only carries sim responses and streamers drain it concurrently, so the write log is the race-free observable for realtime-byte assertions. Verify `ShopPilotVerify1104d` PASS — full loop against the simulator: connect → load full-tree buffer (Profile+Pocket markers, zero bytes sent) → fresh PreflightGate blocks until every item acknowledged → explicit runJob streams → HOLD mid-run writes realtime `!` (0x21) and RESUME `~` (0x7E) through the shared transport (idle AND mid-run, via the write log) → stream completes, buffer intact. 1104/1104b/1104c regression green.
+- [x] **SPK-1101g** **GEO** DXF import: real importer (LINE/Polyline/Circle/Arc) replaces the "unsupported" stub // P1
+  - AC: ASCII DXF parses LINE/LWPOLYLINE/CIRCLE/ARC (degrees→radians, closed polylines, tolerant skips) → session importDXF → hub DXF path enabled (picker lock-in fixed); persist layer-faithful; `swift run ShopPilotVerify1101g` PASS
+  - deps: SPK-1101e
+  - track: 2
+  - worklog: 2026-08-03 — Hermes coder. Chose "implement" over "remove": new `DXFParser` in ShopPilotGeometry (ASCII DXF, ENTITIES section: LINE 10/20-11/21, LWPOLYLINE 90-count + 10/20 vertices + 70 closed flag, CIRCLE 10/20/40, ARC 10/20/40/50/51 with degrees→radians to match VectorShape.arc; unsupported entities skipped, malformed pairs collected as errors — never fatal; mirrors SVGImporter's tolerant contract). Session: `importDXF(from:)` → DXFParser → addShapes (undo + layer-faithful + status with entity warnings). Hub: DXF enabled (fixed a real defect — the segmented picker disabled ITSELF when .dxf was selected so users couldn't switch back; button + picker locks removed), "not supported" copy replaced with the supported-entity note, status badge Ready (ASCII), dead `dxfNotAvailable` error case removed. Verify `ShopPilotVerify1101g` PASS — fixture DXF: LINE/LWPOLYLINE(closed, 5 points)/CIRCLE/ARC parse with exact geometry, TEXT skipped, 0°→90° arc → 0→π/2 rad, malformed LINE records an error while the sibling CIRCLE still imports, and all 4 shapes survive a layer-faithful Job round-trip. 1101e regression green; app build green.
 - [x] **SPK-1102d** **TP** Add Pocket / Drill / V-Carve ops from Cut (like Profile) // P0 // parallel-ok
   - AC: Cut "Add Toolpath" menu (Profile/Pocket/Drill/V-Carve) → session generate*Toolpath → real engine G-code into tree nodes; dirty flags sane; buffer concatenates; `swift run ShopPilotVerify1102d` PASS
   - deps: SPK-1102a, SPK-0303, SPK-0304
@@ -1048,6 +1053,10 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 ### 2026-08-03 — SPK-1104b Cut→Machine handoff (Hermes coder)
 - Claimed/finished **SPK-1104b**: Machine stage now receives `session.allToolpathGCode` (full tree — closes the P0-C handoff gap where the last single op overwrote the buffer). `ShopPilotVerify1104b` PASS: full-tree handoff (both strategy markers), zero bytes on load (no auto-run), runJob throws notConnected without a connection, connect+explicit runJob streams, fresh preflight gate blocks Run until acknowledged.
 - Next: full-sweep gate for tonight's wave, then SPK-1101 parent close-out review / SPK-1105 XCTest (Xcode-gated).
+
+### 2026-08-03 — SPK-1101g DXF import (Hermes coder)
+- Claimed/finished **SPK-1101g** (chose "implement" over "remove"): new `DXFParser` (LINE/LWPOLYLINE/CIRCLE/ARC, degrees→radians, tolerant) + session `importDXF(from:)` + hub DXF path enabled with a picker lock-in bug fixed. `ShopPilotVerify1101g` PASS; 1101e regression green; app build green.
+- Next: SPK-1106a sign recipe thin slice.
 
 ### 2026-08-03 — SPK-1104d Sim integration full loop (Hermes coder)
 - Claimed/finished **SPK-1104d**: one CLT proves the whole Machine-stage loop against the simulator — connect → load full tree (zero bytes) → preflight ack → Start → hold(!) → resume(~) → complete; realtime bytes proven via a new race-free write log on SimulatorTransport. `ShopPilotVerify1104d` PASS; 1104/1104b/1104c regression green.

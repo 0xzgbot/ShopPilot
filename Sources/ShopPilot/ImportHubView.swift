@@ -43,12 +43,11 @@ public struct ImportHubView: View {
             }
             .pickerStyle(.segmented)
             .padding(.horizontal)
-            .disabled(selectedFormat == .dxf)
 
             if selectedFormat == .dxf {
-                Text("DXF import is not supported in this build. Use SVG.")
+                Text("DXF (ASCII) — LINE / Polyline / Circle / Arc entities; other entities are skipped.")
                     .font(.caption)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(.secondary)
                     .padding(.horizontal)
             }
 
@@ -61,7 +60,6 @@ public struct ImportHubView: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .padding(.horizontal)
-            .disabled(selectedFormat == .dxf)
 
             // Supported formats info
             VStack(alignment: .leading, spacing: 8) {
@@ -139,8 +137,20 @@ public struct ImportHubView: View {
         case .svg:
             return try importSVG(content: content, fileName: url.lastPathComponent)
         case .dxf:
-            throw ImportError.dxfNotAvailable
+            return importDXF(content: content, fileName: url.lastPathComponent)
         }
+    }
+
+    /// SPK-1101g: ASCII DXF (LINE / LWPOLYLINE / CIRCLE / ARC).
+    private func importDXF(content: String, fileName: String) -> ImportResult {
+        let parseResult = DXFParser.parse(content)
+        return ImportResult(
+            fileName: fileName,
+            format: .dxf,
+            shapes: parseResult.shapes,
+            errors: parseResult.errors,
+            warnings: parseResult.errors.isEmpty ? [] : ["Some entities were skipped or malformed"]
+        )
     }
 
     private func importSVG(content: String, fileName: String) throws -> ImportResult {
@@ -396,14 +406,14 @@ public enum ImportFormat: String, Codable, Sendable, CaseIterable, Identifiable 
     public var statusText: String {
         switch self {
         case .svg: return "Ready"
-        case .dxf: return "Unsupported"
+        case .dxf: return "Ready (ASCII)"
         }
     }
     
     public var statusColor: Color {
         switch self {
         case .svg: return .green
-        case .dxf: return .orange
+        case .dxf: return .green
         }
     }
 }
@@ -438,15 +448,12 @@ public struct ImportResult: Identifiable {
 
 /// Errors specific to the import hub operations.
 enum ImportError: LocalizedError {
-    case dxfNotAvailable
     case unsupportedFormat(String)
     case fileReadFailed(URL, Error)
     case svgParseFailed(String)
 
     var errorDescription: String? {
         switch self {
-        case .dxfNotAvailable:
-            return "DXF import is not supported in this build. Export SVG from your CAD tool and import that instead."
         case .unsupportedFormat(let format):
             return "Unsupported file format: \(format)"
         case .fileReadFailed(let url, let error):
