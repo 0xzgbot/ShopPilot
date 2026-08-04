@@ -36,6 +36,12 @@ public struct HeightfieldRoughParams: Codable, Sendable, ToolFeedApplicable {
     /// stock top, so all cut depths are negative.
     public var stockAllowanceMm: Double
     public var spindleRpm: Double
+    /// SPK-3D-rest — rest machining: when > 0, this rough is a REST pass with
+    /// the CURRENT (smaller) tool after a previous rough with
+    /// `previousToolDiameterMm`. Only valleys narrower than the previous tool
+    /// are cut — wider runs were already cleared by the prior pass. 0 = plain
+    /// z-level rough (default, so legacy params decode unchanged).
+    public var previousToolDiameterMm: Double
 
     public init(
         toolDiameterMm: Double = 6.0,
@@ -45,7 +51,8 @@ public struct HeightfieldRoughParams: Codable, Sendable, ToolFeedApplicable {
         plungeFeedRateMmPerMin: Double = 300,
         safeZHeightMm: Double = 5.0,
         stockAllowanceMm: Double = 0.5,
-        spindleRpm: Double = 0
+        spindleRpm: Double = 0,
+        previousToolDiameterMm: Double = 0
     ) {
         self.toolDiameterMm = toolDiameterMm
         self.stepDownMm = stepDownMm
@@ -55,11 +62,17 @@ public struct HeightfieldRoughParams: Codable, Sendable, ToolFeedApplicable {
         self.safeZHeightMm = safeZHeightMm
         self.stockAllowanceMm = stockAllowanceMm
         self.spindleRpm = spindleRpm
+        self.previousToolDiameterMm = previousToolDiameterMm
     }
+
+    /// True when this pass is a rest rough (smaller tool clearing the valleys
+    /// a previous larger tool left).
+    public var isRestRough: Bool { previousToolDiameterMm > 1e-9 }
 
     private enum CodingKeys: String, CodingKey {
         case toolDiameterMm, stepDownMm, stepOverMm, feedRateMmPerMin
         case plungeFeedRateMmPerMin, safeZHeightMm, stockAllowanceMm, spindleRpm
+        case previousToolDiameterMm
     }
 
     public init(from decoder: Decoder) throws {
@@ -72,6 +85,7 @@ public struct HeightfieldRoughParams: Codable, Sendable, ToolFeedApplicable {
         safeZHeightMm = try c.decodeIfPresent(Double.self, forKey: .safeZHeightMm) ?? 5.0
         stockAllowanceMm = try c.decodeIfPresent(Double.self, forKey: .stockAllowanceMm) ?? 0.5
         spindleRpm = try c.decodeIfPresent(Double.self, forKey: .spindleRpm) ?? 0
+        previousToolDiameterMm = try c.decodeIfPresent(Double.self, forKey: .previousToolDiameterMm) ?? 0
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -84,6 +98,7 @@ public struct HeightfieldRoughParams: Codable, Sendable, ToolFeedApplicable {
         try c.encode(safeZHeightMm, forKey: .safeZHeightMm)
         try c.encode(stockAllowanceMm, forKey: .stockAllowanceMm)
         try c.encode(spindleRpm, forKey: .spindleRpm)
+        try c.encode(previousToolDiameterMm, forKey: .previousToolDiameterMm)
     }
 }
 
@@ -173,7 +188,13 @@ public enum HeightfieldRoughEngine {
         if params.spindleRpm > 0 {
             lines.append("M3 S\(Int(params.spindleRpm))")
         }
-        lines.append("(Rough: \(String(format: "%.1f", params.toolDiameterMm))mm, \(levels.count) z-levels)")
+        // SPK-3D-rest — rest pass header names the prior tool so the G-code
+        // documents what the rest is clearing.
+        if params.isRestRough {
+            lines.append("(Rest Rough: \(String(format: "%.1f", params.toolDiameterMm))mm after \(String(format: "%.1f", params.previousToolDiameterMm))mm, \(levels.count) z-levels)")
+        } else {
+            lines.append("(Rough: \(String(format: "%.1f", params.toolDiameterMm))mm, \(levels.count) z-levels)")
+        }
         var totalLength = 0.0
 
         for (pass, level) in levels.enumerated() {
@@ -205,12 +226,19 @@ public enum HeightfieldRoughEngine {
                         if heightfield.heightInterpolated(atX: cx, y: cy) > level + 1e-9 { break }
                         runEndCol += 1
                     }
-                    let x0 = heightfield.minX + (Double(runStartCol) + 0.5) * heightfield.cellSizeMm
-                    let x1 = heightfield.minX + (Double(runEndCol - 1) + 0.5) * heightfield.cellSizeMm
-                    lines.append("G0 X\(String(format: "%.3f", x0)) Y\(String(format: "%.3f", cy))")
-                    lines.append("G1 Z\(String(format: "%.3f", depthZ)) F\(Int(params.plungeFeedRateMmPerMin))")
-                    lines.append("G1 X\(String(format: "%.3f", x1)) Y\(String(format: "%.3f", cy)) F\(Int(params.feedRateMmPerMin))")
-                    totalLength += abs(x1 - x0) + params.safeZHeightMm + stockTop - level
+                    // SPK-3D-rest: in a rest pass, a run at least as wide as
+                    // the previous tool's diameter was already cleared by that
+                    // tool — only narrower valleys (which the big tool could
+                    // not reach) are cut by the smaller rest tool.
+                    let runWidthMm = Double(runEndCol - runStartCol) * heightfield.cellSizeMm
+                    if !params.isRestRough || runWidthMm < params.previousToolDiameterMm - 1e-9 {
+                        let x0 = heightfield.minX + (Double(runStartCol) + 0.5) * heightfield.cellSizeMm
+                        let x1 = heightfield.minX + (Double(runEndCol - 1) + 0.5) * heightfield.cellSizeMm
+                        lines.append("G0 X\(String(format: "%.3f", x0)) Y\(String(format: "%.3f", cy))")
+                        lines.append("G1 Z\(String(format: "%.3f", depthZ)) F\(Int(params.plungeFeedRateMmPerMin))")
+                        lines.append("G1 X\(String(format: "%.3f", x1)) Y\(String(format: "%.3f", cy)) F\(Int(params.feedRateMmPerMin))")
+                        totalLength += abs(x1 - x0) + params.safeZHeightMm + stockTop - level
+                    }
                     col = runEndCol
                 }
                 row += rowStride

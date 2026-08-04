@@ -123,6 +123,11 @@ let package = Package(
             path: "Sources/ShopPilotVerify3DUI"
         ),
         .executableTarget(
+            name: "ShopPilotVerify3DRest",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify3DRest"
+        ),
+        .executableTarget(
             name: "ShopPilotVerify1136a",
             dependencies: ["ShopPilotCore"],
             path: "Sources/ShopPilotVerify1136a"
