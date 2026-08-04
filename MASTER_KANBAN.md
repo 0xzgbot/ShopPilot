@@ -225,6 +225,12 @@ A (parallel from day 0)
   - deps: SPK-1102g, SPK-0402, SPK-0403
   - track: 4
   - worklog: 2026-08-03 — Hermes coder. Audit: Machine stage RUN was already gated on connected + preflightPassed (SPK-0412/0413), Hold/Reset realtime via MachineSession (SPK-1104 repair), buffer load on appear (SPK-1104a) — but the handoff fed `session.gcodeLines` (last single-op overwrite). Fixed: `ContentView` Machine stage now passes `session.allToolpathGCode` (full tree, tree order — closes the P0-C handoff gap). Verify `ShopPilotVerify1104b` PASS: two-op tree (Profile+Pocket) handoff carries both strategy markers + cut moves; `loadGCode` sends ZERO bytes to the transport (no auto-run on load); `runJob` without a connection throws notConnected (explicit Start required); connect(sim) + explicit runJob streams and completes; fresh PreflightGate blocks Run until every item is acknowledged. Whole-package build green.
+- [x] **SPK-1136b** **TP** Pocket strategy form fields — installer-verified §M // P0
+  - AC: PocketToolpathParams covers the §M key set (start depth, pass control, raster angle, profile pass, allowance, ramping, direction; additive defaults + backward-compatible decode); Cut inspector form per selected Pocket op; params persist per-op via .shoppilot; Apply→regen uses stored params; `swift run ShopPilotVerify1136b` PASS
+  - deps: SPK-1136a
+  - track: 3
+  - note: Parent SPK-1136 stays [ ] — Drill/V-Carve slices remain
+  - worklog: 2026-08-03 — Hermes coder. Engine: `PocketToolpathParams` extended with the §M key set (startDepthMm, passCount 0=auto, exactStepDepth, `CutDirection` shared alias (Climb/Conventional), rasterAngleDegrees, `PocketProfilePass` first/last/none, allowanceMm, rampPlungeMoves, useVectorSelectionOrder) — additive defaults + custom Codable with decodeIfPresent (pre-1136b JSON loads). **Real bug fixed (verify-caught):** both pocket path generators hardcoded `F1000` and ignored `params.feedRateMmPerMin` — feed rate is now threaded through zigzag/spiral/adaptive generators, so configured feeds reach the G-code. Tree: `isPocketOperation` + `pocketParams()`; persist reuses `paramsJSON` (backward-compatible). Session: `generatePocketToolpath` stores default params on the node (captured node, not re-find); `applyPocketParams(_:to:)` stores + regenerates + clears dirty + refreshes buffer; `encodeParams` made generic over Encodable. UI: `PocketParamsForm` in the Cut inspector for the selected Pocket op (Clearing/Depth & passes/Feeds/Options + Apply→Regenerate). Verify: `./scripts/verify_locked.sh ShopPilotVerify1136b` PASS — §M key presence, JSON + .shoppilot per-op round-trip, legacy-JSON decode with defaults, apply-regen uses stored feed (F1500 in G-code). 1102h/1102d/1102c/1136a regression green; app build green.
 - [ ] **SPK-1102** **TP** Cut stage product — toolpath tree Profile/Pocket/Drill/V-Carve + dirty/recalc/export block + GRBL post // P0
   - AC: Saved job regenerates toolpaths and exports GRBL from tree
   - deps: SPK-1101, SPK-0302
@@ -1020,6 +1026,11 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 ### 2026-08-03 — SPK-1104b Cut→Machine handoff (Hermes coder)
 - Claimed/finished **SPK-1104b**: Machine stage now receives `session.allToolpathGCode` (full tree — closes the P0-C handoff gap where the last single op overwrote the buffer). `ShopPilotVerify1104b` PASS: full-tree handoff (both strategy markers), zero bytes on load (no auto-run), runJob throws notConnected without a connection, connect+explicit runJob streams, fresh preflight gate blocks Run until acknowledged.
 - Next: full-sweep gate for tonight's wave, then SPK-1101 parent close-out review / SPK-1105 XCTest (Xcode-gated).
+
+### 2026-08-03 — SPK-1136b Pocket form fields (Hermes coder)
+- Claimed/finished **SPK-1136b** (Pocket slice of SPK-1136): params model covers the §M key set with backward-compatible Codable; per-op persist via paramsJSON; Cut inspector PocketParamsForm (Apply→regenerate); **real bug fixed** — pocket generators hardcoded F1000, now use the configured feed. `ShopPilotVerify1136b` PASS; 1102h/1102d/1102c/1136a regression green; app build green.
+- Parent SPK-1136 stays `[ ]` (Drill/V-Carve slices next).
+- Next: SPK-1136c Drill form fields.
 
 ### 2026-08-03 — SPK-1136a Profile form fields (Hermes coder)
 - Claimed/finished **SPK-1136a** (Profile slice of SPK-1136): params model covers the installer-verified §R2 key set (tabs/ramping/leads/corners/direction) with backward-compatible Codable; per-op params persist via paramsJSON + round-trip; Cut inspector ProfileParamsForm (Apply→regenerate); recalc respects stored params. `ShopPilotVerify1136a` PASS; whole-package build green; 1102c/d/e/g + 1137/1101d regression green.

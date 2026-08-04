@@ -155,6 +155,25 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
         return false
     }
 
+    /// Whether this node is a Pocket operation (label convention, like
+    /// `isProfileOperation`).
+    public var isPocketOperation: Bool {
+        if case .operation(let label) = type { return label.hasPrefix("Pocket") }
+        return false
+    }
+
+    /// The Pocket params stored on this node (decoded from `paramsJSON`),
+    /// or defaults when none are stored.
+    public func pocketParams() -> PocketToolpathParams {
+        guard let json = paramsJSON,
+              let data = json.data(using: .utf8),
+              let params = try? JSONDecoder().decode(PocketToolpathParams.self, from: data)
+        else {
+            return PocketToolpathParams()
+        }
+        return params
+    }
+
     /// The Profile params stored on this node (decoded from `paramsJSON`),
     /// or defaults when none are stored.
     public func profileParams() -> ProfileToolpathParams {

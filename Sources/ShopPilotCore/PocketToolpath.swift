@@ -22,6 +22,25 @@ public enum PocketClearanceMode: String, Codable, Sendable {
 
 // MARK: - Pocket Toolpath Parameters
 
+/// Shared cut-direction enum (Climb/Conventional) — used by Profile and
+/// Pocket strategies (installer-verified §R2/§M).
+public typealias CutDirection = ProfileCutDirection
+
+/// Edge cleanup timing for pocket clearing (installer-verified M11).
+public enum PocketProfilePass: String, Codable, Sendable {
+    case first
+    case last
+    case none
+
+    public var displayName: String {
+        switch self {
+        case .first: return "First"
+        case .last: return "Last"
+        case .none: return "No Profile Pass"
+        }
+    }
+}
+
 /// Configuration for a pocket toolpath operation.
 public struct PocketToolpathParams: Codable, Sendable {
     
@@ -32,6 +51,19 @@ public struct PocketToolpathParams: Codable, Sendable {
     public var maxDepthOfCutMm: Double
     public var toolDiameterMm: Double
     public var safetyHeightMm: Double
+
+    // SPK-1136b — installer-verified §M key set (start depth, pass control,
+    // raster angle, profile pass, allowance, ramping). Additive with defaults
+    // so existing call sites and persisted documents decode unchanged.
+    public var startDepthMm: Double
+    public var passCount: Int            // 0 = auto (from maxDepthOfCutMm)
+    public var exactStepDepth: Bool
+    public var cutDirection: CutDirection
+    public var rasterAngleDegrees: Double
+    public var profilePass: PocketProfilePass
+    public var allowanceMm: Double
+    public var rampPlungeMoves: Bool
+    public var useVectorSelectionOrder: Bool
     
     /// Minimum pocket size below which the toolpath is skipped.
     public static let minPocketSizeMm = 2.0
@@ -43,7 +75,16 @@ public struct PocketToolpathParams: Codable, Sendable {
         plungeFeedRateMmPerMin: Double = 300,
         maxDepthOfCutMm: Double = 2.0,
         toolDiameterMm: Double = 6.0,
-        safetyHeightMm: Double = 5.0
+        safetyHeightMm: Double = 5.0,
+        startDepthMm: Double = 0.0,
+        passCount: Int = 0,
+        exactStepDepth: Bool = false,
+        cutDirection: CutDirection = .climb,
+        rasterAngleDegrees: Double = 0.0,
+        profilePass: PocketProfilePass = .last,
+        allowanceMm: Double = 0.0,
+        rampPlungeMoves: Bool = false,
+        useVectorSelectionOrder: Bool = false
     ) {
         self.clearanceMode = clearanceMode
         self.stepOverMm = stepOverMm
@@ -52,6 +93,15 @@ public struct PocketToolpathParams: Codable, Sendable {
         self.maxDepthOfCutMm = maxDepthOfCutMm
         self.toolDiameterMm = toolDiameterMm
         self.safetyHeightMm = safetyHeightMm
+        self.startDepthMm = startDepthMm
+        self.passCount = passCount
+        self.exactStepDepth = exactStepDepth
+        self.cutDirection = cutDirection
+        self.rasterAngleDegrees = rasterAngleDegrees
+        self.profilePass = profilePass
+        self.allowanceMm = allowanceMm
+        self.rampPlungeMoves = rampPlungeMoves
+        self.useVectorSelectionOrder = useVectorSelectionOrder
     }
     
     /// Create params from material defaults.
@@ -66,6 +116,57 @@ public struct PocketToolpathParams: Codable, Sendable {
             toolDiameterMm: toolDiameter,
             safetyHeightMm: 5.0
         )
+    }
+
+    // MARK: - Codable (backward-compatible: every key decodes with a default,
+    // so documents written before SPK-1136b still load).
+
+    private enum CodingKeys: String, CodingKey {
+        case clearanceMode, stepOverMm, feedRateMmPerMin, plungeFeedRateMmPerMin
+        case maxDepthOfCutMm, toolDiameterMm, safetyHeightMm
+        case startDepthMm, passCount, exactStepDepth, cutDirection
+        case rasterAngleDegrees, profilePass, allowanceMm, rampPlungeMoves
+        case useVectorSelectionOrder
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        clearanceMode = try c.decodeIfPresent(PocketClearanceMode.self, forKey: .clearanceMode) ?? .zigzag
+        stepOverMm = try c.decodeIfPresent(Double.self, forKey: .stepOverMm) ?? 3.0
+        feedRateMmPerMin = try c.decodeIfPresent(Double.self, forKey: .feedRateMmPerMin) ?? 1000
+        plungeFeedRateMmPerMin = try c.decodeIfPresent(Double.self, forKey: .plungeFeedRateMmPerMin) ?? 300
+        maxDepthOfCutMm = try c.decodeIfPresent(Double.self, forKey: .maxDepthOfCutMm) ?? 2.0
+        toolDiameterMm = try c.decodeIfPresent(Double.self, forKey: .toolDiameterMm) ?? 6.0
+        safetyHeightMm = try c.decodeIfPresent(Double.self, forKey: .safetyHeightMm) ?? 5.0
+        startDepthMm = try c.decodeIfPresent(Double.self, forKey: .startDepthMm) ?? 0.0
+        passCount = try c.decodeIfPresent(Int.self, forKey: .passCount) ?? 0
+        exactStepDepth = try c.decodeIfPresent(Bool.self, forKey: .exactStepDepth) ?? false
+        cutDirection = try c.decodeIfPresent(CutDirection.self, forKey: .cutDirection) ?? .climb
+        rasterAngleDegrees = try c.decodeIfPresent(Double.self, forKey: .rasterAngleDegrees) ?? 0.0
+        profilePass = try c.decodeIfPresent(PocketProfilePass.self, forKey: .profilePass) ?? .last
+        allowanceMm = try c.decodeIfPresent(Double.self, forKey: .allowanceMm) ?? 0.0
+        rampPlungeMoves = try c.decodeIfPresent(Bool.self, forKey: .rampPlungeMoves) ?? false
+        useVectorSelectionOrder = try c.decodeIfPresent(Bool.self, forKey: .useVectorSelectionOrder) ?? false
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(clearanceMode, forKey: .clearanceMode)
+        try c.encode(stepOverMm, forKey: .stepOverMm)
+        try c.encode(feedRateMmPerMin, forKey: .feedRateMmPerMin)
+        try c.encode(plungeFeedRateMmPerMin, forKey: .plungeFeedRateMmPerMin)
+        try c.encode(maxDepthOfCutMm, forKey: .maxDepthOfCutMm)
+        try c.encode(toolDiameterMm, forKey: .toolDiameterMm)
+        try c.encode(safetyHeightMm, forKey: .safetyHeightMm)
+        try c.encode(startDepthMm, forKey: .startDepthMm)
+        try c.encode(passCount, forKey: .passCount)
+        try c.encode(exactStepDepth, forKey: .exactStepDepth)
+        try c.encode(cutDirection, forKey: .cutDirection)
+        try c.encode(rasterAngleDegrees, forKey: .rasterAngleDegrees)
+        try c.encode(profilePass, forKey: .profilePass)
+        try c.encode(allowanceMm, forKey: .allowanceMm)
+        try c.encode(rampPlungeMoves, forKey: .rampPlungeMoves)
+        try c.encode(useVectorSelectionOrder, forKey: .useVectorSelectionOrder)
     }
 }
 
@@ -146,7 +247,8 @@ public struct PocketToolpathEngine {
                         bounds: b,
                         toolDiameter: params.toolDiameterMm,
                         stepOver: params.stepOverMm,
-                        points: vector.points
+                        points: vector.points,
+                        feedRate: feedRate
                     )
                     allGcodeLines.append(contentsOf: insertPlunge(
                         into: zigzagPath,
@@ -159,7 +261,8 @@ public struct PocketToolpathEngine {
                         bounds: b,
                         toolDiameter: params.toolDiameterMm,
                         stepOver: params.stepOverMm,
-                        points: vector.points
+                        points: vector.points,
+                        feedRate: feedRate
                     )
                     allGcodeLines.append(contentsOf: insertPlunge(
                         into: spiralPath,
@@ -173,7 +276,8 @@ public struct PocketToolpathEngine {
                         bounds: b,
                         toolDiameter: params.toolDiameterMm,
                         stepOver: params.stepOverMm * 1.5, // Wider stepover for adaptive
-                        points: vector.points
+                        points: vector.points,
+                        feedRate: feedRate
                     )
                     allGcodeLines.append(contentsOf: insertPlunge(
                         into: adaptivePath,
@@ -240,11 +344,11 @@ public struct PocketToolpathEngine {
         bounds: (minX: Double, minY: Double, maxX: Double, maxY: Double),
         toolDiameter: Double,
         stepOver: Double,
-        points: [VectorPoint]
+        points: [VectorPoint],
+        feedRate: Double
     ) -> [String] {
         
         var gcodeLines: [String] = []
-        let feedRate = 1000 // Will be overridden by caller
         
         let minX = bounds.minX + toolDiameter / 2
         let maxX = bounds.maxX - toolDiameter / 2
@@ -282,11 +386,11 @@ public struct PocketToolpathEngine {
         bounds: (minX: Double, minY: Double, maxX: Double, maxY: Double),
         toolDiameter: Double,
         stepOver: Double,
-        points: [VectorPoint]
+        points: [VectorPoint],
+        feedRate: Double
     ) -> [String] {
         
         var gcodeLines: [String] = []
-        let feedRate = 1000
         
         // Start from center of pocket
         let centerX = (bounds.minX + bounds.maxX) / 2

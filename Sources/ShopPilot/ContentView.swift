@@ -442,6 +442,16 @@ private struct CutStageView: View {
                     .frame(maxHeight: 320)
                 }
 
+                // SPK-1136b: Pocket strategy form — installer-verified §M fields.
+                if node.isPocketOperation {
+                    ScrollView {
+                        PocketParamsForm(node: node) { newParams in
+                            _ = session.applyPocketParams(newParams, to: node.id)
+                        }
+                    }
+                    .frame(maxHeight: 320)
+                }
+
                 let lines = (node.toolpathResult ?? "")
                     .components(separatedBy: .newlines)
                     .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
@@ -589,6 +599,96 @@ private struct ProfileParamsForm: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Toggle("Sharp external corner", isOn: $params.sharpExternalCorner)
                     Toggle("Sharp internal corner", isOn: $params.sharpInternalCorner)
+                }
+            }
+
+            Button("Apply Params — Regenerate") {
+                onApply(params)
+            }
+            .buttonStyle(.borderedProminent)
+            .frame(maxWidth: .infinity)
+        }
+        .padding(8)
+    }
+
+    private func numRow(_ label: String, _ value: Binding<Double>) -> some View {
+        GridRow {
+            Text(label).font(.caption).foregroundStyle(.secondary)
+            TextField("", value: value, format: .number)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 80)
+        }
+    }
+}
+
+// MARK: - Pocket strategy form (SPK-1136b)
+
+/// Editable form for the installer-verified §M Pocket field set. Editing is
+/// local; "Apply" stores the params on the operation and regenerates its
+/// G-code with the real engine.
+private struct PocketParamsForm: View {
+    let node: ToolpathTreeNode
+    let onApply: (PocketToolpathParams) -> Void
+
+    @State private var params: PocketToolpathParams
+
+    init(node: ToolpathTreeNode, onApply: @escaping (PocketToolpathParams) -> Void) {
+        self.node = node
+        self.onApply = onApply
+        _params = State(initialValue: node.pocketParams())
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            GroupBox("Clearing") {
+                VStack(alignment: .leading, spacing: 6) {
+                    Picker("Strategy", selection: $params.clearanceMode) {
+                        ForEach([PocketClearanceMode.zigzag, .spiralOut, .adaptive], id: \.self) { m in
+                            Text(m.displayName).tag(m)
+                        }
+                    }
+                    Picker("Direction", selection: $params.cutDirection) {
+                        ForEach([CutDirection.climb, .conventional], id: \.self) { d in
+                            Text(d.displayName).tag(d)
+                        }
+                    }
+                    if params.clearanceMode == .zigzag {
+                        Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                            numRow("Raster angle (°)", $params.rasterAngleDegrees)
+                        }
+                    }
+                    Picker("Profile pass", selection: $params.profilePass) {
+                        ForEach([PocketProfilePass.first, .last, .none], id: \.self) { p in
+                            Text(p.displayName).tag(p)
+                        }
+                    }
+                }
+                .labelsHidden()
+            }
+
+            GroupBox("Depth & passes") {
+                Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                    numRow("Start depth (mm)", $params.startDepthMm)
+                    numRow("Depth/pass (mm)", $params.maxDepthOfCutMm)
+                    numRow("Pocket allowance (mm)", $params.allowanceMm)
+                    numRow("Safe Z (mm)", $params.safetyHeightMm)
+                }
+                Toggle("Exact step depth", isOn: $params.exactStepDepth)
+            }
+
+            GroupBox("Feeds") {
+                Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                    numRow("Feed (mm/min)", $params.feedRateMmPerMin)
+                    numRow("Plunge (mm/min)", $params.plungeFeedRateMmPerMin)
+                    numRow("Step-over (mm)", $params.stepOverMm)
+                    numRow("Tool Ø (mm)", $params.toolDiameterMm)
+                }
+            }
+
+            GroupBox("Options") {
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle("Ramp plunge moves", isOn: $params.rampPlungeMoves)
+                    Toggle("Use vector selection order", isOn: $params.useVectorSelectionOrder)
                 }
             }
 

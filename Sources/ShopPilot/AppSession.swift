@@ -1077,7 +1077,7 @@ final class AppSession: ObservableObject {
         return true
     }
 
-    private func encodeParams(_ params: ProfileToolpathParams) -> String? {
+    private func encodeParams<T: Encodable>(_ params: T) -> String? {
         guard let data = try? JSONEncoder().encode(params) else { return nil }
         return String(data: data, encoding: .utf8)
     }
@@ -1149,16 +1149,55 @@ final class AppSession: ObservableObject {
             material: nil,
             stockHeightMm: job.sheets.first?.height ?? 25.0
         )
-        _ = addToolpathNode(
+        let node = addToolpathNode(
             named: "Pocket \(toolpathTree.allNodes.count)",
             gcode: result.gcodeLines,
             estimatedTime: result.estimatedTimeSeconds
         )
+        node.paramsJSON = encodeParams(PocketToolpathParams())
         lastToolpathSummary =
             "Pocket: \(result.gcodeLines.count) lines, ~\(Int(result.estimatedTimeSeconds))s"
         statusMessage = result.isTooSmall
             ? "Pocket: region too small for the tool — no cut generated"
             : lastToolpathSummary
+    }
+
+    /// Apply Pocket params to an operation: store them on the node and
+    /// immediately regenerate its G-code with the REAL engine (SPK-1136b).
+    /// The dirty badge clears because the result is fresh.
+    @discardableResult
+    func applyPocketParams(_ params: PocketToolpathParams, to nodeID: UUID) -> Bool {
+        guard let node = toolpathTree.findNode(id: nodeID), node.isPocketOperation else {
+            statusMessage = "Apply params: select a Pocket operation"
+            return false
+        }
+        guard !vectors.isEmpty else {
+            statusMessage = "No vectors — add shapes first"
+            return false
+        }
+        registerUndoPoint()
+        node.paramsJSON = encodeParams(params)
+        let result = PocketToolpathEngine.compute(
+            vectors: vectors,
+            params: params,
+            material: nil,
+            stockHeightMm: job.sheets.first?.height ?? 25.0
+        )
+        node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+        node.estimatedTimeSeconds = result.estimatedTimeSeconds
+        node.clearDirty()
+        let all = allToolpathGCode
+        if !all.isEmpty {
+            gcodeLines = all
+        }
+        lastToolpathSummary =
+            "Pocket: \(result.gcodeLines.count) lines, \(params.clearanceMode.displayName), " +
+            "\(Int(result.estimatedTimeSeconds))s"
+        statusMessage = result.isTooSmall
+            ? "Pocket: region too small for the tool — no cut generated"
+            : lastToolpathSummary
+        markDirty()
+        return true
     }
 
     /// Generate a Drill toolpath at the center of every closed vector
