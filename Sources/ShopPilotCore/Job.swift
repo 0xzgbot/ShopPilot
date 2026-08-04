@@ -29,6 +29,10 @@ public struct Job: Identifiable, Codable, Sendable {
     /// tree node carries the same configuration the recipe used.
     public var vcarveParamsJSON: String?
 
+    /// SPK-3D-spine-a — imported STL relief as a heightfield grid. Optional →
+    /// older documents decode unchanged (synthesized Codable).
+    public var stlHeightfield: HeightfieldData?
+
     /// Document-level variables (key-value pairs for stock size, material, etc.).
     public var documentVariables: [DocumentVariable] = []
 

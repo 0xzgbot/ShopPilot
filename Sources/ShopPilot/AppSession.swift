@@ -932,6 +932,33 @@ final class AppSession: ObservableObject {
         return result.shapes.count
     }
 
+    // MARK: - STL relief import (SPK-3D-spine-a)
+
+    /// The imported STL relief (heightfield), if any. Persisted on the job.
+    var stlHeightfield: HeightfieldData? {
+        job.stlHeightfield
+    }
+
+    /// Import an ASCII STL file as a heightfield relief: parse + rasterize,
+    /// store on the document, mark dirty. Returns the importer result.
+    @discardableResult
+    func importSTLHeightfield(from url: URL) throws -> STLHeightfieldResult {
+        let result = STLHeightfieldImporter.importSTL(
+            at: url.path,
+            cellSizeMm: 1.0,
+            scale: 1.0
+        )
+        guard result.success, let hf = result.heightfield else {
+            statusMessage = "STL import failed: \(result.errorMessage ?? "unknown error")"
+            return result
+        }
+        registerUndoPoint()
+        job.stlHeightfield = hf
+        markDirty()
+        statusMessage = "STL relief imported: \(result.triangleCount) triangles → \(hf.width)×\(hf.height) grid, max \(String(format: "%.1f", hf.maxHeight))mm"
+        return result
+    }
+
     // MARK: - DXF import (SPK-1101g)
 
     /// Import an ASCII DXF file into the session document.
@@ -1463,10 +1490,38 @@ final class AppSession: ObservableObject {
             statusMessage = "G-code ready (\(gcodeLines.count) lines) — use Machine stage to stream"
         case .importSVG:
             importSVGFromPanel()
+        case .importSTLRelief:
+            importSTLHeightfieldFromPanel()
         default:
             statusMessage = "Command: \(id.name)"
         }
         showCommandPalette = false
+    }
+
+    /// ⌘K "Import STL Relief…": present an open panel and import the chosen
+    /// STL as a heightfield (SPK-3D-spine-a). Also the Design-stage button.
+    func importSTLHeightfieldFromPanel() {
+        let panel = NSOpenPanel()
+        if let stlType = UTType(filenameExtension: "stl") {
+            panel.allowedContentTypes = [stlType]
+        } else {
+            panel.allowedFileTypes = ["stl"]
+        }
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.title = "Import STL Relief"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            let result = try importSTLHeightfield(from: url)
+            selectedStage = .design
+            if result.success, let hf = result.heightfield {
+                statusMessage = "STL relief: \(result.triangleCount) triangles → \(hf.width)×\(hf.height) grid, max \(String(format: "%.1f", hf.maxHeight))mm"
+            } else {
+                statusMessage = "STL import failed: \(result.errorMessage ?? "unknown error")"
+            }
+        } catch {
+            statusMessage = "STL import failed: \(error.localizedDescription)"
+        }
     }
 
     /// ⌘K "Import SVG…": present an open panel and import the chosen file

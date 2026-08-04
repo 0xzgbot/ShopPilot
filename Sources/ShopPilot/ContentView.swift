@@ -183,6 +183,10 @@ private struct DesignStageView: View {
             Button("Scale 1.1×") { _ = session.applyScale110() }
                 .disabled(session.selectedShapeIndices.isEmpty)
                 .help("Scale selected vectors 1.1× about the selection centroid")
+            Divider().frame(height: 14)
+            // SPK-3D-spine-a: import an STL relief as a heightfield.
+            Button("STL Relief…") { session.importSTLHeightfieldFromPanel() }
+                .help("Import an ASCII STL model as a heightfield relief")
             Spacer()
             Text("\(session.selectedShapeIndices.count) selected")
                 .font(.caption)
