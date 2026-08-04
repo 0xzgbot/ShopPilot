@@ -118,7 +118,6 @@ private struct DesignStageView: View {
     @ObservedObject var session: AppSession
     @State private var showOffsetDialog = false
     @State private var offsetDistance = "3.0"
-    @State private var showPreflight = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -126,7 +125,7 @@ private struct DesignStageView: View {
             Divider()
             HSplitView {
                 DesignCanvasView(session: session)
-                if showPreflight {
+                if session.preflightPanelVisible {
                     PreflightDoctorView(session: session)
                         .frame(minWidth: 280, idealWidth: 320)
                 } else {
@@ -193,7 +192,7 @@ private struct DesignStageView: View {
             // SPK-0211+0212: Vector Preflight Doctor — run before Cut.
             Button("Check Vectors") {
                 _ = session.runPreflight()
-                showPreflight = true
+                session.preflightPanelVisible = true
             }
             .help("Detect open vectors, self-intersections, degenerate shapes and gaps — with fix actions (before cutting)")
             Divider().frame(height: 14)

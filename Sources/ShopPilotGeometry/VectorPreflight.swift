@@ -284,6 +284,21 @@ private extension Rect {
 
 public extension VectorPreflight {
 
+    /// SPK-0604 — V-Carve preflight gate. V-Carve needs closed vectors; open
+    /// vectors would engrave a dangling path. Returns the blocking report
+    /// (nil = safe to carve): any open-vector issue is a hard block with a
+    /// plain-English fix CTA ("Close open vector"). Non-open issues
+    /// (degenerate/gap/self-intersection) are surfaced as warnings but do not
+    /// block the carve.
+    static func vCarveGate(shapes: [VectorShape], tolerance: Double = defaultTolerance) -> PreflightReport? {
+        let report = check(shapes: shapes, tolerance: tolerance)
+        let openIssues = report.issues.filter { $0.issue == .openPath }
+        guard !openIssues.isEmpty else { return nil }
+        // Keep the full report so the fix CTA list shows everything, but the
+        // gate decision is driven by open vectors.
+        return report
+    }
+
     /// Generate plain-English fix actions from a `PreflightReport`.
     /// Suitable for `List` / `ForEach` in SwiftUI.
     static func fixActions(for report: PreflightReport) -> [FixAction] {

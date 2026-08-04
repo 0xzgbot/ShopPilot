@@ -64,6 +64,10 @@ final class AppSession: ObservableObject {
     /// SPK-0211+0212 — last vector preflight report (nil until first run).
     @Published var lastPreflightReport: PreflightReport?
 
+    /// SPK-0604 — true when the V-Carve preflight gate has blocked a carve and
+    /// routed to Design; the Design panel auto-opens to show the fix CTAs.
+    @Published var preflightPanelVisible = false
+
     /// Inspector/browser selection type (job, sheet, layer, toolpath).
     @Published var selection: SelectionType = .none
 
@@ -1411,6 +1415,16 @@ final class AppSession: ObservableObject {
     func generateVCarveToolpath() {
         guard !vectors.isEmpty else {
             statusMessage = "No vectors — import SVG or add a demo shape first"
+            return
+        }
+        // SPK-0604 — preflight gate: V-Carve on open vectors is blocked with a
+        // plain-English fix CTA (reuses the 0211/0212 preflight doctor).
+        if let gateReport = VectorPreflight.vCarveGate(shapes: shapes) {
+            lastPreflightReport = gateReport
+            preflightPanelVisible = true
+            let openCount = gateReport.issues.filter { $0.issue == .openPath }.count
+            statusMessage = "V-Carve blocked: \(openCount) open vector(s) — close them in Design first"
+            selectedStage = .design
             return
         }
         registerUndoPoint()
