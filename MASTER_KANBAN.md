@@ -794,10 +794,10 @@ A (parallel from day 0)
   - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
   - deps: SPK-0110, SPK-0210, SPK-0403, SPK-0404
   - worklog: 2026-07-30 — Direct write. Updated scripts/test.sh to use `swift build` instead of `swift build --build-tests` for CLI-only env. Build passes cleanly.
-- [ ] **SPK-0603** **QA** Dirty toolpath cannot export without override
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0603** **QA** Dirty toolpath cannot export without override
+  - AC: Engine: ExportBlocker blocks when any tree node is dirty; UI: clear alert + expert override path; no silent export; Persist: dirty flags survive session; Verify: `ShopPilotVerify0603` PASS (dirty blocks, clean exports, override works)
   - deps: SPK-0307
-  - worklog: 2026-07-30 — Direct write. ExportBlockerTests.swift (10.3KB) in ShopPilotTests. Tests: dirty node detection, export block, override, clear flags, propagation, tree manager, empty tree, complex tree, validation result properties. Build passes cleanly.
+  - worklog: 2026-08-04 — Hermes coder (finish close-out). Audit: Engine (`ExportBlocker.validateForExport`/`overrideExportBlock`/`clearDirtyFlags`) + UI (CutStageView alert + "Save Anyway (Expert)" → override → save) already shipped on the 1102c/1102g spine; the honest gap was the Verify CLT. Added `ShopPilotVerify0603` PASS — dirty tree validates invalid with named nodes (`["Profile 1"]`) + `requiresOverride` (no silent export); clean tree exports freely (canExport, no override); expert override is a one-shot gate-open (clears the block flag; a fresh validation re-blocks a still-dirty node — honest contract, UI saves immediately after override without re-validating); recalc is the non-override path back to clean; `PersistedToolpath` round-trips `isDirty` + `paramsJSON` so a reopened .shoppilot package still blocks until recalculated. App build green.
 - [ ] **SPK-0604** **QA** Preflight blocks V-Carve on open vectors with fix CTA
   - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
   - deps: SPK-0212, SPK-0504
@@ -1340,3 +1340,6 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 - Claimed/finished **SPK-0211** + **SPK-0212**: real `affectedShapeIndices`, proximity gap probe, Design **Check Vectors** + `PreflightDoctorView`, `ShopPilotVerify0211` PASS; gap XCTest aligned.
 - Committed research pack under `docs/planning/research/` + `scripts/verify_import_torture.py`; ignored `__pycache__` / `research/raw/`.
 - Pushed `master` to origin (private GitHub).
+
+### 2026-08-04 — SPK-0603 dirty-export gate close-out (Hermes coder)
+- Claimed/finished **SPK-0603** [x]: Engine (ExportBlocker) + UI (alert + "Save Anyway (Expert)" override) already live on the 1102c/1102g spine; added the missing Verify CLT `ShopPilotVerify0603` PASS — dirty blocks with named nodes + requiresOverride (no silent export), clean exports freely, override is one-shot gate-open (fresh validation re-blocks a still-dirty node), recalc is the non-override path to clean, `PersistedToolpath` round-trips isDirty + paramsJSON so reopened packages still block. App build green.
