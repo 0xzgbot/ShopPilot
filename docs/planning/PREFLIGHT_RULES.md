@@ -5,6 +5,8 @@
 **Verification date:** 2026-07-30
 **Purpose:** Block toolpath generation on invalid geometry with plain-English fix CTAs.
 
+> Machine-outcome failure modes FM-01…FM-20 and their rule mapping: `docs/planning/research/PREFLIGHT_FM_MAPPING.md`. (R013/R014/R016/R017/R019 implemented 2026-08-04 in `ToolpathPreflight` + machine panel.)
+
 ---
 
 ## Verification Summary

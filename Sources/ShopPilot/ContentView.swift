@@ -226,6 +226,11 @@ private struct CutStageView: View {
     @State private var exportBlocker: ExportBlocker?
     @State private var showExportBlockAlert = false
     @State private var exportBlockMessage = ""
+
+    /// Toolpath preflight gate (SPK-FM-R013): error issues block save with a
+    /// plain-English CTA before the NSSavePanel opens.
+    @State private var toolpathPreflightIssues: [ToolpathPreflightIssue] = []
+    @State private var showToolpathPreflightAlert = false
     /// SPK-1133 — selected tool in the grouped tool browser (left pane).
     @State private var selectedBrowserToolID: UUID?
 
@@ -337,6 +342,31 @@ private struct CutStageView: View {
         } message: {
             Text(exportBlockMessage)
         }
+        .alert(
+            "Toolpath preflight — this cut needs attention",
+            isPresented: $showToolpathPreflightAlert
+        ) {
+            Button("Cancel", role: .cancel) {}
+            Button("Warn Only") {
+                for issue in toolpathPreflightIssues {
+                    session.dismissPunchThrough(nodeID: issue.nodeID)
+                }
+            }
+            if toolpathPreflightIssues.contains(where: { $0.fix.isFlatDepthFix }) {
+                Button("Set Flat Depth") {
+                    for issue in toolpathPreflightIssues {
+                        session.applyFlatDepthFix(nodeID: issue.nodeID)
+                    }
+                }
+            }
+        } message: {
+            Text(toolpathPreflightMessage)
+        }
+    }
+
+    /// Plain-English summary of the blocking toolpath preflight issues.
+    private var toolpathPreflightMessage: String {
+        toolpathPreflightIssues.map { "• \($0.message)" }.joined(separator: "\n")
     }
 
     // MARK: - Save toolpaths to file (SPK-1102b)
@@ -353,13 +383,24 @@ private struct CutStageView: View {
         let blocker = ExportBlocker(treeManager: session.toolpathTree)
         let result = blocker.validateForExport()
 
-        if result.isValid {
-            saveToolpaths()
-        } else {
+        if !result.isValid {
             exportBlocker = blocker
             exportBlockMessage = "Recalculate before saving: \(result.dirtyNodes.joined(separator: ", "))"
             showExportBlockAlert = true
+            return
         }
+
+        // SPK-FM-R013: toolpath preflight rules run after the dirty gate and
+        // before the save panel — error issues (e.g. V-Carve punch-through)
+        // block with a plain-English CTA.
+        let preflight = session.exportPreflightIssues()
+        if !preflight.isEmpty {
+            toolpathPreflightIssues = preflight
+            showToolpathPreflightAlert = true
+            return
+        }
+
+        saveToolpaths()
     }
 
     /// Present the save panel, post-process the session G-code through

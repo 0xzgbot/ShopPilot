@@ -1086,6 +1086,54 @@ final class AppSession: ObservableObject {
 
     var hasSelection: Bool { !selectedVectorIDs.isEmpty || !selectedShapeIndices.isEmpty }
 
+    // MARK: - Toolpath preflight (SPK-FM-R013/R014/R019, export gate)
+
+    /// Expert dismissals for toolpath preflight issues, session-scoped (same
+    /// one-shot honesty contract as ExportBlocker's expert override — SPK-0603).
+    @Published var toolpathPreflightDismissed: Set<UUID> = []
+
+    /// Run the toolpath preflight rules over the tree with the document's
+    /// design vectors and sheet material. Blocks export on `.error` issues.
+    func exportPreflightIssues() -> [ToolpathPreflightIssue] {
+        let materialThickness = job.sheets.first?.height ?? 25.0
+        return ToolpathPreflight.checkTree(
+            toolpathTree,
+            vectors: vectors,
+            materialThicknessMm: materialThickness,
+            dismissedNodeIDs: toolpathPreflightDismissed
+        )
+    }
+
+    /// R013 fix CTA: enable the V-Carve flat-bottom floor on the node,
+    /// prefilled to keep the carve off the material's back side. The node is
+    /// marked dirty — the export gate blocks until the user recalculates
+    /// (the fix persists through `paramsJSON` on recalc/save).
+    func applyFlatDepthFix(nodeID: UUID) {
+        guard let node = toolpathTree.findNode(id: nodeID),
+              node.isVCarveOperation,
+              let paramsJSON = node.paramsJSON,
+              let paramsData = paramsJSON.data(using: .utf8),
+              var params = try? JSONDecoder().decode(VCarveParams.self, from: paramsData) else {
+            statusMessage = "No V-Carve params to fix"
+            return
+        }
+        let materialThickness = job.sheets.first?.height ?? 25.0
+        let recommended = max(0.1, materialThickness - ToolpathPreflight.flatDepthSafetyMarginMm)
+        params.flatBottomMode = true
+        params.maxDepthOfCutMm = min(params.maxDepthOfCutMm, recommended)
+        node.paramsJSON = encodeParams(params)
+        node.markDirty()
+        statusMessage = "Flat depth set on \(node.name) — recalculate to regenerate the toolpath"
+        markDirty()
+    }
+
+    /// R013 secondary CTA: accept the risk for this node this session (the
+    /// override does not survive reopen — same as the expert override).
+    func dismissPunchThrough(nodeID: UUID) {
+        toolpathPreflightDismissed.insert(nodeID)
+        statusMessage = "Punch-through warning dismissed for this session"
+    }
+
     // MARK: - Shape selection (design canvas)
 
     /// Select a single shape by index (replaces the selection).
