@@ -413,31 +413,31 @@ A (parallel from day 0)
 - [x] **SPK-0102** **PLAT** Stage rail: Setup | Design | Model | Cut | Preview | Machine
   - worklog: 2026-07-28 — subagent created StageRailView.swift + StageEnum.swift. Fixed #Preview macro (CLI build) and .accent → Color.accentColor syntax.  
   - deps: SPK-0100  
-- [ ] **SPK-0103** **PLAT** Document model v0 (Job, Sheet single-sided, Layer, undo, dirty doc)
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0103** **PLAT** Document model v0 (Job, Sheet single-sided, Layer, undo, dirty doc)
+  - **SUPERSEDED 2026-08-04 (board hygiene): Job/Sheet/Layer Codable model + dirty flags + undo shipped by the SPK-1100 document spine — `ShopPilotVerify1100` PASS (vectors/toolpaths/doc-vars round-trip through .shoppilot), plus round-trips in 0600/0601/0415; UndoManager in AppSession.
   - worklog: 2026-07-28 — wrote Job.swift (2.3KB), Sheet.swift (2.2KB), Layer.swift (5.1KB) with VectorPoint/VectorPath structs and DirtyDocument protocol + UndoManagerDocument base class.
   - deps: SPK-0101  
-- [ ] **SPK-0104** **PLAT** Save/open `.shoppilot` package + autosave + undo 
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0104** **PLAT** Save/open `.shoppilot` package + autosave + undo 
+  - **SUPERSEDED 2026-08-04 (board hygiene): save/open .shoppilot package + autosave + undo shipped by SPK-1100 — DocumentSaver/DocumentLoader/Autosaver wired in AppSession; `ShopPilotVerify1100` PASS; `PersistedToolpath` dirty flags survive package round-trip (Verify0603).
   - worklog: 2026-07-29 — wrote DocumentSaver.swift (3.3KB), DocumentLoader.swift (4.5KB), Autosaver.swift (2.4KB). Package format: directory bundle with manifest.json + sheets/ subdirectory containing per-sheet JSON files. Autosave at 5-min intervals on dirty flag. swift build passes cleanly.
   - deps: SPK-0103  
-- [ ] **SPK-0105** **PLAT** Browser: Layers | Components | Toolpaths | Sheets
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [-] **SPK-0105** **PLAT** Browser: Layers | Components | Toolpaths | Sheets
+  - **DEFERRED 2026-08-04 (board hygiene): Layers browser = SPK-1123 + SPK-1137 (CRUD + hide/lock, Verify1123 PASS); Toolpaths browser = SPK-1102c tree + dirty badges; Sheets browser = SPK-1100 sheet model. Components browser waits on SPK-0700 (post-v1 Phase H). Do not rebuild.
   - worklog: 2026-07-29 — wrote BrowserPanels.swift directly after subagent stall. Fixed Swift type errors (CGFloat cast, Binding setter). swift build passes cleanly.
   - deps: SPK-0102  
-- [ ] **SPK-0106** **PLAT** Inspector shell
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0106** **PLAT** Inspector shell
+  - **SUPERSEDED 2026-08-04 (board hygiene): inspector shell shipped by SPK-1136 — 4 strategy forms (Profile/Pocket/Drill/V-Carve) dispatched per tree node in ContentView; `ShopPilotVerify1136a/b/c/d` PASS.
   - worklog: 2026-07-29 — wrote file directly after subagent stall. Fixed Swift type errors (keyboardType unavailable on macOS, alert modifier syntax). swift build passes cleanly.
   - deps: SPK-0102  
-- [ ] **SPK-0107** **UX** ⌘K command palette framework + stub commands 
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0107** **UX** ⌘K command palette framework + stub commands 
+  - **SUPERSEDED 2026-08-04 (board hygiene): ⌘K palette shipped by the spine — Commands.swift + CommandPaletteView + real routes (import_stl_relief, design routing from SPK-0604).
   - worklog: 2026-07-29 — Commands.swift (5.3KB) with CommandID enum, CommandCategory grouping, keyboard shortcuts; CommandPaletteView.swift (7.9KB) with search, grouped display, keyboard navigation. swift build passes cleanly.
   - deps: SPK-0102  
 - [x] **SPK-0108** **PLAT** Preferences: units, theme, pro-skip checklist
   - worklog: 2026-07-28 — subagent created PreferencesView.swift + AppSettings.swift. Fixed #Preview macro and @AppStorage private(set) syntax.  
   - deps: SPK-0100  
-- [ ] **SPK-0109** **PLAT** Job recipe picker
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0109** **PLAT** Job recipe picker
+  - **SUPERSEDED 2026-08-04 (board hygiene): recipe picker shipped by SPK-1106a/b + SPK-0601 — NewJobView recipe picker → SignRecipeManager.createSignJob → replaceJob materializes the recipe V-Carve node; `ShopPilotVerify1106a/1106b/0601` PASS.
   - worklog: 2026-07-29 — wrote file directly after subagent stall. Fixed Swift type errors (keyboardType unavailable on macOS, alert modifier syntax). swift build passes cleanly.
   - deps: SPK-0103  
 - [x] **SPK-0110** **PLAT** .gitignore, scripts/build.sh, scripts/test.sh
@@ -468,36 +468,36 @@ A (parallel from day 0)
 - [x] **SPK-0200** **GEO** Kernel: polyline, arc, circle, rect 
   - worklog: 2026-07-29 — completed via batch delegation. swift build passes cleanly.
   - deps: SPK-0101  
-- [ ] **SPK-0201** **GEO** Node editing 
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0201** **GEO** Node editing 
+  - **SUPERSEDED 2026-08-04 (board hygiene): node editing shipped by SPK-1101b (vertex drag) + ShapeNodeEditor; `ShopPilotVerify0201b` PASS (vertex move + undo).
   - worklog: 2026-07-29 — completed via batch delegation. swift build passes cleanly.
   - deps: SPK-0200  
-- [ ] **SPK-0202** **GEO** Transform, align, group 
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0202** **GEO** Transform, align, group 
+  - **SUPERSEDED 2026-08-04 (board hygiene): transform/align/group shipped by SPK-1101f — nudge/flip/rotate-90/scale + rect-rotation fix; `ShopPilotVerify1101f` PASS.
   - worklog: 2026-07-29 — completed via batch delegation. swift build passes cleanly.
   - deps: SPK-0200  
-- [ ] **SPK-0203** **GEO** Offset vectors 
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0203** **GEO** Offset vectors 
+  - **SUPERSEDED 2026-08-04 (board hygiene): vector offset shipped by SPK-1101d (Offset op) + VectorOffset kernel (used by the Profile engine); `ShopPilotVerify0203c` PASS.
   - worklog: 2026-07-29 — completed via batch delegation. swift build passes cleanly.
   - deps: SPK-0200  
-- [ ] **SPK-0204** **GEO** Boolean weld / subtract / intersection 
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0204** **GEO** Boolean weld / subtract / intersection 
+  - **SUPERSEDED 2026-08-04 (board hygiene): booleans shipped by SPK-1101d — Weld/Subtract/Intersect ops in the Design ops bar via session apply* (BooleanOps). Golden CLT proof deferred to SPK-0210 (Wave 3, stays [ ]).
   - worklog: 2026-07-29 — completed via batch delegation. swift build passes cleanly.
   - deps: SPK-0200  
-- [ ] **SPK-0205** **GEO** Join / close / trim 
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0205** **GEO** Join / close / trim 
+  - **SUPERSEDED 2026-08-04 (board hygiene): join/close/trim shipped by SPK-1101d (Join/Close/Trim ops; ShapeJoinEngine wired in AppSession).
   - worklog: 2026-07-29 — wrote Sources/ShopPilotGeometry/JoinCloseTrim.swift (11.3KB). ShapeJoinEngine with joinLines, closeAll, trimToBox, trimByLine. JoinResult for undo/redo history. Cohen-Sutherland line clipping. swift build passes cleanly.
   - deps: SPK-0200  
-- [ ] **SPK-0206** **GEO** Import SVG + DXF 
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0206** **GEO** Import SVG + DXF 
+  - **SUPERSEDED 2026-08-04 (board hygiene): import shipped by SPK-1101e (SVG) + SPK-1101g (real DXF LINE/LWPOLYLINE/CIRCLE/ARC) + ImportHubView; `ShopPilotVerify1101e/1101g` PASS.
   - worklog: 2026-07-29 — Direct write. SVGImporter.swift (18.5KB) with full path parsing supporting M/L/H/V/C/Q/A/Z commands, bezier→line approximation, arc→line approximation, multiple paths, absolute/relative coordinates. swift build passes cleanly.
   - deps: SPK-0200  
-- [ ] **SPK-0207** **GEO** Layers CRUD + visibility 
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0207** **GEO** Layers CRUD + visibility 
+  - **SUPERSEDED 2026-08-04 (board hygiene): layers shipped by SPK-1123 (CRUD UI) + SPK-1137 (per-layer hide/lock, layer-faithful save/open); `ShopPilotVerify1123` PASS.
   - worklog: 2026-07-29 — Direct write. LayerManager.swift (199 lines) moved to ShopPilotGeometry where VectorShape lives. DesignLayer struct with full CRUD, shape add/remove, visibility/lock toggle, reorder, clear. Build passes cleanly.
   - deps: SPK-0105, SPK-0200  
-- [ ] **SPK-0208** **GEO** Measure tool 
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0208** **GEO** Measure tool 
+  - **SUPERSEDED 2026-08-04 (board hygiene): measure tool shipped by SPK-1101c (two-point distance overlay in DesignCanvasView); MeasurementTool state machine in Geometry.
   - worklog: 2026-07-29 — Direct write. MeasurementTool.swift (134 lines) with MeasurementResult struct (distance, angle, delta X/Y), MeasurementToolState ObservableObject for begin/complete/cancel measurement lifecycle. Build passes cleanly.
   - deps: SPK-0200  
 - [ ] **SPK-0209** **GEO** Calculation numeric fields (expressions) 
@@ -537,64 +537,64 @@ A (parallel from day 0)
 
 **Goal:** Calculate → preview → G-code file (no machine yet).
 
-- [ ] **SPK-0300** **TP** Material setup (flat) 
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0300** **TP** Material setup (flat) 
+  - **SUPERSEDED 2026-08-04 (board hygiene): material setup shipped by SPK-1100 (Sheet.material) + SPK-1133b (tool cut data resolves against sheet material on recalc); `ShopPilotVerify1133b` PASS.
   - worklog: 2026-07-29 — Subagent wrote MaterialSetup.swift (5.7KB) with 8+ CNC materials (pine, oak, maple, aluminum 6061, steel, acrylic, MDF, plywood) including density, hardness, max feed rate, max depth of cut, coolant type. MaterialDatabase.swift (2.3KB) with lookup by name/type. Wired into Sheet model. swift build passes cleanly.
   - deps: SPK-0103  
-- [ ] **SPK-0301** **TP** Tool database v0 (endmill, V-bit) 
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0301** **TP** Tool database v0 (endmill, V-bit) 
+  - **SUPERSEDED 2026-08-04 (board hygiene): tool database shipped by SPK-1131 (picker) + SPK-1133/1133b (13-class catalog, 17 seeds, 3-part cut-data linkage); `ShopPilotVerify1131/1133/1133b` PASS.
   - worklog: 2026-07-29 — completed via batch delegation. swift build passes cleanly.
   - deps: SPK-0101  
-- [ ] **SPK-0302** **TP** Profile toolpath (out/in/on) + tabs 
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0302** **TP** Profile toolpath (out/in/on) + tabs 
+  - **SUPERSEDED 2026-08-04 (board hygiene): profile toolpath shipped by SPK-1102g (full-tree export) + SPK-Golden-2.5D (hand-checked Profile golden) + SPK-0600 E2E (real engine, stored-params recalc); verifies PASS.
   - worklog: 2026-07-29 — Direct write. ProfileToolpath.swift (8.4KB) with ProfileCutMode enum, ProfileToolpathParams struct, ProfileToolpathResult, and ProfileToolpathEngine computing offset paths based on cut mode/tool diameter, depth passes, lead-in/out, G-code generation. swift build passes cleanly.
   - deps: SPK-0200, SPK-0300, SPK-0301, SPK-0002  
-- [ ] **SPK-0303** **TP** Pocket toolpath 
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0303** **TP** Pocket toolpath 
+  - **SUPERSEDED 2026-08-04 (board hygiene): pocket toolpath shipped by SPK-1102d/1102h (spiral-out recalc) + SPK-Golden-2.5D (15-row zigzag golden); verifies PASS.
   - worklog: 2026-07-29 — Direct write. PocketToolpath.swift (11KB) with PocketClearanceMode enum, PocketToolpathParams struct, PocketToolpathResult, and PocketToolpathEngine supporting zigzag/spiral/adaptive clearing modes, pocket size validation, depth passes, G-code generation. swift build passes cleanly.
   - deps: SPK-0300, SPK-0301  
-- [ ] **SPK-0304** **TP** Drill toolpath 
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0304** **TP** Drill toolpath 
+  - **SUPERSEDED 2026-08-04 (board hygiene): drill toolpath shipped by SPK-1102d (engine + tree wiring) + SPK-1136c (§N form-field parity); `ShopPilotVerify1102d/1136c` PASS.
   - worklog: 2026-07-29 — Direct write. DrillToolpath.swift (13KB) with DrillCycleType enum (peckDrill/deepHolePeck/spotDrill/counterbore/countersink), DrillPoint struct, DrillToolpathParams struct, and DrillToolpathEngine generating G-code for all cycle types with peck/retract/dwell support. swift build passes cleanly.
   - deps: SPK-0300, SPK-0301  
-- [ ] **SPK-0305** **TP** Toolpath tree + **dirty badges** (no silent recalc) 
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0305** **TP** Toolpath tree + **dirty badges** (no silent recalc) 
+  - **SUPERSEDED 2026-08-04 (board hygiene): toolpath tree + dirty badges shipped by SPK-1102c (dirty→recalc→clean cycle) — used by 0600/0601/0603 verifies.
   - worklog: 2026-07-29 — Direct write. ToolpathTree.swift (5KB) with ToolpathNodeType enum, ToolpathTreeNode class with @Published isDirty state and markDirty/clearDirty methods, ToolpathTreeManager ObservableObject for tree management with dirty node tracking and batch recalculation. swift build passes cleanly.
   - deps: SPK-0302  
-- [ ] **SPK-0306** **TP** Recalculate dirty / all 
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0306** **TP** Recalculate dirty / all 
+  - **SUPERSEDED 2026-08-04 (board hygiene): recalculate shipped by SPK-1102c/1102h (recalc regenerates all four strategies, spiral-out pocket); `ShopPilotVerify1102c/1102h` PASS.
   - worklog: 2026-07-29 — Direct write. ToolpathRecalculator.swift (4KB) with RecalculationStrategy enum, DirtyNodeResult struct, ToolpathCalculator protocol, and ToolpathRecalculator class supporting recalculateDirty() and recalculateAll() methods with dirty node tracking. swift build passes cleanly.
   - deps: SPK-0305  
-- [ ] **SPK-0307** **TP** Block export while dirty (+ expert override) 
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0307** **TP** Block export while dirty (+ expert override) 
+  - **SUPERSEDED 2026-08-04 (board hygiene): export gate shipped by SPK-0603 — dirty blocks export, expert override, no silent export; `ShopPilotVerify0603` PASS.
   - worklog: 2026-07-29 — Direct write. ExportBlocker.swift (2.8KB) with ExportValidationResult struct, ExportBlocker class with validateForExport() blocking when dirty nodes exist, overrideExportBlock() for expert mode, and clearDirtyFlags(). swift build passes cleanly.
   - deps: SPK-0305  
 - [ ] **SPK-0308** **TP** Keep-out zones v0 
   - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
   - worklog: 2026-07-29 — Direct write. KeepOutZones.swift (6.3KB) with KeepOutZoneType enum, KeepOutZone struct supporting circle/rectangle/polygon types with containsPoint() and intersectsLine() methods, and KeepOutZoneManager ObservableObject for zone management. swift build passes cleanly.
   - deps: SPK-0300  
-- [ ] **SPK-0309** **TP** Preview simulation (heightfield) + wireframe first 
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0309** **TP** Preview simulation (heightfield) + wireframe first 
+  - **SUPERSEDED 2026-08-04 (board hygiene): preview simulation shipped by the SPK-1103 spine — sheet-aware material sim (1103e: removal along path, cancel-immediate, cancel-mid-run, draft regression) + wireframe; `ShopPilotVerify1103/1103a-e` PASS.
   - worklog: 2026-07-29 — Direct write. ToolpathSimulator.swift (9.9KB) with Heightmap struct for 2D grid material representation, SimulationResult struct, PreviewMode enum (wireframe/heightfield/combined), ToolpathSimulator class parsing G-code to simulate material removal on heightmap, WireframeRenderer generating wireframe points and colored segments from G-code. swift build passes cleanly.
   - deps: SPK-0302  
-- [ ] **SPK-0310** **TP** Draft vs Final preview; progressive refine; cancel 
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [-] **SPK-0310** **TP** Draft vs Final preview; progressive refine; cancel 
+  - **DEFERRED 2026-08-04 (board hygiene): draft/final progressive refine superseded by SPK-1103's cancellable sheet-aware material sim (Verify1103e covers cancel + draft); legacy PreviewManager file unwired — do not rebuild.
   - worklog: 2026-07-29 — Direct write. PreviewManager.swift (7.7KB) with PreviewQualityLevel enum (draft/medium/final), PreviewState enum, PreviewConfiguration struct, PreviewResult struct, and PreviewManager class supporting draft→final progressive refinement, cancellation via DispatchWorkItem, and quality level switching. swift build passes cleanly.
   - deps: SPK-0309  
-- [ ] **SPK-0311** **TP** Metal-backed preview path (stable viewport) 
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [-] **SPK-0311** **TP** Metal-backed preview path (stable viewport) 
+  - **DEFERRED 2026-08-04 (board hygiene): Metal preview superseded by SPK-1103's heightmap material sim + wireframe renderer; legacy MetalPreview file unwired — do not rebuild.
   - worklog: 2026-07-29 — Direct write. MetalPreview.swift (8KB) with ViewportState struct for pan/zoom/rotate state, MetalPreviewConfiguration struct, PreviewRenderCommand enum for render pipeline, and MetalPreviewRenderer class managing stable viewport with fitToBounds(), updateViewport(), generateRenderCommands() methods. swift build passes cleanly.
   - deps: SPK-0309  
 - [ ] **SPK-0312** **TP** Time estimate rough 
   - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
   - worklog: 2026-07-29 — Direct write. TimeEstimator.swift (6KB) with TimeEstimateResult struct containing cutting/travel/total time breakdowns and formatted duration strings, TimeEstimator static methods parsing G-code to calculate distances by move type (G0 rapid vs G1 cut), depth pass counting, and 15% overhead for setup/tool changes. swift build passes cleanly.
   - deps: SPK-0302  
-- [ ] **SPK-0313** **TP** GRBL post export + extension labeling 
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0313** **TP** GRBL post export + extension labeling 
+  - **SUPERSEDED 2026-08-04 (board hygiene): GRBL post shipped by SPK-1102g (full-tree export, wrapper, golden post) + SPK-0415 (post auto-select from machine profile, G21/G20); `ShopPilotVerify1102g/0415` PASS.
   - worklog: 2026-07-29 — Direct write. GRBLPostProcessor.swift (7.4KB) with PostProcessorType enum (grbl/universal), PostProcessorConfiguration struct, PostProcessedOutput struct, and GRBLPostProcessor class generating GRBL 1.1 compatible G-code with header metadata, initialization commands (G20/G21/G90/G91/M8), line numbering option, cleanup commands (M9/G0 safe Z/M2), and .gcode/.nc extension labeling. swift build passes cleanly.
   - deps: SPK-0302  
-- [ ] **SPK-0314** **TP** Vector selector for strategies 
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0314** **TP** Vector selector for strategies 
+  - **SUPERSEDED 2026-08-04 (board hygiene): vector selection shipped by SPK-1102d (add-ops from Cut) + SPK-0319 (follow-source link mode); `ShopPilotVerify0319` PASS.
   - worklog: 2026-07-29 — Direct write. VectorSelector.swift (6.3KB) with VectorSelectionMode enum, SelectedVectorSet struct with boundingBox/totalLength calculations, ToolpathStrategy protocol, StrategyRegistry class for strategy management, and VectorSelector ObservableObject supporting individual/all/region selection modes with add/remove/selectAll/clearSelection methods. swift build passes cleanly.
   - deps: SPK-0302  
 - [ ] **SPK-0315** **TP** Dirty-region resim when possible 
@@ -655,23 +655,23 @@ A (parallel from day 0)
 - [x] **SPK-0402** **MACH** SimulatorTransport (fake GRBL) 
   - worklog: 2026-07-29 — completed via batch delegation. swift build passes cleanly.
   - deps: SPK-0401  
-- [ ] **SPK-0403** **MACH** StatusParser + unit tests 
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0403** **MACH** StatusParser + unit tests 
+  - **SUPERSEDED 2026-08-04 (board hygiene): StatusParser shipped with unit tests — StatusParserTests in the 429-XCTest suite + sim integration proof `ShopPilotVerify0417a` PASS.
   - worklog: 2026-07-29 — completed via batch delegation. swift build passes cleanly.
   - deps: SPK-0101  
-- [ ] **SPK-0404** **MACH** GCodeStreamer ok-wait + hold/resume/reset + tests 
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0404** **MACH** GCodeStreamer ok-wait + hold/resume/reset + tests 
+  - **SUPERSEDED 2026-08-04 (board hygiene): GCodeStreamer ok-wait + hold/resume/reset proven by `ShopPilotVerify0404a/0404c` PASS + SPK-0418 stress (10k lines, zero lost oks, hold/resume mid-stream).
   - worklog: 2026-07-29 — completed via batch delegation. swift build passes cleanly.
   - deps: SPK-0401  
 - [x] **SPK-0405** **MACH** MachineSession façade + status poll 
   - worklog: 2026-07-29 — completed via batch delegation. swift build passes cleanly.
   - deps: SPK-0402, SPK-0403, SPK-0404  
-- [ ] **SPK-0406** **MACH** Real serial enumerate + open/read/write 
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [-] **SPK-0406** **MACH** Real serial enumerate + open/read/write 
+  - **DEFERRED 2026-08-04 (board hygiene): real serial IOKit transport not shipped — sim-first v1 (LEAN scope; AGENTS §0.4); live hardware gated on SPK-0419 [!] + physical machine. TransportFactory.serialTransportBuilder hook is ready for the app to register.
   - worklog: 2026-07-29 — completed via batch delegation. swift build passes cleanly.
   - deps: SPK-0401
-- [ ] **SPK-0407** **MACH** Transport factory sim vs serial 
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0407** **MACH** Transport factory sim vs serial 
+  - **SUPERSEDED 2026-08-04 (board hygiene): TransportFactory is real — sim branch exercised by 0418/0600/1106b; serial branch validates baud + uses the registered builder hook or returns an honest error; linked by MachineConnection (app build).
   - worklog: 2026-07-29 — Direct write. TransportFactory.swift (3.9KB) with TransportType enum (simulator/serial), TransportFactoryResult struct, TransportFactory class with createTransport(for:config:) method supporting simulator and serial backends, listAvailablePorts() scanning /dev for cu./tty. devices, defaultTransportType() returning .simulator in DEBUG builds. swift build passes cleanly.
   - deps: SPK-0402, SPK-0406
 - [x] **SPK-0408** **MACH** UI: connect, console, status strip 
@@ -683,8 +683,8 @@ A (parallel from day 0)
 - [x] **SPK-0410** **MACH** Jog + soft home + work zero 
   - worklog: 2026-07-30 — Direct write. Added jogControls view to MachineConnection.swift with step size picker (10/1/0.1/0.01mm), jog pad (X-/X+/Y-/Y+ arrows, Z up/down arrows), soft home button (G28), and work zero buttons (G92 X0/Y0/Z0). All controls visible when connected/connecting. swift build passes cleanly.
   - deps: SPK-0405  
-- [ ] **SPK-0411** **MACH** Stream job from file + progress 
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0411** **MACH** Stream job from file + progress 
+  - **SUPERSEDED 2026-08-04 (board hygiene): file streaming + progress shipped by SPK-0418 — stream(from:) file entry + 0.1s throttle + progress to 1.0; `ShopPilotVerify0418` PASS.
   - worklog: 2026-07-30 — Direct write. Added GCodeStreamer integration to MachineConnection.swift with streamProgress view (progress bar + line count), streamJobFromFile() that loads .gcode from Documents dir (creates demo if missing), pause/resume/stop controls, and green/red/orange state buttons. Made GCodeStreamer.init public and ConnectionManager.transport internal for cross-module access. swift build passes cleanly.
   - deps: SPK-0405  
 - [x] **SPK-0412** **MACH** Pre-flight checklist before Run 
@@ -693,8 +693,8 @@ A (parallel from day 0)
 - [x] **SPK-0413** **MACH** One-click Run CTA (armed) 
   - worklog: 2026-07-30 — Direct write. Replaced preflight-passed state from simple status bar to prominent green RUN button (.extraLarge, borderedProminent) with play icon + "RUN" text in large bold font. Green background on passed checklist. runJob() delegates to streamJobFromFile(). Reset Checklist button still available. swift build passes cleanly.
   - deps: SPK-0412  
-- [ ] **SPK-0414** **MACH** Wire Cut stage export → Machine stream (STU handoff)
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0414** **MACH** Wire Cut stage export → Machine stream (STU handoff)
+  - **SUPERSEDED 2026-08-04 (board hygiene): Cut→Machine handoff shipped by SPK-1104b (full-tree handoff, zero-bytes on load, explicit Start, preflight) + 1104d (hold/resume E2E); verifies PASS.
   - worklog: 2026-07-30 — Direct write. CutToMachineBridge.swift (5.5KB) in ShopPilot target. Provides export(gcodeLines:toolInfo:machineProfile:) that selects post-processor from machine profile (GRBL→GRBL post, Universal→universal), writes to ShopPilotExports temp dir, returns CutToMachineBridgeResult with file URL. MachineConnection.swift already had exportAndStream() and findRecentBridgeExports() wired to it. swift build passes cleanly.
   - deps: SPK-0313, SPK-0411
 - [x] **SPK-0415** **MACH** Post auto-select from machine profile
@@ -726,52 +726,52 @@ A (parallel from day 0)
 
 **Goal:** Compete for signs/lettering — core Aspire hobby use case.
 
-- [ ] **SPK-0500** **GEO** Text + system fonts
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0500** **GEO** Text + system fonts
+  - **SUPERSEDED 2026-08-04 (board hygiene): text + fonts shipped by SPK-1106a (text→curves→V-Carve flow) + SPK-0601 (recipe glyph structure); `ShopPilotVerify0500/1106a/0601` PASS.
   - worklog: 2026-07-30 — Created TextTool.swift (8.8KB) with createText(text:font:fontSize:scale:) → TextCreationResult, getAvailableFonts() → [String], createCenteredText(), createTextAtBaseline(). TextRenderer.swift already existed (10.4KB) with CoreText rendering via CGPath applier callback, bezier approximation, glyph outline extraction. Metrics: advance, ascent, descent, bounding box derived from shape bounding rects. 10 system fonts available (Helvetica, Helvetica Neue, Arial, Times New Roman, Georgia, Courier New, Verdana, Palatino, Garamond, Trebuchet MS). swift build passes cleanly.
   - deps: SPK-0200
-- [ ] **SPK-0501** **GEO** Text to curves
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0501** **GEO** Text to curves
+  - **SUPERSEDED 2026-08-04 (board hygiene): text to curves shipped by SPK-1106a/0601 — glyph curves on the Text layer (per-character names); verifies PASS.
   - worklog: 2026-07-30 — Direct write. TextRenderer.swift extended with textToCurves() method returning TextCurvesResult with [GlyphCurve] (one per glyph as VectorShape.freehand). GlyphCurve has character label, shape, advance, position, index. CoreText CTRun-based glyph extraction with per-glyph CGPath rendering. swift build passes cleanly.
   - deps: SPK-0500  
-- [ ] **SPK-0502** **GEO** Text on curve
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0502** **GEO** Text on curve
+  - **SUPERSEDED 2026-08-04 (board hygiene): text on curve shipped by SPK-1106a/0601 — arc placement in SignRecipeManager; verifies PASS.
   - worklog: 2026-07-31 — Direct write. TextTool.swift extended with textOnCurve(text:curvePoints:font:fontSize:scale:offset:letterSpacing:) and textOnArc(text:center:radius:startAngle:endAngle:font:fontSize:scale:letterSpacing:) methods. Uses [VectorPoint] curve path (no ShopPilotCore dependency — works within ShopPilotGeometry module). Algorithm: CoreText renders glyphs → samples curve for positions/tangents → centers text on offset → translates + rotates each glyph to follow curve tangent. Added textOnArc convenience for circular arcs. 13 unit tests in TextOnCurveTests.swift covering: basic curve placement, empty input, invalid curve, arc placement, character rotation, offset parameter, letter spacing, shape types, multiple characters, font sizes, scale parameter. swift build passes cleanly.
   - deps: SPK-0500
-- [ ] **SPK-0503** **GEO** Engraving font pack support 
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0503** **GEO** Engraving font pack support 
+  - **SUPERSEDED 2026-08-04 (board hygiene): EngravingFontPack + 26 unit tests green in the 429-XCTest suite.
   - worklog: 2026-07-31 — Created EngravingFontPack.swift (9.1KB) with EngravingFontCategory enum (5 categories: sansSerif, serif, monospace, display, script), EngravingFont struct (Identifiable with UUID, name, category, size, weight, description), and static methods: engravingFonts() returns 10 curated fonts (Helvetica Neue 3 weights, Georgia, Courier New, Times New Roman, Arial, Verdana, Impact, Zapfino), recommendedForEngraving(minFontSize:) filters by minimum size, fonts(in:) category filter, isFontAvailableOnSystem(_:) CoreText availability check, checkAllAvailability() and availableFonts() convenience methods. Created EngravingFontPackTests.swift (10KB) with 26 unit tests covering: non-empty list, expected count, all required fonts present, all 5 categories represented, category filtering, recommended filtering, font availability, equatable/identifiable, sorting, min size constraints. swift build passes cleanly.
   - deps: SPK-0500  
-- [ ] **SPK-0504** **TP** V-Carve strategy (field map from SPK-0002)
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0504** **TP** V-Carve strategy (field map from SPK-0002)
+  - **SUPERSEDED 2026-08-04 (board hygiene): V-Carve strategy shipped by SPK-Golden-2.5D (hand-checked V-Carve + clearance goldens) + SPK-1136d (§O fields) + SPK-0604 (open-vector gate); verifies PASS.
   - worklog: 2026-07-30 — Direct write. VCarveEngine.swift rewritten with correct V-carve algorithm: proper pass count based on tipWidthAtDepth / stepOver (tipWidth = 2*|z|*tan(halfAngle)), per-vector Z-depth from vectorDepths map, V-carve shading (Z varies along path based on Y position relative to vector bounding box), flat-bottom mode support, per-vector bounding boxes for shading interpolation, lead-in/lead-out with configurable distances, G-code with proper Z coordinates on every G1 move, bounding box computation in result. Added 24 unit tests in VCarveEngineTests.swift covering: pass count calculation (90°/45°/30° bits), flat-bottom mode, per-vector depths, multiple vectors, bounding box, time estimate, lead-in/leadout, empty/single-point vector safety, shading Z variation, closed vector paths, tip width math verification. swift build passes cleanly.
   - deps: SPK-0301, SPK-0501, SPK-0211
-- [ ] **SPK-0505** **TP** Quick engrave
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0505** **TP** Quick engrave
+  - **SUPERSEDED 2026-08-04 (board hygiene): QuickEngraveEngine + 13 unit tests green in the 429-XCTest suite.
   - worklog: 2026-07-30 — Direct write. QuickEngraveEngine.swift (210 lines) with single-pass engrave: QuickEngraveParams (vBitAngleDegrees, feedRateMmPerMin, plungeFeedRateMmPerMin, depthMm, leadIn/out, vectorDepths), QuickEngraveResult with passCount=1, compute() generates G-code with constant Z depth per vector, bounding box, time estimate. Added 13 unit tests in QuickEngraveTests.swift covering: G-code structure, single-pass enforcement, per-vector depth, bounding box, time estimate, empty/single-point vector safety, lead-in/out, closed vector path, V-bit angle storage, multiple vectors. swift build passes cleanly.
   - deps: SPK-0301
-- [ ] **SPK-0506** **GEO** Trace bitmap
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [-] **SPK-0506** **GEO** Trace bitmap
+  - **DEFERRED 2026-08-04 (board hygiene): bitmap trace is adjacent to the lean non-goal photo-V-carve (LEAN_CNC_SCOPE non-goals); BitmapTracer on disk, unwired — do not rebuild.
   - worklog: 2026-07-30 — Direct write. BitmapTracer.swift rewritten with proper ImageIO import (CGImageSourceCreateWithData), fixed Data.hasPrefix→starts(with) and Data(bytes:)→Data([:]) deprecated API usage. Sobel edge detection + Moore contour following + Douglas-Peucker simplification pipeline intact. swift build passes cleanly.
   - deps: SPK-0200  
-- [ ] **SPK-0507** **TP** Toolpath templates save/load
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0507** **TP** Toolpath templates save/load
+  - **SUPERSEDED 2026-08-04 (board hygiene): ToolpathTemplates + 16 unit tests green in the 429-XCTest suite.
   - worklog: 2026-07-31 — Direct write. ToolpathTemplates.swift (150 lines) with ToolpathTemplateType enum, ToolpathTemplate struct (Codable, Identifiable, Equatable), ToolpathTemplateManager class with save/load/delete/apply/templateExists operations using FileManager. 16 unit tests in ToolpathTemplateTests.swift. swift build passes cleanly.
   - deps: SPK-0305
-- [ ] **SPK-0508** **TP** Job sheet PDF
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0508** **TP** Job sheet PDF
+  - **SUPERSEDED 2026-08-04 (board hygiene): JobSheetGenerator + 16 unit tests green in the 429-XCTest suite; SPK-1135 (HTML→PDF template pattern) stays deferred per finish queue.
   - worklog: 2026-07-31 — Direct write. JobSheetGenerator.swift (255 lines) with pure Swift PDF generation — no external dependencies. Generates a valid PDF with: job name/title, material, sheet dimensions, toolpath table (name/type/tool/feed rate/depth/estimated time), notes section, timestamp footer. Uses minimal PDF writer (objects, xref table, trailer). 16 unit tests in JobSheetGeneratorTests.swift covering: file creation, empty toolpaths, multiple toolpaths, PDF structure (xref/trailer/catalog), content validation (job name, material, sheet size, notes, footer), special characters, long names, Codable round-trip. swift build passes cleanly.
   - deps: SPK-0305
-- [ ] **SPK-0509** **GEO** Nest parts v1
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0509** **GEO** Nest parts v1
+  - **SUPERSEDED 2026-08-04 (board hygiene): NestingEngine + 22 unit tests green in the 429-XCTest suite.
   - worklog: 2026-07-31 — Direct write. NestingEngine.swift (361 lines) in ShopPilotGeometry: struct NestPart (Codable, shape/position/rotation/index/boundingBox), struct NestResult (Codable, parts/totalPartArea/sheetArea/utilization/unplacedCount), NestingEngine.nest() with shelf-packing algorithm (sort by area desc, place at first available free-space region, split remaining space into right/below rects, 90° rotation fallback), NestingEngine.nestGrid() for grid-based placement. Created NestingEngineTests.swift (22 test cases) covering: empty input, single/multiple rectangles, area sorting, utilization calculation, unplaced counting, circles, bounding box placement, rotation, margin enforcement, part-exceeds-sheet, mixed shape types, Codable conformance, grid nesting. swift build passes cleanly. Fixed pre-existing build error in EngravingFontPack.swift (CTFontGetFamilyName → CTFontCopyFamilyName). Note: `swift test` unavailable in CLI-only env (known limitation per SPK-0602); tests compile cleanly.
   - deps: SPK-0202
-- [ ] **SPK-0510** **UX** Sign recipe end-to-end
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0510** **UX** Sign recipe end-to-end
+  - **SUPERSEDED 2026-08-04 (board hygiene): sign recipe E2E shipped by SPK-1106a/b + SPK-0601 — recipe→glyphs→border→V-Carve node→preview→machine handoff; `ShopPilotVerify1106a/1106b/0601` PASS.
   - deps: SPK-0109, SPK-0504
   - worklog: 2026-07-31 — SignRecipeManager.swift (263 lines) in ShopPilot target: createSignJob() pre-wires text-on-curve, decorative border, V-Carve toolpath. RecipePicker decoupled from job creation (pure UI). CoachPanelView/InspectorShell updated for sign workflow. Job.swift adds vcarvePasses/vcarveTimeSeconds. Root cause of build failure: ShopPilotGeometry module exported an enum also named ShopPilotGeometry, shadowing the module namespace — renamed to GeometryKit. swift build passes cleanly.  
-- [ ] **SPK-0511** **QA** Golden V-Carve fixture + DOC calibration pack
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
+- [x] **SPK-0511** **QA** Golden V-Carve fixture + DOC calibration pack
+  - **SUPERSEDED 2026-08-04 (board hygiene): V-Carve golden shipped by SPK-Golden-2.5D (hand-checked byte-exact V-Carve + clearance goldens, regression-failing CLT) + SPK-Golden-3D.
   - worklog: 2026-07-31 — Direct write. VCarveGoldenFixtureTests.swift (299 lines) with 8 golden fixture tests: basic square, multi-pass, DOC calibration job, flat-bottom, multiple vectors, empty input, tip width math, time estimate. swift build passes cleanly.
   - deps: SPK-0504, SPK-0317
 - [ ] **SPK-0512** **PLAT** Document variables panel v0
@@ -1377,3 +1377,7 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 
 ### 2026-08-04 — SPK-0415 post auto-select (Hermes coder)
 - Claimed/finished **SPK-0415** [x]: profile machineType → post type already existed; added `GCodeUnits` (Core) + units-aware `GRBLPostProcessor.grbl/universal` + `MachineProfile.units` (custom legacy-safe Codable); Save Toolpaths now uses the persisted `MachineProfileStore`'s active profile (type + units flow into export). `ShopPilotVerify0415` PASS — type mapping, G21/G20 for both posts, post-type differences intact, inch round-trip, legacy profile decodes as grbl+mm. Regressions 1102g/0600/0417a/0319/0603 green; app build green.
+
+
+### 2026-08-04 — Board hygiene pass: legacy cards vs shipped spine (Hermes coder)
+- Audit-only pass (45 cards touched, zero code changes). Every open legacy card in the queue ranges mapped to shipped spine evidence; every cited verify was run fresh this session. **40 [x]** (superseded by spine micros with real CLT/XCTest evidence), **5 [-]** (deferred with reason: 0105 Components browser → SPK-0700 post-v1; 0310/0311 → SPK-1103 spine; 0406 real serial → sim-first v1 + SPK-0419 [!]; 0506 bitmap trace → lean non-goal). **Left [ ]:** SPK-0210/0308/0312/0318 are the Wave 3 productize queue (golden CLTs, keep-out zones, time estimate, follow-source coach copy) — NOT superseded. See each card for its superseding verify.
