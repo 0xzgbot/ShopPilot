@@ -209,6 +209,11 @@ A (parallel from day 0)
   - deps: SPK-0310a, SPK-1103c
   - track: 3
   - worklog: 2026-08-03 — Hermes coder. Audit: selected-op highlight (SPK-1103c) already existed; the FULL wireframe + draft sim rendered `session.gcodeLines` (last single-op overwrite — same gap class as the machine handoff). Fixed `ToolpathPreviewView`: wireframe segments, stats line, Draft-sim disable gate, fit-content trigger, empty-state counts, and `runDraftSimulation` all switched to `session.allToolpathGCode` (full tree, tree order; still Task.detached = non-blocking). Verify `ShopPilotVerify1103d` PASS — two-op tree (Profile near origin, Pocket at (100,100)): wireframe segments SPAN both regions (not last-op-only), bounded segment parity (every XY-changing cut yields a segment; first-XY line + pre-XY Z-only lines can't), rapid vs cut classification, cancellable pass with an immediately-true probe aborts with isCancelled, no-probe pass is not lossy (matches plain renderer). 0310a (cancel 13.02s→0.16s) regression green; app build green.
+- [x] **SPK-1103e** **PREV** Sheet-aware material/heightfield sim from full-tree G-code, cancellable + non-blocking // P0
+  - AC: Stock sized from sheet W/D/thickness; sim removes along G1 segments; Preview Cancel aborts mid-flight; `swift run ShopPilotVerify1103e` PASS
+  - deps: SPK-1103d
+  - track: 3
+  - worklog: 2026-08-04 — Cursor (finish after Hermes error 524 timeout). Engine `materialSimulation` + G1 path interpolation; UI cancel flag; verify PASS; 1103a/0310a regression green.
 - [x] **SPK-1104d** **MACH** Sim integration full loop — connect → load full tree → preflight → Start → hold → resume → complete // P0
   - AC: One CLT proves the whole Machine-stage loop against the simulator: connect, load full-tree buffer (zero bytes), preflight ack arms Start, explicit runJob streams, HOLD/RESUME fire realtime `!`/`~` bytes through the shared transport mid-run, stream completes; `swift run ShopPilotVerify1104d` PASS
   - deps: SPK-1104b, SPK-0412
@@ -275,16 +280,16 @@ A (parallel from day 0)
 - [x] **SPK-1102b** **TP** Export blocked while toolpath node dirty // P0 // parallel-ok
   - deps: SPK-1100
   - track: 3
-- [ ] **SPK-1103** **TP** Preview stage product — toolpath overlay + material sim non-blocking // P0
+- [x] **SPK-1103** **TP** Preview stage product — toolpath overlay + material sim non-blocking // P0
   - AC: Preview shows current toolpaths; UI stays responsive
   - deps: SPK-1102
   - track: 3
-  - note: 2026-08-04 audit — `1103a/b/c/d` [x] (full-tree wireframe + draft heightfield + cancel + selected-op highlight). REMAINING GAP: material sim is draft-only — hardcoded 120mm stock / 2mm cells (not sheet-aware), no cancel hook in UI, dot-rendered heightfield. Next slice: **SPK-1103e** sheet-aware material/heightfield sim from full-tree G-code, cancellable + non-blocking.
+  - worklog: 2026-08-04 — Cursor. Parent close after SPK-1103e: full-tree wireframe (1103d) + sheet-aware cancellable materialSimulation (1103e) + selected highlight + draft path. Verify1103e PASS. Remaining polish (richer heightfield render) is non-blocking for AC.
 - [x] **SPK-1103a** **TP** Preview wireframe + draft heightfield from session G-code // P0 // parallel-ok
   - AC: Preview stage shows session vectors + rapid/cut wireframe; Draft sim runs off main path; `swift run ShopPilotVerify1103a` PASS
   - deps: SPK-1100
   - track: 3
-  - note: Does **not** close SPK-1103 (full material sim + Cut-tree deps remain)
+  - note: Closed via 1103e material-sim slice (parent SPK-1103 now [x])
   - worklog: 2026-08-02 — Cursor. WireframeRenderer modal XY; ToolpathPreviewView; draftHeightSamples; Verify1103a.
 - [x] **SPK-1103b** **TP** Draft heightfield cancel keeps Preview UI responsive // P0 // parallel-ok
   - deps: SPK-1103a
@@ -1057,6 +1062,10 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 ---
 
 ## 12. Work log
+
+### 2026-08-04 — SPK-1103e material sim (Cursor; finish after Hermes 524)
+- Hermes timed out (error 524) mid verify with uncommitted 1103e work. Finished: G1 segment interpolation in ToolpathSimulator; sheet-aware `materialSimulation`; Preview Cancel; `ShopPilotVerify1103e` PASS; 1103a/0310a green. Closed SPK-1103e + parent SPK-1103.
+- Next: SPK-1106b sign E2E, SPK-0600 calibration E2E, or SPK-1105 XCTest (Xcode).
 
 ### 2026-08-04 — Wave A: parent close-out audits (Hermes coder)
 - **SPK-1136 → `[x]`** — AC met: 4 param models (§R2/§M/§N/§O) + 4 Cut-inspector forms + per-op paramsJSON persist (backward-compatible) + `ShopPilotVerify1136a/b/c/d` PASS.

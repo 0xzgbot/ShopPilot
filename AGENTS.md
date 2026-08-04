@@ -12,14 +12,15 @@
 | **Stack** | **SwiftUI** (macOS 14+) · geometry/toolpath core · Metal preview · serial IOKit/ORSSerialPort |
 | **Not in first ship** | Illegal reverse-engineering of proprietary CRV; Windows/Linux ports |
 | **Doc status** | Living — agents **must** update task checkboxes + Work log |
-| **Last updated** | 2026-08-01 |
-| **Current phase focus** | **MASTER_KANBAN** Phase A→G (v1.0 ship), then H→K |
+| **Last updated** | 2026-08-04 |
+| **Current phase focus** | Lean CNC bar (G-code, V-Carve, 3D carving, GRBL control) — see LEAN_CNC_SCOPE |
+| **★ Lean north star** | [`docs/planning/LEAN_CNC_SCOPE.md`](./docs/planning/LEAN_CNC_SCOPE.md) — **overrides Aspire feature-count parity** |
 | **★ Single task board** | [`MASTER_KANBAN.md`](./MASTER_KANBAN.md) — **only** place to claim work |
-| **★ Finish roadmap** | [`docs/planning/FINISH_ROADMAP.md`](./docs/planning/FINISH_ROADMAP.md) — Tracks 1–6 to finish all features |
+| **★ Finish roadmap** | [`docs/planning/FINISH_ROADMAP.md`](./docs/planning/FINISH_ROADMAP.md) — Tracks 1–6 + lean 3D |
 | **Legacy boards** | `HERMES_BUILD_TODO.md`, `HERMES_STUDIO_TODO.md` — superseded (reference only) |
-| **Aspire reimagined plan** | [`docs/planning/ASPIRE_REIMAGINED_PRODUCT_PLAN.md`](./docs/planning/ASPIRE_REIMAGINED_PRODUCT_PLAN.md) |
+| **Aspire reimagined plan** | [`docs/planning/ASPIRE_REIMAGINED_PRODUCT_PLAN.md`](./docs/planning/ASPIRE_REIMAGINED_PRODUCT_PLAN.md) — vision/reference |
 | **Market pain research** | [`docs/planning/ASPIRE_INGESTION_AND_MARKET_RESEARCH.md`](./docs/planning/ASPIRE_INGESTION_AND_MARKET_RESEARCH.md) |
-| **Parity matrix** | [`docs/planning/FEATURE_PARITY_MATRIX.md`](./docs/planning/FEATURE_PARITY_MATRIX.md) |
+| **Parity matrix** | [`docs/planning/FEATURE_PARITY_MATRIX.md`](./docs/planning/FEATURE_PARITY_MATRIX.md) — evidence; `[-]` = lean non-goal |
 | **Planning notes** | [`docs/planning/`](./docs/planning/) |
 
 ---
@@ -29,14 +30,15 @@
 ### 0.1 Startup protocol
 
 1. Read **§1 Mission**, **§2 Non-negotiables (safety)**, **§3 Architecture**, **§4 Agent roles**.
-2. Read **[`docs/planning/FINISH_ROADMAP.md`](./docs/planning/FINISH_ROADMAP.md)** — finish order Tracks 1→6.
-3. Open **[`MASTER_KANBAN.md`](./MASTER_KANBAN.md)** — **only** task board. Prefer **SPK-1100–1106** spine cards, then earliest open P0 in the current track.
-4. Claim: `[ ]` → `[~]`, append Work log in MASTER_KANBAN.md.
-5. Implement **Engine + UI + Persist + Verify** for the card (build-only is not done).
-6. Mark `[x]`, Work log exit. If `[!]`, pick next Ready card — **never idle**.
-7. **Never mark `[x]` if Engine/UI/Persist/Verify incomplete.**
-8. Do not invent scope outside MASTER_KANBAN; add cards there if needed.
-9. Do **not** start Phases H→K until **SPK-0623** is `[x]`. Then continue H→K with the same DoD.
+2. Read **[`docs/planning/LEAN_CNC_SCOPE.md`](./docs/planning/LEAN_CNC_SCOPE.md)** — product bar; skip cloud/social/video/gadget work.
+3. Read **[`docs/planning/FINISH_ROADMAP.md`](./docs/planning/FINISH_ROADMAP.md)** — finish order (lean 3D may run before full Track 5).
+4. Open **[`MASTER_KANBAN.md`](./MASTER_KANBAN.md)** — **only** task board. Prefer **SPK-1100–1106** spine, then lean 3D / V-Carve quality P0s; skip rows marked `[-]`.
+5. Claim: `[ ]` → `[~]`, append Work log in MASTER_KANBAN.md.
+6. Implement **Engine + UI + Persist + Verify** for the card (build-only is not done).
+7. Mark `[x]`, Work log exit. If `[!]`, pick next Ready card — **never idle**.
+8. **Never mark `[x]` if Engine/UI/Persist/Verify incomplete.**
+9. Do not invent scope outside MASTER_KANBAN; add cards there if needed.
+10. Dual-side / rotary / laser / Post Studio / App Store wait for Track 5 (**SPK-0623**). **STL → heightfield → 3D rough/finish G-code does not wait** (lean bar).
 
 ### 0.2 Status legend
 
@@ -226,10 +228,11 @@ Append to `HERMES_BUILD_TODO.md` § Work log:
 
 ```
 You are building ShopPilot at ~/Desktop/ShopPilot.
+North star: docs/planning/LEAN_CNC_SCOPE.md (offline G-code / V-Carve / 3D carving / GRBL).
 Board: MASTER_KANBAN.md. Finish order: docs/planning/FINISH_ROADMAP.md.
-Read AGENTS.md safety. No Vectric proprietary assets.
+Read AGENTS.md safety. No Vectric proprietary assets. No cloud/social/in-app video.
 DoD: Engine + UI + Persist + Verify — never mark [x] for build-only/file-drop.
-Prefer SPK-1100–1106, then open P0 in current finish track.
+Prefer SPK-1100–1106, lean 3D/V-Carve quality, then open P0 — skip [-] non-goals.
 Loop: claim → implement full AC → [x] + work log → repeat.
-No Phase H–K until SPK-0623. Never idle on [!] — next Ready card.
+Lean 3D rough/finish may ship before SPK-0623. Never idle on [!] — next Ready card.
 ```

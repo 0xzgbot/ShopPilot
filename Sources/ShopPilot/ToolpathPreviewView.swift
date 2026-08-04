@@ -1,8 +1,15 @@
 import SwiftUI
 import ShopPilotCore
 
+/// SPK-1103e — thread-safe cancel flag shared with the detached sim task so the
+/// Cancel button can abort a long material sim mid-flight (polled per G-code line).
+private final class PreviewSimCancelFlag: @unchecked Sendable {
+    var cancelled = false
+}
+
 /// SPK-1103a — Preview stage bound to AppSession toolpaths/vectors.
-/// Wireframe overlay from session G-code; optional draft heightfield on demand (non-blocking).
+/// Wireframe overlay from session G-code; optional sheet-aware material
+/// heightfield on demand (non-blocking, cancellable — SPK-1103e).
 struct ToolpathPreviewView: View {
     @ObservedObject var session: AppSession
 
@@ -14,6 +21,8 @@ struct ToolpathPreviewView: View {
     @State private var simStatus: String = "Idle"
     @State private var heightSamples: [(x: Double, y: Double, z: Double)] = []
     @State private var isSimulating = false
+    @State private var simTask: Task<Void, Never>?
+    @State private var cancelFlag = PreviewSimCancelFlag()
 
     private var segments: [(start: (x: Double, y: Double), end: (x: Double, y: Double), isRapid: Bool)] {
         WireframeRenderer.generateSegments(from: session.allToolpathGCode)
@@ -77,11 +86,19 @@ struct ToolpathPreviewView: View {
                 .frame(maxWidth: 360)
 
                 Button("Fit") { fitContent() }
-                Button(isSimulating ? "Sim…" : "Draft sim") {
-                    runDraftSimulation()
+                if isSimulating {
+                    Button("Cancel") {
+                        cancelFlag.cancelled = true
+                        simTask?.cancel()
+                    }
+                    .buttonStyle(.bordered)
+                } else {
+                    Button("Simulate") {
+                        runMaterialSimulation()
+                    }
+                    .disabled(session.allToolpathGCode.isEmpty)
+                    .buttonStyle(.bordered)
                 }
-                .disabled(session.allToolpathGCode.isEmpty || isSimulating)
-                .buttonStyle(.bordered)
 
                 Button("Generate profile if empty") {
                     if session.vectors.isEmpty { session.addDemoRectangle() }
@@ -233,20 +250,36 @@ struct ToolpathPreviewView: View {
         dragStart = .zero
     }
 
-    /// Non-blocking draft heightfield — coarse grid on a background task.
-    /// SPK-1103d: simulates the FULL toolpath tree, not the last single op.
-    private func runDraftSimulation() {
+    /// SPK-1103e: sheet-aware material sim of the FULL toolpath tree on a
+    /// background task — cancellable (Cancel button → per-line poll) and
+    /// non-blocking (detached task; UI updates only on completion/cancel).
+    private func runMaterialSimulation() {
         let lines = session.allToolpathGCode
         guard !lines.isEmpty else { return }
+        guard let sheet = session.job.sheets.first else { return }
+        cancelFlag.cancelled = false
         isSimulating = true
-        simStatus = "Generating draft heightfield…"
-        Task {
+        simStatus = "Simulating material…"
+        simTask = Task {
+            let flag = cancelFlag
             let outcome = await Task.detached(priority: .userInitiated) {
-                ToolpathSimulator.draftHeightSamples(from: lines, cellSizeMm: 2.0, stockMm: 120)
+                ToolpathSimulator.materialSimulation(
+                    from: lines,
+                    sheetWidthMm: sheet.width,
+                    sheetDepthMm: sheet.depth,
+                    stockTopMm: sheet.height,
+                    cellSizeMm: 1.0,
+                    shouldCancel: { flag.cancelled }
+                )
             }.value
             heightSamples = outcome.samples
             isSimulating = false
-            simStatus = "Draft sim ready (\(outcome.samples.count) samples, \(String(format: "%.2f", outcome.seconds))s)"
+            simTask = nil
+            if outcome.isCancelled {
+                simStatus = "Sim cancelled (\(outcome.samples.count) samples kept)"
+            } else {
+                simStatus = "Material sim ready (\(outcome.samples.count) samples, \(String(format: "%.2f", outcome.seconds))s)"
+            }
             if mode == .wireframe { mode = .combined }
         }
     }

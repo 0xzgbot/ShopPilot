@@ -1,9 +1,10 @@
 # ShopPilot — Finish Roadmap (source of truth for completion)
 
-**Last updated:** 2026-08-01  
+**Last updated:** 2026-08-04  
 **Companion board:** [`MASTER_KANBAN.md`](../../MASTER_KANBAN.md)  
-**Intent:** Finish **all** product features to Definition of Ship, then Phases H→K.  
-**Not the goal:** Thin demos, manual babysitting, or “build passes = done.”
+**North star:** [`LEAN_CNC_SCOPE.md`](./LEAN_CNC_SCOPE.md) — lean CNC overrides Aspire feature-count parity.  
+**Intent:** Finish lean bar (G-code, V-Carve, 3D carving, GRBL control), then remaining Tracks.  
+**Not the goal:** Thin demos, cloud/social chrome, or “build passes = done.”
 
 ---
 
@@ -88,30 +89,40 @@ A card may be `[x]` only when **all four** are true:
 
 **Exit:** v1.0 Definition of Ship met → SPK-0623 `[x]`.
 
-### Track 6 — Post-v1 (Phases H→K) // only after Track 5
-Rebuild honestly — heightfields, real 3D toolpaths, dual-side, rotary/laser, Post Studio, distribution.  
-Stub estimators / `PowerUser` packaging enums do **not** close cards.
+### Track 3.5 — Lean 3D carving // P0 (does **not** wait for SPK-0623)
+**Cards:** SPK-1141, SPK-1142, SPK-0709/0710 engine slices, Model stage unlock  
+- STL → `ReliefHeightfield`  
+- Real **3D rough** + **3D finish** G-code (not estimate stubs)  
+- Model stage reachable; preview/machine consume the same tree  
+
+**Exit:** Heightfield relief regenerates rough/finish into the document and streams on sim.
+
+### Track 6 — Post-lean (dual-side / rotary / laser / Post Studio / App Store) // after Track 5
+Sculpt polish, dual-side, rotary, laser, Post Studio, distribution.  
+Stub estimators / `PowerUser` packaging enums do **not** close cards.  
+Skip `[-]` cloud / tutorial-video / gadget marketplace rows.
 
 ---
 
 ## Critical path
 
 ```text
-Track0 → Track1 → Track2 → Track3 → Track5
+Track0 → Track1 → Track2 → Track3 → Track3.5 (lean 3D)
               ↘ Track4 ↗
-Track6 only after Track5 (SPK-0623)
+Track5 gate (SPK-0623) → Track6 post-lean
 ```
 
 ---
 
 ## Agent rules (finish mode)
 
-1. Work **only** from `MASTER_KANBAN.md`; follow this roadmap for order.  
+1. Work **only** from `MASTER_KANBAN.md`; follow this roadmap + **LEAN_CNC_SCOPE**.  
 2. Prefer **vertical feature slices** (engine+UI+persist+verify).  
-3. Never mark H–K `[x]` until Track 5 complete.  
-4. Never idle on `[!]` — take next Ready card.  
+3. Lean 3D (Track 3.5) may run before Track 5; dual-side/rotary/laser wait for SPK-0623.  
+4. Never idle on `[!]` — take next Ready card; skip `[-]` non-goals.  
 5. Do **not** ask the human to dogfood mid-track; prove with tests/goldens.  
-6. Human-only: license, Apple creds, live air-cut, interviews.
+6. Human-only: license, Apple creds, live air-cut, interviews.  
+7. No cloud, social, or in-app video chrome.
 
 ---
 

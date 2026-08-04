@@ -175,6 +175,8 @@ public final class ToolpathSimulator {
         
         // Parse G-code and apply material removal simulation
         var currentZ: Double = stockTopHeight
+        var lastX: Double?
+        var lastY: Double?
         for line in toolpathGcode {
             if shouldCancel() {
                 return SimulationResult(
@@ -190,15 +192,23 @@ public final class ToolpathSimulator {
                 continue
             }
             
-            // Parse G0 (rapid move) - no material removal
-            if trimmed.hasPrefix("G0 ") {
+            // Parse G0 (rapid move) - track XY but no material removal.
+            if trimmed.hasPrefix("G0 ") || trimmed.hasPrefix("G00") {
+                let components = trimmed.components(separatedBy: " ")
+                for component in components {
+                    if component.hasPrefix("X"), let v = Double(component.dropFirst()) { lastX = v }
+                    else if component.hasPrefix("Y"), let v = Double(component.dropFirst()) { lastY = v }
+                    else if component.hasPrefix("Z"), let v = Double(component.dropFirst()) { currentZ = v }
+                }
                 continue
             }
             
             // Parse G1 (linear move) with Z depth changes.
             // G-code from ShopPilot emits plunge (Z-only) and move (XY-only) on
-            // separate lines, so Z depth is tracked across lines.
-            if trimmed.hasPrefix("G1 ") {
+            // separate lines, so Z depth is tracked across lines. Material is
+            // removed along the whole segment (not just the endpoint) so a
+            // raster pocket carves a continuous trench for preview.
+            if trimmed.hasPrefix("G1 ") || trimmed.hasPrefix("G01") {
                 var xCoord: Double?
                 var yCoord: Double?
                 var zCoord: Double?
@@ -217,10 +227,27 @@ public final class ToolpathSimulator {
                 if let z = zCoord {
                     currentZ = z
                 }
-                
-                // Material is removed where the cutter is below the stock top.
-                if let x = xCoord, let y = yCoord, currentZ < stockTopHeight {
-                    let gridPos = workingHeightmap.gridPosition(x, y)
+
+                let endX = xCoord ?? lastX
+                let endY = yCoord ?? lastY
+                defer {
+                    if let x = endX { lastX = x }
+                    if let y = endY { lastY = y }
+                }
+
+                guard currentZ < stockTopHeight, let ex = endX, let ey = endY else { continue }
+
+                let startX = lastX ?? ex
+                let startY = lastY ?? ey
+                let dx = ex - startX
+                let dy = ey - startY
+                let dist = (dx * dx + dy * dy).squareRoot()
+                let steps = max(1, Int(ceil(dist / workingHeightmap.cellSizeMm)))
+                for i in 0...steps {
+                    let t = Double(i) / Double(steps)
+                    let wx = startX + dx * t
+                    let wy = startY + dy * t
+                    let gridPos = workingHeightmap.gridPosition(wx, wy)
                     let currentHeight = workingHeightmap.getHeight(gridPos.x, gridPos.y)
                     if currentZ < currentHeight {
                         workingHeightmap.setHeight(currentZ, gridPos.x, gridPos.y)
@@ -262,6 +289,46 @@ public final class ToolpathSimulator {
             }
         }
         return (samples, result.simulationTimeSeconds)
+    }
+
+    /// SPK-1103e — sheet-aware material simulation of the FULL toolpath tree.
+    /// Sizes the stock grid from the job sheet (width/depth/thickness), runs the
+    /// cancellable material-removal sim, and returns coarse samples for the
+    /// preview canvas. Polls `shouldCancel` before every G-code line; a
+    /// cancelled run returns the partial heightmap with `isCancelled` set, so
+    /// the UI stays responsive and can abort a long sim mid-flight.
+    public static func materialSimulation(
+        from gcodeLines: [String],
+        sheetWidthMm: Double,
+        sheetDepthMm: Double,
+        stockTopMm: Double,
+        cellSizeMm: Double = 1.0,
+        sampleStride: Int = 0,
+        zeroPlane: ZeroPlane? = nil,
+        shouldCancel: () -> Bool = { false }
+    ) -> (samples: [(x: Double, y: Double, z: Double)], seconds: Double, isCancelled: Bool) {
+        let width = max(1, Int(sheetWidthMm / cellSizeMm))
+        let depth = max(1, Int(sheetDepthMm / cellSizeMm))
+        let heightmap = Heightmap(
+            width: width,
+            height: depth,
+            cellSizeMm: cellSizeMm,
+            minX: 0.0,
+            minY: 0.0,
+            initialHeight: stockTopMm
+        )
+        let sim = ToolpathSimulator(initialHeightmap: heightmap)
+        let result = sim.simulate(toolpathGcode: gcodeLines, zeroPlane: zeroPlane, shouldCancel: shouldCancel)
+        let hm = result.finalHeightmap
+        let step = sampleStride > 0 ? sampleStride : max(1, hm.width / 40)
+        var samples: [(x: Double, y: Double, z: Double)] = []
+        for gy in stride(from: 0, to: hm.height, by: step) {
+            for gx in stride(from: 0, to: hm.width, by: step) {
+                let world = hm.worldPosition(gx, gy)
+                samples.append((world.x, world.y, hm.getHeight(gx, gy)))
+            }
+        }
+        return (samples, result.simulationTimeSeconds, result.isCancelled)
     }
 }
 
