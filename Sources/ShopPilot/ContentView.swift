@@ -65,7 +65,7 @@ struct ContentView: View {
         case .design:
             DesignStageView(session: session)
         case .model:
-            ModelStageLockedView()
+            ModelStageView(session: session)
         case .cut:
             CutStageView(session: session)
         case .preview:
@@ -216,24 +216,6 @@ private struct DesignStageView: View {
             return
         }
         _ = session.applyOffset(distance: distance)
-    }
-}
-
-private struct ModelStageLockedView: View {
-    var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "lock.fill")
-                .font(.system(size: 36))
-                .foregroundStyle(.secondary)
-            Text("Model (3D relief)")
-                .font(.title2.bold())
-            Text("Requires Studio3D. Use Design + Cut for the v0 demo path.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
