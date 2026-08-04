@@ -1069,6 +1069,113 @@ final class AppSession: ObservableObject {
         return regenerated.count
     }
 
+    // MARK: - Add-op strategies (SPK-1102d)
+
+    /// Add a computed toolpath node to the tree, refresh the session G-code
+    /// buffer from the tree, select the node, jump to Cut, mark dirty.
+    @discardableResult
+    private func addToolpathNode(
+        named name: String,
+        gcode: [String],
+        estimatedTime: Double
+    ) -> ToolpathTreeNode {
+        let node = toolpathTree.addOperation(name)
+        node.toolpathResult = gcode.joined(separator: "\n")
+        node.estimatedTimeSeconds = estimatedTime
+        let all = allToolpathGCode
+        if !all.isEmpty {
+            gcodeLines = all
+        }
+        selectToolpath(node.id)
+        selectedStage = .cut
+        markDirty()
+        return node
+    }
+
+    /// Generate a Pocket toolpath from the closed session vectors (zigzag
+    /// default) and add it to the tree.
+    func generatePocketToolpath() {
+        guard !vectors.isEmpty else {
+            statusMessage = "No vectors — import SVG or add a demo shape first"
+            return
+        }
+        registerUndoPoint()
+        let result = PocketToolpathEngine.compute(
+            vectors: vectors,
+            params: PocketToolpathParams(),
+            material: nil,
+            stockHeightMm: job.sheets.first?.height ?? 25.0
+        )
+        _ = addToolpathNode(
+            named: "Pocket \(toolpathTree.allNodes.count)",
+            gcode: result.gcodeLines,
+            estimatedTime: result.estimatedTimeSeconds
+        )
+        lastToolpathSummary =
+            "Pocket: \(result.gcodeLines.count) lines, ~\(Int(result.estimatedTimeSeconds))s"
+        statusMessage = result.isTooSmall
+            ? "Pocket: region too small for the tool — no cut generated"
+            : lastToolpathSummary
+    }
+
+    /// Generate a Drill toolpath at the center of every closed vector
+    /// (bounding-box centroid, default peck cycle) and add it to the tree.
+    func generateDrillToolpath() {
+        let depth = -min(job.sheets.first?.height ?? 25.0, 10.0)
+        let points: [DrillPoint] = vectors.compactMap { path in
+            guard path.isClosed, !path.points.isEmpty else { return nil }
+            let xs = path.points.map(\.x)
+            let ys = path.points.map(\.y)
+            return DrillPoint(
+                x: (xs.min()! + xs.max()!) / 2,
+                y: (ys.min()! + ys.max()!) / 2,
+                zDepthMm: depth
+            )
+        }
+        guard !points.isEmpty else {
+            statusMessage = "Drill needs a closed vector — holes are placed at shape centers"
+            return
+        }
+        registerUndoPoint()
+        let result = DrillToolpathEngine.compute(
+            points: points,
+            params: DrillToolpathParams(),
+            material: nil,
+            stockHeightMm: job.sheets.first?.height ?? 25.0
+        )
+        _ = addToolpathNode(
+            named: "Drill \(toolpathTree.allNodes.count)",
+            gcode: result.gcodeLines,
+            estimatedTime: result.estimatedTimeSeconds
+        )
+        lastToolpathSummary =
+            "Drill: \(result.pointCount) hole(s), \(result.gcodeLines.count) lines"
+        statusMessage = lastToolpathSummary
+    }
+
+    /// Generate a V-Carve toolpath from the session vectors (V-bit, default
+    /// params) and add it to the tree.
+    func generateVCarveToolpath() {
+        guard !vectors.isEmpty else {
+            statusMessage = "No vectors — import SVG or add a demo shape first"
+            return
+        }
+        registerUndoPoint()
+        let result = VCarveEngine.compute(
+            vectors: vectors,
+            params: VCarveParams(),
+            stockHeightMm: job.sheets.first?.height ?? 25.0
+        )
+        _ = addToolpathNode(
+            named: "V-Carve \(toolpathTree.allNodes.count)",
+            gcode: result.gcodeLines,
+            estimatedTime: result.estimatedTimeSeconds
+        )
+        lastToolpathSummary =
+            "V-Carve: \(result.gcodeLines.count) lines, \(result.passCount) pass(es)"
+        statusMessage = lastToolpathSummary
+    }
+
     func loadFixtureGCodeIfNeeded() {
         guard gcodeLines.isEmpty else { return }
         let candidates = [

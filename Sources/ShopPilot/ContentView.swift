@@ -239,9 +239,20 @@ private struct CutStageView: View {
             }
 
             HStack {
-                Button("Generate Profile Toolpath") {
-                    session.generateProfileToolpath()
+                // SPK-1102d: all four v1 strategies add real tree ops from Cut.
+                Menu {
+                    Button("Profile") { session.generateProfileToolpath() }
+                        .help("Cut along the vectors (on/out/in)")
+                    Button("Pocket") { session.generatePocketToolpath() }
+                        .help("Clear the inside of closed vectors")
+                    Button("Drill") { session.generateDrillToolpath() }
+                        .help("Peck-drill holes at the centers of closed vectors")
+                    Button("V-Carve") { session.generateVCarveToolpath() }
+                        .help("Engrave vectors with a V-bit")
+                } label: {
+                    Label("Add Toolpath", systemImage: "plus.circle")
                 }
+                .menuStyle(.button)
                 .buttonStyle(.borderedProminent)
 
                 // SPK-1102c: regenerate dirty ops with the real engine; badge

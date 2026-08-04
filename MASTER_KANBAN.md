@@ -204,6 +204,11 @@ A (parallel from day 0)
   - deps: SPK-1102b
   - track: 3
   - worklog: 2026-08-03 — Hermes coder. Session: `recalculateDirtyToolpaths()` — uses `ToolpathTreeManager.recalculateDirtyProfiles` (real ProfileToolpathEngine, current session vectors + sheet height), rebuilds `gcodeLines` from the clean tree (`allToolpathGCode`), updates status + summary; no-op when nothing dirty. UI: Cut stage "Recalculate Dirty (N)" button (live dirty count as label + enable gate, disabled at 0) next to Generate Profile Toolpath; tree dirty badges already existed. Verify: `./scripts/verify_locked.sh ShopPilotVerify1102c` PASS — clean→export-allowed; design change→dirty→export-blocked; recalc→real engine G-code→clean→export-allowed; Pocket out-of-scope stays dirty (export still blocked); recalc no-op when clean; session buffer rebuilds from tree. App build green; 1102e/f/h/i regression green.
+- [x] **SPK-1102d** **TP** Add Pocket / Drill / V-Carve ops from Cut (like Profile) // P0 // parallel-ok
+  - AC: Cut "Add Toolpath" menu (Profile/Pocket/Drill/V-Carve) → session generate*Toolpath → real engine G-code into tree nodes; dirty flags sane; buffer concatenates; `swift run ShopPilotVerify1102d` PASS
+  - deps: SPK-1102a, SPK-0303, SPK-0304
+  - track: 3
+  - worklog: 2026-08-03 — Hermes coder. Session: `addToolpathNode` helper (tree node + result + buffer refresh + select + Cut stage + dirty) + `generatePocketToolpath` (closed vectors, zigzag default, isTooSmall status), `generateDrillToolpath` (holes at closed-vector bbox centroids, default peck, depth = min(sheet,10)), `generateVCarveToolpath` (V-bit defaults). UI: Cut stage "Generate Profile Toolpath" button → "Add Toolpath" menu (Profile/Pocket/Drill/V-Carve, borderedProminent). Verify: `./scripts/verify_locked.sh ShopPilotVerify1102d` PASS — pocket marker+cut moves+estimate on closed rect, open-only pocket cuts nothing; drill marker + ≥1 plunge per point; v-carve marker + passes + moves; tree wiring (2 ops + root, clean flags, buffer concatenates both markers in tree order). App build green; 1102c/e/h/i regression green.
 - [ ] **SPK-1102** **TP** Cut stage product — toolpath tree Profile/Pocket/Drill/V-Carve + dirty/recalc/export block + GRBL post // P0
   - AC: Saved job regenerates toolpaths and exports GRBL from tree
   - deps: SPK-1101, SPK-0302
@@ -995,6 +1000,10 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 ---
 
 ## 12. Work log
+
+### 2026-08-03 — SPK-1102d Pocket/Drill/V-Carve add-ops from Cut (Hermes coder)
+- Claimed/finished **SPK-1102d**: "Add Toolpath" menu in Cut (Profile/Pocket/Drill/V-Carve) → session generate*Toolpath → real engines into tree nodes with buffer concat. `ShopPilotVerify1102d` PASS; 1102c/e/h/i regression green; app build green.
+- Next: SPK-1102g GRBL post from full tree, then 1136a, 1104b.
 
 ### 2026-08-03 — SPK-1102c Recalc Dirty All (Hermes coder)
 - Claimed/finished **SPK-1102c**: Cut stage "Recalculate Dirty (N)" button → `session.recalculateDirtyToolpaths()` (real engine for dirty Profile ops, buffer rebuild from tree, out-of-scope stays dirty). `ShopPilotVerify1102c` PASS (dirty→recalc→clean→export-unblocked cycle); 1102e/f/h/i regression green; app build green.
