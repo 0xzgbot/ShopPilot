@@ -49,6 +49,80 @@ public enum ToolType: String, Codable, CaseIterable {
 
 // MARK: - Tool
 
+/// SPK-1133b — per-material cutting data (the "cut-data" part of the 3-part
+/// linkage geometry / cut-data / machine-cut-data). One entry per material;
+/// resolution picks the entry matching the job material, then applies any
+/// machine override.
+public struct ToolCutData: Codable, Equatable, Hashable, Sendable {
+    public var material: String  // "hardwood", "softwood", "plastic", "aluminum", "steel"
+    public var feedRateMmPerMin: Double
+    public var plungeRateMmPerMin: Double
+    public var spindleRpm: Double
+    public var maxDepthOfCutMm: Double
+
+    public init(
+        material: String,
+        feedRateMmPerMin: Double,
+        plungeRateMmPerMin: Double,
+        spindleRpm: Double,
+        maxDepthOfCutMm: Double
+    ) {
+        self.material = material
+        self.feedRateMmPerMin = feedRateMmPerMin
+        self.plungeRateMmPerMin = plungeRateMmPerMin
+        self.spindleRpm = spindleRpm
+        self.maxDepthOfCutMm = maxDepthOfCutMm
+    }
+}
+
+/// SPK-1133b — per-machine cutting data (the "machine-cut-data" part of the
+/// linkage). Machines have different rigidity/spindles, so their safe feeds
+/// and depths legitimately differ; switching machines swaps these values
+/// without touching tool geometry or per-material cut data.
+public struct MachineCutData: Codable, Equatable, Hashable, Sendable {
+    public var machineName: String  // key: machine profile name ("GRBL 3018", …)
+    public var feedRateMmPerMin: Double
+    public var plungeRateMmPerMin: Double
+    public var spindleRpm: Double
+    public var maxDepthOfCutMm: Double
+
+    public init(
+        machineName: String,
+        feedRateMmPerMin: Double,
+        plungeRateMmPerMin: Double,
+        spindleRpm: Double,
+        maxDepthOfCutMm: Double
+    ) {
+        self.machineName = machineName
+        self.feedRateMmPerMin = feedRateMmPerMin
+        self.plungeRateMmPerMin = plungeRateMmPerMin
+        self.spindleRpm = spindleRpm
+        self.maxDepthOfCutMm = maxDepthOfCutMm
+    }
+}
+
+/// SPK-1133b — the fully resolved cutting data for a (tool, material, machine)
+/// triple after walking the 3-part linkage: derived defaults → per-material
+/// cut data → per-machine override.
+public struct ResolvedCutData: Equatable, Sendable {
+    public var feedRateMmPerMin: Double
+    public var plungeRateMmPerMin: Double
+    public var spindleRpm: Double
+    public var maxDepthOfCutMm: Double
+
+    public init(
+        feedRateMmPerMin: Double,
+        plungeRateMmPerMin: Double,
+        spindleRpm: Double,
+        maxDepthOfCutMm: Double
+    ) {
+        self.feedRateMmPerMin = feedRateMmPerMin
+        self.plungeRateMmPerMin = plungeRateMmPerMin
+        self.spindleRpm = spindleRpm
+        self.maxDepthOfCutMm = maxDepthOfCutMm
+    }
+}
+
 public struct Tool: Identifiable, Codable {
     public let id: UUID
     public var name: String
@@ -61,7 +135,14 @@ public struct Tool: Identifiable, Codable {
     public var material: String = "carbide"
     public var createdAt: Date
     public var updatedAt: Date
-    
+
+    // SPK-1133b — 3-part linkage. Geometry stays above; cutting data is
+    // per-material, machine cutting data is per-machine. Both are additive
+    // (custom Codable decodes their absence as `[]`, so pre-1133b persisted
+    // tools still load).
+    public var cutData: [ToolCutData] = []
+    public var machineCutData: [MachineCutData] = []
+
     public init(
         id: UUID = UUID(),
         name: String,
@@ -71,7 +152,9 @@ public struct Tool: Identifiable, Codable {
         totalLength: Double,
         shankDiameter: Double,
         flutes: Int = 2,
-        material: String = "carbide"
+        material: String = "carbide",
+        cutData: [ToolCutData] = [],
+        machineCutData: [MachineCutData] = []
     ) {
         self.id = id
         self.name = name
@@ -82,9 +165,105 @@ public struct Tool: Identifiable, Codable {
         self.shankDiameter = shankDiameter
         self.flutes = flutes
         self.material = material
+        self.cutData = cutData
+        self.machineCutData = machineCutData
         let now = Date()
         self.createdAt = now
         self.updatedAt = now
+    }
+
+    // MARK: Codable — backward compatible: pre-1133b persisted tools (no
+    // `cutData`/`machineCutData` keys) decode with empty arrays.
+
+    private enum CodingKeys: String, CodingKey {
+        case id, name, type, diameter, cuttingLength, totalLength
+        case shankDiameter, flutes, material, createdAt, updatedAt
+        case cutData, machineCutData
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        type = try c.decode(ToolType.self, forKey: .type)
+        diameter = try c.decode(Double.self, forKey: .diameter)
+        cuttingLength = try c.decode(Double.self, forKey: .cuttingLength)
+        totalLength = try c.decode(Double.self, forKey: .totalLength)
+        shankDiameter = try c.decode(Double.self, forKey: .shankDiameter)
+        flutes = try c.decode(Int.self, forKey: .flutes)
+        material = try c.decodeIfPresent(String.self, forKey: .material) ?? "carbide"
+        createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
+        updatedAt = try c.decodeIfPresent(Date.self, forKey: .updatedAt) ?? Date()
+        cutData = try c.decodeIfPresent([ToolCutData].self, forKey: .cutData) ?? []
+        machineCutData = try c.decodeIfPresent([MachineCutData].self, forKey: .machineCutData) ?? []
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(name, forKey: .name)
+        try c.encode(type, forKey: .type)
+        try c.encode(diameter, forKey: .diameter)
+        try c.encode(cuttingLength, forKey: .cuttingLength)
+        try c.encode(totalLength, forKey: .totalLength)
+        try c.encode(shankDiameter, forKey: .shankDiameter)
+        try c.encode(flutes, forKey: .flutes)
+        try c.encode(material, forKey: .material)
+        try c.encode(createdAt, forKey: .createdAt)
+        try c.encode(updatedAt, forKey: .updatedAt)
+        try c.encode(cutData, forKey: .cutData)
+        try c.encode(machineCutData, forKey: .machineCutData)
+    }
+
+    // MARK: - SPK-1133b resolution
+
+    /// Default spindle RPM when no linked cutting data is configured.
+    /// Inverse-diameter heuristic (small tools spin fast), clamped to the
+    /// range a typical router spindle actually delivers.
+    public static func recommendedSpindleRpm(diameter: Double) -> Double {
+        min(24000, max(6000, 12000 * (6.35 / max(diameter, 0.5))))
+    }
+
+    /// Default pass depth when no linked cutting data is configured.
+    public static func recommendedDepthOfCut(diameter: Double) -> Double {
+        min(2.0, max(0.5, diameter * 0.5))
+    }
+
+    /// Walk the 3-part linkage and return the effective cutting data:
+    ///   1. machine override (machineCutData matching `machineName`) wins —
+    ///      per-machine cut data can differ, and switching machines swaps
+    ///      speeds without touching geometry or material data;
+    ///   2. else per-material cut data (`cutData` matching `material`);
+    ///   3. else geometry-derived defaults.
+    public func resolvedCutData(material: String?, machineName: String?) -> ResolvedCutData {
+        if let machineName,
+           let mc = machineCutData.first(where: {
+               $0.machineName.caseInsensitiveCompare(machineName) == .orderedSame
+           }) {
+            return ResolvedCutData(
+                feedRateMmPerMin: mc.feedRateMmPerMin,
+                plungeRateMmPerMin: mc.plungeRateMmPerMin,
+                spindleRpm: mc.spindleRpm,
+                maxDepthOfCutMm: mc.maxDepthOfCutMm
+            )
+        }
+        if let material,
+           let cd = cutData.first(where: {
+               $0.material.caseInsensitiveCompare(material) == .orderedSame
+           }) {
+            return ResolvedCutData(
+                feedRateMmPerMin: cd.feedRateMmPerMin,
+                plungeRateMmPerMin: cd.plungeRateMmPerMin,
+                spindleRpm: cd.spindleRpm,
+                maxDepthOfCutMm: cd.maxDepthOfCutMm
+            )
+        }
+        return ResolvedCutData(
+            feedRateMmPerMin: ToolDatabase.recommendedFeedRate(diameter: diameter),
+            plungeRateMmPerMin: ToolDatabase.recommendedPlungeRate(diameter: diameter),
+            spindleRpm: Tool.recommendedSpindleRpm(diameter: diameter),
+            maxDepthOfCutMm: Tool.recommendedDepthOfCut(diameter: diameter)
+        )
     }
 }
 
@@ -232,6 +411,11 @@ public final class ToolDatabase: ObservableObject {
             let key = "\(entry.name)|\(entry.type.rawValue)"
             guard !seen.contains(key) else { continue }
             seen.insert(key)
+            // SPK-1133b: seeded tools carry per-material cut data (hardwood
+            // entry matching the derived formulas, so recalc behavior is
+            // unchanged) — the 3-part linkage is real out of the box.
+            let feed = ToolDatabase.recommendedFeedRate(diameter: entry.diameterMm)
+            let plunge = ToolDatabase.recommendedPlungeRate(diameter: entry.diameterMm)
             let tool = Tool(
                 name: entry.name,
                 type: entry.type,
@@ -239,7 +423,16 @@ public final class ToolDatabase: ObservableObject {
                 cuttingLength: max(4.0, entry.diameterMm * 3),
                 totalLength: max(20.0, entry.diameterMm * 5),
                 shankDiameter: min(entry.diameterMm, 6.35),
-                flutes: entry.type == .vBit || entry.type == .drill || entry.type == .diamondDrag ? 1 : 2
+                flutes: entry.type == .vBit || entry.type == .drill || entry.type == .diamondDrag ? 1 : 2,
+                cutData: [
+                    ToolCutData(
+                        material: "hardwood",
+                        feedRateMmPerMin: feed,
+                        plungeRateMmPerMin: plunge,
+                        spindleRpm: Tool.recommendedSpindleRpm(diameter: entry.diameterMm),
+                        maxDepthOfCutMm: Tool.recommendedDepthOfCut(diameter: entry.diameterMm)
+                    )
+                ]
             )
             tools.append(tool)
         }

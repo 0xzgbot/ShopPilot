@@ -392,24 +392,28 @@ public final class ToolpathTreeManager: ObservableObject {
     ///             centroids, stored §N depth/dwell)
     ///   V-Carve → VCarveEngine            (stored §O params)
     /// Ops with no stored params use strategy defaults. When `tools` is
-    /// provided and a dirty node has an assigned tool, the tool's recommended
-    /// feeds replace the placeholder default feed (SPK-1133) — explicitly
-    /// configured feeds (user form values) are preserved. Unknown ops stay
-    /// dirty. Returns the regenerated nodes in tree order.
+    /// provided and a dirty node has an assigned tool, the tool's linked cut
+    /// data (SPK-1133b: resolved geometry → per-material cut data → per-machine
+    /// cut data via `material` + `machineName`) replaces the placeholder
+    /// defaults (feed 1000, rpm 0) — explicitly configured values (user form
+    /// values) are preserved. Unknown ops stay dirty. Returns the regenerated
+    /// nodes in tree order.
     public func recalculateDirtyToolpaths(
         vectors: [VectorPath],
         material: Material?,
         stockHeightMm: Double,
         tools: [Tool] = [],
-        heightfield: HeightfieldData? = nil
+        heightfield: HeightfieldData? = nil,
+        machineName: String? = nil
     ) -> [ToolpathTreeNode] {
         var regenerated: [ToolpathTreeNode] = []
+        let materialName = material?.name
         for node in root.allDirtyNodes {
             switch node.strategyKind {
             case .profile:
                 let result = ProfileToolpathEngine.compute(
                     vectors: vectors,
-                    params: withToolFeeds(node.profileParams(), node: node, tools: tools),
+                    params: withToolFeeds(node.profileParams(), node: node, tools: tools, materialName: materialName, machineName: machineName),
                     material: material,
                     stockHeightMm: stockHeightMm
                 )
@@ -421,7 +425,7 @@ public final class ToolpathTreeManager: ObservableObject {
             case .pocket:
                 let result = PocketToolpathEngine.compute(
                     vectors: vectors,
-                    params: withToolFeeds(node.pocketParams(), node: node, tools: tools),
+                    params: withToolFeeds(node.pocketParams(), node: node, tools: tools, materialName: materialName, machineName: machineName),
                     material: material,
                     stockHeightMm: stockHeightMm
                 )
@@ -431,7 +435,7 @@ public final class ToolpathTreeManager: ObservableObject {
                 regenerated.append(node)
 
             case .drill:
-                let params = withToolFeeds(node.drillParams(), node: node, tools: tools)
+                let params = withToolFeeds(node.drillParams(), node: node, tools: tools, materialName: materialName, machineName: machineName)
                 let points: [DrillPoint] = vectors.compactMap { path in
                     guard path.isClosed, !path.points.isEmpty else { return nil }
                     let xs = path.points.map(\.x)
@@ -458,7 +462,7 @@ public final class ToolpathTreeManager: ObservableObject {
             case .vcarve:
                 let result = VCarveEngine.compute(
                     vectors: vectors,
-                    params: withToolFeeds(node.vcarveParams(), node: node, tools: tools),
+                    params: withToolFeeds(node.vcarveParams(), node: node, tools: tools, materialName: materialName, machineName: machineName),
                     stockHeightMm: stockHeightMm
                 )
                 node.toolpathResult = result.gcodeLines.joined(separator: "\n")
@@ -471,7 +475,7 @@ public final class ToolpathTreeManager: ObservableObject {
                 guard let hf = heightfield else { continue }
                 let result = HeightfieldRoughEngine.compute(
                     heightfield: hf,
-                    params: withToolFeeds(node.rough3DParams(), node: node, tools: tools)
+                    params: withToolFeeds(node.rough3DParams(), node: node, tools: tools, materialName: materialName, machineName: machineName)
                 )
                 node.toolpathResult = result.gcodeLines.joined(separator: "\n")
                 node.estimatedTimeSeconds = result.estimatedTimeSeconds
@@ -482,7 +486,7 @@ public final class ToolpathTreeManager: ObservableObject {
                 guard let hf = heightfield else { continue }
                 let result = HeightfieldFinishEngine.compute(
                     heightfield: hf,
-                    params: withToolFeeds(node.finish3DParams(), node: node, tools: tools)
+                    params: withToolFeeds(node.finish3DParams(), node: node, tools: tools, materialName: materialName, machineName: machineName)
                 )
                 node.toolpathResult = result.gcodeLines.joined(separator: "\n")
                 node.estimatedTimeSeconds = result.estimatedTimeSeconds
@@ -496,21 +500,49 @@ public final class ToolpathTreeManager: ObservableObject {
         return regenerated
     }
 
-    /// SPK-1133 — apply the assigned tool's recommended feeds to a params
-    /// struct that still carries the placeholder default feed (1000 mm/min).
-    /// Explicitly configured feeds (user form values, or a stored feed that
-    /// was never the placeholder) are preserved.
-    private func withToolFeeds<T: ToolFeedApplicable>(
+    /// SPK-1133b — apply the assigned tool's linked cut data (SPK-1133b:
+    /// feed/plunge/rpm from the resolved geometry→material→machine chain) to
+    /// params that still carry placeholder defaults (feed 1000, rpm 0).
+    /// Explicitly configured values (user form values, or stored values that
+    /// were never the placeholder) are preserved.
+    private func withToolFeeds<T: ToolFeedApplicable & ToolPassDepthApplicable>(
         _ params: T,
         node: ToolpathTreeNode,
-        tools: [Tool]
+        tools: [Tool],
+        materialName: String?,
+        machineName: String?
     ) -> T {
         var p = params
         guard let toolID = node.toolID,
               let tool = tools.first(where: { $0.id == toolID }),
               abs(p.feedRateMmPerMin - 1000) < 1e-6 else { return p }
-        p.feedRateMmPerMin = ToolDatabase.recommendedFeedRate(diameter: tool.diameter)
-        p.plungeFeedRateMmPerMin = ToolDatabase.recommendedPlungeRate(diameter: tool.diameter)
+        let resolved = tool.resolvedCutData(material: materialName, machineName: machineName)
+        p.feedRateMmPerMin = resolved.feedRateMmPerMin
+        p.plungeFeedRateMmPerMin = resolved.plungeRateMmPerMin
+        p.spindleRpm = resolved.spindleRpm
+        if abs(p.maxDepthOfCutMm - 2.0) < 1e-6 {
+            p.maxDepthOfCutMm = resolved.maxDepthOfCutMm
+        }
+        return p
+    }
+
+    /// SPK-1133b — feed/plunge/rpm linkage for strategies without a pass-depth
+    /// field (Drill, 3D rough/finish). Depth stays user-controlled there.
+    private func withToolFeeds<T: ToolFeedApplicable>(
+        _ params: T,
+        node: ToolpathTreeNode,
+        tools: [Tool],
+        materialName: String?,
+        machineName: String?
+    ) -> T {
+        var p = params
+        guard let toolID = node.toolID,
+              let tool = tools.first(where: { $0.id == toolID }),
+              abs(p.feedRateMmPerMin - 1000) < 1e-6 else { return p }
+        let resolved = tool.resolvedCutData(material: materialName, machineName: machineName)
+        p.feedRateMmPerMin = resolved.feedRateMmPerMin
+        p.plungeFeedRateMmPerMin = resolved.plungeRateMmPerMin
+        p.spindleRpm = resolved.spindleRpm
         return p
     }
     
@@ -520,18 +552,28 @@ public final class ToolpathTreeManager: ObservableObject {
     }
 }
 
-// MARK: - Tool feed application (SPK-1133)
+// MARK: - Tool feed application (SPK-1133 + SPK-1133b)
 
-/// Strategy params that carry feed/plunge rates the assigned tool can derive.
+/// Strategy params that carry feed/plunge rates the assigned tool can derive,
+/// plus (SPK-1133b) a linked spindle RPM the recalc fills from the tool's
+/// resolved cut data (0 = not configured → engine emits no S word).
 public protocol ToolFeedApplicable {
     var feedRateMmPerMin: Double { get set }
     var plungeFeedRateMmPerMin: Double { get set }
+    var spindleRpm: Double { get set }
 }
 
-extension ProfileToolpathParams: ToolFeedApplicable {}
-extension PocketToolpathParams: ToolFeedApplicable {}
+/// Strategy params with a per-pass depth the linked tool cut-data can provide
+/// (Profile/Pocket/V-Carve). Strategies without a pass-depth field (Drill,
+/// 3D rough/finish) keep their depth user-controlled.
+public protocol ToolPassDepthApplicable {
+    var maxDepthOfCutMm: Double { get set }
+}
+
+extension ProfileToolpathParams: ToolFeedApplicable, ToolPassDepthApplicable {}
+extension PocketToolpathParams: ToolFeedApplicable, ToolPassDepthApplicable {}
 extension DrillToolpathParams: ToolFeedApplicable {}
-extension VCarveParams: ToolFeedApplicable {}
+extension VCarveParams: ToolFeedApplicable, ToolPassDepthApplicable {}
 
 // MARK: - Preview (Xcode only — not available in CLI builds)
 

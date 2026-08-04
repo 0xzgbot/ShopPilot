@@ -52,6 +52,10 @@ public struct PocketToolpathParams: Codable, Sendable {
     public var toolDiameterMm: Double
     public var safetyHeightMm: Double
 
+    // SPK-1133b — linked spindle RPM (0 = not configured; recalc fills it
+    // from the assigned tool's cut data and engines emit M3 S).
+    public var spindleRpm: Double
+
     // SPK-1136b — installer-verified §M key set (start depth, pass control,
     // raster angle, profile pass, allowance, ramping). Additive with defaults
     // so existing call sites and persisted documents decode unchanged.
@@ -76,6 +80,7 @@ public struct PocketToolpathParams: Codable, Sendable {
         maxDepthOfCutMm: Double = 2.0,
         toolDiameterMm: Double = 6.0,
         safetyHeightMm: Double = 5.0,
+        spindleRpm: Double = 0,
         startDepthMm: Double = 0.0,
         passCount: Int = 0,
         exactStepDepth: Bool = false,
@@ -93,6 +98,7 @@ public struct PocketToolpathParams: Codable, Sendable {
         self.maxDepthOfCutMm = maxDepthOfCutMm
         self.toolDiameterMm = toolDiameterMm
         self.safetyHeightMm = safetyHeightMm
+        self.spindleRpm = spindleRpm
         self.startDepthMm = startDepthMm
         self.passCount = passCount
         self.exactStepDepth = exactStepDepth
@@ -124,6 +130,7 @@ public struct PocketToolpathParams: Codable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case clearanceMode, stepOverMm, feedRateMmPerMin, plungeFeedRateMmPerMin
         case maxDepthOfCutMm, toolDiameterMm, safetyHeightMm
+        case spindleRpm
         case startDepthMm, passCount, exactStepDepth, cutDirection
         case rasterAngleDegrees, profilePass, allowanceMm, rampPlungeMoves
         case useVectorSelectionOrder
@@ -138,6 +145,7 @@ public struct PocketToolpathParams: Codable, Sendable {
         maxDepthOfCutMm = try c.decodeIfPresent(Double.self, forKey: .maxDepthOfCutMm) ?? 2.0
         toolDiameterMm = try c.decodeIfPresent(Double.self, forKey: .toolDiameterMm) ?? 6.0
         safetyHeightMm = try c.decodeIfPresent(Double.self, forKey: .safetyHeightMm) ?? 5.0
+        spindleRpm = try c.decodeIfPresent(Double.self, forKey: .spindleRpm) ?? 0
         startDepthMm = try c.decodeIfPresent(Double.self, forKey: .startDepthMm) ?? 0.0
         passCount = try c.decodeIfPresent(Int.self, forKey: .passCount) ?? 0
         exactStepDepth = try c.decodeIfPresent(Bool.self, forKey: .exactStepDepth) ?? false
@@ -158,6 +166,7 @@ public struct PocketToolpathParams: Codable, Sendable {
         try c.encode(maxDepthOfCutMm, forKey: .maxDepthOfCutMm)
         try c.encode(toolDiameterMm, forKey: .toolDiameterMm)
         try c.encode(safetyHeightMm, forKey: .safetyHeightMm)
+        try c.encode(spindleRpm, forKey: .spindleRpm)
         try c.encode(startDepthMm, forKey: .startDepthMm)
         try c.encode(passCount, forKey: .passCount)
         try c.encode(exactStepDepth, forKey: .exactStepDepth)
@@ -207,6 +216,10 @@ public struct PocketToolpathEngine {
         allGcodeLines.append("%")
         allGcodeLines.append("O=POCKET_TOOLPATH")
         allGcodeLines.append("(Tool: \(Int(params.toolDiameterMm * 10))mm)")
+        // SPK-1133b — linked spindle RPM from the assigned tool's cut data.
+        if params.spindleRpm > 0 {
+            allGcodeLines.append("M3 S\(Int(params.spindleRpm))")
+        }
         
         var totalLength = 0.0
         var maxPassCount = 0

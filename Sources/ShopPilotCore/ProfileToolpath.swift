@@ -77,6 +77,10 @@ public struct ProfileToolpathParams: Codable, Sendable {
     public var leadInDistanceMm: Double
     public var leadOutDistanceMm: Double
 
+    // SPK-1133b — linked spindle RPM (0 = not configured; recalc fills it
+    // from the assigned tool's cut data and engines emit M3 S).
+    public var spindleRpm: Double
+
     // SPK-1136a — installer-verified §R2 key set (tabs / ramping / leads /
     // corners / direction). Additive with defaults so existing call sites and
     // persisted documents decode unchanged.
@@ -105,6 +109,7 @@ public struct ProfileToolpathParams: Codable, Sendable {
         finishPasses: Int = 1,
         leadInDistanceMm: Double = 5.0,
         leadOutDistanceMm: Double = 5.0,
+        spindleRpm: Double = 0,
         addTabs: Bool = false,
         tabLengthMm: Double = 6.0,
         tabThicknessMm: Double = 3.0,
@@ -129,6 +134,7 @@ public struct ProfileToolpathParams: Codable, Sendable {
         self.finishPasses = finishPasses
         self.leadInDistanceMm = leadInDistanceMm
         self.leadOutDistanceMm = leadOutDistanceMm
+        self.spindleRpm = spindleRpm
         self.addTabs = addTabs
         self.tabLengthMm = tabLengthMm
         self.tabThicknessMm = tabThicknessMm
@@ -167,6 +173,7 @@ public struct ProfileToolpathParams: Codable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case cutMode, feedRateMmPerMin, plungeFeedRateMmPerMin, maxDepthOfCutMm
         case toolDiameterMm, tabWidths, finishPasses, leadInDistanceMm, leadOutDistanceMm
+        case spindleRpm
         case addTabs, tabLengthMm, tabThicknessMm, tabSpacingMm, use3DTabs
         case rampType, rampDistanceMm, leadInType, leadInAngleDegrees
         case circularLeadRadiusMm, doLeadOut, sharpExternalCorner, sharpInternalCorner
@@ -184,6 +191,7 @@ public struct ProfileToolpathParams: Codable, Sendable {
         finishPasses = try c.decodeIfPresent(Int.self, forKey: .finishPasses) ?? 1
         leadInDistanceMm = try c.decodeIfPresent(Double.self, forKey: .leadInDistanceMm) ?? 5.0
         leadOutDistanceMm = try c.decodeIfPresent(Double.self, forKey: .leadOutDistanceMm) ?? 5.0
+        spindleRpm = try c.decodeIfPresent(Double.self, forKey: .spindleRpm) ?? 0
         addTabs = try c.decodeIfPresent(Bool.self, forKey: .addTabs) ?? false
         tabLengthMm = try c.decodeIfPresent(Double.self, forKey: .tabLengthMm) ?? 6.0
         tabThicknessMm = try c.decodeIfPresent(Double.self, forKey: .tabThicknessMm) ?? 3.0
@@ -211,6 +219,7 @@ public struct ProfileToolpathParams: Codable, Sendable {
         try c.encode(finishPasses, forKey: .finishPasses)
         try c.encode(leadInDistanceMm, forKey: .leadInDistanceMm)
         try c.encode(leadOutDistanceMm, forKey: .leadOutDistanceMm)
+        try c.encode(spindleRpm, forKey: .spindleRpm)
         try c.encode(addTabs, forKey: .addTabs)
         try c.encode(tabLengthMm, forKey: .tabLengthMm)
         try c.encode(tabThicknessMm, forKey: .tabThicknessMm)
@@ -272,6 +281,10 @@ public struct ProfileToolpathEngine {
         allGcodeLines.append("%")
         allGcodeLines.append("O=PROFILE_TOOLPATH")
         allGcodeLines.append("(Tool: \(Int(params.toolDiameterMm * 10))mm)")
+        // SPK-1133b — linked spindle RPM from the assigned tool's cut data.
+        if params.spindleRpm > 0 {
+            allGcodeLines.append("M3 S\(Int(params.spindleRpm))")
+        }
         
         var totalLength = 0.0
         var maxPassCount = 0

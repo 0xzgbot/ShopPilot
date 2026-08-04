@@ -53,6 +53,10 @@ public struct VCarveParams: Codable, Sendable {
     public var clearanceToolDiameterMm: Double
     public var clearanceDepthMm: Double
     public var clearanceStepOverMm: Double
+
+    // SPK-1133b — linked spindle RPM (0 = not configured; recalc fills it
+    // from the assigned tool's cut data and engines emit M3 S).
+    public var spindleRpm: Double
     
     public init(
         vBitAngleDegrees: Double = 90.0,
@@ -74,7 +78,8 @@ public struct VCarveParams: Codable, Sendable {
         clearancePassEnabled: Bool = false,
         clearanceToolDiameterMm: Double = 6.0,
         clearanceDepthMm: Double = 1.0,
-        clearanceStepOverMm: Double = 0.4
+        clearanceStepOverMm: Double = 0.4,
+        spindleRpm: Double = 0
     ) {
         self.vBitAngleDegrees = vBitAngleDegrees
         self.feedRateMmPerMin = feedRateMmPerMin
@@ -96,6 +101,7 @@ public struct VCarveParams: Codable, Sendable {
         self.clearanceToolDiameterMm = clearanceToolDiameterMm
         self.clearanceDepthMm = clearanceDepthMm
         self.clearanceStepOverMm = clearanceStepOverMm
+        self.spindleRpm = spindleRpm
     }
     
     /// Half-angle of the V-bit in radians (used for width calculations).
@@ -120,6 +126,7 @@ public struct VCarveParams: Codable, Sendable {
         case useVectorSelectionOrder, safeZHeightMm, rampPlungeMoves
         case clearancePassEnabled, clearanceToolDiameterMm, clearanceDepthMm
         case clearanceStepOverMm
+        case spindleRpm
     }
 
     public init(from decoder: Decoder) throws {
@@ -144,6 +151,7 @@ public struct VCarveParams: Codable, Sendable {
         clearanceToolDiameterMm = try c.decodeIfPresent(Double.self, forKey: .clearanceToolDiameterMm) ?? 6.0
         clearanceDepthMm = try c.decodeIfPresent(Double.self, forKey: .clearanceDepthMm) ?? 1.0
         clearanceStepOverMm = try c.decodeIfPresent(Double.self, forKey: .clearanceStepOverMm) ?? 0.4
+        spindleRpm = try c.decodeIfPresent(Double.self, forKey: .spindleRpm) ?? 0
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -168,6 +176,7 @@ public struct VCarveParams: Codable, Sendable {
         try c.encode(clearanceToolDiameterMm, forKey: .clearanceToolDiameterMm)
         try c.encode(clearanceDepthMm, forKey: .clearanceDepthMm)
         try c.encode(clearanceStepOverMm, forKey: .clearanceStepOverMm)
+        try c.encode(spindleRpm, forKey: .spindleRpm)
     }
 }
 
@@ -240,6 +249,12 @@ public struct VCarveEngine {
 
         // Generate G-code header
         allGcodeLines.append("%")
+        // SPK-1133b — linked spindle RPM from the assigned tool's cut data.
+        // Emitted before the clearance pass so the spindle is on for the whole
+        // program (VCarveClear's marker-order assertions are unaffected).
+        if params.spindleRpm > 0 {
+            allGcodeLines.append("M3 S\(Int(params.spindleRpm))")
+        }
         if params.clearancePassEnabled,
            let minX = boundsMinX, let minY = boundsMinY,
            let maxX = boundsMaxX, let maxY = boundsMaxY {

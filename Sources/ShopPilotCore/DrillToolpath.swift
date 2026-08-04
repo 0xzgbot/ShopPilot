@@ -89,6 +89,10 @@ public struct DrillToolpathParams: Codable, Sendable {
     /// Safety height above workpiece.
     public var safetyHeightMm: Double
 
+    // SPK-1133b — linked spindle RPM (0 = not configured; recalc fills it
+    // from the assigned tool's cut data and engines emit M3 S).
+    public var spindleRpm: Double
+
     // SPK-1136c — installer-verified §N key set (start/cut depth, peck
     // control, retract mode + gap, dwell, selection order). Additive with
     // defaults so existing call sites and persisted documents decode
@@ -110,6 +114,7 @@ public struct DrillToolpathParams: Codable, Sendable {
         peckDepthMm: Double = 2.0,
         toolDiameterMm: Double = 6.0,
         safetyHeightMm: Double = 10.0,
+        spindleRpm: Double = 0,
         startDepthMm: Double = 0.0,
         cutDepthMm: Double = 10.0,
         peckDrilling: Bool = true,
@@ -126,6 +131,7 @@ public struct DrillToolpathParams: Codable, Sendable {
         self.peckDepthMm = peckDepthMm
         self.toolDiameterMm = toolDiameterMm
         self.safetyHeightMm = safetyHeightMm
+        self.spindleRpm = spindleRpm
         self.startDepthMm = startDepthMm
         self.cutDepthMm = cutDepthMm
         self.peckDrilling = peckDrilling
@@ -155,6 +161,7 @@ public struct DrillToolpathParams: Codable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case cycleType, feedRateMmPerMin, plungeFeedRateMmPerMin, retractHeightMm
         case peckDepthMm, toolDiameterMm, safetyHeightMm
+        case spindleRpm
         case startDepthMm, cutDepthMm, peckDrilling, retractMode
         case peckRetractGapMm, dwellAtBottom, dwellTimeSeconds, useVectorSelectionOrder
     }
@@ -168,6 +175,7 @@ public struct DrillToolpathParams: Codable, Sendable {
         peckDepthMm = try c.decodeIfPresent(Double.self, forKey: .peckDepthMm) ?? 2.0
         toolDiameterMm = try c.decodeIfPresent(Double.self, forKey: .toolDiameterMm) ?? 6.0
         safetyHeightMm = try c.decodeIfPresent(Double.self, forKey: .safetyHeightMm) ?? 10.0
+        spindleRpm = try c.decodeIfPresent(Double.self, forKey: .spindleRpm) ?? 0
         startDepthMm = try c.decodeIfPresent(Double.self, forKey: .startDepthMm) ?? 0.0
         cutDepthMm = try c.decodeIfPresent(Double.self, forKey: .cutDepthMm) ?? 10.0
         peckDrilling = try c.decodeIfPresent(Bool.self, forKey: .peckDrilling) ?? true
@@ -187,6 +195,7 @@ public struct DrillToolpathParams: Codable, Sendable {
         try c.encode(peckDepthMm, forKey: .peckDepthMm)
         try c.encode(toolDiameterMm, forKey: .toolDiameterMm)
         try c.encode(safetyHeightMm, forKey: .safetyHeightMm)
+        try c.encode(spindleRpm, forKey: .spindleRpm)
         try c.encode(startDepthMm, forKey: .startDepthMm)
         try c.encode(cutDepthMm, forKey: .cutDepthMm)
         try c.encode(peckDrilling, forKey: .peckDrilling)
@@ -238,6 +247,10 @@ public struct DrillToolpathEngine {
         allGcodeLines.append("O=DRILL_TOOLPATH")
         allGcodeLines.append("(Tool: \(Int(params.toolDiameterMm * 10))mm)")
         allGcodeLines.append("(Cycle: \(params.cycleType.displayName))")
+        // SPK-1133b — linked spindle RPM from the assigned tool's cut data.
+        if params.spindleRpm > 0 {
+            allGcodeLines.append("M3 S\(Int(params.spindleRpm))")
+        }
         
         var totalDrillDepth = 0.0
         

@@ -23,6 +23,8 @@ public struct HeightfieldToolpathResult: Sendable {
 }
 
 /// Z-level roughing params for the heightfield rough engine.
+/// `ToolFeedApplicable` (SPK-1133) + linked spindle RPM (SPK-1133b). Custom
+/// Codable keeps old paramsJSON decodable.
 public struct HeightfieldRoughParams: Codable, Sendable, ToolFeedApplicable {
     public var toolDiameterMm: Double
     public var stepDownMm: Double
@@ -33,6 +35,7 @@ public struct HeightfieldRoughParams: Codable, Sendable, ToolFeedApplicable {
     /// Raw stock sits this far above the relief's highest point; Z=0 is the
     /// stock top, so all cut depths are negative.
     public var stockAllowanceMm: Double
+    public var spindleRpm: Double
 
     public init(
         toolDiameterMm: Double = 6.0,
@@ -41,7 +44,8 @@ public struct HeightfieldRoughParams: Codable, Sendable, ToolFeedApplicable {
         feedRateMmPerMin: Double = 1000,
         plungeFeedRateMmPerMin: Double = 300,
         safeZHeightMm: Double = 5.0,
-        stockAllowanceMm: Double = 0.5
+        stockAllowanceMm: Double = 0.5,
+        spindleRpm: Double = 0
     ) {
         self.toolDiameterMm = toolDiameterMm
         self.stepDownMm = stepDownMm
@@ -50,6 +54,36 @@ public struct HeightfieldRoughParams: Codable, Sendable, ToolFeedApplicable {
         self.plungeFeedRateMmPerMin = plungeFeedRateMmPerMin
         self.safeZHeightMm = safeZHeightMm
         self.stockAllowanceMm = stockAllowanceMm
+        self.spindleRpm = spindleRpm
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case toolDiameterMm, stepDownMm, stepOverMm, feedRateMmPerMin
+        case plungeFeedRateMmPerMin, safeZHeightMm, stockAllowanceMm, spindleRpm
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        toolDiameterMm = try c.decodeIfPresent(Double.self, forKey: .toolDiameterMm) ?? 6.0
+        stepDownMm = try c.decodeIfPresent(Double.self, forKey: .stepDownMm) ?? 2.0
+        stepOverMm = try c.decodeIfPresent(Double.self, forKey: .stepOverMm) ?? 1.5
+        feedRateMmPerMin = try c.decodeIfPresent(Double.self, forKey: .feedRateMmPerMin) ?? 1000
+        plungeFeedRateMmPerMin = try c.decodeIfPresent(Double.self, forKey: .plungeFeedRateMmPerMin) ?? 300
+        safeZHeightMm = try c.decodeIfPresent(Double.self, forKey: .safeZHeightMm) ?? 5.0
+        stockAllowanceMm = try c.decodeIfPresent(Double.self, forKey: .stockAllowanceMm) ?? 0.5
+        spindleRpm = try c.decodeIfPresent(Double.self, forKey: .spindleRpm) ?? 0
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(toolDiameterMm, forKey: .toolDiameterMm)
+        try c.encode(stepDownMm, forKey: .stepDownMm)
+        try c.encode(stepOverMm, forKey: .stepOverMm)
+        try c.encode(feedRateMmPerMin, forKey: .feedRateMmPerMin)
+        try c.encode(plungeFeedRateMmPerMin, forKey: .plungeFeedRateMmPerMin)
+        try c.encode(safeZHeightMm, forKey: .safeZHeightMm)
+        try c.encode(stockAllowanceMm, forKey: .stockAllowanceMm)
+        try c.encode(spindleRpm, forKey: .spindleRpm)
     }
 }
 
@@ -60,19 +94,47 @@ public struct HeightfieldFinishParams: Codable, Sendable, ToolFeedApplicable {
     public var feedRateMmPerMin: Double
     public var plungeFeedRateMmPerMin: Double
     public var safeZHeightMm: Double
+    public var spindleRpm: Double
 
     public init(
         toolDiameterMm: Double = 3.175,
         stepOverMm: Double = 0.8,
         feedRateMmPerMin: Double = 1000,
         plungeFeedRateMmPerMin: Double = 300,
-        safeZHeightMm: Double = 5.0
+        safeZHeightMm: Double = 5.0,
+        spindleRpm: Double = 0
     ) {
         self.toolDiameterMm = toolDiameterMm
         self.stepOverMm = stepOverMm
         self.feedRateMmPerMin = feedRateMmPerMin
         self.plungeFeedRateMmPerMin = plungeFeedRateMmPerMin
         self.safeZHeightMm = safeZHeightMm
+        self.spindleRpm = spindleRpm
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case toolDiameterMm, stepOverMm, feedRateMmPerMin
+        case plungeFeedRateMmPerMin, safeZHeightMm, spindleRpm
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        toolDiameterMm = try c.decodeIfPresent(Double.self, forKey: .toolDiameterMm) ?? 3.175
+        stepOverMm = try c.decodeIfPresent(Double.self, forKey: .stepOverMm) ?? 0.8
+        feedRateMmPerMin = try c.decodeIfPresent(Double.self, forKey: .feedRateMmPerMin) ?? 1000
+        plungeFeedRateMmPerMin = try c.decodeIfPresent(Double.self, forKey: .plungeFeedRateMmPerMin) ?? 300
+        safeZHeightMm = try c.decodeIfPresent(Double.self, forKey: .safeZHeightMm) ?? 5.0
+        spindleRpm = try c.decodeIfPresent(Double.self, forKey: .spindleRpm) ?? 0
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(toolDiameterMm, forKey: .toolDiameterMm)
+        try c.encode(stepOverMm, forKey: .stepOverMm)
+        try c.encode(feedRateMmPerMin, forKey: .feedRateMmPerMin)
+        try c.encode(plungeFeedRateMmPerMin, forKey: .plungeFeedRateMmPerMin)
+        try c.encode(safeZHeightMm, forKey: .safeZHeightMm)
+        try c.encode(spindleRpm, forKey: .spindleRpm)
     }
 }
 
@@ -107,6 +169,10 @@ public enum HeightfieldRoughEngine {
         levels.append(0)
 
         var lines: [String] = ["%", "O=ROUGH_3D"]
+        // SPK-1133b — linked spindle RPM from the assigned tool's cut data.
+        if params.spindleRpm > 0 {
+            lines.append("M3 S\(Int(params.spindleRpm))")
+        }
         lines.append("(Rough: \(String(format: "%.1f", params.toolDiameterMm))mm, \(levels.count) z-levels)")
         var totalLength = 0.0
 
@@ -179,6 +245,10 @@ public enum HeightfieldFinishEngine {
         let stepOver = max(0.1, params.stepOverMm)
 
         var lines: [String] = ["%", "O=FINISH_3D"]
+        // SPK-1133b — linked spindle RPM from the assigned tool's cut data.
+        if params.spindleRpm > 0 {
+            lines.append("M3 S\(Int(params.spindleRpm))")
+        }
         lines.append("(Finish: \(String(format: "%.1f", params.toolDiameterMm))mm ball nose)")
         var totalLength = 0.0
         var row = 0

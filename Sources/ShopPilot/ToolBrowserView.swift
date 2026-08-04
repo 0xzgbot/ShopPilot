@@ -7,7 +7,8 @@ import ShopPilotCore
 struct ToolBrowserView: View {
     @ObservedObject var database: ToolDatabase
     @Binding var selectedToolID: UUID?
-    
+    @State private var showingCutDataEditor = false
+
     var body: some View {
         VStack(spacing: 0) {
             // Header
@@ -17,6 +18,17 @@ struct ToolBrowserView: View {
                     .fontWeight(.semibold)
                     .foregroundStyle(.secondary)
                 Spacer()
+                // SPK-1133b — cut-data editor for the selected tool (per-material
+                // + per-machine cutting data).
+                Button {
+                    showingCutDataEditor = true
+                } label: {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.caption2)
+                }
+                .buttonStyle(.borderless)
+                .disabled(selectedToolID == nil)
+                .help("Edit linked cut data (material + machine) for the selected tool")
                 Text("\(database.tools.count) tool\(database.tools.count != 1 ? "s" : "")")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
@@ -52,6 +64,11 @@ struct ToolBrowserView: View {
                         }
                     }
                 }
+            }
+        }
+        .sheet(isPresented: $showingCutDataEditor) {
+            if let tool = selectedToolID.flatMap({ database.tool(withID: $0) }) {
+                ToolCutDataEditorView(database: database, tool: tool)
             }
         }
     }
@@ -116,19 +133,168 @@ private struct ToolRowView: View {
     }
 
     private var toolSpecsString: String {
+        var specs: String
         switch tool.type {
         case .endMill, .radiusedEndMill, .ballNose, .slotCutter, .engraving,
              .radiusedEngraving, .threadMill, .multiThreadMill, .plasma, .form:
-            return String(format: "%.1f mm · %d flutes", tool.diameter, tool.flutes)
+            specs = String(format: "%.1f mm · %d flutes", tool.diameter, tool.flutes)
         case .vBit:
-            return String(format: "%.1f mm V-Bit", tool.diameter)
+            specs = String(format: "%.1f mm V-Bit", tool.diameter)
         case .drill:
-            return String(format: "%.1f mm drill", tool.diameter)
+            specs = String(format: "%.1f mm drill", tool.diameter)
         case .diamondDrag:
-            return String(format: "%.1f mm drag", tool.diameter)
+            specs = String(format: "%.1f mm drag", tool.diameter)
         case .laser:
-            return String(format: "%.1f mm laser", tool.diameter)
+            specs = String(format: "%.1f mm laser", tool.diameter)
         }
+        // SPK-1133b — show the linked cut-data surface (per-material entries +
+        // per-machine entries) so the 3-part linkage is visible in the browser.
+        if !tool.cutData.isEmpty || !tool.machineCutData.isEmpty {
+            let materials = tool.cutData.count
+            let machines = tool.machineCutData.count
+            specs += " · \(materials) mat\(materials == 1 ? "" : "s")"
+            if machines > 0 {
+                specs += " · \(machines) mach\(machines == 1 ? "" : "s")"
+            }
+        }
+        return specs
+    }
+}
+
+// MARK: - Cut Data Editor (SPK-1133b)
+
+/// Edits a tool's 3-part cut-data linkage: per-material cut data (feed /
+/// plunge / spindle RPM / pass depth) and per-machine cut data. Saves back
+/// through the database (UserDefaults JSON) so recalc resolves the linked
+/// values.
+struct ToolCutDataEditorView: View {
+    @ObservedObject var database: ToolDatabase
+    let tool: Tool
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var materialEntries: [ToolCutData]
+    @State private var machineEntries: [MachineCutData]
+
+    init(database: ToolDatabase, tool: Tool) {
+        self.database = database
+        self.tool = tool
+        _materialEntries = State(initialValue: tool.cutData)
+        _machineEntries = State(initialValue: tool.machineCutData)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Cut Data — \(tool.name)")
+                .font(.headline)
+
+            // Per-material cutting data.
+            GroupBox("Per Material") {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach($materialEntries, id: \.self) { $entry in
+                        HStack(spacing: 6) {
+                            TextField("Material", text: $entry.material)
+                                .frame(width: 90)
+                            TextField("Feed", value: $entry.feedRateMmPerMin, format: .number)
+                                .frame(width: 60)
+                            TextField("Plunge", value: $entry.plungeRateMmPerMin, format: .number)
+                                .frame(width: 60)
+                            TextField("RPM", value: $entry.spindleRpm, format: .number)
+                                .frame(width: 60)
+                            TextField("Depth", value: $entry.maxDepthOfCutMm, format: .number)
+                                .frame(width: 50)
+                            Button {
+                                materialEntries.removeAll { $0 == entry }
+                            } label: {
+                                Image(systemName: "minus.circle")
+                            }
+                            .buttonStyle(.borderless)
+                        }
+                        .textFieldStyle(.roundedBorder)
+                        .font(.caption2)
+                    }
+                    HStack {
+                        Button("Add Material") {
+                            materialEntries.append(
+                                ToolCutData(material: "hardwood", feedRateMmPerMin: 1000, plungeRateMmPerMin: 300, spindleRpm: 12000, maxDepthOfCutMm: 2.0)
+                            )
+                        }
+                        Spacer()
+                    }
+                }
+            }
+
+            // Per-machine cutting data.
+            GroupBox("Per Machine") {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach($machineEntries, id: \.self) { $entry in
+                        HStack(spacing: 6) {
+                            TextField("Machine", text: $entry.machineName)
+                                .frame(width: 90)
+                            TextField("Feed", value: $entry.feedRateMmPerMin, format: .number)
+                                .frame(width: 60)
+                            TextField("Plunge", value: $entry.plungeRateMmPerMin, format: .number)
+                                .frame(width: 60)
+                            TextField("RPM", value: $entry.spindleRpm, format: .number)
+                                .frame(width: 60)
+                            TextField("Depth", value: $entry.maxDepthOfCutMm, format: .number)
+                                .frame(width: 50)
+                            Button {
+                                machineEntries.removeAll { $0 == entry }
+                            } label: {
+                                Image(systemName: "minus.circle")
+                            }
+                            .buttonStyle(.borderless)
+                        }
+                        .textFieldStyle(.roundedBorder)
+                        .font(.caption2)
+                    }
+                    HStack {
+                        Button("Add Machine") {
+                            machineEntries.append(
+                                MachineCutData(machineName: "GRBL 3018", feedRateMmPerMin: 800, plungeRateMmPerMin: 240, spindleRpm: 10000, maxDepthOfCutMm: 1.5)
+                            )
+                        }
+                        Spacer()
+                    }
+                }
+            }
+
+            Text("Recalculate applies the resolved values (machine > material > derived) when an op still uses placeholder feed/rpm.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
+            HStack {
+                Spacer()
+                Button("Cancel", role: .cancel) { dismiss() }
+                Button("Save") {
+                    save()
+                    dismiss()
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(16)
+        .frame(width: 480)
+    }
+
+    private func save() {
+        // Tool is a value type; rebuild with the new linked cut data.
+        var updated = Tool(
+            id: tool.id,
+            name: tool.name,
+            type: tool.type,
+            diameter: tool.diameter,
+            cuttingLength: tool.cuttingLength,
+            totalLength: tool.totalLength,
+            shankDiameter: tool.shankDiameter,
+            flutes: tool.flutes,
+            material: tool.material,
+            cutData: materialEntries,
+            machineCutData: machineEntries
+        )
+        updated.createdAt = tool.createdAt
+        updated.updatedAt = Date()
+        database.update(updated)
     }
 }
 

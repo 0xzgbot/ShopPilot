@@ -49,6 +49,11 @@ final class AppSession: ObservableObject {
     /// Session tool database — the tool picker reads and assigns from here.
     @Published var toolDatabase = ToolDatabase()
 
+    /// SPK-1133b — machine profile name used to resolve per-machine cut data
+    /// during recalc (nil = no machine override; material cut-data applies).
+    /// Wired by the machine stage when a profile is active.
+    @Published var activeMachineName: String? = nil
+
     /// Current selection (vector path IDs) — session-owned, not view-local.
     @Published var selectedVectorIDs: Set<UUID> = []
 
@@ -1148,8 +1153,11 @@ final class AppSession: ObservableObject {
     /// Recalculate every dirty toolpath operation with the real engine
     /// (SPK-1102c + SPK-1102h-recalc). Profile/Pocket/Drill/V-Carve
     /// regenerate from the current session vectors + their stored params;
-    /// unknown ops stay dirty. The session G-code buffer is rebuilt from the
-    /// clean tree. Returns the number of regenerated ops.
+    /// unknown ops stay dirty. SPK-1133b: recalc resolves each op's assigned
+    /// tool cut-data (feed/plunge/rpm/depth) against the sheet material and
+    /// the active machine name, so per-machine cutting data flows into the
+    /// G-code. The session G-code buffer is rebuilt from the clean tree.
+    /// Returns the number of regenerated ops.
     @discardableResult
     func recalculateDirtyToolpaths() -> Int {
         let dirtyBefore = toolpathTree.dirtyNodeCount
@@ -1159,10 +1167,11 @@ final class AppSession: ObservableObject {
         }
         let regenerated = toolpathTree.recalculateDirtyToolpaths(
             vectors: vectors,
-            material: nil,
+            material: job.sheets.first?.material,
             stockHeightMm: job.sheets.first?.height ?? 6.0,
             tools: toolDatabase.tools,
-            heightfield: job.stlHeightfield
+            heightfield: job.stlHeightfield,
+            machineName: activeMachineName
         )
         let all = allToolpathGCode
         if !all.isEmpty {
