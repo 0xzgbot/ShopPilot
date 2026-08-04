@@ -71,7 +71,9 @@ struct ContentView: View {
         case .preview:
             ToolpathPreviewView(session: session)
         case .machine:
-            MachineConnectionView(pendingGCode: session.gcodeLines)
+            // SPK-1104b: hand off the FULL toolpath tree (all ops, tree
+            // order), not the last single-op gcodeLines overwrite.
+            MachineConnectionView(pendingGCode: session.allToolpathGCode)
         }
     }
 

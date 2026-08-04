@@ -220,6 +220,11 @@ A (parallel from day 0)
   - track: 3
   - note: Parent SPK-1136 stays [ ] — Pocket/Drill/V-Carve field sets + their forms are later slices
   - worklog: 2026-08-03 — Hermes coder. Engine: `ProfileToolpathParams` extended with the §R2 key set (tabs: addTabs/tabLength/tabThickness/tabSpacing/use3DTabs; ramping: `ProfileRampType` none/smooth/zigZag/spiral + rampDistance; leads: `ProfileLeadType` none/straightLine/circularArc + leadInDistance/Angle/circularRadius + doLeadOut + leadOutDistance; corners: sharpExternal/Internal; direction: `ProfileCutDirection` climb/conventional) — additive defaults + custom Codable with decodeIfPresent (pre-1136a JSON loads). Tree: `ToolpathTreeNode.paramsJSON` + `profileParams()`; `recalculateDirtyProfiles` now prefers the node's stored params over the passed defaults. Persist: `PersistedToolpath.paramsJSON` round-trips through toolpaths(from:)/restoreToolpathTree (backward-compatible optional). Session: `generateProfileToolpath` stores default params; `applyProfileParams(_:to:)` stores + regenerates with the real engine + clears the dirty badge + refreshes the buffer. UI: `ProfileParamsForm` in the Cut inspector for the selected Profile op (grouped Cut/Feeds/Tabs/Ramping/Leads/Corners + Apply→Regenerate). Verify: `./scripts/verify_locked.sh ShopPilotVerify1136a` PASS — §R2 key presence, JSON + .shoppilot per-op round-trip, legacy-JSON decode with defaults, recalc respects stored feed/cut-mode (F1500 in G-code). Whole-package build green; 1102c/d/e/g + 1137/1101d regression green.
+- [x] **SPK-1104b** **MACH** Cut→Machine handoff — full-tree G-code into buffer; Start gated by preflight; no auto-run // P0
+  - AC: Machine stage receives `session.allToolpathGCode` (full tree, not last-op gcodeLines); load sends zero bytes (no auto-run); RUN only after connected + preflight acknowledged; Hold/Reset realtime intact; `swift run ShopPilotVerify1104b` PASS
+  - deps: SPK-1102g, SPK-0402, SPK-0403
+  - track: 4
+  - worklog: 2026-08-03 — Hermes coder. Audit: Machine stage RUN was already gated on connected + preflightPassed (SPK-0412/0413), Hold/Reset realtime via MachineSession (SPK-1104 repair), buffer load on appear (SPK-1104a) — but the handoff fed `session.gcodeLines` (last single-op overwrite). Fixed: `ContentView` Machine stage now passes `session.allToolpathGCode` (full tree, tree order — closes the P0-C handoff gap). Verify `ShopPilotVerify1104b` PASS: two-op tree (Profile+Pocket) handoff carries both strategy markers + cut moves; `loadGCode` sends ZERO bytes to the transport (no auto-run on load); `runJob` without a connection throws notConnected (explicit Start required); connect(sim) + explicit runJob streams and completes; fresh PreflightGate blocks Run until every item is acknowledged. Whole-package build green.
 - [ ] **SPK-1102** **TP** Cut stage product — toolpath tree Profile/Pocket/Drill/V-Carve + dirty/recalc/export block + GRBL post // P0
   - AC: Saved job regenerates toolpaths and exports GRBL from tree
   - deps: SPK-1101, SPK-0302
@@ -1011,6 +1016,10 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 ---
 
 ## 12. Work log
+
+### 2026-08-03 — SPK-1104b Cut→Machine handoff (Hermes coder)
+- Claimed/finished **SPK-1104b**: Machine stage now receives `session.allToolpathGCode` (full tree — closes the P0-C handoff gap where the last single op overwrote the buffer). `ShopPilotVerify1104b` PASS: full-tree handoff (both strategy markers), zero bytes on load (no auto-run), runJob throws notConnected without a connection, connect+explicit runJob streams, fresh preflight gate blocks Run until acknowledged.
+- Next: full-sweep gate for tonight's wave, then SPK-1101 parent close-out review / SPK-1105 XCTest (Xcode-gated).
 
 ### 2026-08-03 — SPK-1136a Profile form fields (Hermes coder)
 - Claimed/finished **SPK-1136a** (Profile slice of SPK-1136): params model covers the installer-verified §R2 key set (tabs/ramping/leads/corners/direction) with backward-compatible Codable; per-op params persist via paramsJSON + round-trip; Cut inspector ProfileParamsForm (Apply→regenerate); recalc respects stored params. `ShopPilotVerify1136a` PASS; whole-package build green; 1102c/d/e/g + 1137/1101d regression green.
