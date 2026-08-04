@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import UniformTypeIdentifiers
 import ShopPilotCore
 import ShopPilotGeometry
 
@@ -1109,10 +1110,34 @@ final class AppSession: ObservableObject {
         case .exportGcode:
             loadFixtureGCodeIfNeeded()
             statusMessage = "G-code ready (\(gcodeLines.count) lines) — use Machine stage to stream"
+        case .importSVG:
+            importSVGFromPanel()
         default:
             statusMessage = "Command: \(id.name)"
         }
         showCommandPalette = false
+    }
+
+    /// ⌘K "Import SVG…": present an open panel and import the chosen file
+    /// through `importSVG(from:)` (SPK-1101e). The Design-stage Import hub
+    /// remains the in-pane path; this makes the session method reachable
+    /// from the palette too.
+    private func importSVGFromPanel() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.svg]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.title = "Import SVG"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            let count = try importSVG(from: url)
+            selectedStage = .design
+            if count == 0 {
+                statusMessage = "No drawable shapes found in \(url.lastPathComponent)"
+            }
+        } catch {
+            statusMessage = "Import failed: \(error.localizedDescription)"
+        }
     }
 
     private func defaultPackageURL() -> URL {

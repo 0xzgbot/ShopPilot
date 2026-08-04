@@ -187,6 +187,12 @@ A (parallel from day 0)
   - deps: SPK-1100, SPK-1137
   - track: 2
   - worklog: 2026-08-03 — Hermes coder. UI: DesignStageView ops bar (Offset… w/ distance alert, Weld, Subtract, Intersect, Join, Close, Trim; selection-count gating + help; live "N selected"). Canvas now publishes selection to `session.selectedShapeIndices` (⌘/⇧-click toggles multi-select via NSEvent.modifierFlags; click-empty clears; highlight driven by session set). Session: new `applyTrimToSelection()` — boundary = union bbox of selected closed shapes (`VectorShape.isClosedShape` new), targets = open vectors; targeted index-rebased replacement (layer-faithful via shapeLayerIDs), undo+dirty+status. Engine: `trimToBox` now clips freehand — closed polylines via Sutherland–Hodgman (refactored `clipLineToRect` → `clipPolygonToRect`, loop re-closed), open polylines segment-wise with contiguous-run grouping. Verify: `./scripts/verify_locked.sh ShopPilotVerify1101d` PASS (join/close/weld/subtract/intersect/offset/trim engine semantics, boundary detection, .shoppilot round-trip of op results). Full `swift build` exit 0; sweep 36/36 PASS.
+- [x] **SPK-1101e** **GEO** SVG import hub → session shapes + persist // P0 // parallel-ok
+  - AC: Import hub (Design) + ⌘K "Import SVG…" reachable; both land shapes through the session (layer-faithful); imported shapes survive save/open; `swift run ShopPilotVerify1101e` PASS
+  - deps: SPK-1100, SPK-1137
+  - track: 2
+  - note: Engine (SVGImporter) + hub UI + `AppSession.importSVG(from:)` exist — gap was ⌘K reachability + verify proof; parent SPK-1101 still `[ ]`
+  - worklog: 2026-08-03 — Hermes coder. Audit: SVGImporter (viewBox-aware paths+primitives), Design hub (parse→preview→addShapes), `AppSession.importSVG(from:)` (parse → addShapes → layer-faithful) all existed but importSVG was unreachable dead code. Added ⌘K command `import_svg` ("Import SVG…", File category, routable) → `AppSession.importSVGFromPanel()` (NSOpenPanel, UTType.svg, switches to Design stage, status via importSVG). Verify: `./scripts/verify_locked.sh ShopPilotVerify1101e` PASS — fixture SVG (viewBox + rect/circle/path/line) via temp-file read path → 4 shapes + doc size; viewBox scale 2× point-check; empty → 0 shapes; garbage path → lenient 0 shapes no-FATAL (tokenizer contract); Job encode/decode round-trip keeps all 4 paths on the import layer with geometry intact. App build green.
 - [ ] **SPK-1102** **TP** Cut stage product — toolpath tree Profile/Pocket/Drill/V-Carve + dirty/recalc/export block + GRBL post // P0
   - AC: Saved job regenerates toolpaths and exports GRBL from tree
   - deps: SPK-1101, SPK-0302
@@ -978,6 +984,10 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 ---
 
 ## 12. Work log
+
+### 2026-08-03 — SPK-1101e SVG import reachability + verify (Hermes coder)
+- Claimed/finished **SPK-1101e**: audit showed importer/hub/session-import all existed; the honest gaps were ⌘K reachability (session.importSVG was dead code) + verify proof. Added `import_svg` command → NSOpenPanel → `importSVG(from:)`; `ShopPilotVerify1101e` PASS (fixture parse, viewBox transform, edge cases, layer-faithful .shoppilot round-trip). App build green; focused sweep green.
+- Next: SPK-1101f transforms UI, then SPK-1102c/d/g, SPK-1136a, SPK-1104b.
 
 ### 2026-08-03 — SPK-1101d Design ops UI (Hermes coder)
 - Claimed/finished **SPK-1101d**: Design stage Ops bar — Offset/Weld/Subtract/Intersect/Join/Close/Trim routed through session apply* (undo+dirty+persist). Details on the card. `ShopPilotVerify1101d` PASS; sweep **36/36** PASS; full `swift build` exit 0.
