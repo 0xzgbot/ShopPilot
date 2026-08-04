@@ -37,6 +37,11 @@ public struct Job: Identifiable, Codable, Sendable {
     /// Optional → older documents decode unchanged.
     public var followSourceModeRaw: String?
 
+    /// Keep-out zones for this document (SPK-0308): toolpaths must not enter
+    /// active zones. Optional + legacy-safe — documents saved before zones
+    /// existed decode as nil (no zones).
+    public var keepOutZones: [KeepOutZone]?
+
     /// Document-level variables (key-value pairs for stock size, material, etc.).
     public var documentVariables: [DocumentVariable] = []
 

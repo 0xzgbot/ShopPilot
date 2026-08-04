@@ -385,6 +385,7 @@ final class AppSession: ObservableObject {
         } else {
             linkManager.setFollowSourceMode(.manual)
         }
+        keepOutZones = newJob.keepOutZones ?? []
         docVars.variables = newJob.documentVariables
         shapes = []
         shapeLayerIDs = []
@@ -1101,6 +1102,9 @@ final class AppSession: ObservableObject {
     /// one-shot honesty contract as ExportBlocker's expert override — SPK-0603).
     @Published var toolpathPreflightDismissed: Set<UUID> = []
 
+    /// Keep-out zones (SPK-0308): toolpaths must not enter active zones.
+    @Published var keepOutZones: [KeepOutZone] = []
+
     /// Run the toolpath preflight rules over the tree with the document's
     /// design vectors and sheet material. Blocks export on `.error` issues.
     func exportPreflightIssues() -> [ToolpathPreflightIssue] {
@@ -1133,7 +1137,48 @@ final class AppSession: ObservableObject {
         ) {
             issues.append(multiTool)
         }
+        // SPK-0308: any cut segment entering an active keep-out zone.
+        if !keepOutZones.isEmpty {
+            for node in toolpathTree.allNodes where node.isOperation {
+                let gcode = (node.toolpathResult ?? "").components(separatedBy: .newlines)
+                if let violation = ToolpathPreflight.keepOutZoneViolation(
+                    nodeName: node.name,
+                    zones: keepOutZones,
+                    gcodeLines: gcode,
+                    nodeID: node.id
+                ) {
+                    issues.append(violation)
+                }
+            }
+        }
         return issues
+    }
+
+    // MARK: - Keep-out zones (SPK-0308)
+
+    /// Add a keep-out zone (persists with the job, marks the document dirty).
+    func addKeepOutZone(_ zone: KeepOutZone) {
+        keepOutZones.append(zone)
+        job.keepOutZones = keepOutZones
+        markDirty()
+    }
+
+    /// Remove a keep-out zone by id.
+    @discardableResult
+    func removeKeepOutZone(id: UUID) -> Bool {
+        guard let index = keepOutZones.firstIndex(where: { $0.id == id }) else { return false }
+        keepOutZones.remove(at: index)
+        job.keepOutZones = keepOutZones
+        markDirty()
+        return true
+    }
+
+    /// Toggle a zone's active flag (inactive zones are ignored by the check).
+    func toggleKeepOutZone(id: UUID) {
+        guard let index = keepOutZones.firstIndex(where: { $0.id == id }) else { return }
+        keepOutZones[index].isActive.toggle()
+        job.keepOutZones = keepOutZones
+        markDirty()
     }
 
     /// Ordered per-tool G-code groups for the R019 split CTA: every operation

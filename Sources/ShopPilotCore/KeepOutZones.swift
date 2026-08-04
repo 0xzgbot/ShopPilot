@@ -147,6 +147,8 @@ public final class KeepOutZoneManager: ObservableObject {
     
     @Published public var zones: [KeepOutZone] = []
     
+    public init() {}
+
     /// Add a keep-out zone.
     public func addZone(_ zone: KeepOutZone) {
         zones.append(zone)

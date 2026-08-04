@@ -223,6 +223,39 @@ public enum ToolpathPreflight {
         )
     }
 
+    // MARK: - Keep-out zones (SPK-0308)
+
+    /// SPK-0308 check: any CUT (non-rapid) segment of the node's G-code that
+    /// enters an ACTIVE keep-out zone → warning with the zone name (override
+    /// available). Rapids are exempt — only the cutter path matters.
+    public static func keepOutZoneViolation(
+        nodeName: String,
+        zones: [KeepOutZone],
+        gcodeLines: [String],
+        nodeID: UUID = UUID()
+    ) -> ToolpathPreflightIssue? {
+        guard !zones.isEmpty else { return nil }
+        let manager = KeepOutZoneManager()
+        for zone in zones { manager.addZone(zone) }
+        let segments = WireframeRenderer.generateSegments(from: gcodeLines)
+        for segment in segments where !segment.isRapid {
+            let start = VectorPoint(x: segment.start.x, y: segment.start.y)
+            let end = VectorPoint(x: segment.end.x, y: segment.end.y)
+            for zone in zones where zone.isActive && zone.intersectsLine(start, end) {
+                return ToolpathPreflightIssue(
+                    nodeID: nodeID,
+                    nodeName: nodeName,
+                    ruleID: "KEEP-OUT",
+                    severity: .warning,
+                    message: "“\(nodeName)” enters keep-out zone “\(zone.name)” — "
+                        + "move the toolpath or disable the zone before cutting.",
+                    fix: .warnOnly
+                )
+            }
+        }
+        return nil
+    }
+
     // MARK: - Tree-level runner
 
     /// Run every toolpath preflight rule over the tree's operation nodes.

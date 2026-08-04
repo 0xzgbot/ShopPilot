@@ -210,6 +210,34 @@ struct ToolpathPreviewView: View {
             }
         }
 
+        // SPK-0308 — keep-out zone overlay (translucent fill + dashed edge).
+        for zone in session.keepOutZones {
+            let fill = zone.isActive ? Color.red.opacity(0.25) : Color.red.opacity(0.08)
+            let edge = zone.isActive ? Color.red : Color.red.opacity(0.4)
+            let dash = StrokeStyle(lineWidth: 1.5, dash: [4, 3])
+            switch zone.type {
+            case .rectangle:
+                if let minX = zone.rectMinX, let minY = zone.rectMinY,
+                   let maxX = zone.rectMaxX, let maxY = zone.rectMaxY {
+                    let p0 = worldToView(minX, minY, size: size)
+                    let p1 = worldToView(maxX, maxY, size: size)
+                    let rect = CGRect(x: p0.x, y: p1.y, width: p1.x - p0.x, height: p0.y - p1.y)
+                    context.fill(Path(rect), with: .color(fill))
+                    context.stroke(Path(rect), with: .color(edge), style: dash)
+                }
+            case .circle:
+                if let center = zone.circleCenter, let radius = zone.circleRadiusMm {
+                    let c = worldToView(center.x, center.y, size: size)
+                    let r = CGFloat(radius) * scale
+                    let ellipse = Path(ellipseIn: CGRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r))
+                    context.fill(ellipse, with: .color(fill))
+                    context.stroke(ellipse, with: .color(edge), style: dash)
+                }
+            case .polygon:
+                break // polygon entry UI is a later pass; rect/circle cover v0
+            }
+        }
+
         // Draft heightfield samples
         if (mode == .heightfield || mode == .combined), !heightSamples.isEmpty {
             for sample in heightSamples {

@@ -569,9 +569,9 @@ A (parallel from day 0)
   - **SUPERSEDED 2026-08-04 (board hygiene): export gate shipped by SPK-0603 — dirty blocks export, expert override, no silent export; `ShopPilotVerify0603` PASS.
   - worklog: 2026-07-29 — Direct write. ExportBlocker.swift (2.8KB) with ExportValidationResult struct, ExportBlocker class with validateForExport() blocking when dirty nodes exist, overrideExportBlock() for expert mode, and clearDirtyFlags(). swift build passes cleanly.
   - deps: SPK-0305  
-- [ ] **SPK-0308** **TP** Keep-out zones v0 
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
-  - worklog: 2026-07-29 — Direct write. KeepOutZones.swift (6.3KB) with KeepOutZoneType enum, KeepOutZone struct supporting circle/rectangle/polygon types with containsPoint() and intersectsLine() methods, and KeepOutZoneManager ObservableObject for zone management. swift build passes cleanly.
+- [x] **SPK-0308** **TP** Keep-out zones v0 (productized)
+  - AC: Engine: `KeepOutZone` geometry (rect/circle/polygon containsPoint + intersectsLine, inactive ignored, public manager init) + `ToolpathPreflight.keepOutZoneViolation` (warning naming the zone when a CUT segment enters an active zone; rapids exempt; warn-only override). UI: KeepOutZonesPanel in Cut (add/edit/toggle/delete, rect+circle editor) + red dashed overlay in the Preview canvas + save-preflight warning. Persist: `Job.keepOutZones` (optional, legacy-safe; replaceJob restores; CRUD writes back + dirty). Verify: `ShopPilotVerify0308` PASS
+  - worklog: 2026-08-04 — Hermes coder. Audit: the 2026-07-29 build-only claim — engine existed but nothing wired it. Added rule (`keepOutZoneViolation` — WireframeRenderer segments, non-rapid only, warning + zone name), session CRUD (`addKeepOutZone`/`removeKeepOutZone`/`toggleKeepOutZone` writing `job.keepOutZones` + dirty, `replaceJob` restore), `Job.keepOutZones: [KeepOutZone]?` (synthesized Codable — legacy docs decode nil), exportPreflightIssues per-node zone check, `KeepOutZonesPanel` (list + add/edit sheet with rect/circle fields), Preview overlay (translucent red fill + dashed edge via worldToView). `ShopPilotVerify0308` PASS — geometry (rect/circle/ray-cast polygon, inactive ignored), cut-vs-zone warning naming the zone, G0 rapid exemption, tree-level flagging of only the entering node, Job round-trip + legacy nil. App build green; regressions 0600/0601/1106b/0312/FMR013/FMR016 green.
   - deps: SPK-0300  
 - [x] **SPK-0309** **TP** Preview simulation (heightfield) + wireframe first 
   - **SUPERSEDED 2026-08-04 (board hygiene): preview simulation shipped by the SPK-1103 spine — sheet-aware material sim (1103e: removal along path, cancel-immediate, cancel-mid-run, draft regression) + wireframe; `ShopPilotVerify1103/1103a-e` PASS.
@@ -1125,6 +1125,9 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 ---
 
 ## 12. Work log
+
+### 2026-08-04 — SPK-0308 keep-out zones productized (Hermes coder)
+- **SPK-0308** [x]: rule (`keepOutZoneViolation` — cut-only, names zone, warn-only), session CRUD + `Job.keepOutZones` (legacy-safe), `KeepOutZonesPanel` (add/edit/toggle/delete) + Preview red-dashed overlay, save-preflight integration. `ShopPilotVerify0308` PASS — geometry, cut-vs-zone warning, rapid exemption, tree-level flagging, Job round-trip + legacy nil.
 
 ### 2026-08-04 — SPK-0312 time estimate wired (Hermes coder)
 - **SPK-0312** [x]: `AppSession.fullJobTimeEstimate` (TimeEstimator over the full buffer) + Cut tree footer total chip (cutting/travel tooltip) + Preview header estimate line. `ShopPilotVerify0312` PASS — exact hand-computed math, engine estimate on nodes, PersistedToolpath round-trip + legacy-safe optionals, full-buffer total ≥ largest op.

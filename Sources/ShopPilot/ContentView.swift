@@ -322,6 +322,9 @@ private struct CutStageView: View {
                         selectedToolID: $selectedBrowserToolID
                     )
                     .frame(minWidth: 200, idealWidth: 240, maxWidth: 300, minHeight: 140, maxHeight: 220)
+                    Divider()
+                    // SPK-0308: keep-out zone management (create/edit/toggle).
+                    KeepOutZonesPanel(session: session)
                 }
 
                 selectedDetail
