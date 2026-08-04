@@ -199,6 +199,11 @@ A (parallel from day 0)
   - track: 2
   - note: Found + fixed real bug — `ShapeTransformer.rotate` rect case rotated origin and kept w/h (90° produced wrong geometry); now re-derives bbox like rotated(byDegrees:)
   - worklog: 2026-08-03 — Hermes coder. UI: Design ops bar gains Nudge X+1 / Flip H / Rotate 90° / Scale 1.1× (selection-gated, help, routed to existing session apply* — undo + dirty + layer-faithful). Real bug fixed: `ShapeTransformer.rotate` `.rectangle` case rotated only the origin and kept w/h — a 90° rotation produced geometrically wrong output (same class as the 1101j fix); now re-derives the rotated bbox (w/h swap, centroid invariant). Verify: `./scripts/verify_locked.sh ShopPilotVerify1101f` PASS — nudge +1mm, flip centroid/size invariants, rotate-90 w/h swap + exact vertex math (rect + freehand), scale 1.1× invariants, .shoppilot round-trip of the rotated rect. App build green; 1101j/k/FlipH regression green.
+- [x] **SPK-1102c** **TP** Recalc Dirty All — Cut button regenerates dirty Profile ops, badges update // P0 // parallel-ok
+  - AC: Cut stage "Recalculate Dirty (N)" button → session recalc (real engine for dirty Profile ops); badges/dirty count update; buffer rebuilds from tree; out-of-scope ops stay dirty; `swift run ShopPilotVerify1102c` PASS
+  - deps: SPK-1102b
+  - track: 3
+  - worklog: 2026-08-03 — Hermes coder. Session: `recalculateDirtyToolpaths()` — uses `ToolpathTreeManager.recalculateDirtyProfiles` (real ProfileToolpathEngine, current session vectors + sheet height), rebuilds `gcodeLines` from the clean tree (`allToolpathGCode`), updates status + summary; no-op when nothing dirty. UI: Cut stage "Recalculate Dirty (N)" button (live dirty count as label + enable gate, disabled at 0) next to Generate Profile Toolpath; tree dirty badges already existed. Verify: `./scripts/verify_locked.sh ShopPilotVerify1102c` PASS — clean→export-allowed; design change→dirty→export-blocked; recalc→real engine G-code→clean→export-allowed; Pocket out-of-scope stays dirty (export still blocked); recalc no-op when clean; session buffer rebuilds from tree. App build green; 1102e/f/h/i regression green.
 - [ ] **SPK-1102** **TP** Cut stage product — toolpath tree Profile/Pocket/Drill/V-Carve + dirty/recalc/export block + GRBL post // P0
   - AC: Saved job regenerates toolpaths and exports GRBL from tree
   - deps: SPK-1101, SPK-0302
@@ -990,6 +995,10 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 ---
 
 ## 12. Work log
+
+### 2026-08-03 — SPK-1102c Recalc Dirty All (Hermes coder)
+- Claimed/finished **SPK-1102c**: Cut stage "Recalculate Dirty (N)" button → `session.recalculateDirtyToolpaths()` (real engine for dirty Profile ops, buffer rebuild from tree, out-of-scope stays dirty). `ShopPilotVerify1102c` PASS (dirty→recalc→clean→export-unblocked cycle); 1102e/f/h/i regression green; app build green.
+- Next: SPK-1102d Pocket/Drill/V-Carve add-op from Cut, then 1102g, 1136a, 1104b.
 
 ### 2026-08-03 — SPK-1101f transforms UI (Hermes coder)
 - Claimed/finished **SPK-1101f**: Ops bar transform buttons (Nudge X+1 / Flip H / Rotate 90° / Scale 1.1×) → session apply* (undo+dirty). Found + fixed a REAL bug: `ShapeTransformer.rotate` rect case kept w/h after rotation (90° was geometrically wrong) — now re-derives the bbox. `ShopPilotVerify1101f` PASS; 1101j/k/FlipH regression green; app build green.

@@ -1039,6 +1039,36 @@ final class AppSession: ObservableObject {
         markDirty()
     }
 
+    /// Recalculate every dirty toolpath operation with the real engine
+    /// (SPK-1102c). Profile ops regenerate from the current session vectors;
+    /// out-of-scope strategies (Pocket/V-Carve/Drill) stay dirty — export
+    /// stays blocked on them. The session G-code buffer is rebuilt from the
+    /// clean tree. Returns the number of regenerated ops.
+    @discardableResult
+    func recalculateDirtyToolpaths() -> Int {
+        let dirtyBefore = toolpathTree.dirtyNodeCount
+        guard dirtyBefore > 0 else {
+            statusMessage = "No dirty toolpaths to recalculate"
+            return 0
+        }
+        let regenerated = toolpathTree.recalculateDirtyProfiles(
+            vectors: vectors,
+            params: ProfileToolpathParams(),
+            material: nil,
+            stockHeightMm: job.sheets.first?.height ?? 6.0
+        )
+        let all = allToolpathGCode
+        if !all.isEmpty {
+            gcodeLines = all
+        }
+        lastToolpathSummary = "\(gcodeLines.count) G-code lines · \(toolpathTree.dirtyNodeCount) dirty"
+        statusMessage = regenerated.isEmpty
+            ? "Recalculated: no Profile ops were dirty (out-of-scope ops stay dirty)"
+            : "Recalculated \(regenerated.count) dirty Profile toolpath(s)"
+        markDirty()
+        return regenerated.count
+    }
+
     func loadFixtureGCodeIfNeeded() {
         guard gcodeLines.isEmpty else { return }
         let candidates = [
