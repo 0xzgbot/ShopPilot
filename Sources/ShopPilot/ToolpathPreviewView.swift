@@ -69,6 +69,13 @@ struct ToolpathPreviewView: View {
             Text("G-code lines: \(session.allToolpathGCode.count) · Ops: \(session.toolpaths.count) · Vectors: \(session.vectors.count)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            // SPK-0312: whole-job time estimate (TimeEstimator over the full
+            // buffer), next to the per-op estimates on each tree row.
+            if let estimate = session.fullJobTimeEstimate {
+                Text("Estimated total: ~\(estimate.formattedTotalTime) (\(estimate.formattedCuttingTime) cutting · \(estimate.formattedTravelTime) travel)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             Text(simStatus)
                 .font(.caption2)
                 .foregroundStyle(.secondary)

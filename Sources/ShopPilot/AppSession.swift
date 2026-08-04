@@ -139,6 +139,15 @@ final class AppSession: ObservableObject {
         job.sheets.first?.layers.count ?? 0
     }
 
+    /// Whole-job time estimate (SPK-0312): `TimeEstimator` over the full-tree
+    /// G-code buffer — the number Cut/Preview show, including travel/rapids.
+    /// nil when there is nothing computed yet.
+    var fullJobTimeEstimate: TimeEstimateResult? {
+        let buffer = allToolpathGCode
+        guard !buffer.isEmpty else { return nil }
+        return TimeEstimator.estimate(gcodeLines: buffer)
+    }
+
     // MARK: - Dirty / undo hooks
 
     func markDirty() {

@@ -585,9 +585,9 @@ A (parallel from day 0)
   - **DEFERRED 2026-08-04 (board hygiene): Metal preview superseded by SPK-1103's heightmap material sim + wireframe renderer; legacy MetalPreview file unwired — do not rebuild.
   - worklog: 2026-07-29 — Direct write. MetalPreview.swift (8KB) with ViewportState struct for pan/zoom/rotate state, MetalPreviewConfiguration struct, PreviewRenderCommand enum for render pipeline, and MetalPreviewRenderer class managing stable viewport with fitToBounds(), updateViewport(), generateRenderCommands() methods. swift build passes cleanly.
   - deps: SPK-0309  
-- [ ] **SPK-0312** **TP** Time estimate rough 
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
-  - worklog: 2026-07-29 — Direct write. TimeEstimator.swift (6KB) with TimeEstimateResult struct containing cutting/travel/total time breakdowns and formatted duration strings, TimeEstimator static methods parsing G-code to calculate distances by move type (G0 rapid vs G1 cut), depth pass counting, and 15% overhead for setup/tool changes. swift build passes cleanly.
+- [x] **SPK-0312** **TP** Time estimate rough (wired — productized)
+  - AC: Engine: `TimeEstimator.estimate` over the full-tree buffer → whole-job total (cutting/travel split); per-op engine estimates already land on nodes. UI: Cut tree footer shows "Total ~Xs" (+tooltip split) and Preview header shows the estimate line; per-op chips on tree rows + selected detail existed. Persist: `PersistedToolpath.estimatedTimeSeconds` round-trips (optional keys legacy-safe). Verify: `ShopPilotVerify0312` PASS
+  - worklog: 2026-08-04 — Hermes coder. Audit found the 2026-07-29 claim was build-only: TimeEstimator existed but nothing used it in the UI. Added `AppSession.fullJobTimeEstimate` (TimeEstimator over `allToolpathGCode` — travel included, not just engine per-op sums); Cut tree footer total chip with cutting/travel tooltip; Preview header estimate line. `ShopPilotVerify0312` PASS — hand-computed exact math (G1 75mm @ 1000mm/min = 4.5s cutting, G0 travel measured), real engine estimate lands on the node, PersistedToolpath round-trip + absent optional keys decode nil, full-buffer total ≥ largest op. App build green; regressions 0600/1103e/FMR013 green.
   - deps: SPK-0302  
 - [x] **SPK-0313** **TP** GRBL post export + extension labeling 
   - **SUPERSEDED 2026-08-04 (board hygiene): GRBL post shipped by SPK-1102g (full-tree export, wrapper, golden post) + SPK-0415 (post auto-select from machine profile, G21/G20); `ShopPilotVerify1102g/0415` PASS.
@@ -1125,6 +1125,9 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 ---
 
 ## 12. Work log
+
+### 2026-08-04 — SPK-0312 time estimate wired (Hermes coder)
+- **SPK-0312** [x]: `AppSession.fullJobTimeEstimate` (TimeEstimator over the full buffer) + Cut tree footer total chip (cutting/travel tooltip) + Preview header estimate line. `ShopPilotVerify0312` PASS — exact hand-computed math, engine estimate on nodes, PersistedToolpath round-trip + legacy-safe optionals, full-buffer total ≥ largest op.
 
 ### 2026-08-04 — SPK-FM-R019 multi-tool save split (Hermes coder)
 - **SPK-FM-R019** [x]: `ToolpathPreflight.multiToolSingleFile` (≥2 distinct tool buckets + non-ATC post → error, Split CTA) + `PostProcessorType.supportsToolChange` + session `toolpathGroupsByTool()` + `splitToolpaths()` writing ordered per-tool files via the bridge. `ShopPilotVerifyFMR019` PASS; regressions FMR013/014/016, 0415, 1102g, Golden25D, 0600 green.

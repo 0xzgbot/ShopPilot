@@ -88,6 +88,14 @@ struct ToolpathTreeView: View {
             } else {
                 Text("All toolpaths up to date")
             }
+            Spacer()
+            // SPK-0312: whole-job estimate from TimeEstimator over the full
+            // buffer (includes travel/rapids), not just the engine per-op sums.
+            if let estimate = session.fullJobTimeEstimate {
+                Text("Total ~\(estimate.formattedTotalTime)")
+                    .fontWeight(.medium)
+                    .help("\(estimate.formattedCuttingTime) cutting · \(estimate.formattedTravelTime) travel")
+            }
         }
         .font(.caption2)
         .foregroundStyle(.secondary)
