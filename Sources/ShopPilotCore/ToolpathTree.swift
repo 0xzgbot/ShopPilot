@@ -151,6 +151,8 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
         case pocket
         case drill
         case vcarve
+        case rough3D
+        case finish3D
         case unknown
     }
 
@@ -173,6 +175,8 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
         if label.hasPrefix("Pocket") { return .pocket }
         if label.hasPrefix("Drill") { return .drill }
         if label.hasPrefix("V-Carve") { return .vcarve }
+        if label.hasPrefix("Rough 3D") { return .rough3D }
+        if label.hasPrefix("Finish 3D") { return .finish3D }
         return .unknown
     }
 
@@ -244,7 +248,43 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
         }
         return params
     }
-    
+
+    /// Whether this node is a 3D rough operation (SPK-3D-spine-b).
+    public var isRough3DOperation: Bool {
+        if case .operation(let label) = type { return label.hasPrefix("Rough 3D") }
+        return false
+    }
+
+    /// Whether this node is a 3D finish operation (SPK-3D-spine-b).
+    public var isFinish3DOperation: Bool {
+        if case .operation(let label) = type { return label.hasPrefix("Finish 3D") }
+        return false
+    }
+
+    /// The rough params stored on this node (decoded from `paramsJSON`), or
+    /// defaults when none are stored.
+    public func rough3DParams() -> HeightfieldRoughParams {
+        guard let json = paramsJSON,
+              let data = json.data(using: .utf8),
+              let params = try? JSONDecoder().decode(HeightfieldRoughParams.self, from: data)
+        else {
+            return HeightfieldRoughParams()
+        }
+        return params
+    }
+
+    /// The finish params stored on this node (decoded from `paramsJSON`), or
+    /// defaults when none are stored.
+    public func finish3DParams() -> HeightfieldFinishParams {
+        guard let json = paramsJSON,
+              let data = json.data(using: .utf8),
+              let params = try? JSONDecoder().decode(HeightfieldFinishParams.self, from: data)
+        else {
+            return HeightfieldFinishParams()
+        }
+        return params
+    }
+
     /// Check if any node in the subtree is dirty.
     public var hasDirtyChildren: Bool {
         allDirtyNodes.isEmpty == false
@@ -360,7 +400,8 @@ public final class ToolpathTreeManager: ObservableObject {
         vectors: [VectorPath],
         material: Material?,
         stockHeightMm: Double,
-        tools: [Tool] = []
+        tools: [Tool] = [],
+        heightfield: HeightfieldData? = nil
     ) -> [ToolpathTreeNode] {
         var regenerated: [ToolpathTreeNode] = []
         for node in root.allDirtyNodes {
@@ -419,6 +460,29 @@ public final class ToolpathTreeManager: ObservableObject {
                     vectors: vectors,
                     params: withToolFeeds(node.vcarveParams(), node: node, tools: tools),
                     stockHeightMm: stockHeightMm
+                )
+                node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+                node.estimatedTimeSeconds = result.estimatedTimeSeconds
+                node.clearDirty()
+                regenerated.append(node)
+
+            case .rough3D:
+                // Needs the imported relief; without one the node stays dirty.
+                guard let hf = heightfield else { continue }
+                let result = HeightfieldRoughEngine.compute(
+                    heightfield: hf,
+                    params: withToolFeeds(node.rough3DParams(), node: node, tools: tools)
+                )
+                node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+                node.estimatedTimeSeconds = result.estimatedTimeSeconds
+                node.clearDirty()
+                regenerated.append(node)
+
+            case .finish3D:
+                guard let hf = heightfield else { continue }
+                let result = HeightfieldFinishEngine.compute(
+                    heightfield: hf,
+                    params: withToolFeeds(node.finish3DParams(), node: node, tools: tools)
                 )
                 node.toolpathResult = result.gcodeLines.joined(separator: "\n")
                 node.estimatedTimeSeconds = result.estimatedTimeSeconds

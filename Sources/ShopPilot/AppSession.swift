@@ -1161,7 +1161,8 @@ final class AppSession: ObservableObject {
             vectors: vectors,
             material: nil,
             stockHeightMm: job.sheets.first?.height ?? 6.0,
-            tools: toolDatabase.tools
+            tools: toolDatabase.tools,
+            heightfield: job.stlHeightfield
         )
         let all = allToolpathGCode
         if !all.isEmpty {
@@ -1192,7 +1193,14 @@ final class AppSession: ObservableObject {
         // SPK-1133: new ops start with the strategy's default tool (installer
         // catalog), so Cut uses real tools — recalc derives feeds from them.
         if node.toolID == nil {
-            let strategy = ["Profile", "Pocket", "Drill", "V-Carve"].first { name.hasPrefix($0) } ?? name
+            let strategy: String
+            if name.hasPrefix("Rough 3D") {
+                strategy = "Rough"
+            } else if name.hasPrefix("Finish 3D") {
+                strategy = "Finish"
+            } else {
+                strategy = ["Profile", "Pocket", "Drill", "V-Carve"].first { name.hasPrefix($0) } ?? name
+            }
             node.toolID = toolDatabase.defaultTool(forStrategy: strategy)?.id
         }
         node.toolpathResult = gcode.joined(separator: "\n")
@@ -1380,6 +1388,48 @@ final class AppSession: ObservableObject {
         node.paramsJSON = encodeParams(VCarveParams())
         lastToolpathSummary =
             "V-Carve: \(result.gcodeLines.count) lines, \(result.passCount) pass(es)"
+        statusMessage = lastToolpathSummary
+    }
+
+    /// Generate a 3D ROUGH toolpath (z-level clearing) from the imported STL
+    /// relief and add it to the tree (SPK-3D-spine-b).
+    func generateRough3DToolpath() {
+        guard let hf = job.stlHeightfield else {
+            statusMessage = "No STL relief — import one via Design → STL Relief… first"
+            return
+        }
+        registerUndoPoint()
+        let params = HeightfieldRoughParams()
+        let result = HeightfieldRoughEngine.compute(heightfield: hf, params: params)
+        let node = addToolpathNode(
+            named: "Rough 3D \(toolpathTree.allNodes.count)",
+            gcode: result.gcodeLines,
+            estimatedTime: result.estimatedTimeSeconds
+        )
+        node.paramsJSON = encodeParams(params)
+        lastToolpathSummary =
+            "Rough 3D: \(result.gcodeLines.count) lines, \(result.passCount) z-levels"
+        statusMessage = lastToolpathSummary
+    }
+
+    /// Generate a 3D FINISH toolpath (surface-following) from the imported STL
+    /// relief and add it to the tree (SPK-3D-spine-b).
+    func generateFinish3DToolpath() {
+        guard let hf = job.stlHeightfield else {
+            statusMessage = "No STL relief — import one via Design → STL Relief… first"
+            return
+        }
+        registerUndoPoint()
+        let params = HeightfieldFinishParams()
+        let result = HeightfieldFinishEngine.compute(heightfield: hf, params: params)
+        let node = addToolpathNode(
+            named: "Finish 3D \(toolpathTree.allNodes.count)",
+            gcode: result.gcodeLines,
+            estimatedTime: result.estimatedTimeSeconds
+        )
+        node.paramsJSON = encodeParams(params)
+        lastToolpathSummary =
+            "Finish 3D: \(result.gcodeLines.count) lines, \(result.passCount) rows"
         statusMessage = lastToolpathSummary
     }
 

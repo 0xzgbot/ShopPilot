@@ -36,6 +36,30 @@ public struct HeightfieldData: Codable, Sendable {
         return heights[gy * width + gx]
     }
 
+    /// Bilinear height sample treating each cell's value as its center sample
+    /// (SPK-3D-spine-b surface finish). Outside the grid → 0.
+    public func heightInterpolated(atX x: Double, y: Double) -> Double {
+        guard cellSizeMm > 1e-9, width >= 2, height >= 2 else {
+            return height(atX: x, y: y) ?? 0
+        }
+        let fx = (x - minX) / cellSizeMm - 0.5
+        let fy = (y - minY) / cellSizeMm - 0.5
+        guard fx >= 0, fy >= 0, fx <= Double(width - 1), fy <= Double(height - 1) else {
+            return 0
+        }
+        let i0 = min(width - 2, Int(fx))
+        let j0 = min(height - 2, Int(fy))
+        let tx = fx - Double(i0)
+        let ty = fy - Double(j0)
+        let h00 = heights[j0 * width + i0]
+        let h10 = heights[j0 * width + i0 + 1]
+        let h01 = heights[(j0 + 1) * width + i0]
+        let h11 = heights[(j0 + 1) * width + i0 + 1]
+        let top = h00 + (h10 - h00) * tx
+        let bottom = h01 + (h11 - h01) * tx
+        return top + (bottom - top) * ty
+    }
+
     public var maxHeight: Double {
         heights.max() ?? 0
     }

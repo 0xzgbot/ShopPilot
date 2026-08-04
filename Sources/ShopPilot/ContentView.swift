@@ -257,6 +257,12 @@ private struct CutStageView: View {
                         .help("Peck-drill holes at the centers of closed vectors")
                     Button("V-Carve") { session.generateVCarveToolpath() }
                         .help("Engrave vectors with a V-bit")
+                    Divider()
+                    // SPK-3D-spine-b: relief strategies (need an imported STL).
+                    Button("Rough 3D") { session.generateRough3DToolpath() }
+                        .help("Z-level rough the imported STL relief (needs a relief)")
+                    Button("Finish 3D") { session.generateFinish3DToolpath() }
+                        .help("Surface-following finish of the imported STL relief (needs a relief)")
                 } label: {
                     Label("Add Toolpath", systemImage: "plus.circle")
                 }
