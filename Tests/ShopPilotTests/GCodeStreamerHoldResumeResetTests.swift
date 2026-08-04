@@ -299,7 +299,10 @@ final class MachineSessionHoldResumeResetTests: XCTestCase {
         XCTAssertTrue(data.contains(Data("!".utf8)), "Should contain hold command")
         XCTAssertTrue(data.contains(Data("~".utf8)), "Should contain resume command")
         XCTAssertTrue(data.contains(Data([0x18])), "Should contain reset command")
-        XCTAssertEqual(transport.writtenBytes.count, 3, "Should have exactly 3 writes")
+        // 4 writes: hold !, resume ~, reset 0x18, and the post-reset status
+        // query '?' (MachineSession.reset sends ? after 0x18 so the sim
+        // reports Idle — SPK-1104d-era addition).
+        XCTAssertEqual(transport.writtenBytes.count, 4, "Should have exactly 4 writes (hold, resume, reset, status query)")
     }
 
     func testSessionHoldResetsIsPausedInStreamer() async throws {

@@ -13,15 +13,23 @@ fi
 
 echo "Swift version: $(swift --version | head -1)"
 
+# Xcode-aware toolchain (SPK-1105): xcode-select may point at the CommandLine
+# Tools even when full Xcode is installed — XCTest then fails to import and the
+# suite silently degrades to a build-only smoke test. Prefer the real Xcode.
+if [[ -d "/Applications/Xcode.app/Contents/Developer" && "$(xcode-select -p 2>/dev/null)" != "/Applications/Xcode.app/Contents/Developer" ]]; then
+    export DEVELOPER_DIR="/Applications/Xcode.app/Contents/Developer"
+    echo "DEVELOPER_DIR -> $DEVELOPER_DIR (Xcode toolchain)"
+fi
+
 # Determine testing mode:
-#   - If XCTest module is importable (Xcode installed), use swift test.
+#   - If the test target builds (Xcode installed), use swift test.
 #   - Otherwise fall back to a build-only smoke test.
 XCTEST_AVAILABLE=false
 if swift build --build-tests &>/dev/null; then
-    # Try to import XCTest in a quick compile check
-    if swift -e 'import XCTest' &>/dev/null 2>&1; then
-        XCTEST_AVAILABLE=true
-    fi
+    # Building the test target proves XCTest is linkable on this toolchain
+    # (a `swift -e 'import XCTest'` probe always fails — scripts can't link
+    # the XCTest framework even when Xcode is present).
+    XCTEST_AVAILABLE=true
 fi
 
 if [[ "$XCTEST_AVAILABLE" == "true" ]]; then

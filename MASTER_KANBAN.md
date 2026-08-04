@@ -320,10 +320,11 @@ A (parallel from day 0)
 - [x] **SPK-1104a** **MACH** Session gcodeLines load into MachineSession buffer // P0 // parallel-ok
   - deps: SPK-1100, SPK-0414a
   - track: 4
-- [ ] **SPK-1105** **QA** XCTest suite green under Xcode/CI (not build-only smoke) // P0
+- [x] **SPK-1105** **QA** XCTest suite green under Xcode/CI (not build-only smoke) // P0
   - AC: `swift test` passes on Xcode toolchain; CI documents requirement
   - deps: SPK-0110
   - track: 5
+  - worklog: 2026-08-04 — Hermes coder. `swift test` under Xcode 26.6 (`DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`) — **429/429 XCTest green**. One stale test fixed (expectation-only): `testSessionHoldResumeResetSequence` expected 3 writes; `MachineSession.reset` sends 4 (`!`, `~`, 0x18, + the post-reset `?` status query added in the SPK-1104d era) — content assertions already passed, count updated to 4 with a comment. CI: `scripts/test.sh` fixed to (a) export DEVELOPER_DIR when Xcode.app exists but xcode-select points at CommandLineTools, and (b) detect XCTest via `swift build --build-tests` success instead of the always-failing `swift -e 'import XCTest'` probe — it now runs the real XCTest suite on this machine (RESULT: PASS). AC met → `[x]`.
 - [x] **SPK-1106** **UX** Sign recipe product E2E — recipe → text→curves → V-Carve → preview → machine // P0
   - AC: Full sign path in document session without orphan panels
   - deps: SPK-1102, SPK-1103, SPK-0504
@@ -1079,6 +1080,10 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 ---
 
 ## 12. Work log
+
+### 2026-08-04 — SPK-3D-spine-b + SPK-1105 XCTest green (Hermes coder)
+- **SPK-3D-spine-b** [x]: real z-level rough + bilinear surface finish from the heightfield (`HeightfieldToolpath.swift`); StrategyKind +.rough3D/.finish3D; recalc(…, heightfield:) regenerates 3D ops, stays dirty without a relief; session generators + Add Toolpath menu entries. `ShopPilotVerify3Db` PASS — two engine bugs caught by the verify (missing final floor level; run-extent stride bleeding into cells above the level). Regressions 1102c/0600/3Da/1133 green.
+- **SPK-1105** [x]: `swift test` — **429/429 green** under Xcode 26.6 (one stale write-count expectation fixed: reset now sends `!`,`~`,0x18,`?`). `scripts/test.sh` fixed (DEVELOPER_DIR export + XCTest detection via build --build-tests) — runs the real suite on this Mac, RESULT: PASS.
 
 ### 2026-08-04 — SPK-3D-spine-a STL → heightfield import (Hermes coder)
 - Claimed/finished **SPK-3D-spine-a**: real ASCII STL parser + plane rasterizer → `HeightfieldData` grid (replaces the estimator-only importSTL bbox guess); `Job.stlHeightfield` persists (legacy docs decode nil); Design "STL Relief…" button + ⌘K `import_stl_relief` route. `ShopPilotVerify3Da` PASS — box footprint+top, pyramid apex+slope, round-trip + legacy nil, graceful failures (garbage/binary STL). Verify-caught bug in the new code: `Int()` truncation wrapped negative world coords into cell (0,0) — world-space bounds check added. Regressions 1100/1106a/1106b/1132/1101e/1101g green.
