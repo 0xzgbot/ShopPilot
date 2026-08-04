@@ -219,6 +219,12 @@ A (parallel from day 0)
   - deps: SPK-1101e
   - track: 2
   - worklog: 2026-08-03 — Hermes coder. Chose "implement" over "remove": new `DXFParser` in ShopPilotGeometry (ASCII DXF, ENTITIES section: LINE 10/20-11/21, LWPOLYLINE 90-count + 10/20 vertices + 70 closed flag, CIRCLE 10/20/40, ARC 10/20/40/50/51 with degrees→radians to match VectorShape.arc; unsupported entities skipped, malformed pairs collected as errors — never fatal; mirrors SVGImporter's tolerant contract). Session: `importDXF(from:)` → DXFParser → addShapes (undo + layer-faithful + status with entity warnings). Hub: DXF enabled (fixed a real defect — the segmented picker disabled ITSELF when .dxf was selected so users couldn't switch back; button + picker locks removed), "not supported" copy replaced with the supported-entity note, status badge Ready (ASCII), dead `dxfNotAvailable` error case removed. Verify `ShopPilotVerify1101g` PASS — fixture DXF: LINE/LWPOLYLINE(closed, 5 points)/CIRCLE/ARC parse with exact geometry, TEXT skipped, 0°→90° arc → 0→π/2 rad, malformed LINE records an error while the sibling CIRCLE still imports, and all 4 shapes survive a layer-faithful Job round-trip. 1101e regression green; app build green.
+- [x] **SPK-1106a** **SIGN** Sign recipe thin — text → curves → V-Carve node in one document flow // P0
+  - AC: `SignRecipeManager.createSignJob` carries the precomputed V-Carve (G-code + params + stats); `Job` persists it (backward-compatible optionals); `session.replaceJob` materializes a real V-Carve tree node (Cut stage + preview + machine handoff); `swift run ShopPilotVerify1106a` PASS
+  - deps: SPK-1102d, SPK-1136d
+  - track: 3
+  - note: Parent SPK-1106 stays [ ] — recipe E2E polish + preview wiring remain
+  - worklog: 2026-08-03 — Hermes coder. Audit: `SignRecipeManager.createSignJob` already ran the full text-on-curve → V-Carve flow but stored only STATS on the job (vcarvePasses/vcarveTimeSeconds) — the live tree never got the toolpath, so Cut stage + machine handoff were empty after picking the Signage recipe. Engine: `Job` gains optional `vcarveGCode` + `vcarveParamsJSON` (backward-compatible decode); the recipe now carries the full V-Carve G-code + encoded params. Session: `replaceJob` materializes a clean "V-Carve 1 (Recipe)" tree node (result + time + params + gcodeLines fallback) so the sign's toolpath is immediately visible in Cut, preview, and the machine handoff. Verify `ShopPilotVerify1106a` PASS — one flow: recipe job has text glyph vectors on the Text layer + border layer, precomputed V-Carve (passes ≥ 1, time > 0, full G-code with marker + cut moves, params decode to the recipe's settings); Job Codable round-trip keeps G-code + params; replaceJob mirror materializes a clean V-Carve node whose result feeds the handoff buffer. App build green.
 - [x] **SPK-1102d** **TP** Add Pocket / Drill / V-Carve ops from Cut (like Profile) // P0 // parallel-ok
   - AC: Cut "Add Toolpath" menu (Profile/Pocket/Drill/V-Carve) → session generate*Toolpath → real engine G-code into tree nodes; dirty flags sane; buffer concatenates; `swift run ShopPilotVerify1102d` PASS
   - deps: SPK-1102a, SPK-0303, SPK-0304
@@ -1053,6 +1059,10 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 ### 2026-08-03 — SPK-1104b Cut→Machine handoff (Hermes coder)
 - Claimed/finished **SPK-1104b**: Machine stage now receives `session.allToolpathGCode` (full tree — closes the P0-C handoff gap where the last single op overwrote the buffer). `ShopPilotVerify1104b` PASS: full-tree handoff (both strategy markers), zero bytes on load (no auto-run), runJob throws notConnected without a connection, connect+explicit runJob streams, fresh preflight gate blocks Run until acknowledged.
 - Next: full-sweep gate for tonight's wave, then SPK-1101 parent close-out review / SPK-1105 XCTest (Xcode-gated).
+
+### 2026-08-03 — SPK-1106a Sign recipe thin (Hermes coder)
+- Claimed/finished **SPK-1106a** (queue item 8 — tonight's queue complete): the recipe's precomputed V-Carve now reaches the live tree via `Job.vcarveGCode` + `replaceJob` materialization. `ShopPilotVerify1106a` PASS; app build green.
+- Parent SPK-1106 stays `[ ]`. Next: full-sweep gate for the wave, then SPK-1101/1102 parent close-out reviews.
 
 ### 2026-08-03 — SPK-1101g DXF import (Hermes coder)
 - Claimed/finished **SPK-1101g** (chose "implement" over "remove"): new `DXFParser` (LINE/LWPOLYLINE/CIRCLE/ARC, degrees→radians, tolerant) + session `importDXF(from:)` + hub DXF path enabled with a picker lock-in bug fixed. `ShopPilotVerify1101g` PASS; 1101e regression green; app build green.

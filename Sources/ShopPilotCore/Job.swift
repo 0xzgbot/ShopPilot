@@ -20,6 +20,15 @@ public struct Job: Identifiable, Codable, Sendable {
     /// V-Carve estimated time in seconds.
     public var vcarveTimeSeconds: Double = 0.0
 
+    /// Precomputed V-Carve G-code for the sign recipe's text (SPK-1106a).
+    /// Set by `SignRecipeManager.createSignJob`; `replaceJob` materializes
+    /// it into the session toolpath tree. Optional → older documents decode
+    /// unchanged.
+    public var vcarveGCode: [String]?
+    /// V-Carve params used for the precomputed pass (JSON-encoded), so the
+    /// tree node carries the same configuration the recipe used.
+    public var vcarveParamsJSON: String?
+
     /// Document-level variables (key-value pairs for stock size, material, etc.).
     public var documentVariables: [DocumentVariable] = []
 

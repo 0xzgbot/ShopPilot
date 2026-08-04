@@ -118,6 +118,12 @@ public enum SignRecipeManager {
 
         job.vcarvePasses = vcResult.passCount
         job.vcarveTimeSeconds = vcResult.estimatedTimeSeconds
+        // SPK-1106a: carry the full result so replaceJob can materialize a
+        // real V-Carve tree node (Cut stage, preview, machine handoff).
+        job.vcarveGCode = vcResult.gcodeLines
+        job.vcarveParamsJSON = (try? JSONEncoder().encode(vcParams)).flatMap {
+            String(data: $0, encoding: .utf8)
+        }
 
         return job
     }

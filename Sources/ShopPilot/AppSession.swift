@@ -336,6 +336,20 @@ final class AppSession: ObservableObject {
         statusMessage = "Job “\(newJob.name)” ready"
         selectedStage = .design
         packageURL = nil
+        // SPK-1106a: materialize the sign recipe's precomputed V-Carve as a
+        // real tree node (visible in Cut, preview, and the machine handoff).
+        if let vcarveGCode = newJob.vcarveGCode, !vcarveGCode.isEmpty {
+            let node = toolpathTree.addOperation("V-Carve 1 (Recipe)")
+            node.toolpathResult = vcarveGCode.joined(separator: "\n")
+            node.estimatedTimeSeconds = newJob.vcarveTimeSeconds
+            node.paramsJSON = newJob.vcarveParamsJSON
+            // The result is fresh from the recipe's engine run — clean.
+            node.clearDirty()
+            gcodeLines = vcarveGCode
+            lastToolpathSummary =
+                "Recipe V-Carve ready (\(vcarveGCode.count) lines, \(Int(newJob.vcarveTimeSeconds))s)"
+            statusMessage = lastToolpathSummary
+        }
         markClean()
         clearUndoStack()
     }
