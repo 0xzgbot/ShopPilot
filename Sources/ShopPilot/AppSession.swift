@@ -1225,14 +1225,66 @@ final class AppSession: ObservableObject {
             material: nil,
             stockHeightMm: job.sheets.first?.height ?? 25.0
         )
-        _ = addToolpathNode(
+        let node = addToolpathNode(
             named: "Drill \(toolpathTree.allNodes.count)",
             gcode: result.gcodeLines,
             estimatedTime: result.estimatedTimeSeconds
         )
+        node.paramsJSON = encodeParams(DrillToolpathParams())
         lastToolpathSummary =
             "Drill: \(result.pointCount) hole(s), \(result.gcodeLines.count) lines"
         statusMessage = lastToolpathSummary
+    }
+
+    /// Apply Drill params to an operation: store them on the node and
+    /// immediately regenerate its G-code with the REAL engine (SPK-1136c).
+    /// Point mapping honors the stored params (cut depth, dwell).
+    @discardableResult
+    func applyDrillParams(_ params: DrillToolpathParams, to nodeID: UUID) -> Bool {
+        guard let node = toolpathTree.findNode(id: nodeID), node.isDrillOperation else {
+            statusMessage = "Apply params: select a Drill operation"
+            return false
+        }
+        guard !vectors.isEmpty else {
+            statusMessage = "No vectors — add shapes first"
+            return false
+        }
+        registerUndoPoint()
+        node.paramsJSON = encodeParams(params)
+        let points: [DrillPoint] = vectors.compactMap { path in
+            guard path.isClosed, !path.points.isEmpty else { return nil }
+            let xs = path.points.map(\.x)
+            let ys = path.points.map(\.y)
+            return DrillPoint(
+                x: (xs.min()! + xs.max()!) / 2,
+                y: (ys.min()! + ys.max()!) / 2,
+                zDepthMm: -(params.startDepthMm + params.cutDepthMm),
+                dwellSeconds: params.dwellAtBottom ? params.dwellTimeSeconds : 0
+            )
+        }
+        guard !points.isEmpty else {
+            statusMessage = "Drill needs at least one closed vector (holes at shape centers)"
+            return false
+        }
+        let result = DrillToolpathEngine.compute(
+            points: points,
+            params: params,
+            material: nil,
+            stockHeightMm: job.sheets.first?.height ?? 25.0
+        )
+        node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+        node.estimatedTimeSeconds = result.estimatedTimeSeconds
+        node.clearDirty()
+        let all = allToolpathGCode
+        if !all.isEmpty {
+            gcodeLines = all
+        }
+        lastToolpathSummary =
+            "Drill: \(result.pointCount) hole(s), \(result.gcodeLines.count) lines, " +
+            "\(params.cycleType.displayName)"
+        statusMessage = lastToolpathSummary
+        markDirty()
+        return true
     }
 
     /// Generate a V-Carve toolpath from the session vectors (V-bit, default

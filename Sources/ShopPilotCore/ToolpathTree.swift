@@ -162,6 +162,25 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
         return false
     }
 
+    /// Whether this node is a Drill operation (label convention, like
+    /// `isProfileOperation`).
+    public var isDrillOperation: Bool {
+        if case .operation(let label) = type { return label.hasPrefix("Drill") }
+        return false
+    }
+
+    /// The Drill params stored on this node (decoded from `paramsJSON`),
+    /// or defaults when none are stored.
+    public func drillParams() -> DrillToolpathParams {
+        guard let json = paramsJSON,
+              let data = json.data(using: .utf8),
+              let params = try? JSONDecoder().decode(DrillToolpathParams.self, from: data)
+        else {
+            return DrillToolpathParams()
+        }
+        return params
+    }
+
     /// The Pocket params stored on this node (decoded from `paramsJSON`),
     /// or defaults when none are stored.
     public func pocketParams() -> PocketToolpathParams {

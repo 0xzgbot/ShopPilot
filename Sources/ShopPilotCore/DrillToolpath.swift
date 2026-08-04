@@ -63,6 +63,19 @@ public struct DrillPoint: Codable, Sendable {
 
 // MARK: - Drill Toolpath Parameters
 
+/// Retract strategy for peck cycles (installer-verified N05).
+public enum DrillRetractMode: String, Codable, Sendable {
+    case aboveCuttingStart
+    case abovePreviousPass
+
+    public var displayName: String {
+        switch self {
+        case .aboveCuttingStart: return "Above Cutting Start"
+        case .abovePreviousPass: return "Above Previous Pass Height"
+        }
+    }
+}
+
 /// Configuration for a drill toolpath operation.
 public struct DrillToolpathParams: Codable, Sendable {
     
@@ -75,6 +88,19 @@ public struct DrillToolpathParams: Codable, Sendable {
     
     /// Safety height above workpiece.
     public var safetyHeightMm: Double
+
+    // SPK-1136c — installer-verified §N key set (start/cut depth, peck
+    // control, retract mode + gap, dwell, selection order). Additive with
+    // defaults so existing call sites and persisted documents decode
+    // unchanged.
+    public var startDepthMm: Double
+    public var cutDepthMm: Double
+    public var peckDrilling: Bool
+    public var retractMode: DrillRetractMode
+    public var peckRetractGapMm: Double
+    public var dwellAtBottom: Bool
+    public var dwellTimeSeconds: Double
+    public var useVectorSelectionOrder: Bool
     
     public init(
         cycleType: DrillCycleType = .peckDrill,
@@ -83,7 +109,15 @@ public struct DrillToolpathParams: Codable, Sendable {
         retractHeightMm: Double = 5.0,
         peckDepthMm: Double = 2.0,
         toolDiameterMm: Double = 6.0,
-        safetyHeightMm: Double = 10.0
+        safetyHeightMm: Double = 10.0,
+        startDepthMm: Double = 0.0,
+        cutDepthMm: Double = 10.0,
+        peckDrilling: Bool = true,
+        retractMode: DrillRetractMode = .aboveCuttingStart,
+        peckRetractGapMm: Double = 2.0,
+        dwellAtBottom: Bool = false,
+        dwellTimeSeconds: Double = 0.25,
+        useVectorSelectionOrder: Bool = false
     ) {
         self.cycleType = cycleType
         self.feedRateMmPerMin = feedRateMmPerMin
@@ -92,6 +126,14 @@ public struct DrillToolpathParams: Codable, Sendable {
         self.peckDepthMm = peckDepthMm
         self.toolDiameterMm = toolDiameterMm
         self.safetyHeightMm = safetyHeightMm
+        self.startDepthMm = startDepthMm
+        self.cutDepthMm = cutDepthMm
+        self.peckDrilling = peckDrilling
+        self.retractMode = retractMode
+        self.peckRetractGapMm = peckRetractGapMm
+        self.dwellAtBottom = dwellAtBottom
+        self.dwellTimeSeconds = dwellTimeSeconds
+        self.useVectorSelectionOrder = useVectorSelectionOrder
     }
     
     /// Create params from material defaults.
@@ -105,6 +147,54 @@ public struct DrillToolpathParams: Codable, Sendable {
             toolDiameterMm: toolDiameter,
             safetyHeightMm: 10.0
         )
+    }
+
+    // MARK: - Codable (backward-compatible: every key decodes with a default,
+    // so documents written before SPK-1136c still load).
+
+    private enum CodingKeys: String, CodingKey {
+        case cycleType, feedRateMmPerMin, plungeFeedRateMmPerMin, retractHeightMm
+        case peckDepthMm, toolDiameterMm, safetyHeightMm
+        case startDepthMm, cutDepthMm, peckDrilling, retractMode
+        case peckRetractGapMm, dwellAtBottom, dwellTimeSeconds, useVectorSelectionOrder
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        cycleType = try c.decodeIfPresent(DrillCycleType.self, forKey: .cycleType) ?? .peckDrill
+        feedRateMmPerMin = try c.decodeIfPresent(Double.self, forKey: .feedRateMmPerMin) ?? 1000
+        plungeFeedRateMmPerMin = try c.decodeIfPresent(Double.self, forKey: .plungeFeedRateMmPerMin) ?? 300
+        retractHeightMm = try c.decodeIfPresent(Double.self, forKey: .retractHeightMm) ?? 5.0
+        peckDepthMm = try c.decodeIfPresent(Double.self, forKey: .peckDepthMm) ?? 2.0
+        toolDiameterMm = try c.decodeIfPresent(Double.self, forKey: .toolDiameterMm) ?? 6.0
+        safetyHeightMm = try c.decodeIfPresent(Double.self, forKey: .safetyHeightMm) ?? 10.0
+        startDepthMm = try c.decodeIfPresent(Double.self, forKey: .startDepthMm) ?? 0.0
+        cutDepthMm = try c.decodeIfPresent(Double.self, forKey: .cutDepthMm) ?? 10.0
+        peckDrilling = try c.decodeIfPresent(Bool.self, forKey: .peckDrilling) ?? true
+        retractMode = try c.decodeIfPresent(DrillRetractMode.self, forKey: .retractMode) ?? .aboveCuttingStart
+        peckRetractGapMm = try c.decodeIfPresent(Double.self, forKey: .peckRetractGapMm) ?? 2.0
+        dwellAtBottom = try c.decodeIfPresent(Bool.self, forKey: .dwellAtBottom) ?? false
+        dwellTimeSeconds = try c.decodeIfPresent(Double.self, forKey: .dwellTimeSeconds) ?? 0.25
+        useVectorSelectionOrder = try c.decodeIfPresent(Bool.self, forKey: .useVectorSelectionOrder) ?? false
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(cycleType, forKey: .cycleType)
+        try c.encode(feedRateMmPerMin, forKey: .feedRateMmPerMin)
+        try c.encode(plungeFeedRateMmPerMin, forKey: .plungeFeedRateMmPerMin)
+        try c.encode(retractHeightMm, forKey: .retractHeightMm)
+        try c.encode(peckDepthMm, forKey: .peckDepthMm)
+        try c.encode(toolDiameterMm, forKey: .toolDiameterMm)
+        try c.encode(safetyHeightMm, forKey: .safetyHeightMm)
+        try c.encode(startDepthMm, forKey: .startDepthMm)
+        try c.encode(cutDepthMm, forKey: .cutDepthMm)
+        try c.encode(peckDrilling, forKey: .peckDrilling)
+        try c.encode(retractMode, forKey: .retractMode)
+        try c.encode(peckRetractGapMm, forKey: .peckRetractGapMm)
+        try c.encode(dwellAtBottom, forKey: .dwellAtBottom)
+        try c.encode(dwellTimeSeconds, forKey: .dwellTimeSeconds)
+        try c.encode(useVectorSelectionOrder, forKey: .useVectorSelectionOrder)
     }
 }
 

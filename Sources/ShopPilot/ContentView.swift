@@ -452,6 +452,16 @@ private struct CutStageView: View {
                     .frame(maxHeight: 320)
                 }
 
+                // SPK-1136c: Drill strategy form — installer-verified §N fields.
+                if node.isDrillOperation {
+                    ScrollView {
+                        DrillParamsForm(node: node) { newParams in
+                            _ = session.applyDrillParams(newParams, to: node.id)
+                        }
+                    }
+                    .frame(maxHeight: 320)
+                }
+
                 let lines = (node.toolpathResult ?? "")
                     .components(separatedBy: .newlines)
                     .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
@@ -689,6 +699,101 @@ private struct PocketParamsForm: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Toggle("Ramp plunge moves", isOn: $params.rampPlungeMoves)
                     Toggle("Use vector selection order", isOn: $params.useVectorSelectionOrder)
+                }
+            }
+
+            Button("Apply Params — Regenerate") {
+                onApply(params)
+            }
+            .buttonStyle(.borderedProminent)
+            .frame(maxWidth: .infinity)
+        }
+        .padding(8)
+    }
+
+    private func numRow(_ label: String, _ value: Binding<Double>) -> some View {
+        GridRow {
+            Text(label).font(.caption).foregroundStyle(.secondary)
+            TextField("", value: value, format: .number)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 80)
+        }
+    }
+}
+
+// MARK: - Drill strategy form (SPK-1136c)
+
+/// Editable form for the installer-verified §N Drill field set. Editing is
+/// local; "Apply" stores the params on the operation and regenerates its
+/// G-code with the real engine.
+private struct DrillParamsForm: View {
+    let node: ToolpathTreeNode
+    let onApply: (DrillToolpathParams) -> Void
+
+    @State private var params: DrillToolpathParams
+
+    init(node: ToolpathTreeNode, onApply: @escaping (DrillToolpathParams) -> Void) {
+        self.node = node
+        self.onApply = onApply
+        _params = State(initialValue: node.drillParams())
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            GroupBox("Cycle") {
+                VStack(alignment: .leading, spacing: 6) {
+                    Picker("Type", selection: $params.cycleType) {
+                        ForEach(
+                            [DrillCycleType.spotDrill, .peckDrill, .deepHolePeck, .counterbore, .countersink],
+                            id: \.self
+                        ) { c in
+                            Text(c.displayName).tag(c)
+                        }
+                    }
+                    Toggle("Peck drilling", isOn: $params.peckDrilling)
+                }
+                .labelsHidden()
+            }
+
+            GroupBox("Depth") {
+                Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                    numRow("Start depth (mm)", $params.startDepthMm)
+                    numRow("Cut depth (mm)", $params.cutDepthMm)
+                    numRow("Peck depth (mm)", $params.peckDepthMm)
+                }
+            }
+
+            GroupBox("Retract") {
+                VStack(alignment: .leading, spacing: 4) {
+                    Picker("Mode", selection: $params.retractMode) {
+                        ForEach([DrillRetractMode.aboveCuttingStart, .abovePreviousPass], id: \.self) { m in
+                            Text(m.displayName).tag(m)
+                        }
+                    }
+                    Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                        numRow("Retract gap (mm)", $params.peckRetractGapMm)
+                        numRow("Retract height (mm)", $params.retractHeightMm)
+                        numRow("Safe Z (mm)", $params.safetyHeightMm)
+                    }
+                }
+            }
+
+            GroupBox("Dwell") {
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle("Dwell at bottom", isOn: $params.dwellAtBottom)
+                    if params.dwellAtBottom {
+                        Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                            numRow("Dwell time (s)", $params.dwellTimeSeconds)
+                        }
+                    }
+                }
+            }
+
+            GroupBox("Feeds") {
+                Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                    numRow("Feed (mm/min)", $params.feedRateMmPerMin)
+                    numRow("Plunge (mm/min)", $params.plungeFeedRateMmPerMin)
+                    numRow("Tool Ø (mm)", $params.toolDiameterMm)
                 }
             }
 
