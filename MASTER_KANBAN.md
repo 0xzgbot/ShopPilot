@@ -504,9 +504,9 @@ A (parallel from day 0)
   - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
   - worklog: 2026-07-29 — Direct write. ExpressionParser.swift (5.4KB) with class-based recursive descent evaluator supporting +, -, *, /, parentheses, decimal numbers, named variables ($width → value), and constants (π). Minimal implementation per directive to avoid prior structural parse errors. swift build passes cleanly.
   - deps: SPK-0106  
-- [ ] **SPK-0210** **QA** Golden tests offset + boolean 
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
-  - worklog: 2026-07-29 — Added ShopPilotGeometryTests with 14 XCTest cases covering translation/rotation/scaling/offset/array/fillet/extend/boolean API parity. Runtime numeric golden script verified accuracy. Build remains green. Note: XCTest requires Xcode; CLI-only environment verified via scripts/verify_geometry_api.py.
+- [x] **SPK-0210** **QA** Golden tests offset + boolean (CLT)
+  - AC: `ShopPilotVerify0210` — hand-derived goldens (never engine-captured) fail on ANY regression: offset miter corners on a CCW 50×50 square (+5 → (−5,−5),(55,−5),(55,55),(−5,55) + closing duplicate), rect offset expand (60×60 at −5,−5), collapse guards (circle r5 −10 → empty; rect inset −25 → empty), boolean subtract strips (A(0,0,50,50) − B(20,20,30,30) → exactly (0,0,20,50) + (20,0,30,20)), union bbox, intersect overlap, disjoint/covering subtract
+  - worklog: 2026-08-04 — Hermes coder. The 2026-07-29 claim was XCTest-file presence + a python script; the executable CLT proof was missing. `ShopPilotVerify0210` PASS — every expectation hand-traced from `VectorOffsetCalculator` (miter formula v' = v + d·(n1+n2)/(1+n1·n2), CCW right-normal, explicit closing duplicate, collapse guards) and `BooleanOps` (strip decomposition, bbox union, overlap intersect). App build green; regressions 0203c/0211/Golden25D/0600 green.
   - deps: SPK-0203, SPK-0204  
 - [x] **SPK-0211** **GEO** Vector Preflight Doctor (gaps, open, self-intersect) 
   - worklog: 2026-08-04 — Cursor cleanup + finish slice. Engine: `VectorPreflight` now carries real `affectedShapeIndices` (usable for canvas selection); gap probe only flags near-but-not-touching shapes (far-apart are separate design elements). UI: Design-stage **Check Vectors** + `PreflightDoctorView` panel. Persist: report held on `AppSession.lastPreflightReport`. Verify `ShopPilotVerify0211` PASS; gap XCTest aligned with near-gap semantics.
@@ -1125,6 +1125,9 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 ---
 
 ## 12. Work log
+
+### 2026-08-04 — SPK-0210 offset + boolean golden CLTs (Hermes coder)
+- **SPK-0210** [x]: `ShopPilotVerify0210` PASS — hand-derived goldens for `VectorOffsetCalculator` (miter corners, rect expand, collapse guards) + `BooleanOps` (subtract strips, union bbox, intersect overlap, disjoint/covering). Supersedes the XCTest-presence claim with an executable regression-failing proof.
 
 ### 2026-08-04 — SPK-0318 follow-source coach copy (Hermes coder)
 - **SPK-0318** [x]: `CoachCopy.followSourceCutMessage` (Core) — OFF copy warns toolpaths don't follow art; ON copy explains stale→dirty→export-block + never-silent, quotes link count. CoachPanelView takes session follow-source state; ContentView wires it. `ShopPilotVerify0318` PASS — copy claims verified against the real 0319 engine (dirty on sourcesDidChange, G-code untouched).
