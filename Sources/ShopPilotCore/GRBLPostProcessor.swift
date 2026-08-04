@@ -25,6 +25,30 @@ public enum PostProcessorType: String, Codable, Sendable {
     }
 }
 
+// MARK: - G-Code Units
+
+/// Units the machine controller works in — drives the G21/G20 modal at the
+/// top of the post-processed file (SPK-0415: per-machine units).
+public enum GCodeUnits: String, Codable, Sendable {
+    case millimeter
+    case inch
+
+    public var displayName: String {
+        switch self {
+        case .millimeter: return "mm (G21)"
+        case .inch: return "inch (G20)"
+        }
+    }
+
+    /// The G-code modal that selects these units.
+    public var modalCode: String {
+        switch self {
+        case .millimeter: return "G21"
+        case .inch: return "G20"
+        }
+    }
+}
+
 // MARK: - Post Processor Configuration
 
 /// Configuration options for G-code post processing.
@@ -114,13 +138,14 @@ public struct GRBLPostProcessor {
     }
     
     /// Create a post processor for GRBL 1.1.
-    public static func grbl(machineName: String = "ShopPilot") -> GRBLPostProcessor {
+    /// - Parameter units: controller units (default mm) — emits G21/G20 (SPK-0415).
+    public static func grbl(machineName: String = "ShopPilot", units: GCodeUnits = .millimeter) -> GRBLPostProcessor {
         let config = PostProcessorConfiguration(
             postType: .grbl,
             machineName: machineName,
             useLineNumbers: false,
             absolutePositioning: true,
-            millimeterUnits: true,
+            millimeterUnits: units == .millimeter,
             enableCoolant: true,
             safeZHeight: 5.0
         )
@@ -128,13 +153,14 @@ public struct GRBLPostProcessor {
     }
     
     /// Create a post processor for universal G-code.
-    public static func universal(machineName: String = "ShopPilot") -> GRBLPostProcessor {
+    /// - Parameter units: controller units (default mm) — emits G21/G20 (SPK-0415).
+    public static func universal(machineName: String = "ShopPilot", units: GCodeUnits = .millimeter) -> GRBLPostProcessor {
         let config = PostProcessorConfiguration(
             postType: .universal,
             machineName: machineName,
             useLineNumbers: true,
             absolutePositioning: true,
-            millimeterUnits: true,
+            millimeterUnits: units == .millimeter,
             enableCoolant: true,
             safeZHeight: 5.0
         )

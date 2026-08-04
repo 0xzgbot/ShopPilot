@@ -385,7 +385,7 @@ private struct CutStageView: View {
             let result = try CutToMachineBridge.export(
                 gcodeLines: gcode,
                 toolInfo: nil,
-                machineProfile: grblProfile,
+                machineProfile: activeMachineProfile,
                 fileName: destinationURL.deletingPathExtension().lastPathComponent
             )
 
@@ -418,9 +418,12 @@ private struct CutStageView: View {
         }
     }
 
-    /// GRBL machine profile used to post-process exported G-code.
-    private var grblProfile: MachineProfile {
-        MachineProfile(name: "GRBL", config: .simulator, machineType: .grbl)
+    /// Machine profile used to post-process exported G-code (SPK-0415): the
+    /// active profile from the persisted store auto-selects the post type
+    /// (GRBL vs Universal) and units (G21 vs G20); falls back to the GRBL
+    /// simulator profile when the store is empty.
+    private var activeMachineProfile: MachineProfile {
+        session.machineProfiles.profiles.first ?? MachineProfile.simulatorProfile
     }
 
     /// The toolpath node currently selected in the tree, if any.

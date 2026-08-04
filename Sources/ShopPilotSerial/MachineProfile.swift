@@ -95,7 +95,11 @@ public struct MachineProfile: Identifiable, Codable, Sendable {
     
     /// Machine type classification used to auto-select the appropriate G-code post processor on export.
     public var machineType: MachineProfileType
-    
+
+    /// Controller units for the exported G-code (SPK-0415). Defaults to
+    /// millimeter; decoded with a fallback so legacy profiles keep working.
+    public var units: GCodeUnits
+
     public var createdAt: Date
     public var updatedAt: Date
 
@@ -114,6 +118,7 @@ public struct MachineProfile: Identifiable, Codable, Sendable {
         config: SerialConfig,
         isSimulator: Bool = false,
         machineType: MachineProfileType = .grbl,
+        units: GCodeUnits = .millimeter,
         createdAt: Date = .now,
         updatedAt: Date = .now
     ) {
@@ -122,8 +127,40 @@ public struct MachineProfile: Identifiable, Codable, Sendable {
         self.config = config
         self.isSimulator = isSimulator
         self.machineType = machineType
+        self.units = units
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+    }
+
+    // MARK: - Codable (legacy-safe: profiles saved before SPK-0415 lack
+    // "units" and "machineType" — decode with defaults).
+
+    private enum CodingKeys: String, CodingKey {
+        case id, name, config, isSimulator, machineType, units, createdAt, updatedAt
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        name = try c.decodeIfPresent(String.self, forKey: .name) ?? "Machine"
+        config = try c.decodeIfPresent(SerialConfig.self, forKey: .config) ?? .simulator
+        isSimulator = try c.decodeIfPresent(Bool.self, forKey: .isSimulator) ?? false
+        machineType = try c.decodeIfPresent(MachineProfileType.self, forKey: .machineType) ?? .grbl
+        units = try c.decodeIfPresent(GCodeUnits.self, forKey: .units) ?? .millimeter
+        createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? .now
+        updatedAt = try c.decodeIfPresent(Date.self, forKey: .updatedAt) ?? .now
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(name, forKey: .name)
+        try c.encode(config, forKey: .config)
+        try c.encode(isSimulator, forKey: .isSimulator)
+        try c.encode(machineType, forKey: .machineType)
+        try c.encode(units, forKey: .units)
+        try c.encode(createdAt, forKey: .createdAt)
+        try c.encode(updatedAt, forKey: .updatedAt)
     }
 
     // MARK: - Default Simulator Profile

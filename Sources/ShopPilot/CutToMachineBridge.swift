@@ -60,16 +60,18 @@ public final class CutToMachineBridge {
             )
         }
         
-        // Select post-processor based on machine profile
+        // Select post-processor based on machine profile (SPK-0415: the
+        // profile's machine type picks GRBL vs Universal, and its units pick
+        // G21 vs G20).
         let postProcessor: GRBLPostProcessor
         let postType: PostProcessorType
         
         switch machineProfile.autoPostProcessorType {
         case .grbl:
-            postProcessor = GRBLPostProcessor.grbl(machineName: machineProfile.name)
+            postProcessor = GRBLPostProcessor.grbl(machineName: machineProfile.name, units: machineProfile.units)
             postType = .grbl
         case .universal:
-            postProcessor = GRBLPostProcessor.universal(machineName: machineProfile.name)
+            postProcessor = GRBLPostProcessor.universal(machineName: machineProfile.name, units: machineProfile.units)
             postType = .universal
         }
         

@@ -3,6 +3,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 import ShopPilotCore
 import ShopPilotGeometry
+import ShopPilotSerial
 
 /// Shared document + toolpath session for the main window.
 ///
@@ -72,6 +73,11 @@ final class AppSession: ObservableObject {
     /// When ON, art edits mark linked toolpaths stale + dirty (export blocks,
     /// recalc badge counts them) — never a silent recalc.
     @Published var linkManager = ToolpathLinkManager()
+
+    /// SPK-0415 — machine profiles persisted in UserDefaults; the active
+    /// profile's machine type + units auto-select the post processor
+    /// (GRBL vs Universal, G21 vs G20) at export.
+    let machineProfiles = MachineProfileStore()
 
     /// Inspector/browser selection type (job, sheet, layer, toolpath).
     @Published var selection: SelectionType = .none
