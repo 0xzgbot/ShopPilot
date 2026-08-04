@@ -281,6 +281,23 @@ private struct CutStageView: View {
                 .menuStyle(.button)
                 .buttonStyle(.borderedProminent)
 
+                // SPK-0319 lite: optional Follow-source link mode (default
+                // OFF). When ON, editing vectors marks linked toolpaths dirty
+                // (export blocks; recalc badge counts) — never a silent recalc.
+                Toggle("Follow Source", isOn: Binding(
+                    get: { session.linkManager.followSourceMode == .autoFollow },
+                    set: { session.setFollowSourceMode($0 ? .autoFollow : .manual) }
+                ))
+                .toggleStyle(.switch)
+                .controlSize(.small)
+                .help("When ON: editing vectors marks linked toolpaths dirty instead of silently recalculating")
+                if session.linkManager.hasStaleToolpaths {
+                    Text("\(session.linkManager.staleToolpathIds.count) stale")
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                        .help("Linked toolpaths need recalculation after the art edit")
+                }
+
                 // SPK-1102c: regenerate dirty ops with the real engine; badge
                 // count doubles as the enable signal.
                 Button("Recalculate Dirty (\(session.toolpathTree.dirtyNodeCount))") {

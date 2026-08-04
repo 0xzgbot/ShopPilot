@@ -33,6 +33,10 @@ public struct Job: Identifiable, Codable, Sendable {
     /// older documents decode unchanged (synthesized Codable).
     public var stlHeightfield: HeightfieldData?
 
+    /// SPK-0319 lite — persisted Follow-source mode ("manual" | "autoFollow").
+    /// Optional → older documents decode unchanged.
+    public var followSourceModeRaw: String?
+
     /// Document-level variables (key-value pairs for stock size, material, etc.).
     public var documentVariables: [DocumentVariable] = []
 

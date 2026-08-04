@@ -623,9 +623,9 @@ A (parallel from day 0)
   - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
   - worklog: 2026-07-30 — Direct write. Updated CoachPanelView.swift cut stage message to explicitly warn users that toolpaths don't follow art unless linked, instructing them to select vectors first then apply strategy. swift build passes cleanly.
   - deps: SPK-0305
-- [ ] **SPK-0319** **TP** Optional Follow-source link mode (default off) 
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
-  - worklog: 2026-07-30 — Direct write. ToolpathLinkManager.swift (6.6KB) with FollowSourceMode enum (.manual/.autoFollow defaulting to .manual), ToolpathLink struct linking toolpaths to source vector IDs, LinkStatus enum (.linked/.stale/.unlinked), and ToolpathLinkManager ObservableObject managing create/remove links, auto-follow per-link toggle, global mode switching, stale tracking (markStale/markUpToDate), and staleToolpathIds query. swift build passes cleanly.
+- [x] **SPK-0319** **TP** Optional Follow-source link mode (default off) 
+  - AC: Engine: `ToolpathLinkManager.sourcesDidChange(toolpathTree:)` marks linked toolpaths stale + tree nodes dirty in follow mode (never silent recalc); UI: Follow Source toggle in Cut + stale badge; Persist: mode via Job `followSourceModeRaw` (optional, legacy-safe); Verify: `ShopPilotVerify0319` PASS
+  - worklog: 2026-08-04 — Hermes coder (finish close-out). Engine (pre-existing) had no wiring: links never created, no art-edit hook, no tree effect. Added `sourcesDidChange(toolpathTree:)` — in follow mode marks every linked op stale AND its tree node dirty (export gate blocks, recalc badge counts; G-code untouched = no silent recalc), plus `activeFollowLinkCount`; public init added. Session: `linkManager` published property; `linkToolpathToSources(node)` called from `addToolpathNode` (Pocket/Drill/V-Carve/3D) and `generateProfileToolpath`; `syncLayerVectors()` (the single art-edit chokepoint) now calls `sourcesDidChange`; `setFollowSourceMode` persists to `Job.followSourceModeRaw`; `replaceJob` restores it. UI: Follow Source switch + orange "N stale" badge in the Cut toolbar. `ShopPilotVerify0319` PASS — default OFF: art edit does nothing; ON: stale + dirty with untouched G-code; per-link toggle in manual global mode; mode round-trips Job Codable and legacy jobs (no key) decode as manual. App build green.
   - deps: SPK-0305
 
 **Phase D exit:** Calibration vectors → profile → preview → `.nc` on disk; dirty safety works.
@@ -1346,3 +1346,6 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 
 ### 2026-08-04 — SPK-0604 V-Carve preflight gate (Hermes coder)
 - Claimed/finished **SPK-0604** [x]: `VectorPreflight.vCarveGate(shapes:)` engine (open vectors block with fix CTAs; closed/closed-degenerate/closed-self-intersect/empty carve freely) + session wiring in `generateVCarveToolpath` (block → report stashed, panel auto-opens, plain-English status, route to Design) + session-driven preflight panel. `ShopPilotVerify0604` PASS; app build green.
+
+### 2026-08-04 — SPK-0319 lite follow-source link mode (Hermes coder)
+- Claimed/finished **SPK-0319** [x]: wired the pre-existing `ToolpathLinkManager` — `sourcesDidChange(toolpathTree:)` marks linked ops stale + dirty in follow mode (never silent recalc); links created at generation (addToolpathNode + Profile); art-edit chokepoint `syncLayerVectors()` hooks it; Follow Source toggle + stale badge in Cut; mode persists via optional `Job.followSourceModeRaw` (legacy-safe) and restores on `replaceJob`. `ShopPilotVerify0319` PASS; app build green.

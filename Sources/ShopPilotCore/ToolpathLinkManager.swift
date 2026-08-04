@@ -87,6 +87,8 @@ public final class ToolpathLinkManager: ObservableObject {
     /// Track which toolpaths need recalculation due to source changes.
     private var staleToolpaths: Set<String> = []
     
+    public init() {}
+    
     // MARK: - Link Management
     
     /// Create a link between a toolpath and source vectors.
@@ -191,7 +193,29 @@ public final class ToolpathLinkManager: ObservableObject {
             staleToolpaths.insert(toolpathId)
         }
     }
-    
+
+    /// SPK-0319 lite — call after ANY art edit (vector geometry changed).
+    /// Every linked toolpath whose link is in follow mode is marked stale AND
+    /// its tree node is marked dirty — so the export gate blocks and the
+    /// recalc badge counts it. This NEVER recalculates: recalc stays a
+    /// deliberate user action (no silent regeneration).
+    public func sourcesDidChange(toolpathTree: ToolpathTreeManager) {
+        for (toolpathId, link) in links {
+            guard link.autoFollowEnabled || followSourceMode == .autoFollow else { continue }
+            staleToolpaths.insert(toolpathId)
+            if let id = UUID(uuidString: toolpathId),
+               let node = toolpathTree.findNode(id: id) {
+                node.markDirty()
+            }
+        }
+    }
+
+    /// Number of links currently in follow mode (autoFollowEnabled or global
+    /// autoFollow) — for the UI badge.
+    public var activeFollowLinkCount: Int {
+        links.values.filter { $0.autoFollowEnabled || followSourceMode == .autoFollow }.count
+    }
+
     /// Get all toolpaths that need recalculation.
     public var staleToolpathIds: [String] {
         Array(staleToolpaths).sorted()

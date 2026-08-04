@@ -68,6 +68,11 @@ final class AppSession: ObservableObject {
     /// routed to Design; the Design panel auto-opens to show the fix CTAs.
     @Published var preflightPanelVisible = false
 
+    /// SPK-0319 lite — optional Follow-source link mode (default OFF/manual).
+    /// When ON, art edits mark linked toolpaths stale + dirty (export blocks,
+    /// recalc badge counts them) — never a silent recalc.
+    @Published var linkManager = ToolpathLinkManager()
+
     /// Inspector/browser selection type (job, sheet, layer, toolpath).
     @Published var selection: SelectionType = .none
 
@@ -274,6 +279,19 @@ final class AppSession: ObservableObject {
     /// layer holding only its own shapes (SPK-1137).
     private func syncLayerVectors() {
         syncLayerVectors(into: &job)
+        // SPK-0319 lite: every art edit funnels through here — in follow-source
+        // mode, mark linked toolpaths stale + dirty (never silent recalc).
+        linkManager.sourcesDidChange(toolpathTree: toolpathTree)
+    }
+
+    /// SPK-0319 lite — link a freshly generated toolpath node to the source
+    /// vectors it was computed from, so follow-source mode can track it.
+    private func linkToolpathToSources(_ node: ToolpathTreeNode) {
+        let vectorIDs = vectors.map(\.id)
+        linkManager.createLink(
+            forToolpathId: node.id.uuidString,
+            sourceVectorIds: vectorIDs
+        )
     }
 
     /// Index of the active layer within `layers` — the layer selected in the
@@ -310,6 +328,16 @@ final class AppSession: ObservableObject {
         LayerVisibility.visibleIndices(count: shapes.count, shapeLayerIDs: shapeLayerIDs, layers: layers)
     }
 
+    /// SPK-0319 lite — flip the follow-source mode; persisted on the job.
+    func setFollowSourceMode(_ mode: FollowSourceMode) {
+        linkManager.setFollowSourceMode(mode)
+        job.followSourceModeRaw = mode == .autoFollow ? "autoFollow" : "manual"
+        statusMessage = mode == .autoFollow
+            ? "Follow Source ON — editing vectors will mark linked toolpaths dirty (no silent recalc)"
+            : "Follow Source OFF — toolpaths are independent of later art edits"
+        markDirty()
+    }
+
     /// Reconstruct design shapes + their per-shape layer membership from
     /// persisted layer vectors (freehand polylines), flattening in layer
     /// order. Each shape's layer id is the layer it was saved on (SPK-1137).
@@ -336,6 +364,12 @@ final class AppSession: ObservableObject {
 
     func replaceJob(_ newJob: Job) {
         job = newJob
+        // SPK-0319 lite: restore the persisted follow-source mode.
+        if let raw = newJob.followSourceModeRaw {
+            linkManager.setFollowSourceMode(raw == "autoFollow" ? .autoFollow : .manual)
+        } else {
+            linkManager.setFollowSourceMode(.manual)
+        }
         docVars.variables = newJob.documentVariables
         shapes = []
         shapeLayerIDs = []
@@ -1137,6 +1171,8 @@ final class AppSession: ObservableObject {
         node.toolpathResult = result.gcodeLines.joined(separator: "\n")
         node.estimatedTimeSeconds = result.estimatedTimeSeconds
         node.paramsJSON = encodeParams(ProfileToolpathParams())
+        // SPK-0319 lite: remember which source vectors this op was cut from.
+        linkToolpathToSources(node)
         selectToolpath(node.id)
         selectedStage = .cut
         markDirty()
@@ -1248,6 +1284,8 @@ final class AppSession: ObservableObject {
         }
         node.toolpathResult = gcode.joined(separator: "\n")
         node.estimatedTimeSeconds = estimatedTime
+        // SPK-0319 lite: remember which source vectors this op was cut from.
+        linkToolpathToSources(node)
         let all = allToolpathGCode
         if !all.isEmpty {
             gcodeLines = all
