@@ -143,6 +143,17 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
         return false
     }
 
+    /// Strategy classification for a toolpath operation (SPK-1102h-recalc).
+    /// Derived from the operation label convention the session uses when
+    /// creating ops; `unknown` covers ops the recalc engine can't regenerate.
+    public enum StrategyKind: Sendable {
+        case profile
+        case pocket
+        case drill
+        case vcarve
+        case unknown
+    }
+
     /// Whether this node is a Profile operation.
     ///
     /// The tree identifies strategy by the operation label convention the
@@ -153,6 +164,16 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
     public var isProfileOperation: Bool {
         if case .operation(let label) = type { return label.hasPrefix("Profile") }
         return false
+    }
+
+    /// Single source of strategy classification for this node.
+    public var strategyKind: StrategyKind {
+        guard case .operation(let label) = type else { return .unknown }
+        if label.hasPrefix("Profile") { return .profile }
+        if label.hasPrefix("Pocket") { return .pocket }
+        if label.hasPrefix("Drill") { return .drill }
+        if label.hasPrefix("V-Carve") { return .vcarve }
+        return .unknown
     }
 
     /// Whether this node is a Pocket operation (label convention, like
@@ -321,6 +342,90 @@ public final class ToolpathTreeManager: ObservableObject {
             node.clearDirty()
         }
         return dirtyProfiles
+    }
+
+    /// Regenerate EVERY dirty operation with its real engine and the node's
+    /// stored params (SPK-1102h-recalc):
+    ///   Profile → ProfileToolpathEngine   (stored §R2 params)
+    ///   Pocket  → PocketToolpathEngine    (stored §M params)
+    ///   Drill   → DrillToolpathEngine     (points from closed-vector
+    ///             centroids, stored §N depth/dwell)
+    ///   V-Carve → VCarveEngine            (stored §O params)
+    /// Ops with no stored params use strategy defaults. Unknown ops stay
+    /// dirty. Returns the regenerated nodes in tree order.
+    public func recalculateDirtyToolpaths(
+        vectors: [VectorPath],
+        material: Material?,
+        stockHeightMm: Double
+    ) -> [ToolpathTreeNode] {
+        var regenerated: [ToolpathTreeNode] = []
+        for node in root.allDirtyNodes {
+            switch node.strategyKind {
+            case .profile:
+                let result = ProfileToolpathEngine.compute(
+                    vectors: vectors,
+                    params: node.profileParams(),
+                    material: material,
+                    stockHeightMm: stockHeightMm
+                )
+                node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+                node.estimatedTimeSeconds = result.estimatedTimeSeconds
+                node.clearDirty()
+                regenerated.append(node)
+
+            case .pocket:
+                let result = PocketToolpathEngine.compute(
+                    vectors: vectors,
+                    params: node.pocketParams(),
+                    material: material,
+                    stockHeightMm: stockHeightMm
+                )
+                node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+                node.estimatedTimeSeconds = result.estimatedTimeSeconds
+                node.clearDirty()
+                regenerated.append(node)
+
+            case .drill:
+                let params = node.drillParams()
+                let points: [DrillPoint] = vectors.compactMap { path in
+                    guard path.isClosed, !path.points.isEmpty else { return nil }
+                    let xs = path.points.map(\.x)
+                    let ys = path.points.map(\.y)
+                    return DrillPoint(
+                        x: (xs.min()! + xs.max()!) / 2,
+                        y: (ys.min()! + ys.max()!) / 2,
+                        zDepthMm: -(params.startDepthMm + params.cutDepthMm),
+                        dwellSeconds: params.dwellAtBottom ? params.dwellTimeSeconds : 0
+                    )
+                }
+                guard !points.isEmpty else { continue }
+                let result = DrillToolpathEngine.compute(
+                    points: points,
+                    params: params,
+                    material: material,
+                    stockHeightMm: stockHeightMm
+                )
+                node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+                node.estimatedTimeSeconds = result.estimatedTimeSeconds
+                node.clearDirty()
+                regenerated.append(node)
+
+            case .vcarve:
+                let result = VCarveEngine.compute(
+                    vectors: vectors,
+                    params: node.vcarveParams(),
+                    stockHeightMm: stockHeightMm
+                )
+                node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+                node.estimatedTimeSeconds = result.estimatedTimeSeconds
+                node.clearDirty()
+                regenerated.append(node)
+
+            case .unknown:
+                continue
+            }
+        }
+        return regenerated
     }
     
     /// Get count of dirty nodes.

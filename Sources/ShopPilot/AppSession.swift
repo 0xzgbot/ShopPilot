@@ -1083,9 +1083,9 @@ final class AppSession: ObservableObject {
     }
 
     /// Recalculate every dirty toolpath operation with the real engine
-    /// (SPK-1102c). Profile ops regenerate from the current session vectors;
-    /// out-of-scope strategies (Pocket/V-Carve/Drill) stay dirty — export
-    /// stays blocked on them. The session G-code buffer is rebuilt from the
+    /// (SPK-1102c + SPK-1102h-recalc). Profile/Pocket/Drill/V-Carve
+    /// regenerate from the current session vectors + their stored params;
+    /// unknown ops stay dirty. The session G-code buffer is rebuilt from the
     /// clean tree. Returns the number of regenerated ops.
     @discardableResult
     func recalculateDirtyToolpaths() -> Int {
@@ -1094,9 +1094,8 @@ final class AppSession: ObservableObject {
             statusMessage = "No dirty toolpaths to recalculate"
             return 0
         }
-        let regenerated = toolpathTree.recalculateDirtyProfiles(
+        let regenerated = toolpathTree.recalculateDirtyToolpaths(
             vectors: vectors,
-            params: ProfileToolpathParams(),
             material: nil,
             stockHeightMm: job.sheets.first?.height ?? 6.0
         )
@@ -1104,10 +1103,13 @@ final class AppSession: ObservableObject {
         if !all.isEmpty {
             gcodeLines = all
         }
-        lastToolpathSummary = "\(gcodeLines.count) G-code lines · \(toolpathTree.dirtyNodeCount) dirty"
+        let remaining = toolpathTree.dirtyNodeCount
+        lastToolpathSummary = "\(gcodeLines.count) G-code lines · \(remaining) dirty"
         statusMessage = regenerated.isEmpty
-            ? "Recalculated: no Profile ops were dirty (out-of-scope ops stay dirty)"
-            : "Recalculated \(regenerated.count) dirty Profile toolpath(s)"
+            ? "Recalculated: no supported ops were dirty"
+            : remaining == 0
+                ? "Recalculated \(regenerated.count) dirty toolpath(s)"
+                : "Recalculated \(regenerated.count) dirty toolpath(s); \(remaining) still dirty"
         markDirty()
         return regenerated.count
     }
