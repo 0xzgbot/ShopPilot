@@ -209,6 +209,11 @@ A (parallel from day 0)
   - deps: SPK-1102a, SPK-0303, SPK-0304
   - track: 3
   - worklog: 2026-08-03 — Hermes coder. Session: `addToolpathNode` helper (tree node + result + buffer refresh + select + Cut stage + dirty) + `generatePocketToolpath` (closed vectors, zigzag default, isTooSmall status), `generateDrillToolpath` (holes at closed-vector bbox centroids, default peck, depth = min(sheet,10)), `generateVCarveToolpath` (V-bit defaults). UI: Cut stage "Generate Profile Toolpath" button → "Add Toolpath" menu (Profile/Pocket/Drill/V-Carve, borderedProminent). Verify: `./scripts/verify_locked.sh ShopPilotVerify1102d` PASS — pocket marker+cut moves+estimate on closed rect, open-only pocket cuts nothing; drill marker + ≥1 plunge per point; v-carve marker + passes + moves; tree wiring (2 ops + root, clean flags, buffer concatenates both markers in tree order). App build green; 1102c/e/h/i regression green.
+- [x] **SPK-1102g** **TP** GRBL post export from full toolpath tree (file export golden) // P0 // parallel-ok
+  - AC: Save Toolpaths posts the FULL tree (all ops' moves, tree order) — not last-op gcodeLines; GRBL wrapper golden; `swift run ShopPilotVerify1102g` PASS
+  - deps: SPK-1102d
+  - track: 3
+  - worklog: 2026-08-03 — Hermes coder. Audit: save path already posts `session.allToolpathGCode` (full tree concat, P0-C) through CutToMachineBridge; the missing proof was a golden. Verify `ShopPilotVerify1102g` PASS: two-op tree (Profile+Pocket real engine G-code) → full-tree buffer → `GRBLPostProcessor.grbl().process` — **move parity** (every raw G1 from BOTH ops survives post; a last-op-only export would be shorter), GRBL wrapper (G21/G90/M8 init, M9/G0 Z5.0/M2 cleanup, % framing, .gcode label), and an exact hand-written golden for a minimal input (normalized output matches byte-for-byte; golden corrected to "GRBL 1.1" display name). Whole-package build green; 1102c/d/e regression green.
 - [ ] **SPK-1102** **TP** Cut stage product — toolpath tree Profile/Pocket/Drill/V-Carve + dirty/recalc/export block + GRBL post // P0
   - AC: Saved job regenerates toolpaths and exports GRBL from tree
   - deps: SPK-1101, SPK-0302
@@ -1000,6 +1005,10 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 ---
 
 ## 12. Work log
+
+### 2026-08-03 — SPK-1102g GRBL post from full tree (Hermes coder)
+- Claimed/finished **SPK-1102g**: verified the Save Toolpaths chain posts the FULL tree (move parity proof — every G1 from both ops survives the post, not last-op-only) + exact hand-written GRBL golden. `ShopPilotVerify1102g` PASS; whole-package build green.
+- Next: SPK-1136a Profile form fields, then 1104b.
 
 ### 2026-08-03 — SPK-1102d Pocket/Drill/V-Carve add-ops from Cut (Hermes coder)
 - Claimed/finished **SPK-1102d**: "Add Toolpath" menu in Cut (Profile/Pocket/Drill/V-Carve) → session generate*Toolpath → real engines into tree nodes with buffer concat. `ShopPilotVerify1102d` PASS; 1102c/e/h/i regression green; app build green.
