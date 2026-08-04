@@ -404,13 +404,16 @@ public final class TextTool {
             
             let centeredShape = glyph.shape.translated(by: -glyphCenter.x, -glyphCenter.y)
             
-            // Translate to curve position
-            let translatedShape = centeredShape.translated(by: point.x, point.y)
+            // Rotate in place (about the glyph center at origin) to follow the
+            // curve tangent, THEN translate to the curve point. Rotating about
+            // the ORIGIN after translation swings the glyph by its distance
+            // from (0,0) — for arcs far from the origin (e.g. a sign arc at
+            // sheet center) every glyph lands hundreds of mm off-stock
+            // (caught by the SPK-1106b E2E sheet-bounds check).
+            let rotatedShape = rotateShape(centeredShape, angle: angle, about: VectorPoint(x: 0, y: 0))
+            let translatedShape = rotatedShape.translated(by: point.x, point.y)
             
-            // Rotate to follow curve tangent
-            let rotatedShape = rotateShape(translatedShape, angle: angle, about: VectorPoint(x: 0, y: 0))
-            
-            placedShapes.append(rotatedShape)
+            placedShapes.append(translatedShape)
             
             // Advance to next character
             currentDistance += glyph.advance + letterSpacing

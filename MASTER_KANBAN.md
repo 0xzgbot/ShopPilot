@@ -230,6 +230,11 @@ A (parallel from day 0)
   - track: 3
   - note: Parent SPK-1106 stays [ ] — recipe E2E polish + preview wiring remain
   - worklog: 2026-08-03 — Hermes coder. Audit: `SignRecipeManager.createSignJob` already ran the full text-on-curve → V-Carve flow but stored only STATS on the job (vcarvePasses/vcarveTimeSeconds) — the live tree never got the toolpath, so Cut stage + machine handoff were empty after picking the Signage recipe. Engine: `Job` gains optional `vcarveGCode` + `vcarveParamsJSON` (backward-compatible decode); the recipe now carries the full V-Carve G-code + encoded params. Session: `replaceJob` materializes a clean "V-Carve 1 (Recipe)" tree node (result + time + params + gcodeLines fallback) so the sign's toolpath is immediately visible in Cut, preview, and the machine handoff. Verify `ShopPilotVerify1106a` PASS — one flow: recipe job has text glyph vectors on the Text layer + border layer, precomputed V-Carve (passes ≥ 1, time > 0, full G-code with marker + cut moves, params decode to the recipe's settings); Job Codable round-trip keeps G-code + params; replaceJob mirror materializes a clean V-Carve node whose result feeds the handoff buffer. App build green.
+- [x] **SPK-1106b** **SIGN** Sign recipe E2E — recipe → text→curves → V-Carve node → Preview shows path → Machine buffer load (no auto-run, preflight gates Start) // P0
+  - AC: One CLT proves the whole sign path in the document session: recipe job → text glyph curves → V-Carve tree node → wireframe segments render the recipe's path in the sheet → full-tree buffer loads into the Machine session with ZERO bytes (no auto-run) → fresh preflight blocks Start until acknowledged → explicit runJob streams and completes; `swift run ShopPilotVerify1106b` PASS
+  - deps: SPK-1106a, SPK-1103d, SPK-1104b
+  - track: 3
+  - worklog: 2026-08-04 — Hermes coder. Audit: every leg of the chain already shipped (1106a recipe→tree node; 1103d/1103e preview reads `allToolpathGCode`; 1104b/1104d machine handoff + preflight + no-auto-run; ContentView:105-106 NewJobView → session.replaceJob), so the honest gap was a single E2E proof. Verify `ShopPilotVerify1106b` PASS — one flow: `SignRecipeManager.createSignJob` → Job round-trip (persist) → replaceJob mirror materializes a clean V-Carve node → full-tree buffer (mirror of `session.allToolpathGCode`) → `WireframeRenderer.generateSegments` yields cut+rapid segments spanning the glyph region inside the sheet bounds (Preview shows the sign path) → `MachineSession.loadGCode` sends ZERO bytes to `SimulatorTransport` (no auto-run) → fresh `PreflightGate` blocks Start → ack arms → explicit `runJob` streams the sign V-Carve and completes. 1106a/1104d regression green; app build green. Parent SPK-1106 AC met (recipe picker → replaceJob glue at ContentView:105) → parent closed.
 - [x] **SPK-1102d** **TP** Add Pocket / Drill / V-Carve ops from Cut (like Profile) // P0 // parallel-ok
   - AC: Cut "Add Toolpath" menu (Profile/Pocket/Drill/V-Carve) → session generate*Toolpath → real engine G-code into tree nodes; dirty flags sane; buffer concatenates; `swift run ShopPilotVerify1102d` PASS
   - deps: SPK-1102a, SPK-0303, SPK-0304
@@ -309,10 +314,11 @@ A (parallel from day 0)
   - AC: `swift test` passes on Xcode toolchain; CI documents requirement
   - deps: SPK-0110
   - track: 5
-- [ ] **SPK-1106** **UX** Sign recipe product E2E — recipe → text→curves → V-Carve → preview → machine // P0
+- [x] **SPK-1106** **UX** Sign recipe product E2E — recipe → text→curves → V-Carve → preview → machine // P0
   - AC: Full sign path in document session without orphan panels
   - deps: SPK-1102, SPK-1103, SPK-0504
   - track: 3
+  - worklog: 2026-08-04 — Hermes coder (parent close after SPK-1106b). AC met: 1106a (recipe carries precomputed V-Carve + replaceJob materializes the tree node), 1106b (E2E CLT: recipe → text glyph curves → V-Carve node → wireframe segments span the sheet → machine buffer load with zero bytes → preflight gates Start → runJob completes). UI glue: NewJobView "Signage" recipe → createSignJob → session.replaceJob (ContentView:105-106) — no orphan panels. **Real bug fixed by the E2E check**: `TextTool.textOnCurve` rotated each glyph about the ORIGIN after translating it to the curve point — for a sign arc ~422mm from origin every glyph swung off-stock (X to -350); now rotates in place then translates (glyphs at X 295-366, in-stock). Regressions 0500/1106a/1102d/1136d green.
 - [x] **SPK-1137** **GEO** Canvas honors per-layer hide/lock + layer-faithful save/open // P0
   - AC: Hidden layers' shapes not drawn or hit-testable; locked layers' shapes render but are not selectable/editable (node-edit, drag); save/open keeps each layer's own vectors (no cross-layer clobber) and restores per-shape layer identity; `swift run ShopPilotVerify1137` PASS
   - deps: SPK-1100, SPK-1123
@@ -1062,6 +1068,11 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 ---
 
 ## 12. Work log
+
+### 2026-08-04 — SPK-1106b Sign recipe E2E (Hermes coder)
+- Claimed/finished **SPK-1106b**: one CLT proves the whole sign path — recipe → text-on-curve glyphs → V-Carve tree node → Preview wireframe segments in-sheet → Machine buffer load (ZERO bytes, no auto-run) → fresh PreflightGate blocks Start → ack → explicit runJob completes. `ShopPilotVerify1106b` PASS.
+- **Real engine bug fixed (E2E-caught)**: `TextTool.textOnCurve` rotated glyphs about the ORIGIN after translation — a sign arc at sheet center (422mm from origin) swung every glyph off-stock (X to -350). Fixed to rotate-in-place-then-translate (T∘R∘C). Text now at X 295-366 in a 457mm sheet. Regressions 0500/1106a/1102d/1136d green.
+- **Parent SPK-1106 → `[x]`** — AC met (recipe picker → replaceJob glue at ContentView:105).
 
 ### 2026-08-04 — SPK-1103e material sim (Cursor; finish after Hermes 524)
 - Hermes timed out (error 524) mid verify with uncommitted 1103e work. Finished: G1 segment interpolation in ToolpathSimulator; sheet-aware `materialSimulation`; Preview Cancel; `ShopPilotVerify1103e` PASS; 1103a/0310a green. Closed SPK-1103e + parent SPK-1103.
