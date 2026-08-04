@@ -1300,14 +1300,49 @@ final class AppSession: ObservableObject {
             params: VCarveParams(),
             stockHeightMm: job.sheets.first?.height ?? 25.0
         )
-        _ = addToolpathNode(
+        let node = addToolpathNode(
             named: "V-Carve \(toolpathTree.allNodes.count)",
             gcode: result.gcodeLines,
             estimatedTime: result.estimatedTimeSeconds
         )
+        node.paramsJSON = encodeParams(VCarveParams())
         lastToolpathSummary =
             "V-Carve: \(result.gcodeLines.count) lines, \(result.passCount) pass(es)"
         statusMessage = lastToolpathSummary
+    }
+
+    /// Apply V-Carve params to an operation: store them on the node and
+    /// immediately regenerate its G-code with the REAL engine (SPK-1136d).
+    @discardableResult
+    func applyVCarveParams(_ params: VCarveParams, to nodeID: UUID) -> Bool {
+        guard let node = toolpathTree.findNode(id: nodeID), node.isVCarveOperation else {
+            statusMessage = "Apply params: select a V-Carve operation"
+            return false
+        }
+        guard !vectors.isEmpty else {
+            statusMessage = "No vectors — add shapes first"
+            return false
+        }
+        registerUndoPoint()
+        node.paramsJSON = encodeParams(params)
+        let result = VCarveEngine.compute(
+            vectors: vectors,
+            params: params,
+            stockHeightMm: job.sheets.first?.height ?? 25.0
+        )
+        node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+        node.estimatedTimeSeconds = result.estimatedTimeSeconds
+        node.clearDirty()
+        let all = allToolpathGCode
+        if !all.isEmpty {
+            gcodeLines = all
+        }
+        lastToolpathSummary =
+            "V-Carve: \(result.gcodeLines.count) lines, \(Int(params.vBitAngleDegrees))° bit, " +
+            "\(result.passCount) pass(es)"
+        statusMessage = lastToolpathSummary
+        markDirty()
+        return true
     }
 
     func loadFixtureGCodeIfNeeded() {

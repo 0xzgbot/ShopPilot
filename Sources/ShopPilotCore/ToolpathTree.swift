@@ -169,6 +169,25 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
         return false
     }
 
+    /// Whether this node is a V-Carve operation (label convention, like
+    /// `isProfileOperation`).
+    public var isVCarveOperation: Bool {
+        if case .operation(let label) = type { return label.hasPrefix("V-Carve") }
+        return false
+    }
+
+    /// The V-Carve params stored on this node (decoded from `paramsJSON`),
+    /// or defaults when none are stored.
+    public func vcarveParams() -> VCarveParams {
+        guard let json = paramsJSON,
+              let data = json.data(using: .utf8),
+              let params = try? JSONDecoder().decode(VCarveParams.self, from: data)
+        else {
+            return VCarveParams()
+        }
+        return params
+    }
+
     /// The Drill params stored on this node (decoded from `paramsJSON`),
     /// or defaults when none are stored.
     public func drillParams() -> DrillToolpathParams {

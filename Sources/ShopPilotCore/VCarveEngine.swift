@@ -31,6 +31,18 @@ public struct VCarveParams: Codable, Sendable {
     
     /// Per-vector engraving depths (maps vector ID → max Z depth in mm).
     public var vectorDepths: [UUID: Double]
+
+    // SPK-1136d — installer-verified §O key set (start depth, flat-depth
+    // limit, corner sharpen, start-point/order toggles, safe Z, ramping).
+    // Additive with defaults so existing call sites and persisted documents
+    // decode unchanged.
+    public var startDepthMm: Double
+    public var flatDepthMm: Double
+    public var cornerSharpen: Bool
+    public var useVectorStartPoints: Bool
+    public var useVectorSelectionOrder: Bool
+    public var safeZHeightMm: Double
+    public var rampPlungeMoves: Bool
     
     public init(
         vBitAngleDegrees: Double = 90.0,
@@ -41,7 +53,14 @@ public struct VCarveParams: Codable, Sendable {
         leadOutDistanceMm: Double = 5.0,
         stepOverMm: Double = 1.0,
         flatBottomMode: Bool = false,
-        vectorDepths: [UUID: Double] = [:]
+        vectorDepths: [UUID: Double] = [:],
+        startDepthMm: Double = 0.0,
+        flatDepthMm: Double = 1.0,
+        cornerSharpen: Bool = false,
+        useVectorStartPoints: Bool = true,
+        useVectorSelectionOrder: Bool = false,
+        safeZHeightMm: Double = 3.2,
+        rampPlungeMoves: Bool = false
     ) {
         self.vBitAngleDegrees = vBitAngleDegrees
         self.feedRateMmPerMin = feedRateMmPerMin
@@ -52,6 +71,13 @@ public struct VCarveParams: Codable, Sendable {
         self.stepOverMm = stepOverMm
         self.flatBottomMode = flatBottomMode
         self.vectorDepths = vectorDepths
+        self.startDepthMm = startDepthMm
+        self.flatDepthMm = flatDepthMm
+        self.cornerSharpen = cornerSharpen
+        self.useVectorStartPoints = useVectorStartPoints
+        self.useVectorSelectionOrder = useVectorSelectionOrder
+        self.safeZHeightMm = safeZHeightMm
+        self.rampPlungeMoves = rampPlungeMoves
     }
     
     /// Half-angle of the V-bit in radians (used for width calculations).
@@ -63,6 +89,57 @@ public struct VCarveParams: Codable, Sendable {
     /// At depth z, the cutting width = 2 * |z| * tan(halfAngle).
     public func tipWidthAtDepth(_ depth: Double) -> Double {
         2.0 * abs(depth) * tan(halfAngleRadians)
+    }
+
+    // MARK: - Codable (backward-compatible: every key decodes with a default,
+    // so documents written before SPK-1136d still load).
+
+    private enum CodingKeys: String, CodingKey {
+        case vBitAngleDegrees, feedRateMmPerMin, plungeFeedRateMmPerMin
+        case maxDepthOfCutMm, leadInDistanceMm, leadOutDistanceMm, stepOverMm
+        case flatBottomMode, vectorDepths
+        case startDepthMm, flatDepthMm, cornerSharpen, useVectorStartPoints
+        case useVectorSelectionOrder, safeZHeightMm, rampPlungeMoves
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        vBitAngleDegrees = try c.decodeIfPresent(Double.self, forKey: .vBitAngleDegrees) ?? 90.0
+        feedRateMmPerMin = try c.decodeIfPresent(Double.self, forKey: .feedRateMmPerMin) ?? 1000
+        plungeFeedRateMmPerMin = try c.decodeIfPresent(Double.self, forKey: .plungeFeedRateMmPerMin) ?? 300
+        maxDepthOfCutMm = try c.decodeIfPresent(Double.self, forKey: .maxDepthOfCutMm) ?? 2.0
+        leadInDistanceMm = try c.decodeIfPresent(Double.self, forKey: .leadInDistanceMm) ?? 5.0
+        leadOutDistanceMm = try c.decodeIfPresent(Double.self, forKey: .leadOutDistanceMm) ?? 5.0
+        stepOverMm = try c.decodeIfPresent(Double.self, forKey: .stepOverMm) ?? 1.0
+        flatBottomMode = try c.decodeIfPresent(Bool.self, forKey: .flatBottomMode) ?? false
+        vectorDepths = try c.decodeIfPresent([UUID: Double].self, forKey: .vectorDepths) ?? [:]
+        startDepthMm = try c.decodeIfPresent(Double.self, forKey: .startDepthMm) ?? 0.0
+        flatDepthMm = try c.decodeIfPresent(Double.self, forKey: .flatDepthMm) ?? 1.0
+        cornerSharpen = try c.decodeIfPresent(Bool.self, forKey: .cornerSharpen) ?? false
+        useVectorStartPoints = try c.decodeIfPresent(Bool.self, forKey: .useVectorStartPoints) ?? true
+        useVectorSelectionOrder = try c.decodeIfPresent(Bool.self, forKey: .useVectorSelectionOrder) ?? false
+        safeZHeightMm = try c.decodeIfPresent(Double.self, forKey: .safeZHeightMm) ?? 3.2
+        rampPlungeMoves = try c.decodeIfPresent(Bool.self, forKey: .rampPlungeMoves) ?? false
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(vBitAngleDegrees, forKey: .vBitAngleDegrees)
+        try c.encode(feedRateMmPerMin, forKey: .feedRateMmPerMin)
+        try c.encode(plungeFeedRateMmPerMin, forKey: .plungeFeedRateMmPerMin)
+        try c.encode(maxDepthOfCutMm, forKey: .maxDepthOfCutMm)
+        try c.encode(leadInDistanceMm, forKey: .leadInDistanceMm)
+        try c.encode(leadOutDistanceMm, forKey: .leadOutDistanceMm)
+        try c.encode(stepOverMm, forKey: .stepOverMm)
+        try c.encode(flatBottomMode, forKey: .flatBottomMode)
+        try c.encode(vectorDepths, forKey: .vectorDepths)
+        try c.encode(startDepthMm, forKey: .startDepthMm)
+        try c.encode(flatDepthMm, forKey: .flatDepthMm)
+        try c.encode(cornerSharpen, forKey: .cornerSharpen)
+        try c.encode(useVectorStartPoints, forKey: .useVectorStartPoints)
+        try c.encode(useVectorSelectionOrder, forKey: .useVectorSelectionOrder)
+        try c.encode(safeZHeightMm, forKey: .safeZHeightMm)
+        try c.encode(rampPlungeMoves, forKey: .rampPlungeMoves)
     }
 }
 

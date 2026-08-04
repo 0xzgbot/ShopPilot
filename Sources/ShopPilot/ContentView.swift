@@ -462,6 +462,16 @@ private struct CutStageView: View {
                     .frame(maxHeight: 320)
                 }
 
+                // SPK-1136d: V-Carve strategy form — installer-verified §O fields.
+                if node.isVCarveOperation {
+                    ScrollView {
+                        VCarveParamsForm(node: node) { newParams in
+                            _ = session.applyVCarveParams(newParams, to: node.id)
+                        }
+                    }
+                    .frame(maxHeight: 320)
+                }
+
                 let lines = (node.toolpathResult ?? "")
                     .components(separatedBy: .newlines)
                     .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
@@ -794,6 +804,85 @@ private struct DrillParamsForm: View {
                     numRow("Feed (mm/min)", $params.feedRateMmPerMin)
                     numRow("Plunge (mm/min)", $params.plungeFeedRateMmPerMin)
                     numRow("Tool Ø (mm)", $params.toolDiameterMm)
+                }
+            }
+
+            Button("Apply Params — Regenerate") {
+                onApply(params)
+            }
+            .buttonStyle(.borderedProminent)
+            .frame(maxWidth: .infinity)
+        }
+        .padding(8)
+    }
+
+    private func numRow(_ label: String, _ value: Binding<Double>) -> some View {
+        GridRow {
+            Text(label).font(.caption).foregroundStyle(.secondary)
+            TextField("", value: value, format: .number)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 80)
+        }
+    }
+}
+
+// MARK: - V-Carve strategy form (SPK-1136d)
+
+/// Editable form for the installer-verified §O V-Carve field set. Editing is
+/// local; "Apply" stores the params on the operation and regenerates its
+/// G-code with the real engine.
+private struct VCarveParamsForm: View {
+    let node: ToolpathTreeNode
+    let onApply: (VCarveParams) -> Void
+
+    @State private var params: VCarveParams
+
+    init(node: ToolpathTreeNode, onApply: @escaping (VCarveParams) -> Void) {
+        self.node = node
+        self.onApply = onApply
+        _params = State(initialValue: node.vcarveParams())
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            GroupBox("Tool") {
+                Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                    numRow("V-bit angle (°)", $params.vBitAngleDegrees)
+                    numRow("Feed (mm/min)", $params.feedRateMmPerMin)
+                    numRow("Plunge (mm/min)", $params.plungeFeedRateMmPerMin)
+                    numRow("Step-over (mm)", $params.stepOverMm)
+                }
+            }
+
+            GroupBox("Depth") {
+                Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                    numRow("Start depth (mm)", $params.startDepthMm)
+                    numRow("Cut depth (mm)", $params.maxDepthOfCutMm)
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle("Flat-bottom mode", isOn: $params.flatBottomMode)
+                    if params.flatBottomMode {
+                        Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                            numRow("Flat depth limit (mm)", $params.flatDepthMm)
+                        }
+                    }
+                }
+            }
+
+            GroupBox("Leads") {
+                Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                    numRow("Lead-in (mm)", $params.leadInDistanceMm)
+                    numRow("Lead-out (mm)", $params.leadOutDistanceMm)
+                    numRow("Safe Z (mm)", $params.safeZHeightMm)
+                }
+            }
+
+            GroupBox("Options") {
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle("Corner sharpen", isOn: $params.cornerSharpen)
+                    Toggle("Use vector start points", isOn: $params.useVectorStartPoints)
+                    Toggle("Use vector selection order", isOn: $params.useVectorSelectionOrder)
+                    Toggle("Ramp plunge moves", isOn: $params.rampPlungeMoves)
                 }
             }
 
