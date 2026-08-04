@@ -100,8 +100,26 @@ public final class ShapeTransformer {
                 let newCenter = rotatePoint(c, around: center, by: radians)
                 return .circle(center: newCenter, radius: r)
             case .rectangle(let o, let w, let h):
-                let newOrigin = rotatePoint(o, around: center, by: radians)
-                return .rectangle(origin: newOrigin, width: w, height: h)
+                // Re-derive the axis-aligned bounding box of the rotated
+                // corners so a 90° rotation swaps width/height and keeps the
+                // centroid fixed (SPK-1101f; same fix as rotated(byDegrees:)).
+                let corners = [
+                    o,
+                    VectorPoint(x: o.x + w, y: o.y),
+                    VectorPoint(x: o.x + w, y: o.y + h),
+                    VectorPoint(x: o.x, y: o.y + h),
+                ].map { rotatePoint($0, around: center, by: radians) }
+                let xs = corners.map(\.x)
+                let ys = corners.map(\.y)
+                let minX = xs.min() ?? 0
+                let minY = ys.min() ?? 0
+                let maxX = xs.max() ?? 0
+                let maxY = ys.max() ?? 0
+                return .rectangle(
+                    origin: VectorPoint(x: minX, y: minY),
+                    width: maxX - minX,
+                    height: maxY - minY
+                )
             case .arc(let c, let r, let sa, let ea):
                 let newCenter = rotatePoint(c, around: center, by: radians)
                 return .arc(center: newCenter, radius: r, startAngle: sa + radians, endAngle: ea + radians)

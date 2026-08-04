@@ -193,6 +193,12 @@ A (parallel from day 0)
   - track: 2
   - note: Engine (SVGImporter) + hub UI + `AppSession.importSVG(from:)` exist — gap was ⌘K reachability + verify proof; parent SPK-1101 still `[ ]`
   - worklog: 2026-08-03 — Hermes coder. Audit: SVGImporter (viewBox-aware paths+primitives), Design hub (parse→preview→addShapes), `AppSession.importSVG(from:)` (parse → addShapes → layer-faithful) all existed but importSVG was unreachable dead code. Added ⌘K command `import_svg` ("Import SVG…", File category, routable) → `AppSession.importSVGFromPanel()` (NSOpenPanel, UTType.svg, switches to Design stage, status via importSVG). Verify: `./scripts/verify_locked.sh ShopPilotVerify1101e` PASS — fixture SVG (viewBox + rect/circle/path/line) via temp-file read path → 4 shapes + doc size; viewBox scale 2× point-check; empty → 0 shapes; garbage path → lenient 0 shapes no-FATAL (tokenizer contract); Job encode/decode round-trip keeps all 4 paths on the import layer with geometry intact. App build green.
+- [x] **SPK-1101f** **GEO** Transforms UI — Nudge X+1 / Flip H / Rotate 90° / Scale 1.1× // P0 // parallel-ok
+  - AC: Ops bar transform buttons route to session applyNudgeX/applyFlipHorizontal/applyRotate90/applyScale110 (undo + dirty); selection-gated; `swift run ShopPilotVerify1101f` PASS
+  - deps: SPK-1100, SPK-1101d
+  - track: 2
+  - note: Found + fixed real bug — `ShapeTransformer.rotate` rect case rotated origin and kept w/h (90° produced wrong geometry); now re-derives bbox like rotated(byDegrees:)
+  - worklog: 2026-08-03 — Hermes coder. UI: Design ops bar gains Nudge X+1 / Flip H / Rotate 90° / Scale 1.1× (selection-gated, help, routed to existing session apply* — undo + dirty + layer-faithful). Real bug fixed: `ShapeTransformer.rotate` `.rectangle` case rotated only the origin and kept w/h — a 90° rotation produced geometrically wrong output (same class as the 1101j fix); now re-derives the rotated bbox (w/h swap, centroid invariant). Verify: `./scripts/verify_locked.sh ShopPilotVerify1101f` PASS — nudge +1mm, flip centroid/size invariants, rotate-90 w/h swap + exact vertex math (rect + freehand), scale 1.1× invariants, .shoppilot round-trip of the rotated rect. App build green; 1101j/k/FlipH regression green.
 - [ ] **SPK-1102** **TP** Cut stage product — toolpath tree Profile/Pocket/Drill/V-Carve + dirty/recalc/export block + GRBL post // P0
   - AC: Saved job regenerates toolpaths and exports GRBL from tree
   - deps: SPK-1101, SPK-0302
@@ -984,6 +990,10 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 ---
 
 ## 12. Work log
+
+### 2026-08-03 — SPK-1101f transforms UI (Hermes coder)
+- Claimed/finished **SPK-1101f**: Ops bar transform buttons (Nudge X+1 / Flip H / Rotate 90° / Scale 1.1×) → session apply* (undo+dirty). Found + fixed a REAL bug: `ShapeTransformer.rotate` rect case kept w/h after rotation (90° was geometrically wrong) — now re-derives the bbox. `ShopPilotVerify1101f` PASS; 1101j/k/FlipH regression green; app build green.
+- Next: SPK-1102c Recalc Dirty All, then 1102d/g, 1136a, 1104b.
 
 ### 2026-08-03 — SPK-1101e SVG import reachability + verify (Hermes coder)
 - Claimed/finished **SPK-1101e**: audit showed importer/hub/session-import all existed; the honest gaps were ⌘K reachability (session.importSVG was dead code) + verify proof. Added `import_svg` command → NSOpenPanel → `importSVG(from:)`; `ShopPilotVerify1101e` PASS (fixture parse, viewBox transform, edge cases, layer-faithful .shoppilot round-trip). App build green; focused sweep green.

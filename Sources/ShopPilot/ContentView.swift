@@ -167,6 +167,20 @@ private struct DesignStageView: View {
             Button("Trim") { _ = session.applyTrimToSelection() }
                 .disabled(session.selectedShapeIndices.count < 2)
                 .help("Clip open vectors to the selected closed shapes' bounds")
+            Divider().frame(height: 14)
+            // SPK-1101f: transforms — one-shot, selection-gated, undo+dirty.
+            Button("Nudge X+1") { _ = session.applyNudgeX() }
+                .disabled(session.selectedShapeIndices.isEmpty)
+                .help("Move selected vectors +1 mm in X")
+            Button("Flip H") { _ = session.applyFlipHorizontal() }
+                .disabled(session.selectedShapeIndices.isEmpty)
+                .help("Mirror selected vectors across the selection centerline")
+            Button("Rotate 90°") { _ = session.applyRotate90() }
+                .disabled(session.selectedShapeIndices.isEmpty)
+                .help("Rotate selected vectors 90° CCW around the selection centroid")
+            Button("Scale 1.1×") { _ = session.applyScale110() }
+                .disabled(session.selectedShapeIndices.isEmpty)
+                .help("Scale selected vectors 1.1× about the selection centroid")
             Spacer()
             Text("\(session.selectedShapeIndices.count) selected")
                 .font(.caption)
