@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Inkscape-style: groups, transforms, mm units, open paths -->
+<svg xmlns="http://www.w3.org/2000/svg" width="100mm" height="50mm" viewBox="0 0 100 50">
+  <g transform="translate(10,10)">
+    <path d="M 0,0 L 30,0 L 30,20 Z" fill="none" stroke="black" stroke-width="0.1"/>
+    <!-- open path: gap between 20,20 and 0,0 not closed -->
+    <path d="M 40,0 L 60,0 L 60,20 L 40,20" fill="none" stroke="black" stroke-width="0.1"/>
+    <!-- closed circle -->
+    <circle cx="75" cy="10" r="8" fill="none" stroke="black" stroke-width="0.1"/>
+  </g>
+  <g transform="translate(0,35)">
+    <!-- duplicate rectangles -->
+    <rect x="0" y="0" width="20" height="10" fill="none" stroke="black" stroke-width="0.1"/>
+    <rect x="0" y="0" width="20" height="10" fill="none" stroke="black" stroke-width="0.1"/>
+  </g>
+</svg>

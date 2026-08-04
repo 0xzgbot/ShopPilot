@@ -27,6 +27,10 @@ public struct PreflightResult: Identifiable, Codable {
     public let severity: PreflightSeverity
     public var message: String
     public var affectedShapeIds: [UUID]
+    /// SPK-0211+0212 — real indices into the session's `shapes` array, so the
+    /// UI can select the offending shapes (the fabricated UUIDs above are kept
+    /// for backward compatibility but are not usable for selection).
+    public var affectedShapeIndices: [Int]
     public var suggestedFix: String?
 
     public init(
@@ -35,6 +39,7 @@ public struct PreflightResult: Identifiable, Codable {
         severity: PreflightSeverity,
         message: String,
         affectedShapeIds: [UUID] = [],
+        affectedShapeIndices: [Int] = [],
         suggestedFix: String? = nil
     ) {
         self.id = id
@@ -42,6 +47,7 @@ public struct PreflightResult: Identifiable, Codable {
         self.severity = severity
         self.message = message
         self.affectedShapeIds = affectedShapeIds
+        self.affectedShapeIndices = affectedShapeIndices
         self.suggestedFix = suggestedFix
     }
 }
@@ -69,15 +75,17 @@ public final class VectorPreflight {
         tolerance: Double = defaultTolerance
     ) -> PreflightReport {
         var issues: [PreflightResult] = []
-        let shapeIds = shapes.enumerated().map { index, _ in UUID() }
-
+        // SPK-0211+0212: real indices into the caller's shapes array — the UI
+        // selects offending shapes from these. The id-bearing Shape IDs are
+        // unavailable here (VectorShape is a value enum), so indices are the
+        // honest identity.
         for (index, shape) in shapes.enumerated() {
             if isDegenerate(shape, tolerance: tolerance) {
                 issues.append(PreflightResult(
                     issue: .degenerate,
                     severity: .warning,
                     message: descriptionForDegenerate(shape),
-                    affectedShapeIds: [shapeIds[index]],
+                    affectedShapeIndices: [index],
                     suggestedFix: "Remove or repair shape."
                 ))
             }
@@ -87,7 +95,7 @@ public final class VectorPreflight {
                     issue: .openPath,
                     severity: .error,
                     message: "Open vector detected.",
-                    affectedShapeIds: [shapeIds[index]],
+                    affectedShapeIndices: [index],
                     suggestedFix: "Join endpoints or close before cutting."
                 ))
             }
@@ -97,20 +105,28 @@ public final class VectorPreflight {
                     issue: .selfIntersection,
                     severity: .warning,
                     message: "Path intersects itself.",
-                    affectedShapeIds: [shapeIds[index]],
+                    affectedShapeIndices: [index],
                     suggestedFix: "Edit control points to remove crossings."
                 ))
             }
         }
 
+        // Gap probe: flag only shapes that are NEAR each other but not
+        // touching (within `gapProbeDistance`) — a real "meant to be joined
+        // but not quite" gap. Shapes that are far apart are separate design
+        // elements, not gaps.
+        let gapProbeDistance: Double = max(tolerance * 100, 1.0)
         for i in 0..<shapes.count {
             for j in (i + 1)..<shapes.count {
-                if shapes[i].boundingRect.abuts(shapes[j].boundingRect, tolerance: tolerance) { continue }
+                let a = shapes[i].boundingRect
+                let b = shapes[j].boundingRect
+                if a.abuts(b, tolerance: tolerance) { continue }  // touching/overlapping: fine
+                if !a.near(b, distance: gapProbeDistance) { continue }  // far apart: not a gap
                 issues.append(PreflightResult(
                     issue: .gap,
                     severity: .info,
-                    message: "Gap detected between shapes.",
-                    affectedShapeIds: [shapeIds[i], shapeIds[j]],
+                    message: "Gap detected between shapes \(i + 1) and \(j + 1).",
+                    affectedShapeIndices: [i, j],
                     suggestedFix: "Join endpoints if they are meant to be continuous."
                 ))
             }
@@ -254,6 +270,14 @@ private extension Rect {
         )
         return a.minX <= other.maxX && a.maxX >= other.minX && a.minY <= other.maxY && a.maxY >= other.minY
     }
+
+    /// True when the gap between the two rects is within `distance` (i.e. they
+    /// are near enough to plausibly be meant as one continuous contour).
+    func near(_ other: Rect, distance: Double) -> Bool {
+        let dx = max(0, max(minX, other.minX) - min(maxX, other.maxX))
+        let dy = max(0, max(minY, other.minY) - min(maxY, other.maxY))
+        return hypot(dx, dy) <= distance
+    }
 }
 
 // MARK: - Plain-English Fix Actions
@@ -269,6 +293,7 @@ public extension VectorPreflight {
                 body: body(for: issue),
                 severity: issue.severity,
                 affectedShapeIds: issue.affectedShapeIds,
+                affectedShapeIndices: issue.affectedShapeIndices,
                 suggestedFix: issue.suggestedFix
             )
         }
@@ -300,6 +325,7 @@ public struct FixAction: Identifiable, Codable {
     public var body: String
     public let severity: PreflightSeverity
     public var affectedShapeIds: [UUID]
+    public var affectedShapeIndices: [Int]
     public var suggestedFix: String?
 
     public init(
@@ -308,6 +334,7 @@ public struct FixAction: Identifiable, Codable {
         body: String,
         severity: PreflightSeverity,
         affectedShapeIds: [UUID] = [],
+        affectedShapeIndices: [Int] = [],
         suggestedFix: String? = nil
     ) {
         self.id = id
@@ -315,6 +342,7 @@ public struct FixAction: Identifiable, Codable {
         self.body = body
         self.severity = severity
         self.affectedShapeIds = affectedShapeIds
+        self.affectedShapeIndices = affectedShapeIndices
         self.suggestedFix = suggestedFix
     }
 }

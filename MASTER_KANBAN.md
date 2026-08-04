@@ -508,13 +508,11 @@ A (parallel from day 0)
   - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
   - worklog: 2026-07-29 — Added ShopPilotGeometryTests with 14 XCTest cases covering translation/rotation/scaling/offset/array/fillet/extend/boolean API parity. Runtime numeric golden script verified accuracy. Build remains green. Note: XCTest requires Xcode; CLI-only environment verified via scripts/verify_geometry_api.py.
   - deps: SPK-0203, SPK-0204  
-- [ ] **SPK-0211** **GEO** Vector Preflight Doctor (gaps, open, self-intersect) 
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
-  - worklog: 2026-07-29 — VectorPreflight.swift exposes check(shapes:tolerance:) returning PreflightReport with openPath/selfIntersection/gap/degenerate/overlap issues. Closed-shape rules, bounding-rect gap probe, polyline self-intersection test, severity ordering included. Build passes cleanly.
+- [x] **SPK-0211** **GEO** Vector Preflight Doctor (gaps, open, self-intersect) 
+  - worklog: 2026-08-04 — Cursor cleanup + finish slice. Engine: `VectorPreflight` now carries real `affectedShapeIndices` (usable for canvas selection); gap probe only flags near-but-not-touching shapes (far-apart are separate design elements). UI: Design-stage **Check Vectors** + `PreflightDoctorView` panel. Persist: report held on `AppSession.lastPreflightReport`. Verify `ShopPilotVerify0211` PASS; gap XCTest aligned with near-gap semantics.
   - deps: SPK-0205, SPK-0004  
-- [ ] **SPK-0212** **UX** Preflight plain-English fix actions 
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
-  - worklog: 2026-07-29 — Added FixAction struct + VectorPreflight.fixActions(for:) mapping openPath/selfIntersection/gap/degenerate/overlap to titles/bodies with severity ordering. SwiftUI-ready Identifiable model. Build passes cleanly.
+- [x] **SPK-0212** **UX** Preflight plain-English fix actions 
+  - worklog: 2026-08-04 — Cursor cleanup + finish slice. `FixAction` carries `affectedShapeIndices`; doctor panel click selects offending shapes + status suggested fix. Covered by `ShopPilotVerify0211`. Parent AC met with SPK-0211.
   - deps: SPK-0211  
 - [x] **SPK-0213** **GEO** Ellipse, polygon, star, freehand 
   - worklog: 2026-07-29 — Extended VectorShape enum in Kernel.swift with .ellipse, .polygon, .star, .freehand cases. Added area/boundingRect/translated/scaled/contains/hashValue coverage for all new cases. Updated Transform.swift, NodeEditor.swift, VectorOffset.swift for exhaustive switch compatibility. Build passes cleanly.
@@ -1337,3 +1335,8 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 - **⌘K routing** — Commands.swift: 9 routable commands (new/open/save/export_gcode/undo/redo/profile_tp/connect_machine/air_cut), 16 marked coming-soon; no stub leaks. Harness PASS.
 - Fixes: Package.swift registered orphan verify targets 1101b/1101i/1131; 1101i rewritten against real AlignmentMode (topLeft/centerCenter/bottomRight/distribute) + ShapeTransformer init made public; all 9 verify targets green; full swift build exit 0.
 - Remaining for v1: SPK-1101 epic (text/offset/boolean reachable — micros 1120/1125 done, 1101 itself still open), SPK-1102 main card close, SPK-1103 main card close, SPK-1104 main card close, SPK-1105 XCTest (Xcode-gated), SPK-1106 sign recipe, Track 5 gate.
+
+### 2026-08-04 — Cleanup push (Cursor)
+- Claimed/finished **SPK-0211** + **SPK-0212**: real `affectedShapeIndices`, proximity gap probe, Design **Check Vectors** + `PreflightDoctorView`, `ShopPilotVerify0211` PASS; gap XCTest aligned.
+- Committed research pack under `docs/planning/research/` + `scripts/verify_import_torture.py`; ignored `__pycache__` / `research/raw/`.
+- Pushed `master` to origin (private GitHub).

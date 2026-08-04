@@ -93,12 +93,20 @@ final class PreflightVCarveTests: XCTestCase {
     // MARK: - Test: Preflight detects gaps
     
     func testPreflightDetectsGap() {
+        // Near but not touching (within gap probe) — meant to be joined.
         let shape1 = VectorShape.rectangle(origin: VectorPoint(x: 0, y: 0), width: 10, height: 10)
-        let shape2 = VectorShape.rectangle(origin: VectorPoint(x: 100, y: 100), width: 10, height: 10)
+        let shape2 = VectorShape.rectangle(origin: VectorPoint(x: 10.5, y: 0), width: 10, height: 10)
         let report = VectorPreflight.check(shapes: [shape1, shape2])
         
         XCTAssertFalse(report.isClean)
         XCTAssertTrue(report.issues.contains { $0.issue == .gap })
+
+        // Far apart are separate design elements, not gaps (SPK-0211).
+        let far = VectorPreflight.check(shapes: [
+            VectorShape.rectangle(origin: VectorPoint(x: 0, y: 0), width: 10, height: 10),
+            VectorShape.rectangle(origin: VectorPoint(x: 100, y: 100), width: 10, height: 10)
+        ])
+        XCTAssertFalse(far.issues.contains { $0.issue == .gap })
     }
     
     // MARK: - Test: Preflight allows adjacent shapes

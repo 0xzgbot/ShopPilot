@@ -1,0 +1,62 @@
+feature,mention_count,example_video_ids,lean_relevance,category
+toolpath preview / simulation,44,h7FccWQT2TA HNyIDbF7kww 3I5rZg8hE-s VAvj8KqOuE8 MOiVl-R3xhM aQyh6aGp3ys,must,preview
+material/sheet-aware preview,26,h7FccWQT2TA MOiVl-R3xhM aQyh6aGp3ys a_HwPGiE0DI NF9oaCjXmAo PXh58eYRoWE,should,preview
+job setup / material size,22,h7FccWQT2TA HNyIDbF7kww VAvj8KqOuE8 MOiVl-R3xhM ovxypfxp38g YLK9E_c5S3k,must,job_setup
+material thickness & z-zero,22,h7FccWQT2TA HNyIDbF7kww VAvj8KqOuE8 MOiVl-R3xhM tmaTxrZZv6Y ovxypfxp38g,must,job_setup
+align/mirror/rotate objects,21,aQyh6aGp3ys a_HwPGiE0DI YLK9E_c5S3k dfzBnuFNNnI YMQIBz6_Yxk bPCCtoT6dx0,must,design_2d
+layer preview (per-toolpath),21,h7FccWQT2TA MOiVl-R3xhM NF9oaCjXmAo 5wOzzsZ870k 0Bb_Sm-jAtA vDO-TC__TCE,should,preview
+3D component / relief model,19,h7FccWQT2TA aQyh6aGp3ys a_HwPGiE0DI dfzBnuFNNnI qOIZmdKOno0 EC0F23IihuY,must,model_3d
+3D import (STL/3DS/etc),18,h7FccWQT2TA MOiVl-R3xhM NF9oaCjXmAo dfzBnuFNNnI Vovq8CwJC-E qOIZmdKOno0,must,model_3d
+text tool / lettering,17,h7FccWQT2TA 7wxRKF7Lc8A dfzBnuFNNnI YMQIBz6_Yxk nESYbpc9r6o bPCCtoT6dx0,must,design_2d
+node editing,17,h7FccWQT2TA 7wxRKF7Lc8A YMQIBz6_Yxk nESYbpc9r6o jzW6RGG8wWk uPTziUXw4PI,must,design_2d
+layers,17,MOiVl-R3xhM aQyh6aGp3ys PXh58eYRoWE N_jHFZz9wz4 vDO-TC__TCE mucdprsJQkw,should,design_2d
+combine modes (add/subtract/merge),17,aQyh6aGp3ys a_HwPGiE0DI qOIZmdKOno0 JRPg0oexpN8 EC0F23IihuY WzJOIdUfMO4,must,model_3d
+ramp / lead-in,17,h7FccWQT2TA HNyIDbF7kww 3I5rZg8hE-s VAvj8KqOuE8 MOiVl-R3xhM tmaTxrZZv6Y,should,toolpath_shared
+vector draw tools (rect/circle/arc/polyline),15,VAvj8KqOuE8 aQyh6aGp3ys xKEMBBssl48 aH2x_vEKThY 3VLd_-gHGeI UZeMhbWFfjQ,must,design_2d
+tool database,14,HNyIDbF7kww 3I5rZg8hE-s VAvj8KqOuE8 MOiVl-R3xhM tmaTxrZZv6Y ovxypfxp38g,must,job_setup
+save/export G-code,14,MOiVl-R3xhM a_HwPGiE0DI 7wxRKF7Lc8A ovxypfxp38g YMQIBz6_Yxk mucdprsJQkw,must,post_output
+V-Carve toolpath,13,h7FccWQT2TA ovxypfxp38g YMQIBz6_Yxk vDO-TC__TCE EC0F23IihuY deMB2pc9-pY,must,vcarve
+component tree,12,aQyh6aGp3ys a_HwPGiE0DI EC0F23IihuY WzJOIdUfMO4 7TLntCKMjww 0z0zpqyuaKc,should,model_3d
+tabs,12,VAvj8KqOuE8 ovxypfxp38g dfzBnuFNNnI EC0F23IihuY deMB2pc9-pY WzJOIdUfMO4,should,toolpath_shared
+vector offset,11,MOiVl-R3xhM aQyh6aGp3ys YLK9E_c5S3k deMB2pc9-pY WzJOIdUfMO4 ooTRI9rHydw,must,design_2d
+start depth / max depth,11,h7FccWQT2TA HNyIDbF7kww 3I5rZg8hE-s VAvj8KqOuE8 ovxypfxp38g mucdprsJQkw,should,vcarve
+machine configuration (posts/dialect),9,MOiVl-R3xhM 7wxRKF7Lc8A tmaTxrZZv6Y ooTRI9rHydw kdvjB-4ET7o cORavE0W3fo,must,job_setup
+vector boundary,9,aQyh6aGp3ys NF9oaCjXmAo 5wOzzsZ870k PXh58eYRoWE WzJOIdUfMO4 cORavE0W3fo,should,design_2d
+V-bit / engraving bit,9,h7FccWQT2TA 7wxRKF7Lc8A ovxypfxp38g deMB2pc9-pY WzJOIdUfMO4 kdvjB-4ET7o,must,vcarve
+carved/dished recess,9,YLK9E_c5S3k deMB2pc9-pY WzJOIdUfMO4 kdvjB-4ET7o gezzgwbX-Mk 7TLntCKMjww,should,model_3d
+3D finishing toolpath,9,h7FccWQT2TA ovxypfxp38g NF9oaCjXmAo 5wOzzsZ870k deMB2pc9-pY WzJOIdUfMO4,must,toolpath_shared
+post processor selection,9,MOiVl-R3xhM 7wxRKF7Lc8A tmaTxrZZv6Y ooTRI9rHydw kdvjB-4ET7o cORavE0W3fo,must,post_output
+flat depth,8,h7FccWQT2TA ovxypfxp38g YMQIBz6_Yxk deMB2pc9-pY WzJOIdUfMO4 kdvjB-4ET7o,must,vcarve
+toolpath recalculate,8,h7FccWQT2TA ovxypfxp38g NF9oaCjXmAo 5wOzzsZ870k wzS6M3bhHgo WzJOIdUfMO4,must,toolpath_shared
+snapping,8,dfzBnuFNNnI WHG7Ko4_6wU 0Bb_Sm-jAtA wzS6M3bhHgo EC0F23IihuY kdvjB-4ET7o,should,other
+V-Carve clearance tool,7,h7FccWQT2TA 3I5rZg8hE-s NF9oaCjXmAo deMB2pc9-pY WzJOIdUfMO4 kdvjB-4ET7o,must,vcarve
+3D roughing toolpath,7,h7FccWQT2TA ovxypfxp38g NF9oaCjXmAo 5wOzzsZ870k WzJOIdUfMO4 cORavE0W3fo,must,toolpath_shared
+zero plane,6,qOIZmdKOno0 7TLntCKMjww 0z0zpqyuaKc e08s0KipMEY 57VUdzl9jiI s4ofeDBlkbw,should,model_3d
+stepover / step down,6,3I5rZg8hE-s MOiVl-R3xhM NF9oaCjXmAo 5wOzzsZ870k WzJOIdUfMO4 glEsqGe_8cU,must,toolpath_shared
+edit/duplicate/delete toolpaths,6,a_HwPGiE0DI aH2x_vEKThY UZeMhbWFfjQ vDO-TC__TCE JRPg0oexpN8 WHFiP-5FMYU,must,toolpath_shared
+boolean weld/subtract/overlap,5,h7FccWQT2TA YMQIBz6_Yxk vDO-TC__TCE 8pWYBEY7Sxg kdvjB-4ET7o,must,design_2d
+vector validator,5,h7FccWQT2TA 0Bb_Sm-jAtA vDO-TC__TCE deMB2pc9-pY 66cFpax3Q3Q,must,design_2d
+feed rate,5,tmaTxrZZv6Y YMQIBz6_Yxk mucdprsJQkw YNfSato4LvM 0FkoKHrktJE,must,machine
+bitmap trace,5,MOiVl-R3xhM aQyh6aGp3ys uPTziUXw4PI deMB2pc9-pY 7TLntCKMjww,skip,other
+safe Z / clearance height,4,tmaTxrZZv6Y NF9oaCjXmAo 5wOzzsZ870k ooTRI9rHydw,must,job_setup
+toolpath setup sheet,4,mucdprsJQkw qOIZmdKOno0 WzJOIdUfMO4 Xnj195VAW04,should,job_setup
+model sculpt / shape edit,4,a_HwPGiE0DI 7TLntCKMjww rA1ZDH1qY4c glEsqGe_8cU,should,model_3d
+cut direction (climb/conventional),4,VAvj8KqOuE8 ovxypfxp38g NF9oaCjXmAo dfzBnuFNNnI,should,toolpath_shared
+spindle speed (RPM),4,tmaTxrZZv6Y YMQIBz6_Yxk mucdprsJQkw 0FkoKHrktJE,must,machine
+plunge rate,4,VAvj8KqOuE8 tmaTxrZZv6Y mucdprsJQkw 0FkoKHrktJE,should,machine
+vector trim/extend/join,3,PXh58eYRoWE uPTziUXw4PI 0Bb_Sm-jAtA,must,design_2d
+two rail sweep,3,gezzgwbX-Mk Fdq4nhMahF8 glEsqGe_8cU,should,model_3d
+multi-file save (per toolpath),3,a_HwPGiE0DI wzS6M3bhHgo Txafg3oN8c0,should,post_output
+profile toolpath,2,VAvj8KqOuE8 yTlrrcQSBkE,must,toolpath_shared
+tool number,2,mucdprsJQkw Txafg3oN8c0,should,machine
+nesting,2,mucdprsJQkw 7TLntCKMjww,skip,other
+job templates,1,wzS6M3bhHgo,should,job_setup
+convert text to curves,1,nESYbpc9r6o,must,design_2d
+fillets,1,dLD0Li8DMYw,should,design_2d
+pocket toolpath,1,3I5rZg8hE-s,must,toolpath_shared
+drill toolpath,1,HNyIDbF7kww,must,toolpath_shared
+quick engraving toolpath,1,MOiVl-R3xhM,should,toolpath_shared
+toolpath times estimate,1,mucdprsJQkw,should,toolpath_shared
+arc fitting,1,7wxRKF7Lc8A,should,toolpath_shared
+merge toolpaths,0,,should,toolpath_shared
+keep-out zones,0,,should,toolpath_shared

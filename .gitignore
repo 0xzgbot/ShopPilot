@@ -42,3 +42,10 @@ swiftlint_report.*
 # Local Hermes attachments (large installers) + worktrees
 .hermes/
 .worktrees/
+
+# Local research raw data (captions, scrapes) — never commit
+research/raw/
+
+# Python bytecode
+**/__pycache__/
+*.py[cod]

@@ -118,6 +118,7 @@ private struct DesignStageView: View {
     @ObservedObject var session: AppSession
     @State private var showOffsetDialog = false
     @State private var offsetDistance = "3.0"
+    @State private var showPreflight = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -125,10 +126,15 @@ private struct DesignStageView: View {
             Divider()
             HSplitView {
                 DesignCanvasView(session: session)
-                ImportHubView { shapes in
-                    session.addShapes(shapes)
+                if showPreflight {
+                    PreflightDoctorView(session: session)
+                        .frame(minWidth: 280, idealWidth: 320)
+                } else {
+                    ImportHubView { shapes in
+                        session.addShapes(shapes)
+                    }
+                    .frame(minWidth: 280, idealWidth: 320)
                 }
-                .frame(minWidth: 280, idealWidth: 320)
             }
         }
         .alert("Offset Vectors", isPresented: $showOffsetDialog) {
@@ -183,6 +189,13 @@ private struct DesignStageView: View {
             Button("Scale 1.1×") { _ = session.applyScale110() }
                 .disabled(session.selectedShapeIndices.isEmpty)
                 .help("Scale selected vectors 1.1× about the selection centroid")
+            Divider().frame(height: 14)
+            // SPK-0211+0212: Vector Preflight Doctor — run before Cut.
+            Button("Check Vectors") {
+                _ = session.runPreflight()
+                showPreflight = true
+            }
+            .help("Detect open vectors, self-intersections, degenerate shapes and gaps — with fix actions (before cutting)")
             Divider().frame(height: 14)
             // SPK-3D-spine-a: import an STL relief as a heightfield.
             Button("STL Relief…") { session.importSTLHeightfieldFromPanel() }

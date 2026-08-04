@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Illustrator-style: cubic beziers (arc-like), mixed fill/none, open path with fill -->
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100" viewBox="0 0 200 100">
+  <!-- closed bezier blob (valid) -->
+  <path d="M 20,50 C 20,20 80,20 80,50 C 80,80 20,80 20,50 Z" fill="none" stroke="black" stroke-width="0.5"/>
+  <!-- open bezier arc (U) -->
+  <path d="M 110,30 C 110,80 170,80 170,30" fill="none" stroke="black" stroke-width="0.5"/>
+  <!-- self-intersecting bezier (figure-8-ish) -->
+  <path d="M 20,90 C 40,60 60,120 80,90 C 100,60 120,120 140,90" fill="none" stroke="black" stroke-width="0.5"/>
+</svg>

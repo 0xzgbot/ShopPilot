@@ -61,6 +61,9 @@ final class AppSession: ObservableObject {
     /// canvas and the ops toolbar share one selection state).
     @Published var selectedShapeIndices: Set<Int> = []
 
+    /// SPK-0211+0212 — last vector preflight report (nil until first run).
+    @Published var lastPreflightReport: PreflightReport?
+
     /// Inspector/browser selection type (job, sheet, layer, toolpath).
     @Published var selection: SelectionType = .none
 
@@ -1008,6 +1011,33 @@ final class AppSession: ObservableObject {
         selectedVectorIDs.removeAll()
         selectedShapeIndices.removeAll()
         selection = .none
+    }
+
+    // MARK: - Vector Preflight Doctor (SPK-0211 + SPK-0212)
+
+    /// Run the vector preflight doctor on the current design shapes. Returns
+    /// the report; also stashes it on the session so the Design UI can render
+    /// it without re-running.
+    @discardableResult
+    func runPreflight() -> PreflightReport {
+        let report = VectorPreflight.check(shapes: shapes)
+        lastPreflightReport = report
+        if report.issues.isEmpty {
+            statusMessage = "Preflight: \(shapes.count) shape(s) — no issues found"
+        } else {
+            let errors = report.issues.filter { $0.severity == .error }.count
+            let warnings = report.issues.filter { $0.severity == .warning }.count
+            statusMessage = "Preflight: \(report.issues.count) issue(s) — \(errors) error(s), \(warnings) warning(s)"
+        }
+        return report
+    }
+
+    /// Select the shapes affected by a preflight issue (fix CTA).
+    func selectPreflightIssue(_ issue: PreflightResult) {
+        guard !issue.affectedShapeIndices.isEmpty else { return }
+        selectedShapeIndices = Set(issue.affectedShapeIndices.filter { shapes.indices.contains($0) })
+        selection = .none
+        statusMessage = issue.suggestedFix ?? issue.message
     }
 
     var hasSelection: Bool { !selectedVectorIDs.isEmpty || !selectedShapeIndices.isEmpty }
