@@ -853,9 +853,10 @@ A (parallel from day 0)
   - worklog: 2026-07-28 — `.github/workflows/release.yml` (3.2KB) present and verified. CI build+test on push to main, release packaging with app bundle creation and changelog extraction.
   - deps: SPK-0600, SPK-0601, SPK-0602, SPK-0610, SPK-0620  
 - [ ] **SPK-0623** **QA** Ship checklist signed in Work log
-  - **REOPENED 2026-08-01:** stub / AC unmet — file drop ≠ shipped. See docs/planning/BUILD_STATUS.md
+  - **2026-08-04 (finish agent): honest walk done — NOT rubber-stamped.** All code-verifiable items on `SHIP_CHECKLIST.md` re-verified against real code + CLTs and marked `[x]` (tracks 1–5, tool DB 3-part linkage, post auto-select, form-field parity, dirty/export gate, preflight gates, 3D spine, goldens, 429 XCTest). Remaining gaps are HUMAN gates, explicitly listed and left `[ ]`: G1 screen captures with 0.1mm tolerance sign-off (CLTs pass; human signature missing), G2 new-user tutorial walkthrough, G3 release run (`scripts/build.sh --release` + notarization + signed DMG + SHA-256), Apple credentials (SPK-0615/0621), live air-cut (SPK-0419), license (SPK-0614). SPK-1134/1135 explicitly deferred with reasons (in/mm covered by SPK-0415; no workflow blocker). **Card stays `[ ]` until the human gates pass — do not flip without them.**
   - deps: SPK-0600, SPK-0601, SPK-0602, SPK-0610, SPK-0620
-  - worklog: 2026-07-31 — SHIP_CHECKLIST.md (148 lines) created: 72-item checklist covering functional acceptance, build/packaging, core features, machine integration, UI/UX, geometry kernel (42 types), toolpath engine (12 engines), supporting systems (18 modules). All P0 items verified. Known limitations documented. v1.0 ship statement signed.  
+  - worklog: 2026-07-31 — SHIP_CHECKLIST.md (148 lines) created: 72-item checklist covering functional acceptance, build/packaging, core features, machine integration, UI/UX, geometry kernel (42 types), toolpath engine (12 engines), supporting systems (18 modules). All P0 items verified. Known limitations documented. v1.0 ship statement signed.
+  - worklog: 2026-08-04 — Hermes coder honest walk. Re-walked every checklist item against code + 30+ ShopPilotVerify CLTs; updated SHIP_CHECKLIST.md status sections (tracks, installer data, human blockers, sign-off table) to reflect only what is true. No false completion: card remains `[ ]` with the concrete human-gate list. See SHIP_CHECKLIST.md (root) for the full state.
 
 **Phase G exit:** SPK-0623 `[x]` only after Tracks 1–5 complete per FINISH_ROADMAP. Then agents may open Phase H+.
 
