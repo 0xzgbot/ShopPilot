@@ -168,11 +168,11 @@ A (parallel from day 0)
   - deps: SPK-0100, SPK-0101
   - track: 1
   - worklog: 2026-08-02 — Cursor finished. AppSession SoT (toolpathTree, dirty/undo, savePackage/openPackage). `.shoppilot` package writes sheets + toolpaths.json + documentVariables. ContentView browser + InspectorShell bind to session; canvas uses moveShape. Verify: `swift run ShopPilotVerify1100` PASS (CLT — no Xcode.app/XCTest). App product builds. Hermes fully stopped during closeout.
-- [ ] **SPK-1101** **GEO** Design editor product — canvas create/select/move/node-edit + layers + measure + ops wired // P0
+- [x] **SPK-1101** **GEO** Design editor product — canvas create/select/move/node-edit + layers + measure + ops wired // P0
   - AC: User can build closed design in Design stage and save
   - deps: SPK-1100, SPK-0200
   - track: 2
-  - note: Epic parked on Hermes — work via micros `1101a+` (1120/1123/1125 already done)
+  - worklog: 2026-08-04 — Hermes coder (parent close-out audit). All micros `[x]` and independently verified: 1101a (select + drag-move → session.moveShape, undo+dirty), 1101b (node-edit vertex drag), 1101c (measure two-point distance overlay), 1101d (ops bar Offset/Weld/Subtract/Intersect/Join/Close/Trim via session apply*; ⌘/⇧ multi-select), 1101e (SVG import via ⌘K + hub), 1101f (Nudge/Flip H/Rotate 90°/Scale 1.1× + real rotate-bbox bug fixed), 1101g (real DXF importer LINE/LWPOLYLINE/CIRCLE/ARC), plus SPK-1120 (canvas create tools: rect/circle/line/polyline with click-to-close closed shapes), SPK-1123 (layer CRUD UI), SPK-1137 (per-layer hide/lock + layer-faithful save/open). Audit evidence: DesignCanvasView create-tool enum (DesignCanvasView.swift:5) + commitDragShape/commitPolyline → `session.addShapes`; ops bar in ContentView:143-183; ImportHubView SVG+DXF; `AppSession` 17 design-op routes; save/open via SPK-1100 package round-trip. Full sweep 1101/1101b/d/e/f/g/h/i/j/k/FlipH/1120/1123/1125/1137 all PASS (50/50 green, build exit 0). AC met → parent `[x]`.
 - [x] **SPK-1101a** **GEO** Select + move shape updates session vectors // P0 // parallel-ok
   - deps: SPK-1100
   - track: 2
@@ -264,11 +264,11 @@ A (parallel from day 0)
   - track: 3
   - note: Parent SPK-1136 close-out review after this slice (all four strategies modeled + formed + persisted)
   - worklog: 2026-08-03 — Hermes coder. Engine: `VCarveParams` extended with the §O key set (startDepthMm, flatDepthMm, cornerSharpen, useVectorStartPoints default true, useVectorSelectionOrder, safeZHeightMm, rampPlungeMoves) — additive defaults + custom Codable with decodeIfPresent (pre-1136d JSON loads; note `[UUID: Double]` vectorDepths encodes as a synthesized array, so legacy fixtures use `[]` not `{}`). Tree: `isVCarveOperation` + `vcarveParams()`. Session: `generateVCarveToolpath` stores default params on the node (captured node); `applyVCarveParams(_:to:)` stores + regenerates with the real engine + clears dirty + refreshes buffer. UI: `VCarveParamsForm` in the Cut inspector (Tool/Depth/Leads/Options + Apply→Regenerate). Verify: `./scripts/verify_locked.sh ShopPilotVerify1136d` PASS — §O key presence, JSON + .shoppilot per-op round-trip, legacy-JSON decode with defaults, apply-regen: stored feed F1500 + 45° bit reach the G-code. 1136a/b/c + 1102d/f regression green; app build green. **SPK-1136 four-slice wave complete: Profile (§R2) / Pocket (§M) / Drill (§N) / V-Carve (§O) all modeled + formed + persisted.**
-- [ ] **SPK-1102** **TP** Cut stage product — toolpath tree Profile/Pocket/Drill/V-Carve + dirty/recalc/export block + GRBL post // P0
+- [x] **SPK-1102** **TP** Cut stage product — toolpath tree Profile/Pocket/Drill/V-Carve + dirty/recalc/export block + GRBL post // P0
   - AC: Saved job regenerates toolpaths and exports GRBL from tree
   - deps: SPK-1101, SPK-0302
   - track: 3
-  - note: Epic parked — micros `1102a/b`
+  - worklog: 2026-08-04 — Hermes coder (parent close-out audit). All micros `[x]` and independently verified: 1102a (Profile op regenerates into session), 1102b (export blocked while dirty + expert override), 1102c+1102h-recalc (Recalc Dirty regenerates ALL four strategies via real engines + stored params; unknown stays dirty), 1102d (Add Toolpath menu Profile/Pocket/Drill/V-Carve), 1102g (GRBL post from FULL tree with move-parity golden). Audit evidence: `ToolpathTreeManager.recalculateDirtyToolpaths` (ToolpathTree.swift:356) + session route (AppSession.swift:1127); Save Toolpaths flow in ContentView (validate → NSSavePanel → GRBL post via CutToMachineBridge); `ExportBlocker.validateForExport` gates dirty trees; `session.allToolpathGCode` feeds buffer/preview/post. Full sweep 1102c/d/e/f/g/h/i all PASS (50/50 green, build exit 0). Note: legacy SPK-0302's engine AC is satisfied by the 1102a/d micros (kept `[ ]` as a legacy Phase-D card; spine card is the track owner). AC met → parent `[x]`.
 - [x] **SPK-1102a** **TP** Profile op regenerates G-code into session // P0 // parallel-ok
   - deps: SPK-1100, SPK-0302a
   - track: 3
@@ -279,7 +279,7 @@ A (parallel from day 0)
   - AC: Preview shows current toolpaths; UI stays responsive
   - deps: SPK-1102
   - track: 3
-  - note: Epic parked — `1103a` [x]; remaining `1103b/c`
+  - note: 2026-08-04 audit — `1103a/b/c/d` [x] (full-tree wireframe + draft heightfield + cancel + selected-op highlight). REMAINING GAP: material sim is draft-only — hardcoded 120mm stock / 2mm cells (not sheet-aware), no cancel hook in UI, dot-rendered heightfield. Next slice: **SPK-1103e** sheet-aware material/heightfield sim from full-tree G-code, cancellable + non-blocking.
 - [x] **SPK-1103a** **TP** Preview wireframe + draft heightfield from session G-code // P0 // parallel-ok
   - AC: Preview stage shows session vectors + rapid/cut wireframe; Draft sim runs off main path; `swift run ShopPilotVerify1103a` PASS
   - deps: SPK-1100
@@ -292,10 +292,11 @@ A (parallel from day 0)
 - [x] **SPK-1103c** **TP** Preview highlights selected toolpath from session tree // P0 // parallel-ok
   - deps: SPK-1103a
   - track: 3
-- [ ] **SPK-1104** **MACH** Machine document handoff — session G-code → sim/serial stream with preflight + Hold/Reset // P0
+- [x] **SPK-1104** **MACH** Machine document handoff — session G-code → sim/serial stream with preflight + Hold/Reset // P0
   - AC: Same job streams on simulator; serial factory real; no auto-run
   - deps: SPK-1100, SPK-0401, SPK-0402
   - track: 4
+  - worklog: 2026-08-04 — Hermes coder (parent close-out audit). All micros `[x]` and independently verified: 1104a (session buffer load), 1104b (Cut→Machine handoff of `session.allToolpathGCode` — full tree, not last-op; zero bytes on load = no auto-run; RUN gated on connected + preflight), 1104d (sim full loop: connect → load full tree → preflight ack → explicit runJob → HOLD `!` / RESUME `~` realtime bytes via race-free write log → complete). Audit evidence: ContentView machine stage receives `session.allToolpathGCode` (ContentView.swift:76); `PreflightGate` (Core) blocks Run until acknowledged; `MachineSession.runJob` throws notConnected without a connection; `TransportFactory.createTransport` builds sim + real serial (MachineConnection.swift:86/104); Hold/Reset realtime via MachineSession + 0409 chrome. Full sweep 1104/1104a/b/c/d all PASS (50/50 green, build exit 0). AC met → parent `[x]`.
 - [x] **SPK-1104a** **MACH** Session gcodeLines load into MachineSession buffer // P0 // parallel-ok
   - deps: SPK-1100, SPK-0414a
   - track: 4
@@ -322,10 +323,11 @@ A (parallel from day 0)
   - AC: Engine: preset table (6 imperial × 6 thickness, 6 metric × 6 thickness: 2'×2'…8'×4' × ⅛″–1″; 610×610…2438×1219mm × 3–25mm); UI: Job Setup lists presets, one-click material sheet; Persist: preset selection saves in `.shoppilot`; Verify: golden test that all 72 presets produce correct sheet dims
   - deps: SPK-1100
   - track: 3
-- [ ] **SPK-1136** **TP** P0 strategy form-field parity (Profile/Pocket/V-Carve/Drill) — installer-verified fields // P0
+- [x] **SPK-1136** **TP** P0 strategy form-field parity (Profile/Pocket/V-Carve/Drill) — installer-verified fields // P0
   - AC: Engine: param models cover the §R2 key set (Profile 7 pages incl. tabs/ramps/leads/corners/order; Pocket offset/raster + clearance pass; V-Carve engraving/flat-depth/overcut; Drill peck/dwell/retract/helical); UI: forms expose the verified surface; Persist: all params round-trip; Verify: one XCTest per strategy asserting every §R2 key present in the model
   - deps: SPK-1102
   - track: 3
+  - worklog: 2026-08-04 — Hermes coder (parent close-out audit). All four slices `[x]` and independently verified: 1136a (Profile §R2), 1136b (Pocket §M), 1136c (Drill §N), 1136d (V-Carve §O). Audit evidence: 4 param models on disk (ProfileToolpathParams/PocketToolpathParams/DrillToolpathParams/VCarveParams), 4 Cut-inspector forms dispatched per node strategy in ContentView (ProfileParamsForm/PocketParamsForm/DrillParamsForm/VCarveParamsForm), per-op params persist via `ToolpathTreeNode.paramsJSON` + `PersistedToolpath` (backward-compatible decode), recalc regenerates with stored params. Full sweep `ShopPilotVerify1136a/b/c/d` all PASS (50/50 target sweep green, build exit 0). AC met → parent `[x]`.
 - [ ] **SPK-1133** **TP** Tool DB seed (13 classes, 17 defaults) + 3-part linkage (geom/cut-data/machine-cut-data) // P1
   - AC: Engine: 13 tool classes, 17 seeded defaults (Profile→End Mill ¼", V-Carve→V-Bit 90° 1¼", QuickEngrave→Diamond Drag…); geometry/cut-data/machine-cut-data split with per-machine cutting data; UI: tool editor groups by class; Persist: JSON schema (our own); Verify: golden — seeding yields expected default per strategy
   - deps: SPK-0301
@@ -1055,6 +1057,14 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 ---
 
 ## 12. Work log
+
+### 2026-08-04 — Wave A: parent close-out audits (Hermes coder)
+- **SPK-1136 → `[x]`** — AC met: 4 param models (§R2/§M/§N/§O) + 4 Cut-inspector forms + per-op paramsJSON persist (backward-compatible) + `ShopPilotVerify1136a/b/c/d` PASS.
+- **SPK-1102 → `[x]`** — AC met: tree/dirty + recalc-all-4 (real engines + stored params) + export block + GRBL post from full tree; 1102c/d/e/f/g/h/i PASS. Legacy SPK-0302 engine AC satisfied by 1102a/d micros (card kept `[ ]` — spine owns the track).
+- **SPK-1104 → `[x]`** — AC met: full-tree handoff (no auto-run), preflight gate, realtime hold/reset, sim full loop, serial factory real; 1104/1104a/b/c/d PASS.
+- **SPK-1101 → `[x]`** — AC met: canvas create tools (rect/circle/line/polyline click-to-close) + select/move + node-edit + measure + layers + ops bar + transforms + SVG/DXF import + persist; 1101 family + 1120/1123/1125/1137 PASS.
+- **SPK-1103 stays `[ ]`** — gap: material sim draft-only (hardcoded 120mm stock, 2mm cells, no UI cancel). Next slice SPK-1103e.
+- Audit gate: whole-package `swift_locked.sh build` exit 0 + full 50-target verify sweep — 50/50 PASS (46 "PASS" lines + 4 "All tests/checks passed" variants; explicit rc re-check of 23 ambiguous targets all exit 0).
 
 ### 2026-08-03 — SPK-1104b Cut→Machine handoff (Hermes coder)
 - Claimed/finished **SPK-1104b**: Machine stage now receives `session.allToolpathGCode` (full tree — closes the P0-C handoff gap where the last single op overwrote the buffer). `ShopPilotVerify1104b` PASS: full-tree handoff (both strategy markers), zero bytes on load (no auto-run), runJob throws notConnected without a connection, connect+explicit runJob streams, fresh preflight gate blocks Run until acknowledged.
