@@ -212,17 +212,22 @@ public final class MachineSession: ObservableObject {
 
     /// Send GRBL reset (CAN byte 0x18).
     public func reset() async {
-        guard isConnected else { return }
+        // Reset must work from the alarm/error banner too — that is its job.
+        // Only bail when there is no transport at all.
         guard let transport = transport else { return }
         await streamer?.reset()
         do {
             try await transport.write(Data([0x18]))
+            // Refresh status so the UI reports Idle once the alarm clears
+            // (the simulator does not emit status on its own after reset).
+            _ = try? await transport.write(Data("?".utf8))
         } catch {
             // Best-effort
         }
         // Reset local state
         await MainActor.run { [weak self] in
             guard let self else { return }
+            self.connectionState = .connected
             self.machineState = "unknown"
             self.mPosX = 0.0; self.mPosY = 0.0; self.mPosZ = 0.0
             self.wPosX = 0.0; self.wPosY = 0.0; self.wPosZ = 0.0

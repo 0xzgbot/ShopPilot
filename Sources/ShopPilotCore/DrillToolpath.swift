@@ -242,6 +242,16 @@ public struct DrillToolpathEngine {
         let totalDepth = abs(point.zDepthMm)
         let retractHeight = params.retractHeightMm
         
+        // Zero/negative peck depth would divide by zero below — fall back to a
+        // single exact plunge (SPK-1102i Test 5).
+        guard peckDepth > 0 else {
+            gcodeLines.append("G1 Z\(String(format: "%.3f", point.zDepthMm)) F\(Int(plungeFeed))")
+            if point.dwellSeconds > 0 {
+                gcodeLines.append("G4 P\(point.dwellSeconds)")
+            }
+            return gcodeLines
+        }
+        
         // Calculate number of pecks needed
         let numPecks = Int(ceil(totalDepth / peckDepth))
         
@@ -278,6 +288,16 @@ public struct DrillToolpathEngine {
         let peckDepth = params.peckDepthMm
         let totalDepth = abs(point.zDepthMm)
         let retractHeight = params.retractHeightMm
+        
+        // Zero/negative peck depth would divide by zero below — fall back to a
+        // single exact plunge (SPK-1102i Test 5).
+        guard peckDepth > 0 else {
+            gcodeLines.append("G1 Z\(String(format: "%.3f", point.zDepthMm)) F\(Int(plungeFeed))")
+            if point.dwellSeconds > 0 {
+                gcodeLines.append("G4 P\(point.dwellSeconds)")
+            }
+            return gcodeLines
+        }
         
         // Calculate number of pecks needed
         let numPecks = Int(ceil(totalDepth / peckDepth))

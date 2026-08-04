@@ -165,6 +165,14 @@ public final class SimulatorTransport: MachineTransport {
     public func read() async throws -> Data {
         try await actor.drainReadBuffer()
     }
+
+    // MARK: - Alarm state (SPK-1104 verify repair)
+
+    /// Whether the simulator is currently in a latched alarm state
+    /// (soft-limit trip that has not been cleared by a 0x18 reset).
+    public var isInAlarm: Bool {
+        get async { await actor.isInAlarm() }
+    }
 }
 
 // MARK: - TransportActor (thread-safe state)
@@ -175,6 +183,14 @@ private actor TransportActor {
     private var mPos: (x: Double, y: Double, z: Double) = (0.0, 0.0, 0.0)
     private var readBuffer = Data()
 
+    /// GRBL 1.1 alarm latch: set by a soft-limit trip; cleared by 0x18 reset.
+    /// While latched the sim rejects motion with `error:Alarm lock` (the same
+    /// shape the UI alarm banner is built to surface) (SPK-1104 verify repair).
+    private var isAlarmLatched = false
+
+    /// Simulated travel envelope (mm) for soft-limit detection.
+    private let travelLimitMM: Double = 500
+
     func open() throws {
         guard !isConnected else { return }
         isConnected = true
@@ -184,7 +200,12 @@ private actor TransportActor {
         guard isConnected else { return }
         isConnected = false
         mPos = (0.0, 0.0, 0.0)
+        isAlarmLatched = false
         readBuffer.removeAll()
+    }
+
+    func isInAlarm() -> Bool {
+        isAlarmLatched
     }
 
     func pushToReadBuffer(_ data: Data) {
@@ -203,6 +224,23 @@ private actor TransportActor {
             throw MachineTransportError.disconnected
         }
 
+        // GRBL realtime reset byte (0x18 / Ctrl-X): clears the alarm latch and
+        // returns the machine to Idle.
+        if text == "\u{18}" {
+            isAlarmLatched = false
+            mPos = (0.0, 0.0, 0.0)
+            return "ok"
+        }
+
+        // While latched, GRBL only answers status queries; everything else is
+        // rejected until the operator resets.
+        if isAlarmLatched {
+            if text == "?" {
+                return statusString()
+            }
+            return "error:Alarm lock"
+        }
+
         if text == "?" {
             return statusString()
         } else if text.hasPrefix("G0 ") || text.hasPrefix("G00 ")
@@ -210,7 +248,12 @@ private actor TransportActor {
                     || text.hasPrefix("G1 ") || text.hasPrefix("G01 ")
                     || text.hasPrefix("G1X") || text.hasPrefix("G1Y") || text.hasPrefix("G1Z") {
             // Motion commands update simulated position; GRBL replies with ok (not status).
-            mPos = try parseAndApplyMove(text)
+            let target = try parseAndApplyMove(text)
+            if abs(target.x) > travelLimitMM || abs(target.y) > travelLimitMM || abs(target.z) > travelLimitMM {
+                isAlarmLatched = true
+                return "ALARM:Soft limit"
+            }
+            mPos = target
             return "ok"
         } else if text == "G28" {
             mPos = (0.0, 0.0, 0.0)
@@ -223,10 +266,11 @@ private actor TransportActor {
     }
 
     private func statusString() -> String {
+        let state = isAlarmLatched ? "Alarm" : "Idle"
         let x = formatted(mPos.x)
         let y = formatted(mPos.y)
         let z = formatted(mPos.z)
-        return "<Idle|MPos:\(x),\(y),\(z)|WPos:\(x),\(y),\(z)|FS:0,0>"
+        return "<\(state)|MPos:\(x),\(y),\(z)|WPos:\(x),\(y),\(z)|FS:0,0>"
     }
 
     private func formatted(_ value: Double) -> String {

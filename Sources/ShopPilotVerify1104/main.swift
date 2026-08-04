@@ -82,6 +82,13 @@ func main() async throws {
 
     try expect(session.connectionState == .connected,
                "session reset should clear error banner to .connected, got \(session.connectionState)")
+    // The status poller picks up the post-reset `?` reply asynchronously;
+    // wait briefly for it to report Idle.
+    var waited = 0
+    while session.machineState != "Idle" && waited < 100 {
+        try await Task.sleep(nanoseconds: 20_000_000)
+        waited += 1
+    }
     try expect(session.machineState == "Idle",
                "session reset should set machine state to Idle, got \(session.machineState)")
     try expect(!(await transport.isInAlarm),

@@ -15,6 +15,11 @@ final class AppSession: ObservableObject {
     @Published var selectedStage: Stage = .setup
     @Published var job: Job
     @Published var shapes: [VectorShape] = []
+
+    /// Per-shape layer membership, index-aligned with `shapes` (SPK-1137).
+    /// Kept in lockstep by every shape mutation so the canvas can honor each
+    /// layer's hide/lock and save/open can keep each layer's own vectors.
+    @Published private(set) var shapeLayerIDs: [UUID] = []
     @Published var gcodeLines: [String] = []
     @Published var lastToolpathSummary: String = "No toolpath generated"
     @Published var statusMessage: String = "Ready"
@@ -94,9 +99,10 @@ final class AppSession: ObservableObject {
         job.sheets.first?.layers ?? []
     }
 
-    /// Flat list of all vector paths in the document (derived from design shapes).
+    /// Flat list of all vector paths in the document (derived from design
+    /// shapes), each carrying its layer id (SPK-1137).
     var vectors: [VectorPath] {
-        GeometryBridge.toCorePaths(shapes)
+        GeometryBridge.toCorePaths(shapes, layerIDs: shapeLayerIDs)
     }
 
     /// Toolpaths list: operation nodes owned by the session's toolpath tree.
@@ -142,6 +148,7 @@ final class AppSession: ObservableObject {
     private struct SessionSnapshot {
         let job: Job
         let shapes: [VectorShape]
+        let shapeLayerIDs: [UUID]
         let gcodeLines: [String]
         let selectedVectorIDs: Set<UUID>
     }
@@ -150,6 +157,7 @@ final class AppSession: ObservableObject {
         SessionSnapshot(
             job: job,
             shapes: shapes,
+            shapeLayerIDs: shapeLayerIDs,
             gcodeLines: gcodeLines,
             selectedVectorIDs: selectedVectorIDs
         )
@@ -169,6 +177,7 @@ final class AppSession: ObservableObject {
         }
         job = snapshot.job
         shapes = snapshot.shapes
+        shapeLayerIDs = snapshot.shapeLayerIDs
         gcodeLines = snapshot.gcodeLines
         selectedVectorIDs = snapshot.selectedVectorIDs
         markDirty()
@@ -208,7 +217,9 @@ final class AppSession: ObservableObject {
     func applyPackagePayload(_ payload: ShopPilotPackagePayload) {
         job = payload.job
         docVars.variables = payload.job.documentVariables
-        shapes = Self.shapesFromLayerVectors(payload.job)
+        let restored = Self.shapesFromLayerVectors(payload.job)
+        shapes = restored.shapes
+        shapeLayerIDs = restored.layerIDs
         gcodeLines = []
         selectedVectorIDs = []
         selection = .job
@@ -227,27 +238,29 @@ final class AppSession: ObservableObject {
 
     private func syncLayerVectors(into job: inout Job) {
         guard !job.sheets.isEmpty else { return }
-        let paths = vectors
         if job.sheets[0].layers.isEmpty {
             job.sheets[0].layers.append(Layer(name: "Layer 1"))
         }
-        // Sync into the active layer (falls back to layer 0) so multi-layer
-        // documents keep each layer's own vectors.
-        let index = activeLayerIndex(in: job.sheets[0].layers)
-        job.sheets[0].layers[index].vectors = paths
+        // Convert shapes with their per-shape layer ids, re-homing any shape
+        // whose recorded layer no longer exists to the first layer so nothing
+        // silently disappears from the saved document.
+        let paths = GeometryBridge.toCorePaths(shapes, layerIDs: shapeLayerIDs).map { path -> VectorPath in
+            guard let firstLayerID = job.sheets[0].layers.first?.id,
+                  !job.sheets[0].layers.contains(where: { $0.id == path.layerId }) else { return path }
+            var rehomed = path
+            rehomed.layerId = firstLayerID
+            return rehomed
+        }
+        // Layer-faithful sync: every layer keeps exactly the paths that carry
+        // its id (no cross-layer clobber, no duplication).
+        LayerVisibility.distribute(paths, into: &job.sheets[0].layers)
     }
 
-    /// Push the current design shapes into the session's active sheet/layer so
-    /// the persisted document and Cut stage always see the live vectors.
-    ///
-    /// Shapes are synced into the *active* layer (the one selected in the layer
-    /// panel, falling back to the first layer) rather than always layer 0, so
-    /// multi-layer documents don't get their vectors clobbered into one layer.
+    /// Push the current design shapes into the session's sheets so the
+    /// persisted document and Cut stage always see the live vectors, with each
+    /// layer holding only its own shapes (SPK-1137).
     private func syncLayerVectors() {
-        guard var sheet = job.sheets.first, !sheet.layers.isEmpty else { return }
-        let targetIndex = activeLayerIndex(in: sheet.layers)
-        sheet.layers[targetIndex].vectors = vectors
-        job.sheets[0] = sheet
+        syncLayerVectors(into: &job)
     }
 
     /// Index of the active layer within `layers` — the layer selected in the
@@ -266,12 +279,38 @@ final class AppSession: ObservableObject {
         return layers.first { $0.id == id }
     }
 
-    /// Reconstruct design shapes from persisted layer vectors (freehand polylines).
-    static func shapesFromLayerVectors(_ job: Job) -> [VectorShape] {
-        job.sheets.flatMap(\.layers).flatMap(\.vectors).map { path in
-            let pts = path.points.map { ShopPilotGeometry.VectorPoint(x: $0.x, y: $0.y) }
-            return VectorShape.freehand(points: pts)
+    // MARK: - Per-shape layer access (SPK-1137)
+
+    /// Whether the shape at `index` sits on a visible layer (canvas draws it).
+    func isShapeVisible(at index: Int) -> Bool {
+        LayerVisibility.isVisible(index: index, shapeLayerIDs: shapeLayerIDs, layers: layers)
+    }
+
+    /// Whether the shape at `index` sits on an unlocked layer (canvas may
+    /// select/edit it).
+    func isShapeEditable(at index: Int) -> Bool {
+        !LayerVisibility.isLocked(index: index, shapeLayerIDs: shapeLayerIDs, layers: layers)
+    }
+
+    /// Indices of shapes on visible layers — exactly what the canvas draws.
+    var visibleShapeIndices: [Int] {
+        LayerVisibility.visibleIndices(count: shapes.count, shapeLayerIDs: shapeLayerIDs, layers: layers)
+    }
+
+    /// Reconstruct design shapes + their per-shape layer membership from
+    /// persisted layer vectors (freehand polylines), flattening in layer
+    /// order. Each shape's layer id is the layer it was saved on (SPK-1137).
+    static func shapesFromLayerVectors(_ job: Job) -> (shapes: [VectorShape], layerIDs: [UUID]) {
+        var shapes: [VectorShape] = []
+        var layerIDs: [UUID] = []
+        for layer in job.sheets.flatMap(\.layers) {
+            for path in layer.vectors {
+                let pts = path.points.map { ShopPilotGeometry.VectorPoint(x: $0.x, y: $0.y) }
+                shapes.append(VectorShape.freehand(points: pts))
+                layerIDs.append(path.layerId)
+            }
         }
+        return (shapes, layerIDs)
     }
 
     // MARK: - Job lifecycle
@@ -286,6 +325,7 @@ final class AppSession: ObservableObject {
         job = newJob
         docVars.variables = newJob.documentVariables
         shapes = []
+        shapeLayerIDs = []
         gcodeLines = []
         selectedVectorIDs = []
         selection = .job
@@ -327,6 +367,18 @@ final class AppSession: ObservableObject {
         registerUndoPoint()
         sheet.removeLayer(id: id)
         job.sheets[0] = sheet
+        // Drop the shapes that lived on the removed layer — their vectors are
+        // gone, so keeping them would re-home ghosts on the next save (SPK-1137).
+        var keptShapes: [VectorShape] = []
+        var keptLayerIDs: [UUID] = []
+        for (index, shape) in shapes.enumerated() {
+            if shapeLayerIDs.indices.contains(index), shapeLayerIDs[index] == id { continue }
+            keptShapes.append(shape)
+            keptLayerIDs.append(shapeLayerIDs.indices.contains(index) ? shapeLayerIDs[index] : UUID())
+        }
+        shapes = keptShapes
+        shapeLayerIDs = keptLayerIDs
+        selectedShapeIndices = []
         selectedVectorIDs = selectedVectorIDs.filter { id in
             layers.contains { $0.vectors.contains { $0.id == id } }
         }
@@ -348,7 +400,8 @@ final class AppSession: ObservableObject {
         markDirty()
     }
 
-    /// Toggle layer lock (lock icon) through the session sheet.
+    /// Toggle layer lock (lock icon) through the session sheet. Locking also
+    /// drops selection of that layer's shapes (locked shapes are not editable).
     func setLayerLocked(id: UUID, isLocked: Bool) {
         guard var sheet = job.sheets.first,
               let index = sheet.layers.firstIndex(where: { $0.id == id }) else { return }
@@ -356,6 +409,11 @@ final class AppSession: ObservableObject {
         registerUndoPoint()
         sheet.layers[index].isLocked = isLocked
         job.sheets[0] = sheet
+        if isLocked {
+            selectedShapeIndices = Set(selectedShapeIndices.filter { idx in
+                !(shapeLayerIDs.indices.contains(idx) && shapeLayerIDs[idx] == id)
+            })
+        }
         markDirty()
     }
 
@@ -432,16 +490,24 @@ final class AppSession: ObservableObject {
     func addShapes(_ newShapes: [VectorShape]) {
         registerUndoPoint()
         shapes.append(contentsOf: newShapes)
-        let converted = GeometryBridge.toCorePaths(newShapes)
+        let layerID: UUID
         if var sheet = job.sheets.first {
             if sheet.layers.isEmpty {
                 sheet.layers.append(Layer(name: "Layer 1"))
             }
+            // New shapes land on the active layer (or the first layer when no
+            // layer is selected) so per-layer membership is preserved (SPK-1137).
+            let targetIndex = activeLayerIndex(in: sheet.layers)
+            layerID = sheet.layers[targetIndex].id
+            let converted = GeometryBridge.toCorePaths(newShapes, layerIDs: Array(repeating: layerID, count: newShapes.count))
             for path in converted {
-                sheet.layers[0].addVector(path)
+                sheet.layers[targetIndex].addVector(path)
             }
             job.sheets[0] = sheet
+        } else {
+            layerID = UUID()
         }
+        shapeLayerIDs.append(contentsOf: Array(repeating: layerID, count: newShapes.count))
         statusMessage = "Added \(newShapes.count) shape(s) — \(vectors.count) path(s) total"
         selectedStage = .design
         markDirty()
@@ -474,6 +540,7 @@ final class AppSession: ObservableObject {
         registerUndoPoint()
         for index in unique {
             shapes.remove(at: index)
+            shapeLayerIDs.remove(at: index)
         }
         selectedShapeIndices = []
         syncLayerVectors()
@@ -483,15 +550,22 @@ final class AppSession: ObservableObject {
     /// Replace the selected shapes with the op results. The originals are
     /// removed and the results are inserted at the lowest selected index.
     /// Empty results delete the shape entirely (e.g. full boolean subtract).
+    /// Results inherit the layer of the lowest-index selected shape (SPK-1137).
     func replaceSelectedShapes(with results: [VectorShape]) {
         let indices = selectedShapeIndices.sorted()
         guard !indices.isEmpty else { return }
         registerUndoPoint()
         let insertAt = indices.first ?? 0
+        let resultLayerID = shapeLayerIDs.indices.contains(insertAt) ? shapeLayerIDs[insertAt] : (layers.first?.id ?? UUID())
         for index in indices.reversed() where shapes.indices.contains(index) {
             shapes.remove(at: index)
+            shapeLayerIDs.remove(at: index)
         }
         shapes.insert(contentsOf: results, at: min(insertAt, shapes.count))
+        shapeLayerIDs.insert(
+            contentsOf: Array(repeating: resultLayerID, count: results.count),
+            at: min(insertAt, shapeLayerIDs.count)
+        )
         selectedShapeIndices = Set(results.indices.map { min(insertAt, shapes.count - results.count) + $0 })
         syncLayerVectors()
         markDirty()

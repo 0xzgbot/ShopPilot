@@ -134,4 +134,45 @@ public extension VectorShape {
             return .freehand(points: points.map(rotatePoint))
         }
     }
+
+    /// Rotate the shape around a center point by an angle in degrees.
+    ///
+    /// Rectangles re-derive their axis-aligned bounding box after rotating all
+    /// four corners, so a 90° rotation swaps width/height and keeps the
+    /// centroid fixed (the raw origin+w/h form cannot express that). All other
+    /// shapes delegate to the radians rotation (SPK-1101j).
+    func rotated(byDegrees degrees: Double, around center: VectorPoint) -> VectorShape {
+        guard degrees != 0 else { return self }
+        let radians = degrees * .pi / 180
+        if case .rectangle(let o, let w, let h) = self {
+            let cos = cos(radians)
+            let sin = sin(radians)
+            func rotatePoint(_ point: VectorPoint) -> VectorPoint {
+                let dx = point.x - center.x
+                let dy = point.y - center.y
+                return VectorPoint(
+                    x: center.x + dx * cos - dy * sin,
+                    y: center.y + dx * sin + dy * cos
+                )
+            }
+            let corners = [
+                o,
+                VectorPoint(x: o.x + w, y: o.y),
+                VectorPoint(x: o.x + w, y: o.y + h),
+                VectorPoint(x: o.x, y: o.y + h),
+            ].map(rotatePoint)
+            let xs = corners.map(\.x)
+            let ys = corners.map(\.y)
+            let minX = xs.min() ?? 0
+            let minY = ys.min() ?? 0
+            let maxX = xs.max() ?? 0
+            let maxY = ys.max() ?? 0
+            return .rectangle(
+                origin: VectorPoint(x: minX, y: minY),
+                width: maxX - minX,
+                height: maxY - minY
+            )
+        }
+        return rotated(around: center, by: radians)
+    }
 }

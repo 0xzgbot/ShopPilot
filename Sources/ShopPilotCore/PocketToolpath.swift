@@ -148,7 +148,11 @@ public struct PocketToolpathEngine {
                         stepOver: params.stepOverMm,
                         points: vector.points
                     )
-                    allGcodeLines.append(contentsOf: zigzagPath)
+                    allGcodeLines.append(contentsOf: insertPlunge(
+                        into: zigzagPath,
+                        depth: zDepth,
+                        plungeFeed: Int(plungeFeed)
+                    ))
                     
                 case .spiralOut:
                     let spiralPath = generateSpiralPath(
@@ -157,7 +161,11 @@ public struct PocketToolpathEngine {
                         stepOver: params.stepOverMm,
                         points: vector.points
                     )
-                    allGcodeLines.append(contentsOf: spiralPath)
+                    allGcodeLines.append(contentsOf: insertPlunge(
+                        into: spiralPath,
+                        depth: zDepth,
+                        plungeFeed: Int(plungeFeed)
+                    ))
                     
                 case .adaptive:
                     // Adaptive uses zigzag with boundary clipping for now
@@ -167,7 +175,11 @@ public struct PocketToolpathEngine {
                         stepOver: params.stepOverMm * 1.5, // Wider stepover for adaptive
                         points: vector.points
                     )
-                    allGcodeLines.append(contentsOf: adaptivePath)
+                    allGcodeLines.append(contentsOf: insertPlunge(
+                        into: adaptivePath,
+                        depth: zDepth,
+                        plungeFeed: Int(plungeFeed)
+                    ))
                 }
                 
                 // Rapid to safe height
@@ -195,6 +207,34 @@ public struct PocketToolpathEngine {
         )
     }
     
+    /// Ensure a pass actually descends to depth: inserts a plunge line
+    /// (`G1 Z{depth} F{plungeFeed}`) after the path's first positioning move,
+    /// or positions + plunges when the generator emits no rapid at all
+    /// (SPK-1102h). Without this the tool would traverse the whole pocket in
+    /// the air at safety height.
+    private static func insertPlunge(
+        into path: [String],
+        depth: Double,
+        plungeFeed: Int
+    ) -> [String] {
+        var out = path
+        let plunge = "G1 Z\(String(format: "%.3f", depth)) F\(plungeFeed)"
+        if let rapidIndex = out.firstIndex(where: { $0.hasPrefix("G0") }) {
+            // Generator positions first (e.g. spiral's G0 to pocket center):
+            // plunge immediately after that rapid, before the first cut move.
+            out.insert(plunge, at: rapidIndex + 1)
+        } else if let firstCut = out.first(where: { $0.hasPrefix("G1") }) {
+            // No positioning move: rapid to the first cut point, then plunge.
+            let xy = firstCut
+                .split(separator: " ")
+                .filter { $0.hasPrefix("X") || $0.hasPrefix("Y") }
+                .joined(separator: " ")
+            out.insert("G0 \(xy)", at: 0)
+            out.insert(plunge, at: 1)
+        }
+        return out
+    }
+
     /// Generate a zigzag pocket clearing path.
     private static func generateZigzagPath(
         bounds: (minX: Double, minY: Double, maxX: Double, maxY: Double),
@@ -255,17 +295,20 @@ public struct PocketToolpathEngine {
         // Rapid to start position
         gcodeLines.append("G0 X\(String(format: "%.3f", centerX)) Y\(String(format: "%.3f", centerY))")
         
-        // Generate spiral points
-        var radius = toolDiameter / 2
+        // Generate spiral points. Start at the tool radius, clamped so a
+        // pocket that fits the tool always emits at least one ring (a 10 mm
+        // pocket with a 6 mm tool must still cut — SPK-1102h).
         let maxRadius = min(
             (bounds.maxX - bounds.minX) / 2,
             (bounds.maxY - bounds.minY) / 2
         ) - toolDiameter / 2
+        var radius = min(toolDiameter / 2, max(0.5, maxRadius))
         
         while radius <= maxRadius {
-            // Generate arc points for this radius
+            // Generate arc points for this radius; the ring closes back onto
+            // its start (angle 0 … 2π) so seams don't leave uncut gaps.
             let numPoints = Int(max(8.0, Double(Int(radius * 10))))
-            for i in 0..<numPoints {
+            for i in 0...numPoints {
                 let angle = Double(i) / Double(numPoints) * 2.0 * .pi
                 let x = centerX + cos(angle) * radius
                 let y = centerY + sin(angle) * radius

@@ -38,7 +38,8 @@ func main() throws {
     node.markDirty()
     try expect(node.isDirty, "V-Carve node is dirty after add")
     try expect(tree.root.isDirty, "root dirty (cascade)")
-    try expect(tree.dirtyNodeCount == 2, "dirty count = node + root (\(tree.dirtyNodeCount))")
+    // allDirtyNodes counts dirty OPERATIONS only (root is UI display state) — 1.
+    try expect(tree.dirtyNodeCount == 1, "dirty count = 1 op (\(tree.dirtyNodeCount))")
 
     // 4. The V-Carve node is an operation (not a group), and recalc must NOT
     //    regenerate it — the full V-Carve engine is out of scope for SPK-1102f.

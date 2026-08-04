@@ -83,6 +83,10 @@ public struct SimulationResult {
     /// Estimated simulation time in seconds.
     public let simulationTimeSeconds: Double
     
+    /// Whether the simulation was aborted by a cancellation probe
+    /// (SPK-0310a) before processing every line.
+    public var isCancelled: Bool = false
+    
     /// Whether the simulation completed successfully.
     public var success: Bool { true }
 }
@@ -143,6 +147,17 @@ public final class ToolpathSimulator {
         toolpathGcode: [String],
         zeroPlane: ZeroPlane? = nil
     ) -> SimulationResult {
+        simulate(toolpathGcode: toolpathGcode, zeroPlane: zeroPlane, shouldCancel: { false })
+    }
+
+    /// Simulate a toolpath on the heightmap, polling `shouldCancel` before
+    /// every line so an in-flight draft preview can abort promptly (SPK-0310a).
+    /// A cancelled run returns the partial heightmap with `isCancelled` set.
+    public func simulate(
+        toolpathGcode: [String],
+        zeroPlane: ZeroPlane? = nil,
+        shouldCancel: () -> Bool
+    ) -> SimulationResult {
         let startTime = Date()
         
         var workingHeightmap = initialHeightmap
@@ -161,6 +176,13 @@ public final class ToolpathSimulator {
         // Parse G-code and apply material removal simulation
         var currentZ: Double = stockTopHeight
         for line in toolpathGcode {
+            if shouldCancel() {
+                return SimulationResult(
+                    finalHeightmap: workingHeightmap,
+                    simulationTimeSeconds: Date().timeIntervalSince(startTime),
+                    isCancelled: true
+                )
+            }
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             
             // Skip comments and empty lines
@@ -291,11 +313,24 @@ public struct WireframeRenderer {
 
     /// Generate colored segments based on move type (rapid vs cut). Modal XYZ aware.
     public static func generateSegments(from gcodeLines: [String]) -> [(start: (x: Double, y: Double), end: (x: Double, y: Double), isRapid: Bool)] {
+        generateSegmentsCancellable(from: gcodeLines).segments
+    }
+
+    /// Chunked segment generation that polls `shouldCancel` before every line,
+    /// so a draft wireframe pass can abort mid-flight (SPK-0310a). The full
+    /// pass (no probe) produces exactly the same output as `generateSegments`.
+    public static func generateSegmentsCancellable(
+        from gcodeLines: [String],
+        shouldCancel: () -> Bool = { false }
+    ) -> (segments: [(start: (x: Double, y: Double), end: (x: Double, y: Double), isRapid: Bool)], isCancelled: Bool) {
         var segments: [(start: (x: Double, y: Double), end: (x: Double, y: Double), isRapid: Bool)] = []
         var lastX: Double?
         var lastY: Double?
 
         for line in gcodeLines {
+            if shouldCancel() {
+                return (segments, true)
+            }
             guard let parsed = parseXY(from: line, previousX: lastX, previousY: lastY) else { continue }
             let current = (parsed.x, parsed.y)
             if let lx = lastX, let ly = lastY {
@@ -305,7 +340,7 @@ public struct WireframeRenderer {
             lastY = parsed.y
         }
 
-        return segments
+        return (segments, false)
     }
 }
 

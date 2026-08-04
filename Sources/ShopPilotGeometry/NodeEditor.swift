@@ -19,10 +19,13 @@ public struct NodeHandle: Codable, Equatable, Hashable {
 public final class ShapeNodeEditor: ObservableObject {
     
     @Published public var nodes: [NodeHandle] = []
+
+    public init() {}
     
     /// Add a node at the given point.
     public func addNode(at point: VectorPoint) {
         let handle = NodeHandle(point: point)
+        undoStack.append(.add(id: handle.id, point: point))
         nodes.append(handle)
     }
     
@@ -33,9 +36,50 @@ public final class ShapeNodeEditor: ObservableObject {
     
     /// Move a node to a new position.
     public func moveNode(id: UUID, to point: VectorPoint) {
-        if let index = nodes.firstIndex(where: { $0.id == id }) {
-            nodes[index].point = point
+        guard let index = nodes.firstIndex(where: { $0.id == id }) else { return }
+        // No-op move: nothing changed, no undo snapshot (SPK-0201b).
+        guard nodes[index].point != point else { return }
+        let before = nodes[index].point
+        undoStack.append(.move(id: id, from: before))
+        nodes[index].point = point
+    }
+
+    // MARK: - Undo-last-move (SPK-0201b)
+
+    /// LIFO snapshot of the state BEFORE a mutating operation, so
+    /// `undoLastMove` can restore it. `addNode` pushes a "node did not exist"
+    /// snapshot; `moveNode` pushes the prior point.
+    private enum UndoSnapshot {
+        case add(id: UUID, point: VectorPoint)
+        case move(id: UUID, from: VectorPoint)
+    }
+
+    private var undoStack: [UndoSnapshot] = []
+
+    /// Whether an undo snapshot is available.
+    public var canUndoLastMove: Bool {
+        !undoStack.isEmpty
+    }
+
+    /// Pop the most recent mutation and restore the prior state.
+    /// Returns false when the stack is drained.
+    @discardableResult
+    public func undoLastMove() -> Bool {
+        guard let snapshot = undoStack.popLast() else { return false }
+        switch snapshot {
+        case .add(let id, _):
+            nodes.removeAll { $0.id == id }
+        case .move(let id, let from):
+            if let index = nodes.firstIndex(where: { $0.id == id }) {
+                nodes[index].point = from
+            }
         }
+        return true
+    }
+
+    /// Drop the undo history (start a clean edit session).
+    public func clearUndoHistory() {
+        undoStack.removeAll()
     }
     
     /// Get a node by ID.

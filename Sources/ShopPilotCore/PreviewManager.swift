@@ -125,7 +125,7 @@ public final class PreviewManager: ObservableObject {
     private var configuration: PreviewConfiguration
     private var cancellable: DispatchWorkItem?
     
-    init(simulator: ToolpathSimulator, configuration: PreviewConfiguration = PreviewConfiguration()) {
+    public init(simulator: ToolpathSimulator, configuration: PreviewConfiguration = PreviewConfiguration()) {
         self.simulator = simulator
         self.configuration = configuration
     }

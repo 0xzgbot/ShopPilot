@@ -49,4 +49,36 @@ public enum LayerVisibility {
             layers[index].vectors = paths.filter { $0.layerId == id }
         }
     }
+
+    // MARK: - Lock / editability (SPK-1137)
+
+    /// Whether the shape at `index` (parallel `shapeLayerIDs`) sits on a layer
+    /// that is currently locked (and therefore not editable on the canvas).
+    ///
+    /// - Shapes with no recorded assignment (back-compat) count as editable.
+    /// - Shapes whose layer id no longer exists (orphaned) count as locked —
+    ///   consistent with visibility treating orphans as hidden.
+    public static func isLocked(
+        index: Int,
+        shapeLayerIDs: [UUID],
+        layers: [Layer]
+    ) -> Bool {
+        guard shapeLayerIDs.indices.contains(index) else { return false }
+        let layerID = shapeLayerIDs[index]
+        guard let layer = layers.first(where: { $0.id == layerID }) else { return true }
+        return layer.isLocked
+    }
+
+    /// Indices of shapes (in `0..<count`, parallel to `shapeLayerIDs`) that sit
+    /// on an unlocked layer. The design canvas allows selection/editing only
+    /// on these.
+    public static func editableIndices(
+        count: Int,
+        shapeLayerIDs: [UUID],
+        layers: [Layer]
+    ) -> [Int] {
+        (0..<count).filter {
+            !isLocked(index: $0, shapeLayerIDs: shapeLayerIDs, layers: layers)
+        }
+    }
 }

@@ -10,6 +10,21 @@ public enum GeometryBridge {
     /// open; `.freehand` polylines are open unless the vertex list closes on
     /// itself (first == last); everything else is closed.
     public static func toCorePaths(_ shapes: [ShopPilotGeometry.VectorShape]) -> [ShopPilotCore.VectorPath] {
+        toCorePaths(shapes, layerIDs: [])
+    }
+
+    /// Convert design shapes to core vector paths, assigning each path the
+    /// layer id from the index-aligned `layerIDs` array (one per shape). Shapes
+    /// beyond `layerIDs.count` fall back to a fresh (unassigned) layer id.
+    ///
+    /// The session keeps a parallel `shapeLayerIDs` array so canvas edits and
+    /// layer-faithful save/open can preserve per-shape layer membership
+    /// (SPK-1137). Callers that don't care about layers can use the
+    /// single-argument variant.
+    public static func toCorePaths(
+        _ shapes: [ShopPilotGeometry.VectorShape],
+        layerIDs: [UUID]
+    ) -> [ShopPilotCore.VectorPath] {
         shapes.enumerated().compactMap { index, shape in
             let pts = samplePoints(shape)
             guard pts.count >= 2 else { return nil }
@@ -22,10 +37,12 @@ public enum GeometryBridge {
             default:
                 closed = true
             }
+            let layerID = layerIDs.indices.contains(index) ? layerIDs[index] : UUID()
             return VectorPath(
                 name: "Shape \(index + 1)",
                 points: pts,
-                isClosed: closed
+                isClosed: closed,
+                layerId: layerID
             )
         }
     }

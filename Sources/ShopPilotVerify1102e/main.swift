@@ -57,7 +57,9 @@ func main() throws {
     try expect(profile.isDirty, "Profile op dirty after design change")
     try expect(pocket.isDirty, "Pocket op dirty after design change")
     try expect(tree.root.isDirty, "root dirty after cascade")
-    try expect(tree.dirtyNodeCount == 3, "dirty count = 2 ops + root (\(tree.dirtyNodeCount))")
+    // allDirtyNodes counts dirty OPERATIONS only (groups/root are UI display
+    // state; the export blocker keys off operations) — so 2, not 3.
+    try expect(tree.dirtyNodeCount == 2, "dirty count = 2 ops (\(tree.dirtyNodeCount))")
 
     // Recalculate dirty → Profile regenerates with the REAL engine.
     let regenerated = tree.recalculateDirtyProfiles(
@@ -78,7 +80,7 @@ func main() throws {
     // Out-of-scope nodes stay dirty — export stays blocked on them.
     try expect(pocket.isDirty, "Pocket op stays dirty (out of scope)")
     try expect(tree.root.isDirty, "root stays dirty while any op is dirty")
-    try expect(tree.dirtyNodeCount == 2, "remaining dirty = Pocket + root (\(tree.dirtyNodeCount))")
+    try expect(tree.dirtyNodeCount == 1, "remaining dirty op = Pocket (\(tree.dirtyNodeCount))")
 
     // Re-running recalc is a no-op for the already-clean Profile.
     let again = tree.recalculateDirtyProfiles(

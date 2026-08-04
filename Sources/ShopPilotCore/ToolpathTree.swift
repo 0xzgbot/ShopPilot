@@ -137,6 +137,18 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
         if case .operation = type { return true }
         return false
     }
+
+    /// Whether this node is a Profile operation.
+    ///
+    /// The tree identifies strategy by the operation label convention the
+    /// session uses when creating ops ("Profile …"). Explicit strategy-kind
+    /// typing on the node is a SPK-1136 (form-field parity) concern; until
+    /// then name-prefix detection is the single source used by
+    /// `recalculateDirtyProfiles` and the UI.
+    public var isProfileOperation: Bool {
+        if case .operation(let label) = type { return label.hasPrefix("Profile") }
+        return false
+    }
     
     /// Check if any node in the subtree is dirty.
     public var hasDirtyChildren: Bool {
@@ -208,6 +220,30 @@ public final class ToolpathTreeManager: ObservableObject {
         }
         
         return dirtyNodes
+    }
+    
+    /// Regenerate every dirty Profile operation with the REAL profile engine
+    /// (SPK-1102e). Out-of-scope operations (Pocket/V-Carve…) stay dirty, so
+    /// export stays blocked on them. Returns the regenerated nodes in tree order.
+    public func recalculateDirtyProfiles(
+        vectors: [VectorPath],
+        params: ProfileToolpathParams,
+        material: Material?,
+        stockHeightMm: Double
+    ) -> [ToolpathTreeNode] {
+        let dirtyProfiles = root.allDirtyNodes.filter { $0.isProfileOperation }
+        for node in dirtyProfiles {
+            let result = ProfileToolpathEngine.compute(
+                vectors: vectors,
+                params: params,
+                material: material,
+                stockHeightMm: stockHeightMm
+            )
+            node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+            node.estimatedTimeSeconds = result.estimatedTimeSeconds
+            node.clearDirty()
+        }
+        return dirtyProfiles
     }
     
     /// Get count of dirty nodes.

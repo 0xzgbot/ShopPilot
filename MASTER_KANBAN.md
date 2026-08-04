@@ -225,6 +225,12 @@ A (parallel from day 0)
   - AC: Full sign path in document session without orphan panels
   - deps: SPK-1102, SPK-1103, SPK-0504
   - track: 3
+- [x] **SPK-1137** **GEO** Canvas honors per-layer hide/lock + layer-faithful save/open // P0
+  - AC: Hidden layers' shapes not drawn or hit-testable; locked layers' shapes render but are not selectable/editable (node-edit, drag); save/open keeps each layer's own vectors (no cross-layer clobber) and restores per-shape layer identity; `swift run ShopPilotVerify1137` PASS
+  - deps: SPK-1100, SPK-1123
+  - track: 2
+  - note: P0 correctness — LayerVisibility helpers (SPK-1101h) exist but were never wired into session/canvas; `syncLayerVectors` currently clobbers the active layer with ALL shapes
+  - worklog: 2026-08-03 — Hermes coder. Wired the SPK-1101h helpers end-to-end. Engine: `LayerVisibility.isLocked`/`editableIndices` (Core); `GeometryBridge.toCorePaths(_:layerIDs:)` overload; `AppSession.shapeLayerIDs` parallel array maintained by every shape mutation (addShapes→active layer, deleteShapes, replaceSelectedShapes→inherits lowest index's layer, removeLayer→drops that layer's shapes, replaceJob, applyPackagePayload→rebuilds from persisted path.layerId, snapshot undo). `syncLayerVectors` now uses `LayerVisibility.distribute` (each layer keeps exactly its own paths — no cross-layer clobber/dup) with re-home of orphaned ids to layer 0. setLayerLocked prunes selection of newly-locked shapes. UI: DesignCanvasView renders `session.visibleShapeIndices` only; hit-test + node-edit skip hidden/locked shapes; blanket active-layer lock gate removed (pan/zoom always work). Verify: `./scripts/verify_locked.sh ShopPilotVerify1137` PASS (lock/editability semantics, layer-id conversion, faithful distribution, Job Codable round-trip with hidden+locked layers). Full `swift build` exit 0; all 35 ShopPilotVerify* targets PASS.
 
 ## Installer-verified cards (2026-08-03) — plan: `docs/planning/INSTALLER_BUILD_PLAN.md`
 
@@ -967,6 +973,21 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 ---
 
 ## 12. Work log
+
+### 2026-08-03 — SPK-1137 layer hide/lock wiring + stranded-micro tree repair (Hermes coder)
+- Claimed/finished **SPK-1137** (P0-B): canvas honors per-layer hide/lock; layer-faithful save/open. Full details on the card. `ShopPilotVerify1137` PASS.
+- **Tree repair — the whole-package build was RED** since the stranded-micro absorb (5bde545): several verify targets referenced engine APIs that never shipped, plus two real engine bugs. Fixed all; `swift build` (all targets) now exit 0 and **all 35 ShopPilotVerify\* targets PASS**:
+  - `ToolpathPreviewView.swift` — `GraphicsContext.draw(Text…)` failed (`.foregroundStyle`/`.multilineTextAlignment` erase to `some View`); now draws inline `.font().foregroundColor()` like DesignCanvasView.
+  - **SPK-1104 sim alarm latch** (real gap): `SimulatorTransport` + `TransportActor` now latch a GRBL 1.1 soft-limit alarm (`ALARM:Soft limit`, `<Alarm|…>`, `error:Alarm lock` until 0x18 reset) + public `isInAlarm`; **`MachineSession.reset()` could NOT clear an error banner** (guarded on `isConnected`) — fixed + refreshes status after 0x18. Verify1104 PASS.
+  - **SPK-1102e real engine path**: `ToolpathTreeNode.isProfileOperation` + `ToolpathTreeManager.recalculateDirtyProfiles` run the REAL ProfileToolpathEngine (replaces stub `recalculateDirtyNodes` for profiles). Verify1102e PASS.
+  - **SPK-0310a cancellable preview**: `ToolpathSimulator.simulate(shouldCancel:)`, `SimulationResult.isCancelled`, `WireframeRenderer.generateSegmentsCancellable`, `PreviewManager.init` public. Cancel 6.8s → 0.15s. Verify0310a PASS.
+  - **SPK-1101j**: `VectorShape.rotated(byDegrees:around:)` (rects re-derive bbox so 90° swaps w/h). Verify1101j PASS.
+  - **SPK-0201b**: `ShapeNodeEditor` public init + undo-last-move snapshot stack (LIFO; no-op moves don't push). Verify0201b PASS.
+  - **SPK-1102h — REAL POCKET BUGS**: pocket G-code never plunged (whole pocket cut in air at Z5 — added plunge-after-rapid at plunge feed for zigzag/spiral/adaptive); spiral rings now close (0…2π) and start radius clamps so small-but-valid pockets emit ≥1 ring. Verify1102h PASS.
+  - **SPK-1102i — REAL DRILL BUG**: `peckDepth 0` divided by zero (Int(inf) crash) in peckDrill + deepHolePeck — single-pass fallback. Verify1102i PASS.
+  - Verify expectation fixes only: 1102f (dirtyNodeCount ops-only = 1), 1104c (preflight 6 items incl. spindle safety item per AGENTS.md §2.5).
+- Full sweep: 35/35 verify targets PASS, 0 FAIL (see worklog on SPK-1137 card).
+- Next: SPK-1101 remaining (offset/boolean/join/trim + SVG/DXF import reachable), then SPK-1102 + SPK-1136, SPK-1104 close-out, SPK-1105 XCTest.
 
 ### 2026-07-28 — master kanban created
 - Assessed split boards (~187 open items, dual tracks)

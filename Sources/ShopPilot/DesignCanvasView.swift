@@ -202,10 +202,11 @@ struct DesignCanvasView: View {
 
     private var shapesLayer: some View {
         Canvas { context, _ in
-            // Hidden active layer: don't render the design shapes.
-            if let layer = session.activeLayer, !layer.isVisible { return }
-            for (idx, shape) in session.shapes.enumerated() {
-                let path = path(for: shape)
+            // SPK-1137: draw only shapes on visible layers — each layer's own
+            // visibility flag, not just the active layer's.
+            for idx in session.visibleShapeIndices {
+                guard session.shapes.indices.contains(idx) else { continue }
+                let path = path(for: session.shapes[idx])
                 let selected = selectedIndex == idx
                 context.stroke(
                     path,
@@ -335,11 +336,9 @@ struct DesignCanvasView: View {
     // MARK: - Gestures
 
     private var activeGesture: AnyGesture<DragGesture.Value> {
-        // Locked layer: no editing gestures on the canvas (pan/zoom still fine).
-        if let layer = session.activeLayer, layer.isLocked {
-            return AnyGesture(DragGesture(minimumDistance: 0))
-        }
-        // SPK-1101c: measure mode takes over the drag gesture (click-based).
+        // SPK-1137: lock/hide gating is per-shape (hit-test skips hidden and
+        // locked shapes), so pan/zoom always work; no blanket active-layer gate.
+        // Measure mode takes over the drag gesture (click-based).
         if measureMode {
             return AnyGesture(
                 DragGesture(minimumDistance: 0)
@@ -437,9 +436,12 @@ struct DesignCanvasView: View {
     }
 
     /// Grab a vertex handle at the given screen point (12 pt hit radius).
+    /// Shapes on locked (or hidden) layers are skipped — node-edit is an edit
+    /// (SPK-1137).
     private func hitTestVertex(_ point: CGPoint) -> NodeDrag? {
         for idx in selectedIndices.sorted().reversed()
         where session.shapes.indices.contains(idx) {
+            guard session.isShapeVisible(at: idx), session.isShapeEditable(at: idx) else { continue }
             guard case .freehand(let pts) = session.shapes[idx] else { continue }
             for (vi, pt) in pts.enumerated() {
                 let s = screen(pt.x, pt.y)
@@ -616,7 +618,9 @@ struct DesignCanvasView: View {
     }
 
     private func hitTest(_ point: CGPoint) -> Int? {
+        // SPK-1137: shapes on hidden or locked layers are not selectable.
         for (idx, shape) in session.shapes.enumerated().reversed() {
+            guard session.isShapeVisible(at: idx), session.isShapeEditable(at: idx) else { continue }
             let pts = GeometryBridge.toCorePaths([shape]).first?.points ?? []
             for pt in pts {
                 let s = screen(pt.x, pt.y)
