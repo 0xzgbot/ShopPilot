@@ -430,6 +430,16 @@ private struct CutStageView: View {
                     .cornerRadius(6)
                 }
 
+                // SPK-1136a: Profile strategy form — installer-verified §R2 fields.
+                if node.isProfileOperation {
+                    ScrollView {
+                        ProfileParamsForm(node: node) { newParams in
+                            _ = session.applyProfileParams(newParams, to: node.id)
+                        }
+                    }
+                    .frame(maxHeight: 320)
+                }
+
                 let lines = (node.toolpathResult ?? "")
                     .components(separatedBy: .newlines)
                     .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
@@ -478,6 +488,124 @@ private struct CutStageView: View {
             return String(format: "%.0fs", seconds)
         }
         return String(format: "%.1fm", seconds / 60)
+    }
+}
+
+// MARK: - Profile strategy form (SPK-1136a)
+
+/// Editable form for the installer-verified §R2 Profile field set. Editing is
+/// local; "Apply" stores the params on the operation and regenerates its
+/// G-code with the real engine (dirty badge clears because the result is
+/// fresh).
+private struct ProfileParamsForm: View {
+    let node: ToolpathTreeNode
+    let onApply: (ProfileToolpathParams) -> Void
+
+    @State private var params: ProfileToolpathParams
+
+    init(node: ToolpathTreeNode, onApply: @escaping (ProfileToolpathParams) -> Void) {
+        self.node = node
+        self.onApply = onApply
+        _params = State(initialValue: node.profileParams())
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            GroupBox("Cut") {
+                VStack(alignment: .leading, spacing: 6) {
+                    Picker("Mode", selection: $params.cutMode) {
+                        ForEach([ProfileCutMode.outCut, .inCut, .onCut], id: \.self) { mode in
+                            Text(mode.displayName).tag(mode)
+                        }
+                    }
+                    Picker("Direction", selection: $params.cutDirection) {
+                        ForEach([ProfileCutDirection.climb, .conventional], id: \.self) { dir in
+                            Text(dir.displayName).tag(dir)
+                        }
+                    }
+                    Picker("Finish passes", selection: $params.finishPasses) {
+                        ForEach(1...5, id: \.self) { Text("\($0)").tag($0) }
+                    }
+                }
+                .labelsHidden()
+            }
+
+            GroupBox("Feeds & depth") {
+                Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                    numRow("Feed (mm/min)", $params.feedRateMmPerMin)
+                    numRow("Plunge (mm/min)", $params.plungeFeedRateMmPerMin)
+                    numRow("Depth/pass (mm)", $params.maxDepthOfCutMm)
+                    numRow("Tool Ø (mm)", $params.toolDiameterMm)
+                }
+            }
+
+            GroupBox("Tabs") {
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle("Add tabs", isOn: $params.addTabs)
+                    if params.addTabs {
+                        Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                            numRow("Length (mm)", $params.tabLengthMm)
+                            numRow("Thickness (mm)", $params.tabThicknessMm)
+                            numRow("Spacing (mm)", $params.tabSpacingMm)
+                        }
+                        Toggle("3D tabs", isOn: $params.use3DTabs)
+                    }
+                }
+            }
+
+            GroupBox("Ramping") {
+                VStack(alignment: .leading, spacing: 4) {
+                    Picker("Type", selection: $params.rampType) {
+                        ForEach([ProfileRampType.none, .smooth, .zigZag, .spiral], id: \.self) { r in
+                            Text(r.displayName).tag(r)
+                        }
+                    }
+                    Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                        numRow("Ramp distance (mm)", $params.rampDistanceMm)
+                    }
+                }
+            }
+
+            GroupBox("Leads") {
+                VStack(alignment: .leading, spacing: 4) {
+                    Picker("Lead-in", selection: $params.leadInType) {
+                        ForEach([ProfileLeadType.none, .straightLine, .circularArc], id: \.self) { l in
+                            Text(l.displayName).tag(l)
+                        }
+                    }
+                    Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                        numRow("Lead-in length (mm)", $params.leadInDistanceMm)
+                        numRow("Lead-in angle (°)", $params.leadInAngleDegrees)
+                        numRow("Arc radius (mm)", $params.circularLeadRadiusMm)
+                        numRow("Lead-out length (mm)", $params.leadOutDistanceMm)
+                    }
+                    Toggle("Lead out", isOn: $params.doLeadOut)
+                }
+            }
+
+            GroupBox("Corners") {
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle("Sharp external corner", isOn: $params.sharpExternalCorner)
+                    Toggle("Sharp internal corner", isOn: $params.sharpInternalCorner)
+                }
+            }
+
+            Button("Apply Params — Regenerate") {
+                onApply(params)
+            }
+            .buttonStyle(.borderedProminent)
+            .frame(maxWidth: .infinity)
+        }
+        .padding(8)
+    }
+
+    private func numRow(_ label: String, _ value: Binding<Double>) -> some View {
+        GridRow {
+            Text(label).font(.caption).foregroundStyle(.secondary)
+            TextField("", value: value, format: .number)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 80)
+        }
     }
 }
 

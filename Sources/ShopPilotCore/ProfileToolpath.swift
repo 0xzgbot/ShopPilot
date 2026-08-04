@@ -17,6 +17,51 @@ public enum ProfileCutMode: String, Codable, Sendable {
     }
 }
 
+/// Plunge/entry strategy (installer-verified: Aspire Ramping page).
+public enum ProfileRampType: String, Codable, Sendable {
+    case none
+    case smooth
+    case zigZag
+    case spiral
+
+    public var displayName: String {
+        switch self {
+        case .none: return "None (vertical plunge)"
+        case .smooth: return "Smooth"
+        case .zigZag: return "ZigZag"
+        case .spiral: return "Spiral"
+        }
+    }
+}
+
+/// Lead-in move shape (installer-verified: Aspire Leads page).
+public enum ProfileLeadType: String, Codable, Sendable {
+    case none
+    case straightLine
+    case circularArc
+
+    public var displayName: String {
+        switch self {
+        case .none: return "None"
+        case .straightLine: return "Straight Line"
+        case .circularArc: return "Circular Arc"
+        }
+    }
+}
+
+/// Cutting direction around the part (installer-verified: Climb/Conventional).
+public enum ProfileCutDirection: String, Codable, Sendable {
+    case climb
+    case conventional
+
+    public var displayName: String {
+        switch self {
+        case .climb: return "Climb"
+        case .conventional: return "Conventional"
+        }
+    }
+}
+
 // MARK: - Profile Toolpath Parameters
 
 /// Configuration for a profile toolpath operation.
@@ -31,6 +76,24 @@ public struct ProfileToolpathParams: Codable, Sendable {
     public var finishPasses: Int
     public var leadInDistanceMm: Double
     public var leadOutDistanceMm: Double
+
+    // SPK-1136a — installer-verified §R2 key set (tabs / ramping / leads /
+    // corners / direction). Additive with defaults so existing call sites and
+    // persisted documents decode unchanged.
+    public var addTabs: Bool
+    public var tabLengthMm: Double
+    public var tabThicknessMm: Double
+    public var tabSpacingMm: Double
+    public var use3DTabs: Bool
+    public var rampType: ProfileRampType
+    public var rampDistanceMm: Double
+    public var leadInType: ProfileLeadType
+    public var leadInAngleDegrees: Double
+    public var circularLeadRadiusMm: Double
+    public var doLeadOut: Bool
+    public var sharpExternalCorner: Bool
+    public var sharpInternalCorner: Bool
+    public var cutDirection: ProfileCutDirection
     
     public init(
         cutMode: ProfileCutMode = .onCut,
@@ -41,7 +104,21 @@ public struct ProfileToolpathParams: Codable, Sendable {
         tabWidths: [Double] = [],
         finishPasses: Int = 1,
         leadInDistanceMm: Double = 5.0,
-        leadOutDistanceMm: Double = 5.0
+        leadOutDistanceMm: Double = 5.0,
+        addTabs: Bool = false,
+        tabLengthMm: Double = 6.0,
+        tabThicknessMm: Double = 3.0,
+        tabSpacingMm: Double = 25.0,
+        use3DTabs: Bool = false,
+        rampType: ProfileRampType = .smooth,
+        rampDistanceMm: Double = 3.0,
+        leadInType: ProfileLeadType = .none,
+        leadInAngleDegrees: Double = 45.0,
+        circularLeadRadiusMm: Double = 2.0,
+        doLeadOut: Bool = false,
+        sharpExternalCorner: Bool = false,
+        sharpInternalCorner: Bool = false,
+        cutDirection: ProfileCutDirection = .climb
     ) {
         self.cutMode = cutMode
         self.feedRateMmPerMin = feedRateMmPerMin
@@ -52,6 +129,20 @@ public struct ProfileToolpathParams: Codable, Sendable {
         self.finishPasses = finishPasses
         self.leadInDistanceMm = leadInDistanceMm
         self.leadOutDistanceMm = leadOutDistanceMm
+        self.addTabs = addTabs
+        self.tabLengthMm = tabLengthMm
+        self.tabThicknessMm = tabThicknessMm
+        self.tabSpacingMm = tabSpacingMm
+        self.use3DTabs = use3DTabs
+        self.rampType = rampType
+        self.rampDistanceMm = rampDistanceMm
+        self.leadInType = leadInType
+        self.leadInAngleDegrees = leadInAngleDegrees
+        self.circularLeadRadiusMm = circularLeadRadiusMm
+        self.doLeadOut = doLeadOut
+        self.sharpExternalCorner = sharpExternalCorner
+        self.sharpInternalCorner = sharpInternalCorner
+        self.cutDirection = cutDirection
     }
     
     /// Create params from material defaults (overrides only feed rate).
@@ -68,6 +159,72 @@ public struct ProfileToolpathParams: Codable, Sendable {
             leadOutDistanceMm: toolDiameter * 2
         )
         return params
+    }
+
+    // MARK: - Codable (backward-compatible: every key decodes with a default,
+    // so documents written before SPK-1136a still load).
+
+    private enum CodingKeys: String, CodingKey {
+        case cutMode, feedRateMmPerMin, plungeFeedRateMmPerMin, maxDepthOfCutMm
+        case toolDiameterMm, tabWidths, finishPasses, leadInDistanceMm, leadOutDistanceMm
+        case addTabs, tabLengthMm, tabThicknessMm, tabSpacingMm, use3DTabs
+        case rampType, rampDistanceMm, leadInType, leadInAngleDegrees
+        case circularLeadRadiusMm, doLeadOut, sharpExternalCorner, sharpInternalCorner
+        case cutDirection
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        cutMode = try c.decodeIfPresent(ProfileCutMode.self, forKey: .cutMode) ?? .onCut
+        feedRateMmPerMin = try c.decodeIfPresent(Double.self, forKey: .feedRateMmPerMin) ?? 1000
+        plungeFeedRateMmPerMin = try c.decodeIfPresent(Double.self, forKey: .plungeFeedRateMmPerMin) ?? 300
+        maxDepthOfCutMm = try c.decodeIfPresent(Double.self, forKey: .maxDepthOfCutMm) ?? 2.0
+        toolDiameterMm = try c.decodeIfPresent(Double.self, forKey: .toolDiameterMm) ?? 6.0
+        tabWidths = try c.decodeIfPresent([Double].self, forKey: .tabWidths) ?? []
+        finishPasses = try c.decodeIfPresent(Int.self, forKey: .finishPasses) ?? 1
+        leadInDistanceMm = try c.decodeIfPresent(Double.self, forKey: .leadInDistanceMm) ?? 5.0
+        leadOutDistanceMm = try c.decodeIfPresent(Double.self, forKey: .leadOutDistanceMm) ?? 5.0
+        addTabs = try c.decodeIfPresent(Bool.self, forKey: .addTabs) ?? false
+        tabLengthMm = try c.decodeIfPresent(Double.self, forKey: .tabLengthMm) ?? 6.0
+        tabThicknessMm = try c.decodeIfPresent(Double.self, forKey: .tabThicknessMm) ?? 3.0
+        tabSpacingMm = try c.decodeIfPresent(Double.self, forKey: .tabSpacingMm) ?? 25.0
+        use3DTabs = try c.decodeIfPresent(Bool.self, forKey: .use3DTabs) ?? false
+        rampType = try c.decodeIfPresent(ProfileRampType.self, forKey: .rampType) ?? .smooth
+        rampDistanceMm = try c.decodeIfPresent(Double.self, forKey: .rampDistanceMm) ?? 3.0
+        leadInType = try c.decodeIfPresent(ProfileLeadType.self, forKey: .leadInType) ?? .none
+        leadInAngleDegrees = try c.decodeIfPresent(Double.self, forKey: .leadInAngleDegrees) ?? 45.0
+        circularLeadRadiusMm = try c.decodeIfPresent(Double.self, forKey: .circularLeadRadiusMm) ?? 2.0
+        doLeadOut = try c.decodeIfPresent(Bool.self, forKey: .doLeadOut) ?? false
+        sharpExternalCorner = try c.decodeIfPresent(Bool.self, forKey: .sharpExternalCorner) ?? false
+        sharpInternalCorner = try c.decodeIfPresent(Bool.self, forKey: .sharpInternalCorner) ?? false
+        cutDirection = try c.decodeIfPresent(ProfileCutDirection.self, forKey: .cutDirection) ?? .climb
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(cutMode, forKey: .cutMode)
+        try c.encode(feedRateMmPerMin, forKey: .feedRateMmPerMin)
+        try c.encode(plungeFeedRateMmPerMin, forKey: .plungeFeedRateMmPerMin)
+        try c.encode(maxDepthOfCutMm, forKey: .maxDepthOfCutMm)
+        try c.encode(toolDiameterMm, forKey: .toolDiameterMm)
+        try c.encode(tabWidths, forKey: .tabWidths)
+        try c.encode(finishPasses, forKey: .finishPasses)
+        try c.encode(leadInDistanceMm, forKey: .leadInDistanceMm)
+        try c.encode(leadOutDistanceMm, forKey: .leadOutDistanceMm)
+        try c.encode(addTabs, forKey: .addTabs)
+        try c.encode(tabLengthMm, forKey: .tabLengthMm)
+        try c.encode(tabThicknessMm, forKey: .tabThicknessMm)
+        try c.encode(tabSpacingMm, forKey: .tabSpacingMm)
+        try c.encode(use3DTabs, forKey: .use3DTabs)
+        try c.encode(rampType, forKey: .rampType)
+        try c.encode(rampDistanceMm, forKey: .rampDistanceMm)
+        try c.encode(leadInType, forKey: .leadInType)
+        try c.encode(leadInAngleDegrees, forKey: .leadInAngleDegrees)
+        try c.encode(circularLeadRadiusMm, forKey: .circularLeadRadiusMm)
+        try c.encode(doLeadOut, forKey: .doLeadOut)
+        try c.encode(sharpExternalCorner, forKey: .sharpExternalCorner)
+        try c.encode(sharpInternalCorner, forKey: .sharpInternalCorner)
+        try c.encode(cutDirection, forKey: .cutDirection)
     }
 }
 

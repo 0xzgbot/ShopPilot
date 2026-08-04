@@ -1034,9 +1034,52 @@ final class AppSession: ObservableObject {
         let node = toolpathTree.addOperation("Profile \(toolpathTree.allNodes.count)")
         node.toolpathResult = result.gcodeLines.joined(separator: "\n")
         node.estimatedTimeSeconds = result.estimatedTimeSeconds
+        node.paramsJSON = encodeParams(ProfileToolpathParams())
         selectToolpath(node.id)
         selectedStage = .cut
         markDirty()
+    }
+
+    /// Apply Profile params to an operation: store them on the node and
+    /// immediately regenerate its G-code with the REAL engine (SPK-1136a).
+    /// The dirty badge clears because the result is fresh; the session buffer
+    /// refreshes from the tree.
+    @discardableResult
+    func applyProfileParams(_ params: ProfileToolpathParams, to nodeID: UUID) -> Bool {
+        guard let node = toolpathTree.findNode(id: nodeID), node.isProfileOperation else {
+            statusMessage = "Apply params: select a Profile operation"
+            return false
+        }
+        guard !vectors.isEmpty else {
+            statusMessage = "No vectors — add shapes first"
+            return false
+        }
+        registerUndoPoint()
+        node.paramsJSON = encodeParams(params)
+        let result = ProfileToolpathEngine.compute(
+            vectors: vectors,
+            params: params,
+            material: nil,
+            stockHeightMm: job.sheets.first?.height ?? 6.0
+        )
+        node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+        node.estimatedTimeSeconds = result.estimatedTimeSeconds
+        node.clearDirty()
+        let all = allToolpathGCode
+        if !all.isEmpty {
+            gcodeLines = all
+        }
+        lastToolpathSummary =
+            "Profile: \(result.gcodeLines.count) lines, \(params.cutMode.displayName), " +
+            "\(Int(result.estimatedTimeSeconds))s"
+        statusMessage = lastToolpathSummary
+        markDirty()
+        return true
+    }
+
+    private func encodeParams(_ params: ProfileToolpathParams) -> String? {
+        guard let data = try? JSONEncoder().encode(params) else { return nil }
+        return String(data: data, encoding: .utf8)
     }
 
     /// Recalculate every dirty toolpath operation with the real engine

@@ -11,6 +11,8 @@ public struct PersistedToolpath: Codable, Sendable, Equatable, Identifiable {
     public var isDirty: Bool
     /// ID of the tool assigned to this operation (nil = none).
     public var toolID: UUID?
+    /// Strategy params JSON for this operation (nil = defaults; SPK-1136a).
+    public var paramsJSON: String?
 
     public init(
         id: UUID = UUID(),
@@ -18,7 +20,8 @@ public struct PersistedToolpath: Codable, Sendable, Equatable, Identifiable {
         toolpathResult: String? = nil,
         estimatedTimeSeconds: Double = 0,
         isDirty: Bool = false,
-        toolID: UUID? = nil
+        toolID: UUID? = nil,
+        paramsJSON: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -26,6 +29,7 @@ public struct PersistedToolpath: Codable, Sendable, Equatable, Identifiable {
         self.estimatedTimeSeconds = estimatedTimeSeconds
         self.isDirty = isDirty
         self.toolID = toolID
+        self.paramsJSON = paramsJSON
     }
 
     /// Build from a live toolpath tree operation node.
@@ -36,6 +40,7 @@ public struct PersistedToolpath: Codable, Sendable, Equatable, Identifiable {
         self.estimatedTimeSeconds = node.estimatedTimeSeconds
         self.isDirty = node.isDirty
         self.toolID = node.toolID
+        self.paramsJSON = node.paramsJSON
     }
 }
 
@@ -66,6 +71,7 @@ public struct ShopPilotPackagePayload: Codable, Sendable {
             node.estimatedTimeSeconds = persisted.estimatedTimeSeconds
             node.isDirty = persisted.isDirty
             node.toolID = persisted.toolID
+            node.paramsJSON = persisted.paramsJSON
         }
         return manager
     }

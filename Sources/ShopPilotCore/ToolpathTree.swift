@@ -38,6 +38,11 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
     /// Resolved against the session's `ToolDatabase` for display/params.
     @Published public var toolID: UUID?
 
+    /// Strategy params for this operation, JSON-encoded (nil = defaults).
+    /// Persisted with the document so save/open keeps per-op configuration
+    /// (SPK-1136a). Currently populated for Profile operations.
+    @Published public var paramsJSON: String?
+
     /// Parent node (if any).
     weak var parent: ToolpathTreeNode?
 
@@ -149,6 +154,18 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
         if case .operation(let label) = type { return label.hasPrefix("Profile") }
         return false
     }
+
+    /// The Profile params stored on this node (decoded from `paramsJSON`),
+    /// or defaults when none are stored.
+    public func profileParams() -> ProfileToolpathParams {
+        guard let json = paramsJSON,
+              let data = json.data(using: .utf8),
+              let params = try? JSONDecoder().decode(ProfileToolpathParams.self, from: data)
+        else {
+            return ProfileToolpathParams()
+        }
+        return params
+    }
     
     /// Check if any node in the subtree is dirty.
     public var hasDirtyChildren: Bool {
@@ -223,8 +240,10 @@ public final class ToolpathTreeManager: ObservableObject {
     }
     
     /// Regenerate every dirty Profile operation with the REAL profile engine
-    /// (SPK-1102e). Out-of-scope operations (Pocket/V-Carve…) stay dirty, so
-    /// export stays blocked on them. Returns the regenerated nodes in tree order.
+    /// (SPK-1102e). A node's stored params (`paramsJSON`, SPK-1136a) win over
+    /// the passed-in defaults when present. Out-of-scope operations
+    /// (Pocket/V-Carve…) stay dirty, so export stays blocked on them. Returns
+    /// the regenerated nodes in tree order.
     public func recalculateDirtyProfiles(
         vectors: [VectorPath],
         params: ProfileToolpathParams,
@@ -233,9 +252,10 @@ public final class ToolpathTreeManager: ObservableObject {
     ) -> [ToolpathTreeNode] {
         let dirtyProfiles = root.allDirtyNodes.filter { $0.isProfileOperation }
         for node in dirtyProfiles {
+            let nodeParams = node.profileParams()
             let result = ProfileToolpathEngine.compute(
                 vectors: vectors,
-                params: params,
+                params: nodeParams,
                 material: material,
                 stockHeightMm: stockHeightMm
             )

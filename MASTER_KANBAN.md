@@ -214,6 +214,12 @@ A (parallel from day 0)
   - deps: SPK-1102d
   - track: 3
   - worklog: 2026-08-03 — Hermes coder. Audit: save path already posts `session.allToolpathGCode` (full tree concat, P0-C) through CutToMachineBridge; the missing proof was a golden. Verify `ShopPilotVerify1102g` PASS: two-op tree (Profile+Pocket real engine G-code) → full-tree buffer → `GRBLPostProcessor.grbl().process` — **move parity** (every raw G1 from BOTH ops survives post; a last-op-only export would be shorter), GRBL wrapper (G21/G90/M8 init, M9/G0 Z5.0/M2 cleanup, % framing, .gcode label), and an exact hand-written golden for a minimal input (normalized output matches byte-for-byte; golden corrected to "GRBL 1.1" display name). Whole-package build green; 1102c/d/e regression green.
+- [x] **SPK-1136a** **TP** Profile strategy form fields — installer-verified §R2 (tabs/ramp/lead/corners/direction) // P0
+  - AC: ProfileToolpathParams covers the §R2 key set (additive defaults, backward-compatible decode); Cut inspector form exposes it per selected Profile op; params persist per-op via .shoppilot; recalc respects stored params; `swift run ShopPilotVerify1136a` PASS
+  - deps: SPK-1102d
+  - track: 3
+  - note: Parent SPK-1136 stays [ ] — Pocket/Drill/V-Carve field sets + their forms are later slices
+  - worklog: 2026-08-03 — Hermes coder. Engine: `ProfileToolpathParams` extended with the §R2 key set (tabs: addTabs/tabLength/tabThickness/tabSpacing/use3DTabs; ramping: `ProfileRampType` none/smooth/zigZag/spiral + rampDistance; leads: `ProfileLeadType` none/straightLine/circularArc + leadInDistance/Angle/circularRadius + doLeadOut + leadOutDistance; corners: sharpExternal/Internal; direction: `ProfileCutDirection` climb/conventional) — additive defaults + custom Codable with decodeIfPresent (pre-1136a JSON loads). Tree: `ToolpathTreeNode.paramsJSON` + `profileParams()`; `recalculateDirtyProfiles` now prefers the node's stored params over the passed defaults. Persist: `PersistedToolpath.paramsJSON` round-trips through toolpaths(from:)/restoreToolpathTree (backward-compatible optional). Session: `generateProfileToolpath` stores default params; `applyProfileParams(_:to:)` stores + regenerates with the real engine + clears the dirty badge + refreshes the buffer. UI: `ProfileParamsForm` in the Cut inspector for the selected Profile op (grouped Cut/Feeds/Tabs/Ramping/Leads/Corners + Apply→Regenerate). Verify: `./scripts/verify_locked.sh ShopPilotVerify1136a` PASS — §R2 key presence, JSON + .shoppilot per-op round-trip, legacy-JSON decode with defaults, recalc respects stored feed/cut-mode (F1500 in G-code). Whole-package build green; 1102c/d/e/g + 1137/1101d regression green.
 - [ ] **SPK-1102** **TP** Cut stage product — toolpath tree Profile/Pocket/Drill/V-Carve + dirty/recalc/export block + GRBL post // P0
   - AC: Saved job regenerates toolpaths and exports GRBL from tree
   - deps: SPK-1101, SPK-0302
@@ -1005,6 +1011,11 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 ---
 
 ## 12. Work log
+
+### 2026-08-03 — SPK-1136a Profile form fields (Hermes coder)
+- Claimed/finished **SPK-1136a** (Profile slice of SPK-1136): params model covers the installer-verified §R2 key set (tabs/ramping/leads/corners/direction) with backward-compatible Codable; per-op params persist via paramsJSON + round-trip; Cut inspector ProfileParamsForm (Apply→regenerate); recalc respects stored params. `ShopPilotVerify1136a` PASS; whole-package build green; 1102c/d/e/g + 1137/1101d regression green.
+- Parent SPK-1136 stays `[ ]` (Pocket/Drill/V-Carve slices later).
+- Next: SPK-1104b Cut→Machine handoff.
 
 ### 2026-08-03 — SPK-1102g GRBL post from full tree (Hermes coder)
 - Claimed/finished **SPK-1102g**: verified the Save Toolpaths chain posts the FULL tree (move parity proof — every G1 from both ops survives the post, not last-op-only) + exact hand-written GRBL golden. `ShopPilotVerify1102g` PASS; whole-package build green.
