@@ -150,6 +150,12 @@ public final class SimulatorTransport: MachineTransport {
     }
 
     public func write(_ data: Data) async throws {
+        // Record the raw bytes as written (SPK-1104d) — the read buffer only
+        // ever carries the sim's RESPONSES, so this is the race-free
+        // observable for realtime-byte assertions (hold `!`, resume `~`, and
+        // the 0x18 reset all pass through here).
+        await actor.recordWrite(data)
+
         let text = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
 
         // Simulate processing delay.
@@ -173,6 +179,13 @@ public final class SimulatorTransport: MachineTransport {
     public var isInAlarm: Bool {
         get async { await actor.isInAlarm() }
     }
+
+    /// Every raw byte written to the simulator, in order (SPK-1104d). The
+    /// read buffer only carries the sim's responses, so this log is the
+    /// race-free observable for realtime-byte assertions.
+    public var writtenBytesSnapshot: Data {
+        get async { await actor.writtenBytesSnapshot() }
+    }
 }
 
 // MARK: - TransportActor (thread-safe state)
@@ -182,6 +195,11 @@ private actor TransportActor {
     private var isConnected = false
     private var mPos: (x: Double, y: Double, z: Double) = (0.0, 0.0, 0.0)
     private var readBuffer = Data()
+
+    /// Every byte written to the simulator, in order (SPK-1104d). The read
+    /// buffer is drained concurrently by streamers, so this log is the
+    /// race-free observable for realtime-byte assertions.
+    private var writtenBytes = Data()
 
     /// GRBL 1.1 alarm latch: set by a soft-limit trip; cleared by 0x18 reset.
     /// While latched the sim rejects motion with `error:Alarm lock` (the same
@@ -202,6 +220,7 @@ private actor TransportActor {
         mPos = (0.0, 0.0, 0.0)
         isAlarmLatched = false
         readBuffer.removeAll()
+        writtenBytes.removeAll()
     }
 
     func isInAlarm() -> Bool {
@@ -210,6 +229,14 @@ private actor TransportActor {
 
     func pushToReadBuffer(_ data: Data) {
         readBuffer.append(data)
+    }
+
+    func recordWrite(_ data: Data) {
+        writtenBytes.append(data)
+    }
+
+    func writtenBytesSnapshot() -> Data {
+        writtenBytes
     }
 
     func drainReadBuffer() async throws -> Data {

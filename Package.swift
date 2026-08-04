@@ -33,6 +33,11 @@ let package = Package(
             path: "Sources/ShopPilotVerify1103a"
         ),
         .executableTarget(
+            name: "ShopPilotVerify1103d",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1103d"
+        ),
+        .executableTarget(
             name: "ShopPilotVerify1125",
             dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
             path: "Sources/ShopPilotVerify1125"
@@ -242,6 +247,11 @@ let package = Package(
             name: "ShopPilotVerify1104b",
             dependencies: ["ShopPilotCore"],
             path: "Sources/ShopPilotVerify1104b"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1104d",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1104d"
         ),
         .executableTarget(
             name: "ShopPilotVerify1104c",

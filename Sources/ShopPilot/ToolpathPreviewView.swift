@@ -16,7 +16,7 @@ struct ToolpathPreviewView: View {
     @State private var isSimulating = false
 
     private var segments: [(start: (x: Double, y: Double), end: (x: Double, y: Double), isRapid: Bool)] {
-        WireframeRenderer.generateSegments(from: session.gcodeLines)
+        WireframeRenderer.generateSegments(from: session.allToolpathGCode)
     }
 
     /// SPK-1103c — the currently selected toolpath tree node (recursive lookup,
@@ -57,7 +57,7 @@ struct ToolpathPreviewView: View {
 
             Text(session.lastToolpathSummary)
                 .foregroundStyle(.secondary)
-            Text("G-code lines: \(session.gcodeLines.count) · Ops: \(session.toolpaths.count) · Vectors: \(session.vectors.count)")
+            Text("G-code lines: \(session.allToolpathGCode.count) · Ops: \(session.toolpaths.count) · Vectors: \(session.vectors.count)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Text(simStatus)
@@ -80,7 +80,7 @@ struct ToolpathPreviewView: View {
                 Button(isSimulating ? "Sim…" : "Draft sim") {
                     runDraftSimulation()
                 }
-                .disabled(session.gcodeLines.isEmpty || isSimulating)
+                .disabled(session.allToolpathGCode.isEmpty || isSimulating)
                 .buttonStyle(.bordered)
 
                 Button("Generate profile if empty") {
@@ -139,7 +139,7 @@ struct ToolpathPreviewView: View {
         }
         .padding()
         .onAppear { fitContent() }
-        .onChange(of: session.gcodeLines.count) { _, _ in fitContent() }
+        .onChange(of: session.allToolpathGCode.count) { _, _ in fitContent() }
     }
 
     private func worldToView(_ x: Double, _ y: Double, size: CGSize) -> CGPoint {
@@ -196,8 +196,8 @@ struct ToolpathPreviewView: View {
             }
         }
 
-        if PreviewEmptyState.isEmpty(gcodeCount: session.gcodeLines.count, vectorCount: session.vectors.count),
-           let copy = PreviewEmptyState.copy(gcodeCount: session.gcodeLines.count, vectorCount: session.vectors.count) {
+        if PreviewEmptyState.isEmpty(gcodeCount: session.allToolpathGCode.count, vectorCount: session.vectors.count),
+           let copy = PreviewEmptyState.copy(gcodeCount: session.allToolpathGCode.count, vectorCount: session.vectors.count) {
             context.draw(
                 Text("\(copy.title)\n\(copy.message)")
                     .font(.caption)
@@ -234,8 +234,9 @@ struct ToolpathPreviewView: View {
     }
 
     /// Non-blocking draft heightfield — coarse grid on a background task.
+    /// SPK-1103d: simulates the FULL toolpath tree, not the last single op.
     private func runDraftSimulation() {
-        let lines = session.gcodeLines
+        let lines = session.allToolpathGCode
         guard !lines.isEmpty else { return }
         isSimulating = true
         simStatus = "Generating draft heightfield…"
