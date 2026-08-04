@@ -106,6 +106,12 @@ public struct MachineProfile: Identifiable, Codable, Sendable {
     /// decode as false (no vacuum — the warning fires conservatively).
     public var vacuumHoldDown: Bool
 
+    /// Operator-measured material thickness (digital calipers), if known
+    /// (FM-10 → R017: drift vs the job setup warns at save/start).
+    /// Legacy-safe: profiles saved before this field decode as nil (unknown —
+    /// no drift check).
+    public var measuredThicknessMm: Double?
+
     public var createdAt: Date
     public var updatedAt: Date
 
@@ -126,6 +132,7 @@ public struct MachineProfile: Identifiable, Codable, Sendable {
         machineType: MachineProfileType = .grbl,
         units: GCodeUnits = .millimeter,
         vacuumHoldDown: Bool = false,
+        measuredThicknessMm: Double? = nil,
         createdAt: Date = .now,
         updatedAt: Date = .now
     ) {
@@ -136,6 +143,7 @@ public struct MachineProfile: Identifiable, Codable, Sendable {
         self.machineType = machineType
         self.units = units
         self.vacuumHoldDown = vacuumHoldDown
+        self.measuredThicknessMm = measuredThicknessMm
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
@@ -144,7 +152,8 @@ public struct MachineProfile: Identifiable, Codable, Sendable {
     // "units" and "machineType" — decode with defaults).
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, config, isSimulator, machineType, units, vacuumHoldDown, createdAt, updatedAt
+        case id, name, config, isSimulator, machineType, units, vacuumHoldDown,
+             measuredThicknessMm, createdAt, updatedAt
     }
 
     public init(from decoder: Decoder) throws {
@@ -156,6 +165,7 @@ public struct MachineProfile: Identifiable, Codable, Sendable {
         machineType = try c.decodeIfPresent(MachineProfileType.self, forKey: .machineType) ?? .grbl
         units = try c.decodeIfPresent(GCodeUnits.self, forKey: .units) ?? .millimeter
         vacuumHoldDown = try c.decodeIfPresent(Bool.self, forKey: .vacuumHoldDown) ?? false
+        measuredThicknessMm = try c.decodeIfPresent(Double.self, forKey: .measuredThicknessMm)
         createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? .now
         updatedAt = try c.decodeIfPresent(Date.self, forKey: .updatedAt) ?? .now
     }
@@ -169,6 +179,7 @@ public struct MachineProfile: Identifiable, Codable, Sendable {
         try c.encode(machineType, forKey: .machineType)
         try c.encode(units, forKey: .units)
         try c.encode(vacuumHoldDown, forKey: .vacuumHoldDown)
+        try c.encodeIfPresent(measuredThicknessMm, forKey: .measuredThicknessMm)
         try c.encode(createdAt, forKey: .createdAt)
         try c.encode(updatedAt, forKey: .updatedAt)
     }

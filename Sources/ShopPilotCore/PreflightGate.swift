@@ -119,10 +119,13 @@ public final class PreflightGate: ObservableObject {
 
 public extension PreflightGate {
 
-    /// The standard 6-item machine pre-flight checklist.
+    /// The standard 7-item machine pre-flight checklist.
     ///
     /// SPK-0412a: spindle and work-zero are mandatory safety items — the
     /// checklist is incomplete and Run stays gated until both are acknowledged.
+    /// SPK-FM-R016: the datum-z0 item is the Z0/datum contract — the operator
+    /// confirms Z0 = material surface and the XY datum against the job's
+    /// material setup before every start.
     static func standard() -> PreflightGate {
         PreflightGate(items: [
             PreflightChecklistItem(
@@ -134,6 +137,11 @@ public extension PreflightGate {
                 id: "work-zero",
                 title: "Work zero set",
                 detail: "Confirm X/Y/Z work coordinates are correct"
+            ),
+            PreflightChecklistItem(
+                id: "datum-z0",
+                title: "Z0 = material surface confirmed",
+                detail: "Confirm Z0 sits on the material surface and the XY datum matches the job setup (FM-09 → R016)"
             ),
             PreflightChecklistItem(
                 id: "tool-loaded",

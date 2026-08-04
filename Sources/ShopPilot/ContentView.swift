@@ -366,6 +366,11 @@ private struct CutStageView: View {
                     }
                 }
             }
+            if toolpathPreflightIssues.contains(where: { $0.fix.isUseMeasuredValueFix }) {
+                Button("Use Measured Value") {
+                    session.applyMeasuredThickness()
+                }
+            }
         } message: {
             Text(toolpathPreflightMessage)
         }

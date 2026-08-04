@@ -327,6 +327,7 @@ public struct MachineConnectionView: View {
     
     private let preflightItems: [PreFlightItem] = [
         PreFlightItem(title: "Work zero set", description: "Confirm X/Y/Z work coordinates are correct"),
+        PreFlightItem(title: "Z0 = material surface confirmed", description: "Confirm Z0 sits on the material surface and the XY datum matches the job setup (FM-09 → R016)"),
         PreFlightItem(title: "Tool loaded", description: "Verify correct tool is in spindle"),
         PreFlightItem(title: "Material secured", description: "Check material is clamped and level"),
         PreFlightItem(title: "Clear workspace", description: "Ensure no obstructions near machine"),

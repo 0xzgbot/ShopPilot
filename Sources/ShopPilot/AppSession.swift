@@ -1099,13 +1099,37 @@ final class AppSession: ObservableObject {
         // R014: the active machine profile decides whether the table holds the
         // work down (no vacuum → through-cuts need tabs).
         let vacuum = machineProfiles.profiles.first?.vacuumHoldDown ?? false
-        return ToolpathPreflight.checkTree(
+        var issues = ToolpathPreflight.checkTree(
             toolpathTree,
             vectors: vectors,
             materialThicknessMm: materialThickness,
             dismissedNodeIDs: toolpathPreflightDismissed,
             vacuumHoldDown: vacuum
         )
+        // R017 (FM-10): measured material thickness vs the job setup drifts
+        // beyond tolerance → warn with a "Use Measured Value" CTA.
+        let measured = machineProfiles.profiles.first?.measuredThicknessMm
+        if let drift = MachineStartPreflight.thicknessDrift(
+            jobThicknessMm: materialThickness,
+            measuredThicknessMm: measured
+        ) {
+            issues.append(drift)
+        }
+        return issues
+    }
+
+    /// R017 fix CTA: adopt the machine profile's measured material thickness
+    /// into the job sheet (the honest "update job thickness" action).
+    func applyMeasuredThickness() {
+        guard let measured = machineProfiles.profiles.first?.measuredThicknessMm,
+              var sheet = job.sheets.first else {
+            statusMessage = "No measured thickness to apply"
+            return
+        }
+        sheet.height = measured
+        job.sheets[0] = sheet
+        markDirty()
+        statusMessage = String(format: "Job thickness updated to the measured %.2fmm — recalculate toolpaths", measured)
     }
 
     /// R013 fix CTA: enable the V-Carve flat-bottom floor on the node,

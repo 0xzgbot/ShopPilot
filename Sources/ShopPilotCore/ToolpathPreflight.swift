@@ -17,6 +17,8 @@ public enum ToolpathPreflightFix: Sendable, Equatable {
     case addTabs
     /// Split the multi-tool tree into ordered per-tool files (FM-12 / R019).
     case splitFiles
+    /// R017: adopt the measured material thickness into the job (FM-10).
+    case useMeasuredValue
     /// Expert dismissal — user accepts the risk (kept session-scoped, same
     /// honesty contract as ExportBlocker's one-shot expert override).
     case warnOnly
@@ -26,6 +28,7 @@ public enum ToolpathPreflightFix: Sendable, Equatable {
         case .setFlatDepth: return "Set Flat Depth"
         case .addTabs: return "Add Tabs"
         case .splitFiles: return "Split to Multiple Files"
+        case .useMeasuredValue: return "Use Measured Value"
         case .warnOnly: return "Warn Only"
         }
     }
@@ -40,6 +43,12 @@ public enum ToolpathPreflightFix: Sendable, Equatable {
     /// True when this fix is the R014 add-tabs CTA.
     public var isAddTabsFix: Bool {
         if case .addTabs = self { return true }
+        return false
+    }
+
+    /// True when this fix is the R017 use-measured-value CTA.
+    public var isUseMeasuredValueFix: Bool {
+        if case .useMeasuredValue = self { return true }
         return false
     }
 }
