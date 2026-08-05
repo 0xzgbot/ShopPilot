@@ -938,13 +938,14 @@ A (parallel from day 0)
   - assignee: coder
   - max-runtime: 60m
   - worklog: 2026-08-05 — Hermes coder. **AC met.** `ShopPilotVerifySHAKEf` (14 checks, PASS): 6-strategy marker matrix on real engine output (O=PROFILE/POCKET/DRILL/V_CARVE/ROUGH_3D/FINISH_3D; V-Carve clearance block `O=VCARVE_CLEARANCE` precedes the V-bit marker; pocket F1500 reaches G-code); clean tree → export valid; ONE dirty node (Pocket) → export blocked → recalc regenerates exactly it (siblings' G-code byte-identical) → badge 0 → export unblocked; per-strategy badge-clear loop for Profile/Drill/V-Carve/Rough3D/Finish3D (dirty → recalc → clean + marker intact). Rough/Finish 3D engines exercised via flat 10×10 heightfield.
-- [ ] **SPK-SHAKEg** **QA** Preview + Machine sim + Hold/Resume/Reset
+- [x] **SPK-SHAKEg** **QA** Preview + Machine sim + Hold/Resume/Reset
   - AC: CLT — preview wireframe non-blank; draft sim cancellable; machine sim connect → load (zero bytes, no auto-run) → preflight gate → Start → Hold/Resume → Reset → complete
   - Out of scope: live serial, real cuts
   - Verify: `./scripts/verify_locked.sh ShopPilotVerifySHAKEg`
   - worktree: master
   - assignee: coder
   - max-runtime: 60m
+  - worklog: 2026-08-05 — Hermes coder. **AC met.** `ShopPilotVerifySHAKEg` (5 checks, PASS): wireframe preview on real Profile+Pocket G-code → 394 segments, all endpoints in-sheet, cut moves present; draft sim cancellable (immediately-true probe → isCancelled, no-probe pass == plain, not lossy); machine sim loop → load ZERO bytes (no auto-run) → fresh preflight blocks Start → ack arms → runJob → mid-run HOLD `!` (0x21) → RESUME `~` (0x7E) → **RESET 0x18 (the leg 1104d didn't assert)** → job ends without hanging. All SPK-SHAKEb…g thin gap cards now [x].
 - [x] **SPK-SHAKEh** **QA** UI acceptance G1+G2 driver (computer control + vision)
   - AC: drive `docs/planning/UI_ACCEPTANCE_DRIVER.md` G1-A…G1-F + G2 on the native app (AX + screenshots + vision asserts); plus import hub walk (SVG/DXF/STL shapes appear, persist after save/open), design ops bar walk (enabled ops + undo restores), cut add-strategy → recalc → dirty on art edit → export blocked → recalc clears, preview non-blank + cancel, machine sim load-no-auto-run → preflight → run → Hold/Resume → Reset, stage density ≤12 + Hold/Reset visible while connected; BLOCKED after 2 click retries → screenshot + card + continue (never idle)
   - Out of scope: live CNC; vision never judges 0.1 mm (CLTs own numbers)
@@ -1546,3 +1547,9 @@ Ran `docs/planning/UI_ACCEPTANCE_DRIVER.md` G1-A → G1-F → G2 against `.build
 
 ### 2026-08-05 — SPK-SHAKEb closed (Hermes coder)
 - **SPK-SHAKEb [x]** — fixture pack + import torture expansion. Happy-path imports (`fixtures/import/`: SVG/DXF/STL), `.shoppilot` packages for **Calibration + Sign** (generated from real models/recipe via new checked-in `ShopPilotFixtureGen` target — reproducible), **calibration_square.nc committed** (G1 gap closed), torture set +4 fixtures (unit_mm.svg, malformed.dxf, bezier_loop.svg, gap_chain.dxf), 5 strategy air-cut G-code fixtures, gate **28 → 86 checks all PASS**, whole-package build green. G2 gap closed via Calibration package (recipe itself stays out of scope).
+
+### 2026-08-05 — SHAKEd/e/f/g thin gap cards closed (Hermes coder)
+- **SPK-SHAKEd [x]** — `ShopPilotVerifySHAKEd` (7 checks): SVG→shapes→.shoppilot round-trip (bbox intact), DXF→shapes exact geometry, STL→heightfield, Calibration + Sign package loads (markers), GRBL post move parity 72/72. **G5 closed.**
+- **SPK-SHAKEe [x]** — `ShopPilotVerifySHAKEe` (21 checks): BooleanOps matrix, join/close/trim, transforms (rotate = DEGREES documented), layers CRUD + visibility/lock, **G4 undo matrix** (9 op families: op → snapshot → restore → identical + redo-contract). **G4 closed.**
+- **SPK-SHAKEf [x]** — `ShopPilotVerifySHAKEf` (14 checks): 6-strategy marker matrix (incl. clearance order + Rough/Finish 3D), export blocked while dirty, recalc regenerates ONLY dirty node (siblings byte-identical), badge-clear loop. **G6 closed.**
+- **SPK-SHAKEg [x]** — `ShopPilotVerifySHAKEg` (5 checks): wireframe non-blank in-sheet, draft sim cancellable, machine loop + **mid-run RESET 0x18** (the leg 1104d didn't assert). **All SPK-SHAKEb…g now [x]; SHAKE matrix gaps G1/G2/G4/G5/G6 closed, G3 partial.**

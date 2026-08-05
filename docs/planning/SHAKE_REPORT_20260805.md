@@ -208,10 +208,10 @@
 | --- | --- |
 | G1 — `fixtures/gcode/calibration_square.nc` missing | **CLOSED (SPK-SHAKEb)** — 50mm air-cut calibration square committed; `AppSession.loadFixtureGCodeIfNeeded` now finds it (falls back to built-in air-cut only when absent) |
 | G2 — No Calibration recipe | **CLOSED (SPK-SHAKEb, fixture path)** — `fixtures/shoppilot/Calibration.shoppilot` package (200×200×18, 50mm square + real Profile toolpath) covers the driver's G1-A flow; a first-class recipe stays out of scope unless owner wants it |
-| G3 — Torture fixtures not fed through importer | **OPEN** — verify_import_torture.py asserts fixture classes, not import behavior |
-| G4 — Undo matrix unproven | **OPEN** — No CLT walks op → snapshot → undo → restored |
-| G5 — Import→save→open→export round-trip | **OPEN** — No single CLT does format-family round-trip |
-| G6 — Strategy × dirty × recalc × export-block matrix | **OPEN** — Combined gate CLT missing |
+| G3 — Torture fixtures not fed through importer | **PARTIAL** — SPK-SHAKEd feeds the happy-path fixtures through `SVGImporter` / `DXFParser` / `STLHeightfieldImporter` with exact-geometry asserts + .shoppilot round-trip; the defect-class torture fixtures remain gate-only (`verify_import_torture.py` asserts their classes) |
+| G4 — Undo matrix unproven | **CLOSED (SPK-SHAKEe)** — 9 op families walk op → snapshot → restore → identical + redo-contract (same snapshot contract as `AppSession.performUndoRestore`) |
+| G5 — Import→save→open→export round-trip | **CLOSED (SPK-SHAKEd)** — SVG/DXF/STL/.shoppilot/G-code matrix, 7 checks PASS |
+| G6 — Strategy × dirty × recalc × export-block matrix | **CLOSED (SPK-SHAKEf)** — 6 strategies × markers × only-dirty recalc × export gate, 14 checks PASS |
 
 ---
 
