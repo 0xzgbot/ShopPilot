@@ -51,4 +51,6 @@ research/raw/
 *.py[cod]
 
 # Packaged app builds (regenerate with scripts/package_app.sh)
-dist/
+# Track the downloadable zip; ignore the regenerable unpacked .app.
+dist/*.app
+dist/*.app.zip
