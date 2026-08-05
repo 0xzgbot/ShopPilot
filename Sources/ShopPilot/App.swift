@@ -38,6 +38,16 @@ struct ShopPilotApp: App {
                 .keyboardShortcut("k", modifiers: .command)
             }
 
+            // Stage navigation belongs on the keyboard as well as the rail.
+            CommandMenu("Stage") {
+                ForEach(Stage.allCases) { stage in
+                    Button(stage.title) {
+                        withAnimation(SP.Motion.stage) { session.selectedStage = stage }
+                    }
+                    .keyboardShortcut(KeyEquivalent(stage.shortcutCharacter), modifiers: .command)
+                }
+            }
+
             CommandMenu("ShopPilot") {
                 Button("Preferences…") {
                     session.showPreferences = true

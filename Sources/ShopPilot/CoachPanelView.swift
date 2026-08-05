@@ -51,44 +51,44 @@ public struct CoachPanelView: View {
         }
     }
     
+    /// Coach glyphs follow the stage rail so the same stage never wears two
+    /// different symbols (ICON_INVENTORY §1 audit).
     private var coachIcon: String {
-        switch currentStage {
-        case .setup: return "gear"
-        case .design: return "pencil.and.ruler"
-        case .model: return "cube.box"
-        case .cut: return "scissors"
-        case .preview: return "eye"
-        case .machine: return "powerplug"
-        }
+        currentStage == .preview ? "eye" : currentStage.icon
     }
-    
+
     public var body: some View {
         if !dismissed {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Image(systemName: coachIcon)
-                        .foregroundColor(Color.accentColor)
-                    
-                    Text("Tip")
-                        .font(.headline)
-                    
-                    Spacer()
-                    
-                    Button(action: dismiss) {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                }
-                
+            // A quiet strip along the bottom of the canvas, not a floating
+            // card — guidance should sit under the work, not on top of it.
+            HStack(alignment: .top, spacing: SP.Space.s) {
+                Image(systemName: coachIcon)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.accentColor)
+                    .frame(height: 16)
+
                 Text(coachMessage)
-                    .font(.subheadline)
-                    .lineLimit(3)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Spacer(minLength: SP.Space.s)
+
+                Button(action: dismiss) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 9, weight: .semibold))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .help("Hide tips for this session")
+                .accessibilityLabel("Hide tip")
             }
-            .padding()
-            .background(Color(NSColor.controlBackgroundColor))
-            .cornerRadius(8)
-            .shadow(radius: 2)
+            .padding(.horizontal, SP.Space.m)
+            .padding(.vertical, SP.Space.s)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.quaternary.opacity(0.4))
+            .overlay(alignment: .top) { Divider() }
         }
     }
     

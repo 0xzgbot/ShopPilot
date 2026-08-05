@@ -30,16 +30,46 @@ enum Stage: String, CaseIterable, Identifiable {
     }
 
     /// SF Symbol system icon for the stage button.
+    ///
+    /// Design and Machine were `pen.toolpath` / `printer.tray`, neither of
+    /// which exists in CoreGlyphs — both rendered as empty boxes on the rail.
+    /// ICON_INVENTORY §1 audit picks the replacements.
     var icon: String {
         switch self {
         case .setup:      return "gearshape"
-        case .design:     return "pen.toolpath"
+        case .design:     return "pencil.and.outline"
         case .model:      return "cube.box"
         case .cut:        return "scissors"
         case .preview:    return "play.circle"
-        case .machine:    return "printer.tray"
+        case .machine:    return "cable.connector"
         }
     }
+
+    /// One-line statement of intent, shown under the stage title on the empty
+    /// canvas and as the rail's tooltip.
+    var intent: String {
+        switch self {
+        case .setup:      return "Stock, origin and machine"
+        case .design:     return "Draw and import 2D artwork"
+        case .model:      return "3D relief components"
+        case .cut:        return "Toolpath strategies"
+        case .preview:    return "Trust the cut before you make it"
+        case .machine:    return "Connect, zero and run"
+        }
+    }
+
+    /// ⌘1…⌘6 — the rail is navigable without the mouse.
+    var shortcutCharacter: Character {
+        switch self {
+        case .setup:      return "1"
+        case .design:     return "2"
+        case .model:      return "3"
+        case .cut:        return "4"
+        case .preview:    return "5"
+        case .machine:    return "6"
+        }
+    }
+
     
     /// Whether this stage is available for the given tier.
     /// The Model stage requires Studio3D tier; Core/Studio show it as locked.

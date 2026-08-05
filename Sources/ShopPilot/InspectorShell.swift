@@ -10,17 +10,16 @@ struct InspectorShell: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Text("PROPERTIES")
-                .font(.caption2)
-                .fontWeight(.semibold)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
+            SidebarHeader(title: currentStage.title) {
+                Image(systemName: currentStage.icon)
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+            }
 
             Divider()
 
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 16) {
+                LazyVStack(alignment: .leading, spacing: SP.Space.l) {
                     documentSummary
                     selectionInfo
 
@@ -40,17 +39,16 @@ struct InspectorShell: View {
                     }
                 }
             }
+            .padding(.top, SP.Space.m)
         }
     }
 
     // MARK: - Live document summary
 
     private var documentSummary: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("DOCUMENT")
-                .font(.caption2)
-                .fontWeight(.semibold)
-                .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: SP.Space.xs) {
+            SectionLabel("Document")
+                .padding(.horizontal, SP.Space.m)
 
             PropertyRow(label: "Job", value: session.job.name.isEmpty ? "Untitled" : session.job.name)
             PropertyRow(label: "Sheets", value: "\(session.sheetCount)")
@@ -125,10 +123,7 @@ struct InspectorShell: View {
 
     private var setupInspector: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("STOCK DIMENSIONS")
-                .font(.caption2)
-                .fontWeight(.semibold)
-                .foregroundStyle(.secondary)
+            SectionLabel("Stock dimensions")
 
             if let sheet = session.job.sheets.first {
                 HStack(spacing: 8) {
@@ -139,10 +134,7 @@ struct InspectorShell: View {
             }
 
             if !session.docVars.variables.isEmpty {
-                Text("DOCUMENT VARIABLES")
-                    .font(.caption2)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.secondary)
+                SectionLabel("Document variables")
                     .padding(.top, 4)
 
                 ForEach(session.docVars.variables.prefix(6)) { variable in
@@ -172,10 +164,7 @@ struct InspectorShell: View {
 
     private var designInspector: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("LAYERS")
-                .font(.caption2)
-                .fontWeight(.semibold)
-                .foregroundStyle(.secondary)
+            SectionLabel("Layers")
 
             if session.layers.isEmpty {
                 Text("No layers yet")
@@ -218,10 +207,7 @@ struct InspectorShell: View {
 
     private var modelInspector: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("3D MODEL")
-                .font(.caption2)
-                .fontWeight(.semibold)
-                .foregroundStyle(.secondary)
+            SectionLabel("3D model")
 
             Text("Requires Studio3D tier.")
                 .font(.caption)
@@ -234,10 +220,7 @@ struct InspectorShell: View {
 
     private var cutInspector: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("TOOLPATHS")
-                .font(.caption2)
-                .fontWeight(.semibold)
-                .foregroundStyle(.secondary)
+            SectionLabel("Toolpaths")
 
             if session.toolpaths.isEmpty {
                 Text("No toolpaths yet")
@@ -295,17 +278,20 @@ private struct PropertyRow: View {
     let value: String
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: SP.Space.s) {
             Text(label)
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                .frame(width: 72, alignment: .leading)
+
+            Spacer(minLength: SP.Space.s)
 
             Text(value)
-                .font(.caption)
+                .font(.caption.monospacedDigit())
                 .lineLimit(1)
+                .truncationMode(.middle)
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, SP.Space.m)
+        .frame(height: 20)
     }
 }
 

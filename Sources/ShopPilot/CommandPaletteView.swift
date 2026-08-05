@@ -46,10 +46,13 @@ struct CommandPaletteView: View {
             // Footer with selection info
             footer
         }
-        .frame(width: 520, height: 400)
-        .background(Color(NSColor.windowBackgroundColor))
-        .cornerRadius(12)
-        .shadow(color: .black.opacity(0.3), radius: 20, y: 10)
+        .frame(width: 560, height: 420)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: SP.Radius.overlay, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: SP.Radius.overlay, style: .continuous)
+                .strokeBorder(.separator.opacity(0.7), lineWidth: 0.5)
+        )
+        .shadow(color: .black.opacity(0.28), radius: 28, y: 12)
         .onAppear {
             isFocused = true
             selectedIndex = min(selectedIndex, flatFiltered.count - 1)
@@ -62,12 +65,14 @@ struct CommandPaletteView: View {
     // MARK: - Subviews
     
     private var searchField: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: SP.Space.s) {
             Image(systemName: "magnifyingglass")
+                .font(.system(size: 15, weight: .light))
                 .foregroundStyle(.secondary)
             
             TextField("Search commands…", text: $searchText)
                 .textFieldStyle(.plain)
+                .font(.system(size: 16))
                 .focused($isFocused)
             
             if !searchText.isEmpty {
@@ -97,10 +102,7 @@ struct CommandPaletteView: View {
                     ) { group in
                         VStack(alignment: .leading, spacing: 2) {
                             // Category header
-                            Text(group.category.rawValue.uppercased())
-                                .font(.caption2)
-                                .fontWeight(.semibold)
-                                .foregroundStyle(.secondary)
+                            SectionLabel(group.category.rawValue)
                                 .padding(.horizontal, 16)
                                 .padding(.top, 8)
                                 .padding(.bottom, 4)
@@ -135,16 +137,18 @@ struct CommandPaletteView: View {
                 // Keyboard shortcut hint
                 if let shortcut = cmd.keyboardShortcut {
                     Text(shortcut.uppercased())
-                        .font(.system(size: 11, design: .monospaced))
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(Color(NSColor.separatorColor))
-                        .cornerRadius(4)
+                        .background(
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .fill(.quaternary.opacity(0.6))
+                        )
                 }
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+            .frame(height: 30)
         }
         .buttonStyle(CommandRowStyle(isHighlighted: isHighlighted))
     }
@@ -206,9 +210,15 @@ struct CommandRowStyle: ButtonStyle {
     
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .background(isHighlighted ? Color.blue.opacity(0.15) : Color.clear)
-            .cornerRadius(6)
-            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
+            .background {
+                if isHighlighted {
+                    RoundedRectangle(cornerRadius: SP.Radius.control, style: .continuous)
+                        .fill(Color.accentColor.opacity(0.18))
+                        .padding(.horizontal, SP.Space.s)
+                }
+            }
+            .contentShape(Rectangle())
+            .opacity(configuration.isPressed ? 0.7 : 1.0)
     }
 }
 

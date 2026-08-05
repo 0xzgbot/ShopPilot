@@ -11,7 +11,10 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
 APP_NAME="ShopPilot"
-VERSION="$(git describe --tags --always 2>/dev/null || echo "0.0.0-dev")"
+# Explicit version override: VERSION=0.02 ./scripts/package_app.sh
+VERSION="${VERSION:-$(git describe --tags --always 2>/dev/null || echo "0.0.0-dev")}"
+# Explicit zip name override: ZIP_NAME=ShopPilot-0.02-macOS.zip ./scripts/package_app.sh
+ZIP_NAME="${ZIP_NAME:-$APP_NAME-macOS.zip}"
 BUNDLE_ID="com.shoppilot.app"
 DIST_DIR="$REPO_ROOT/dist"
 APP_DIR="$DIST_DIR/$APP_NAME.app"
@@ -79,12 +82,12 @@ codesign --force --deep --sign - "$APP_DIR"
 # 6. Zip.
 echo "-- zipping --"
 cd "$DIST_DIR"
-rm -f "$APP_NAME-macOS.zip"
-ditto -c -k --sequesterRsrc --keepParent "$APP_NAME.app" "$APP_NAME-macOS.zip"
+rm -f "$ZIP_NAME"
+ditto -c -k --sequesterRsrc --keepParent "$APP_NAME.app" "$ZIP_NAME"
 
 echo ""
 echo "=== DONE ==="
-echo "  $DIST_DIR/$APP_NAME-macOS.zip"
+echo "  $DIST_DIR/$ZIP_NAME"
 echo "  Universal (arm64 + x86_64), ad-hoc signed."
 echo ""
 echo "On first open from another Mac: right-click → Open (Gatekeeper), or:"

@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// Horizontal stage rail with 6 selectable stages.
-/// Renders as a toolbar-style button row; tapping a stage selects it and
-/// triggers the onSelection closure so the parent can switch content.
+/// The signature navigation object: a single segmented control carrying the
+/// six stages of a job. The selection is one continuous shape that travels
+/// between segments rather than six independently highlighted buttons, so a
+/// stage change reads as movement along the job, not as a button press.
 struct StageRailView: View {
     /// The currently selected stage (binding for two-way sync).
     @Binding var selectedStage: Stage
@@ -10,58 +11,88 @@ struct StageRailView: View {
     /// Called when the user taps a different stage.
     let onStageChange: (Stage) -> Void
 
+    @Namespace private var selectionNamespace
+    @State private var hoveredStage: Stage?
+
     // MARK: - Body
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 2) {
             ForEach(Stage.allCases) { stage in
-                StageButton(stage: stage, isSelected: selectedStage == stage) {
-                    selectedStage = stage
+                StageSegment(
+                    stage: stage,
+                    isSelected: selectedStage == stage,
+                    isHovered: hoveredStage == stage,
+                    namespace: selectionNamespace
+                ) {
+                    guard selectedStage != stage else { return }
+                    withAnimation(SP.Motion.stage) {
+                        selectedStage = stage
+                    }
                     onStageChange(stage)
                 }
-
-                // Divider between buttons (not after the last one).
-                if stage != Stage.allCases.last {
-                    Divider()
-                        .frame(height: 32)
-                        .padding(.vertical, 4)
+                .onHover { hovering in
+                    hoveredStage = hovering ? stage : (hoveredStage == stage ? nil : hoveredStage)
                 }
             }
         }
+        .padding(3)
         .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color(NSColor.controlBackgroundColor))
-                .shadow(color: .black.opacity(0.1), radius: 2, y: 1)
+            RoundedRectangle(cornerRadius: SP.Radius.panel + 3, style: .continuous)
+                .fill(.quaternary.opacity(0.5))
         )
-        .padding(.horizontal, 4)
+        .overlay(
+            RoundedRectangle(cornerRadius: SP.Radius.panel + 3, style: .continuous)
+                .strokeBorder(.separator.opacity(0.6), lineWidth: 0.5)
+        )
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Job stages")
     }
 }
 
-// MARK: - Stage Button (internal helper)
+// MARK: - Segment
 
-private struct StageButton: View {
+private struct StageSegment: View {
     let stage: Stage
     let isSelected: Bool
+    let isHovered: Bool
+    let namespace: Namespace.ID
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 4) {
+            HStack(spacing: 6) {
                 Image(systemName: stage.icon)
-                    .font(.system(size: 16, weight: isSelected ? .semibold : .regular))
+                    .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
+                    .frame(width: 15)
+
                 Text(stage.title)
-                    .font(.system(size: 11, weight: isSelected ? .medium : .regular))
+                    .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
             }
-            .foregroundStyle(isSelected ? Color.accentColor : .secondary)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
+            .foregroundStyle(isSelected ? Color.accentColor : (isHovered ? Color.primary : Color.secondary))
+            .padding(.horizontal, SP.Space.m)
+            .frame(height: 26)
+            .contentShape(RoundedRectangle(cornerRadius: SP.Radius.control, style: .continuous))
+            .background {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: SP.Radius.control, style: .continuous)
+                        .fill(Color.accentColor.opacity(0.16))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: SP.Radius.control, style: .continuous)
+                                .strokeBorder(Color.accentColor.opacity(0.35), lineWidth: 0.5)
+                        )
+                        .matchedGeometryEffect(id: "stageSelection", in: namespace)
+                } else if isHovered {
+                    RoundedRectangle(cornerRadius: SP.Radius.control, style: .continuous)
+                        .fill(.primary.opacity(0.06))
+                }
+            }
         }
-        .buttonStyle(PlainButtonStyle())
-        .background(
-            RoundedRectangle(cornerRadius: 6)
-                .fill(isSelected ? Color.accentColor.opacity(0.12) : Color.clear)
-        )
-        .contentShape(Rectangle())
+        .buttonStyle(.plain)
+        .help("\(stage.title) — \(stage.intent) (⌘\(String(stage.shortcutCharacter)))")
+        .accessibilityLabel(stage.title)
+        .accessibilityHint(stage.intent)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 }
 
@@ -73,19 +104,11 @@ struct StageContentView: View {
     let stage: Stage
 
     var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: stage.icon)
-                .font(.system(size: 48))
-                .foregroundStyle(Color.accentColor)
-
-            Text(stage.title)
-                .font(.title2)
-                .fontWeight(.bold)
-
-            Text("\(stage.title) stage — coming soon")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
+        EmptyStage(
+            symbol: stage.icon,
+            title: stage.title,
+            message: stage.intent
+        )
     }
 }
 

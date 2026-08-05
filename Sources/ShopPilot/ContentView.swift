@@ -11,13 +11,18 @@ struct ContentView: View {
     var body: some View {
         ZStack {
             VStack(spacing: 0) {
-                StageRailView(selectedStage: $session.selectedStage) { _ in }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 6)
+                TopChromeBar(session: session, link: session.machineChrome)
+
+                Divider()
+
+                MachineAlarmBanner(link: session.machineChrome) {
+                    session.selectedStage = .machine
+                }
 
                 HSplitView {
                     LeftPanelView(session: session)
-                    .frame(minWidth: 180, idealWidth: 220, maxWidth: 280)
+                        .frame(minWidth: 180, idealWidth: 220, maxWidth: 280)
+                        .spSidebar(edge: .trailing)
 
                     VStack(spacing: 0) {
                         stageBody
@@ -31,27 +36,33 @@ struct ContentView: View {
                                 followSourceMode: session.linkManager.followSourceMode,
                                 activeFollowLinkCount: session.linkManager.activeFollowLinkCount
                             )
-                            .padding(8)
                         }
-
-                        statusBar
                     }
+                    .frame(minWidth: 420)
 
                     InspectorShell(session: session, currentStage: $session.selectedStage)
                         .frame(minWidth: 220, idealWidth: 260, maxWidth: 320)
+                        .spSidebar(edge: .leading)
                 }
+
+                Divider()
+
+                statusBar
             }
 
             if session.showCommandPalette {
-                Color.black.opacity(0.25)
+                Color.black.opacity(0.28)
                     .ignoresSafeArea()
                     .onTapGesture { session.showCommandPalette = false }
+                    .transition(.opacity)
                 CommandPaletteView(
                     isOpen: $session.showCommandPalette,
                     onCommandSelected: { session.handleCommand($0) }
                 )
+                .transition(.scale(scale: 0.97).combined(with: .opacity))
             }
         }
+        .animation(SP.Motion.state, value: session.showCommandPalette)
         .sheet(isPresented: $session.showPreferences) {
             PreferencesView()
                 .frame(width: 440, height: 320)
@@ -79,24 +90,146 @@ struct ContentView: View {
         case .machine:
             // SPK-1104b: hand off the FULL toolpath tree (all ops, tree
             // order), not the last single-op gcodeLines overwrite.
-            MachineConnectionView(pendingGCode: session.allToolpathGCode)
+            MachineConnectionView(
+                pendingGCode: session.allToolpathGCode,
+                chrome: session.machineChrome
+            )
         }
     }
 
     private var statusBar: some View {
-        HStack {
+        HStack(spacing: SP.Space.s) {
             Text(session.statusMessage)
                 .font(.caption)
                 .lineLimit(1)
-            Spacer()
+
+            Spacer(minLength: SP.Space.m)
+
+            if session.isDirty {
+                Label("Edited", systemImage: "circle.fill")
+                    .labelStyle(DotLabelStyle())
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
             Text(session.lastToolpathSummary)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .background(Color(NSColor.windowBackgroundColor))
+        .padding(.horizontal, SP.Space.m)
+        .frame(height: 24)
+        .background(.bar)
+    }
+}
+
+// MARK: - Top chrome
+
+/// Document identity on the left, the stage rail dead centre, machine state on
+/// the right. Both flanks reserve the same width so the rail stays optically
+/// centred as the job name and machine state change.
+private struct TopChromeBar: View {
+    @ObservedObject var session: AppSession
+    @ObservedObject var link: MachineChromeLink
+
+    private let flankWidth: CGFloat = 210
+
+    var body: some View {
+        HStack(spacing: SP.Space.m) {
+            documentIdentity
+                .frame(width: flankWidth, alignment: .leading)
+
+            Spacer(minLength: SP.Space.s)
+
+            StageRailView(selectedStage: $session.selectedStage) { _ in }
+
+            Spacer(minLength: SP.Space.s)
+
+            machineChrome
+                .frame(width: flankWidth, alignment: .trailing)
+        }
+        .padding(.horizontal, SP.Space.m)
+        .frame(height: 46)
+        .background(.bar)
+    }
+
+    private var documentIdentity: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(session.job.name.isEmpty ? "Untitled Job" : session.job.name)
+                .font(.system(size: 13, weight: .semibold))
+                .lineLimit(1)
+                .truncationMode(.middle)
+
+            Text(session.selectedStage.intent)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+    }
+
+    private var machineChrome: some View {
+        HStack(spacing: SP.Space.s) {
+            // Safety Req #1: while the machine is live, Hold and Reset stay in
+            // the window chrome even when the Machine stage is not on screen.
+            if link.state.isLive && session.selectedStage != .machine {
+                CompactSafetyControls(link: link)
+            }
+
+            MachineStatePill(state: link.state) {
+                withAnimation(SP.Motion.stage) { session.selectedStage = .machine }
+            }
+        }
+        .animation(SP.Motion.state, value: link.state)
+    }
+}
+
+// MARK: - Alarm banner
+
+/// Loud but calm: full-width, red, one plain-English line, one way out.
+private struct MachineAlarmBanner: View {
+    @ObservedObject var link: MachineChromeLink
+    let openMachine: () -> Void
+
+    var body: some View {
+        Group {
+            if case .alarm(let message) = link.state {
+                HStack(spacing: SP.Space.s) {
+                    Image(systemName: "exclamationmark.octagon.fill")
+                        .foregroundStyle(.white)
+
+                    Text(message.isEmpty ? "The machine reported an alarm — motion stopped." : message)
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(.white)
+                        .lineLimit(2)
+
+                    Spacer(minLength: SP.Space.m)
+
+                    Button("Open Machine", action: openMachine)
+                        .buttonStyle(.bordered)
+                        .tint(.white)
+                }
+                .padding(.horizontal, SP.Space.m)
+                .frame(height: 34)
+                .frame(maxWidth: .infinity)
+                .background(SP.Tint.safety)
+                .transition(.move(edge: .top).combined(with: .opacity))
+                .accessibilityLabel("Machine alarm. \(message)")
+            }
+        }
+        .animation(SP.Motion.alarm, value: link.state)
+    }
+}
+
+/// Renders a label as its symbol followed by text at dot scale — used for the
+/// unsaved-changes marker so it reads as punctuation, not a warning.
+private struct DotLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: SP.Space.xs) {
+            configuration.icon
+                .font(.system(size: 5))
+                .foregroundStyle(SP.Tint.hold)
+            configuration.title
+        }
     }
 }
 
@@ -134,15 +267,24 @@ private struct DesignStageView: View {
             Divider()
             HSplitView {
                 DesignCanvasView(session: session)
+                    .overlay {
+                        // Empty canvas: one calm sentence and one way in,
+                        // rather than a permanent import rail.
+                        if session.vectors.isEmpty {
+                            EmptyStage(
+                                symbol: Stage.design.icon,
+                                title: "Nothing drawn yet",
+                                message: "Bring in an SVG or DXF, or draw straight onto the sheet with the tools above.",
+                                actionTitle: "Import Artwork…",
+                                action: { showImportHub = true }
+                            )
+                            .background(.background.opacity(0.85))
+                        }
+                    }
+
                 if session.preflightPanelVisible {
                     PreflightDoctorView(session: session)
                         .frame(minWidth: 280, idealWidth: 320)
-                } else if session.vectors.isEmpty {
-                    // Empty canvas: surface Import once so first-time flow is obvious.
-                    ImportHubView { shapes in
-                        session.addShapes(shapes)
-                    }
-                    .frame(minWidth: 280, idealWidth: 320)
                 }
             }
         }
@@ -258,7 +400,7 @@ private struct CutStageView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Cut")
-                    .font(.title2.bold())
+                    .font(SP.Typography.stageTitle)
                 Spacer()
                 Text("Vectors: \(session.vectors.count) · Ops: \(session.toolpaths.count) · G-code lines: \(session.gcodeLines.count)")
                     .font(.caption)

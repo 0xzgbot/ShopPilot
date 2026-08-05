@@ -309,6 +309,10 @@ public struct MachineConnectionView: View {
 
     /// Optional G-code lines from the Cut/Preview stages (session golden path).
     private let pendingGCode: [String]
+
+    /// Window-chrome bridge: state out, Hold/Reset back in. Optional so the
+    /// view stays usable standalone (previews, verifiers).
+    private let chrome: MachineChromeLink?
     
     /// MachineSession facade for hold/resume/reset and buffer loading.
     @State private var machineSession = MachineSession()
@@ -353,64 +357,171 @@ public struct MachineConnectionView: View {
         }
     }
     
-    public init(pendingGCode: [String] = []) {
+    public init(pendingGCode: [String] = [], chrome: MachineChromeLink? = nil) {
         self.pendingGCode = pendingGCode
+        self.chrome = chrome
     }
     
     public var body: some View {
         VStack(spacing: 0) {
-            // Status bar
-            statusBar
-            
-            // Console
-            consoleView
-            
-            // Command input
-            commandInputView
-            
+            // Machine state + connect/disconnect — the first thing read.
+            machineHeader
+
+            // Safety chrome sits directly under the state, above everything
+            // else on the stage (Safety Req #1: never buried).
+            safetyChrome
+
+            Divider()
+
             // Stream progress (visible when streaming)
             streamProgress
-            
-            // Connection controls
-            connectionControls
-            
-            // Safety chrome (always visible when connected)
-            safetyChrome
-            
+
+            // Pre-flight checklist / armed Run CTA
+            preflightChecklist
+
             // Jog + Home + Work Zero controls
             jogControls
-            
-            // Pre-flight checklist (shown when connected, before streaming)
-            preflightChecklist
+
+            Divider()
+
+            // Console
+            consoleView
+
+            // Command input
+            commandInputView
         }
         .task { loadPendingGCode() }
+        .onAppear { registerChromeHandlers() }
+        .onDisappear { chrome?.state = .offline }
+        .onChange(of: connectionManager.connectionState) { _ in publishChromeState() }
+        .onChange(of: streamer.state) { _ in publishChromeState() }
+        .onChange(of: streamer.progress) { _ in publishChromeState() }
         // NOTE: No auto-connect on appear. Safety Req #9: never auto-connect
         // or auto-run on application launch. User must explicitly press Connect.
     }
-    
-    // MARK: - Status Bar
-    
-    private var statusBar: some View {
-        HStack {
-            Circle()
-                .fill(connectionManager.connectionState.color)
-                .frame(width: 8, height: 8)
-            
-            Text(connectionManager.connectionState.displayName)
-                .font(.caption)
-                .foregroundColor(.primary)
-            
-            Spacer()
-            
-            if !connectionManager.currentStatus.isEmpty {
-                Text(connectionManager.currentStatus.prefix(50))
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-                    .lineLimit(1)
+
+    // MARK: - Window chrome bridge
+
+    /// Hand the window chrome its Hold/Reset actions so the safety controls
+    /// keep working from anywhere in the app.
+    private func registerChromeHandlers() {
+        chrome?.onHold = holdMachine
+        chrome?.onResume = resumeMachine
+        chrome?.onReset = resetMachine
+        publishChromeState()
+    }
+
+    /// Mirror connection + streamer state into the glanceable chrome state.
+    private func publishChromeState() {
+        guard let chrome else { return }
+        switch connectionManager.connectionState {
+        case .disconnected:
+            chrome.state = .offline
+        case .connecting:
+            chrome.state = .connecting
+        case .error(let message):
+            chrome.state = .alarm(message)
+        case .connected:
+            switch streamer.state {
+            case .streaming:
+                chrome.state = .running(progress: streamer.progress)
+            case .paused:
+                chrome.state = .hold
+            default:
+                chrome.state = .idle
             }
         }
-        .padding(8)
-        .background(Color(NSColor.controlBackgroundColor))
+    }
+
+    // MARK: - Machine Header
+
+    /// Connection state, transport choice and connect/disconnect in one row.
+    /// The state text is the largest thing on the stage after the safety
+    /// buttons, so machine condition is readable across a shop.
+    private var machineHeader: some View {
+        HStack(spacing: SP.Space.m) {
+            HStack(spacing: SP.Space.s) {
+                Image(systemName: chromeState.symbol)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(chromeState.tint)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(chromeState.label)
+                        .font(.system(size: 15, weight: .semibold))
+
+                    Text(machineDetailLine)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Machine state: \(chromeState.label). \(machineDetailLine)")
+
+            Spacer(minLength: SP.Space.m)
+
+            Picker("Transport", selection: $selectedTransportType) {
+                ForEach(MachineTransportType.allCases) { type in
+                    Text(type.displayName).tag(type)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .frame(width: 180)
+            .disabled(connectionManager.connectionState.isConnected || connectionManager.connectionState == .connecting)
+
+            if connectionManager.connectionState.isDisconnected {
+                Button {
+                    Task { await connectToMachine() }
+                } label: {
+                    Label("Connect", systemImage: "cable.connector")
+                }
+                .buttonStyle(.borderedProminent)
+                .help("Open the port — no motion happens until you press Run")
+            } else {
+                Button {
+                    Task { await disconnectFromMachine() }
+                } label: {
+                    Label("Disconnect", systemImage: "cable.connector.slash")
+                }
+                .buttonStyle(.bordered)
+                .help("Close the port and stop talking to the machine")
+            }
+        }
+        .padding(.horizontal, SP.Space.m)
+        .frame(height: 52)
+        .background(.bar)
+    }
+
+    /// Local mirror of the chrome state so the header can render it even when
+    /// no `MachineChromeLink` was supplied.
+    private var chromeState: MachineChromeState {
+        switch connectionManager.connectionState {
+        case .disconnected: return .offline
+        case .connecting: return .connecting
+        case .error(let message): return .alarm(message)
+        case .connected:
+            switch streamer.state {
+            case .streaming: return .running(progress: streamer.progress)
+            case .paused: return .hold
+            default: return .idle
+            }
+        }
+    }
+
+    /// Second line under the state: the machine's own last report, or what is
+    /// loaded and waiting.
+    private var machineDetailLine: String {
+        if let detail = chromeState.detail, !detail.isEmpty {
+            return detail
+        }
+        if !connectionManager.currentStatus.isEmpty {
+            return String(connectionManager.currentStatus.prefix(60))
+        }
+        if machineSession.gcodeBuffer.isEmpty {
+            return "No job loaded"
+        }
+        return "\(machineSession.gcodeBuffer.count) lines ready"
     }
     
     // MARK: - Console View
@@ -418,23 +529,32 @@ public struct MachineConnectionView: View {
     /// Console with optional raw TX/RX toggle (Safety Req #6).
     private var consoleView: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Raw TX/RX toggle bar (Safety Req #6)
-            if showRawTXRX {
-                HStack {
-                    Text("Raw TX/RX mode — shows all raw serial data")
-                        .font(.caption2)
-                        .foregroundColor(.orange)
-                    Spacer()
-                    Button(action: { withAnimation { showRawTXRX = false } }) {
-                        Text("Hide")
-                            .font(.caption2)
-                    }
-                    .buttonStyle(.bordered)
+            // Console header — raw TX/RX and clear live here so the toggle sits
+            // with the log it changes (Safety Req #6).
+            HStack(spacing: SP.Space.s) {
+                SectionLabel(showRawTXRX ? "Console — raw TX/RX" : "Console")
+
+                Spacer()
+
+                Toggle("Raw TX/RX", isOn: $showRawTXRX)
+                    .toggleStyle(.button)
+                    .controlSize(.small)
+                    .font(.caption)
+                    .help("Show every byte sent and received, for diagnosis")
+
+                Button {
+                    clearConsole()
+                } label: {
+                    Image(systemName: "trash")
                 }
-                .padding(4)
-                .background(Color.orange.opacity(0.1))
+                .buttonStyle(.borderless)
+                .controlSize(.small)
+                .help("Clear console")
+                .accessibilityLabel("Clear console")
             }
-            
+            .padding(.horizontal, SP.Space.m)
+            .frame(height: 26)
+
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 2) {
@@ -495,72 +615,34 @@ public struct MachineConnectionView: View {
         .padding(8)
     }
     
-    // MARK: - Connection Controls
-    
-    private var connectionControls: some View {
-        HStack(spacing: 16) {
-            Picker("Transport", selection: $selectedTransportType) {
-                ForEach(MachineTransportType.allCases) { type in
-                    Text(type.displayName).tag(type)
-                }
-            }
-            .pickerStyle(.segmented)
-            .disabled(connectionManager.connectionState.isConnected || connectionManager.connectionState == .connecting)
-            
-            if connectionManager.connectionState.isDisconnected {
-                Button("Connect") {
-                    Task { await connectToMachine() }
-                }
-                .buttonStyle(.borderedProminent)
-            } else {
-                Button("Disconnect") {
-                    Task { await disconnectFromMachine() }
-                }
-                .tint(.red)
-            }
-            
-            Spacer()
-            
-            // Raw TX/RX toggle (Safety Req #6)
-            Button(action: { withAnimation { showRawTXRX.toggle() } }) {
-                Text(showRawTXRX ? "Hide TX/RX" : "Show TX/RX")
-                    .font(.caption2)
-            }
-            .buttonStyle(.bordered)
-            .help("Toggle raw TX/RX console mode for diagnosis")
-            
-            Button(action: clearConsole) {
-                Image(systemName: "trash")
-            }
-            .help("Clear console")
-        }
-        .padding(8)
-    }
-    
     // MARK: - Stream Progress
     
     /// Progress bar shown while streaming a G-code job.
     private var streamProgress: some View {
         Group {
             if isStreamingJob || streamer.state == .streaming || streamer.state == .paused {
-                VStack(spacing: 4) {
+                VStack(spacing: SP.Space.xs) {
                     HStack {
-                        Text(streamer.state == .paused ? "Paused" : "Streaming")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
+                        Text(streamer.state == .paused ? "Held — motion paused" : "Running")
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(streamer.state == .paused ? SP.Tint.hold : .primary)
                         
                         Spacer()
                         
                         Text("\(streamer.currentLine)/\(streamer.totalLines)")
-                            .font(.caption2.monospacedDigit())
+                            .font(SP.Typography.dro)
+                            .foregroundStyle(.secondary)
                     }
                     
                     ProgressView(value: streamer.progress)
-                        .tint(streamer.state == .paused ? .orange : .blue)
+                        .tint(streamer.state == .paused ? SP.Tint.hold : .accentColor)
                 }
-                .padding(8)
+                .padding(.horizontal, SP.Space.m)
+                .padding(.vertical, SP.Space.s)
+                .transition(.opacity)
             }
         }
+        .animation(SP.Motion.state, value: streamer.state)
     }
     
     // MARK: - Pre-flight Checklist
@@ -569,62 +651,59 @@ public struct MachineConnectionView: View {
     private var preflightChecklist: some View {
         Group {
             if connectionManager.connectionState.isConnected && !preflightPassed {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Pre-Flight Checklist")
-                        .font(.caption.bold())
-                        .foregroundColor(.orange)
-                    
+                VStack(alignment: .leading, spacing: SP.Space.s) {
+                    SectionLabel("Before you run")
+
                     ForEach(Array(preflightItems), id: \.id) { item in
                         PreFlightRow(item: item, passed: preflightPassed)
                     }
-                    
-                    Button(action: markPreflightPassed) {
-                        HStack {
-                            Image(systemName: "checkmark.seal.fill")
-                            Text("I've Verified All Items — Ready to Run")
-                                .font(.caption.bold())
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.green)
-                }
-                .padding(8)
-                .background(Color.orange.opacity(0.1))
-            } else if preflightPassed {
-                VStack(spacing: 8) {
-                    // One-click Run CTA (armed state)
-                    Button(action: runJob) {
-                        HStack {
-                            Image(systemName: "play.fill")
-                                .font(.title2)
-                            Text("RUN")
-                                .font(.title3.bold())
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.green)
-                    .controlSize(.extraLarge)
-                    
-                    HStack {
-                        Text("Pre-flight passed")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                        
-                        Spacer()
-                        
-                        Button(action: resetPreflight) {
-                            Text("Reset Checklist")
-                                .font(.caption2)
+
+                    // Run stays unavailable — and looks it — until the operator
+                    // confirms the checklist.
+                    HStack(spacing: SP.Space.s) {
+                        Button(action: markPreflightPassed) {
+                            Label("I've checked all of these", systemImage: "checkmark.seal")
                         }
                         .buttonStyle(.bordered)
+                        .controlSize(.large)
+                        .accessibilityLabel("Confirm pre-flight checklist")
+
+                        Button {
+                            runJob()
+                        } label: {
+                            Label("Run", systemImage: "play.fill")
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.large)
+                        .disabled(true)
+                        .help("Confirm the checklist first")
+                        .accessibilityLabel("Run. Unavailable until the pre-flight checklist is confirmed")
                     }
                 }
-                .padding(8)
-                .background(Color.green.opacity(0.1))
+                .padding(.horizontal, SP.Space.m)
+                .padding(.vertical, SP.Space.s)
+            } else if preflightPassed {
+                HStack(spacing: SP.Space.m) {
+                    Button(action: runJob) {
+                        Label("Run Job", systemImage: "play.fill")
+                            .font(.system(size: 15, weight: .semibold))
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(SP.Tint.running)
+                    .controlSize(.large)
+                    .accessibilityLabel("Run job. Start cutting")
+
+                    Button("Re-check", action: resetPreflight)
+                        .buttonStyle(.bordered)
+                        .controlSize(.large)
+                        .help("Clear the pre-flight confirmation")
+                }
+                .padding(.horizontal, SP.Space.m)
+                .padding(.vertical, SP.Space.s)
             }
         }
+        .animation(SP.Motion.state, value: preflightPassed)
     }
     
     // MARK: - Pre-flight Row Subview
@@ -635,20 +714,22 @@ public struct MachineConnectionView: View {
         let passed: Bool
         
         var body: some View {
-            HStack(spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: SP.Space.s) {
                 Image(systemName: passed ? "checkmark.circle.fill" : "circle")
-                    .foregroundColor(passed ? .green : .secondary)
-                    .font(.caption2)
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(item.title)
-                        .font(.caption2.bold())
-                    
-                    Text(item.description)
-                        .font(.system(size: 9))
-                        .foregroundColor(.secondary)
-                }
+                    .foregroundStyle(passed ? AnyShapeStyle(SP.Tint.running) : AnyShapeStyle(.tertiary))
+                    .font(.system(size: 11))
+
+                Text(item.title)
+                    .font(.caption.weight(.medium))
+                    .frame(width: 180, alignment: .leading)
+
+                Text(item.description)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("\(item.title). \(item.description)")
         }
     }
     
@@ -660,206 +741,219 @@ public struct MachineConnectionView: View {
     private var jogControls: some View {
         Group {
             if connectionManager.connectionState.isConnected || connectionManager.connectionState == .connecting {
-                VStack(spacing: 8) {
-                    // Jog step size selector
+                VStack(alignment: .leading, spacing: SP.Space.s) {
                     HStack {
-                        Text("Step:")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
+                        SectionLabel("Jog")
+                        Spacer()
                         Picker("", selection: $jogStepSize) {
                             ForEach(jogStepSizes, id: \.self) { size in
-                                Text("\(size) mm").tag(size)
+                                Text(stepLabel(size)).tag(size)
                             }
                         }
                         .pickerStyle(.segmented)
                         .labelsHidden()
+                        .frame(width: 230)
+                        .help("Distance each jog press moves the machine")
+                    }
+
+                    HStack(alignment: .top, spacing: SP.Space.l) {
+                        // X/Y pad — arrows sit where the axes point.
+                        Grid(horizontalSpacing: SP.Space.xs, verticalSpacing: SP.Space.xs) {
+                            GridRow {
+                                Color.clear.frame(width: 40, height: 34)
+                                JogButton(symbol: "arrow.up", voiceOver: "Jog Y plus", action: { jogAxis("Y", direction: 1) })
+                                Color.clear.frame(width: 40, height: 34)
+                            }
+                            GridRow {
+                                JogButton(symbol: "arrow.left", voiceOver: "Jog X minus", action: { jogAxis("X", direction: -1) })
+                                JogButton(symbol: "house.fill", tint: SP.Tint.hold, voiceOver: "Home all axes", action: softHomeAll)
+                                JogButton(symbol: "arrow.right", voiceOver: "Jog X plus", action: { jogAxis("X", direction: 1) })
+                            }
+                            GridRow {
+                                Color.clear.frame(width: 40, height: 34)
+                                JogButton(symbol: "arrow.down", voiceOver: "Jog Y minus", action: { jogAxis("Y", direction: -1) })
+                                Color.clear.frame(width: 40, height: 34)
+                            }
+                        }
+
+                        VStack(spacing: SP.Space.xs) {
+                            Text("Z")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                            JogButton(symbol: "arrow.up", voiceOver: "Jog Z up", action: { jogAxis("Z", direction: 1) })
+                            JogButton(symbol: "arrow.down", voiceOver: "Jog Z down", action: { jogAxis("Z", direction: -1) })
+                        }
+
+                        VStack(alignment: .leading, spacing: SP.Space.xs) {
+                            Text("Set work zero here")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                            HStack(spacing: SP.Space.xs) {
+                                Button("X", action: zeroXAxis)
+                                    .accessibilityLabel("Set work zero X")
+                                Button("Y", action: zeroYAxis)
+                                    .accessibilityLabel("Set work zero Y")
+                                Button("Z", action: zeroZAxis)
+                                    .accessibilityLabel("Set work zero Z")
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.large)
+                        }
+
+                        Spacer(minLength: 0)
                     }
                     
-                    // Jog pad (X/Y plane + Z up/down)
-                    HStack(spacing: 8) {
-                        // Left column: Y- / Y+
-                        VStack(spacing: 4) {
-                            Button(action: { jogAxis("Y", direction: 1) }) {
-                                Image(systemName: "arrow.up")
-                                    .font(.caption)
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .tint(.blue)
-                            .controlSize(.small)
-                            
-                            Button(action: { jogAxis("Y", direction: -1) }) {
-                                Image(systemName: "arrow.down")
-                                    .font(.caption)
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .tint(.blue)
-                            .controlSize(.small)
-                        }
-                        
-                        // Center column: X- / X+ with Home
-                        VStack(spacing: 4) {
-                            Button(action: { jogAxis("X", direction: -1) }) {
-                                Image(systemName: "arrow.left")
-                                    .font(.caption)
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .tint(.blue)
-                            .controlSize(.small)
-                            
-                            // Soft home button (G28)
-                            Button(action: softHomeAll) {
-                                Image(systemName: "house.fill")
-                                    .font(.caption)
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .tint(.orange)
-                            .controlSize(.small)
-                            
-                            Button(action: { jogAxis("X", direction: 1) }) {
-                                Image(systemName: "arrow.right")
-                                    .font(.caption)
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .tint(.blue)
-                            .controlSize(.small)
-                        }
-                        
-                        // Right column: Z- / Z+
-                        VStack(spacing: 4) {
-                            Button(action: { jogAxis("Z", direction: -1) }) {
-                                Image(systemName: "arrow.down")
-                                    .font(.caption)
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .tint(.purple)
-                            .controlSize(.small)
-                            
-                            Button(action: { jogAxis("Z", direction: 1) }) {
-                                Image(systemName: "arrow.up")
-                                    .font(.caption)
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .tint(.purple)
-                            .controlSize(.small)
-                        }
-                    }
-                    
-                    // Work zero buttons (G92 / G10)
-                    HStack(spacing: 8) {
-                        Button(action: zeroXAxis) {
-                            Text("Zero X")
-                                .font(.caption2)
-                        }
-                        .buttonStyle(.bordered)
-                        
-                        Button(action: zeroYAxis) {
-                            Text("Zero Y")
-                                .font(.caption2)
-                        }
-                        .buttonStyle(.bordered)
-                        
-                        Button(action: zeroZAxis) {
-                            Text("Zero Z")
-                                .font(.caption2)
-                        }
-                        .buttonStyle(.bordered)
-                    }
-                    
-                    // Stream job button (when connected, not already streaming)
-                    if connectionManager.connectionState.isConnected && !isStreamingJob {
-                        Button(action: { jobTask = Task { await streamJob() } }) {
-                            HStack {
-                                Image(systemName: "play.fill")
-                                Text(machineSession.gcodeBuffer.isEmpty ? "Stream Job from File" : "Run Job (\(machineSession.gcodeBuffer.count) lines)")
-                                    .font(.caption2)
-                            }
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.green)
-                    } else if isStreamingJob || streamer.state == .streaming {
+                    // Stream controls. Starting a job lives with the pre-flight
+                    // checklist above, so nothing here can begin motion.
+                    if isStreamingJob || streamer.state == .streaming {
                         Button(action: stopStreaming) {
-                            HStack {
-                                Image(systemName: "stop.fill")
-                                Text("Stop Stream")
-                                    .font(.caption2)
-                            }
+                            Label("Stop Stream", systemImage: "stop.fill")
                         }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.red)
+                        .buttonStyle(.bordered)
+                        .controlSize(.large)
+                        .tint(SP.Tint.safety)
+                        .help("Stop sending the job — the controller keeps its current state")
+                        .accessibilityLabel("Stop stream. Stop sending the job")
                     } else if streamer.state == .paused {
                         Button(action: resumeStreaming) {
-                            HStack {
-                                Image(systemName: "play.fill")
-                                Text("Resume Stream")
-                                    .font(.caption2)
-                            }
+                            Label("Resume Stream", systemImage: "play.fill")
                         }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.orange)
+                        .buttonStyle(.bordered)
+                        .controlSize(.large)
+                        .tint(SP.Tint.hold)
+                        .accessibilityLabel("Resume stream. Continue sending the job")
                     }
                 }
-                .padding(8)
+                .padding(.horizontal, SP.Space.m)
+                .padding(.vertical, SP.Space.s)
             }
+        }
+    }
+
+    /// Short label for a jog step, so "0.01 mm" doesn't render as "0.010000".
+    private func stepLabel(_ size: Double) -> String {
+        size >= 1 ? String(format: "%.0f mm", size) : String(format: "%g mm", size)
+    }
+
+    // MARK: - Jog Button
+
+    /// A single jog target. Large enough to hit with gloves on.
+    private struct JogButton: View {
+        let symbol: String
+        var tint: Color = .accentColor
+        let voiceOver: String
+        let action: () -> Void
+
+        var body: some View {
+            Button(action: action) {
+                Image(systemName: symbol)
+                    .font(.system(size: 13, weight: .semibold))
+                    .frame(width: 40, height: 34)
+            }
+            .buttonStyle(.bordered)
+            .tint(tint)
+            .accessibilityLabel(voiceOver)
         }
     }
     
     // MARK: - Safety Chrome
     
-    /// Always-visible safety controls (Hold/Resume/Reset) shown when connected, connecting, or in alarm.
+    /// Always-visible safety controls (Hold/Resume/Reset) shown when connected,
+    /// connecting, or in alarm. These are the largest hit targets on the stage
+    /// — sized for gloves and shop lighting, not for a mouse in an office.
     private var safetyChrome: some View {
         Group {
             if connectionManager.connectionState.isConnected
                 || connectionManager.connectionState == .connecting
                 || connectionManager.connectionState.isInAlarm
             {
-                HStack(spacing: 12) {
-                    // Hold button — pauses machine motion
-                    Button(action: holdMachine) {
-                        VStack(spacing: 4) {
-                            Image(systemName: "pause.circle.fill")
-                                .font(.title2)
-                            Text("Hold")
-                                .font(.caption2)
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.orange)
-                    .controlSize(.large)
+                HStack(spacing: SP.Space.s) {
+                    SafetyButton(
+                        title: "Hold",
+                        subtitle: "Pause motion",
+                        symbol: "pause.fill",
+                        tint: SP.Tint.hold,
+                        voiceOver: "Hold. Pause machine motion now",
+                        action: holdMachine
+                    )
                     .keyboardShortcut(KeyEquivalent("h"), modifiers: .command)
-                    
-                    // Resume button — resumes a held machine
-                    Button(action: resumeMachine) {
-                        VStack(spacing: 4) {
-                            Image(systemName: "play.circle.fill")
-                                .font(.title2)
-                            Text("Resume")
-                                .font(.caption2)
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.green)
-                    .controlSize(.large)
+
+                    SafetyButton(
+                        title: "Resume",
+                        subtitle: "Continue the cut",
+                        symbol: "play.fill",
+                        tint: SP.Tint.running,
+                        voiceOver: "Resume. Continue machine motion",
+                        action: resumeMachine
+                    )
                     .keyboardShortcut(KeyEquivalent("r"), modifiers: .command)
-                    
-                    // Reset button — clears alarms and resets state
-                    Button(action: resetMachine) {
-                        VStack(spacing: 4) {
-                            Image(systemName: "arrow.counterclockwise.circle.fill")
-                                .font(.title2)
-                            Text("Reset")
-                                .font(.caption2)
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.red)
-                    .controlSize(.large)
+
+                    SafetyButton(
+                        title: "Reset",
+                        subtitle: "Stop and clear",
+                        symbol: "arrow.counterclockwise",
+                        tint: SP.Tint.safety,
+                        voiceOver: "Reset. Stop the machine and clear the controller",
+                        action: resetMachine
+                    )
                     .keyboardShortcut(KeyEquivalent("x"), modifiers: .command)
                 }
-                .padding(8)
+                .padding(.horizontal, SP.Space.m)
+                .padding(.vertical, SP.Space.s)
+                .background(
+                    SP.Tint.safety.opacity(connectionManager.connectionState.isInAlarm ? 0.10 : 0.0)
+                )
+                .transition(.move(edge: .top).combined(with: .opacity))
+            } else {
+                // Not connected: state the software-only limit once, quietly.
+                HStack(spacing: SP.Space.s) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .foregroundStyle(.secondary)
+                    Text("Software Hold is not a substitute for your machine's hardware e-stop.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                .padding(.horizontal, SP.Space.m)
+                .padding(.vertical, SP.Space.s)
             }
+        }
+        .animation(SP.Motion.state, value: connectionManager.connectionState)
+    }
+
+    // MARK: - Safety Button
+
+    /// One shop-floor safety control: big target, verb first, plain-English
+    /// second line, VoiceOver label that says what it does to the machine.
+    private struct SafetyButton: View {
+        let title: String
+        let subtitle: String
+        let symbol: String
+        let tint: Color
+        let voiceOver: String
+        let action: () -> Void
+
+        var body: some View {
+            Button(action: action) {
+                HStack(spacing: SP.Space.s) {
+                    Image(systemName: symbol)
+                        .font(.system(size: 15, weight: .bold))
+
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(title)
+                            .font(.system(size: 15, weight: .semibold))
+                        Text(subtitle)
+                            .font(.caption2)
+                            .opacity(0.8)
+                    }
+                }
+                .frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(tint)
+            .controlSize(.large)
+            .help("\(title) — \(subtitle.lowercased())")
+            .accessibilityLabel(voiceOver)
         }
     }
     

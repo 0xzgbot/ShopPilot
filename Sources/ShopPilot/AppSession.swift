@@ -30,6 +30,11 @@ final class AppSession: ObservableObject {
     @Published var showSafetyDisclaimer = true
     @Published var safetyAccepted = false
 
+    /// Bridge that lets the window chrome show machine state and reach Hold /
+    /// Reset. The Machine stage still owns the transport and streamer — this
+    /// only carries state out and handler calls back in.
+    let machineChrome = MachineChromeLink()
+
     /// Toolpath operations tree — the session-owned toolpaths list.
     @Published var toolpathTree = ToolpathTreeManager()
 

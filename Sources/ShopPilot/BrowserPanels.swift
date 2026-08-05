@@ -29,22 +29,14 @@ struct LeftPanelView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            HStack {
-                Text("DOCUMENT")
-                    .font(.caption2)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                // Dirty indicator
+            SidebarHeader(title: "Document") {
                 if session.isDirty {
                     Image(systemName: "circle.fill")
-                        .font(.system(size: 6))
-                        .foregroundStyle(.orange)
+                        .font(.system(size: 5))
+                        .foregroundStyle(SP.Tint.hold)
+                        .help("Unsaved changes")
                 }
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
 
             Divider()
 
@@ -95,11 +87,8 @@ struct LeftPanelView: View {
     @ViewBuilder
     private func layerSection(_ sheet: Sheet) -> some View {
         // Section header with Add Layer button
-        HStack(spacing: 4) {
-            Text("LAYERS")
-                .font(.caption2)
-                .fontWeight(.semibold)
-                .foregroundStyle(.secondary)
+        HStack(spacing: SP.Space.xs) {
+            SectionLabel("Layers")
             Spacer()
             Button {
                 _ = session.addLayer(named: "Layer \(session.layerCount + 1)")
@@ -188,7 +177,7 @@ struct LeftPanelView: View {
         }
         .padding(.horizontal, CGFloat(12 + 16))
         .padding(.vertical, 3)
-        .background(selectedItemID == id ? Color.accentColor.opacity(0.15) : Color.clear)
+        .background { sidebarSelection(isSelected: selectedItemID == id) }
         .contentShape(Rectangle())
         .onTapGesture {
             selectedItemID = selectedItemID == id ? nil : id
@@ -200,6 +189,17 @@ struct LeftPanelView: View {
             Button("Delete Layer", role: .destructive) {
                 _ = session.removeLayer(id: layer.id)
             }
+        }
+    }
+
+    /// Inset rounded selection, the way Finder and the Xcode navigator draw it
+    /// — the highlight never touches the sidebar edges.
+    @ViewBuilder
+    private func sidebarSelection(isSelected: Bool) -> some View {
+        if isSelected {
+            RoundedRectangle(cornerRadius: SP.Radius.control, style: .continuous)
+                .fill(Color.accentColor.opacity(0.18))
+                .padding(.horizontal, 6)
         }
     }
 
@@ -239,7 +239,7 @@ struct LeftPanelView: View {
         }
         .padding(.horizontal, CGFloat(12 + indentLevel * 16))
         .padding(.vertical, 4)
-        .background(selectedItemID.wrappedValue == id ? Color.accentColor.opacity(0.15) : Color.clear)
+        .background { sidebarSelection(isSelected: selectedItemID.wrappedValue == id) }
         .onTapGesture {
             selectedItemID.wrappedValue = selectedItemID.wrappedValue == id ? nil : id
         }

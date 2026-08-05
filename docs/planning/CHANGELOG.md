@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [0.02] — 2026-08-05
+
+### Changed
+- Global UI shell overhaul: new shared design system (`DesignSystem.swift`) with spacing / radius / typography / motion / semantic-tint tokens used by every surface (top chrome, stage rail, browser, inspector, status bar, machine safety chrome)
+- New top chrome bar with machine status bridge; alarm banner now routes to the Machine stage
+- Browser, inspector, coach panel, and stage rail rebuilt on design tokens
+- Command palette gains scale + opacity transitions
+- Machine panel refactored around a `MachineChromeLink` state bridge with reusable jog / safety button components
+
+### Added
+- Versioned release packaging: `VERSION` and `ZIP_NAME` overrides in `scripts/package_app.sh`
+- Release artifacts: `ShopPilot-0.01-macOS.zip` (first upload, universal arm64 + x86_64) and `ShopPilot-0.02-macOS.zip` (this build)
+
+---
+
 ## [Unreleased]
 
 ### Added
