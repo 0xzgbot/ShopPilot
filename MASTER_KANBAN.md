@@ -930,13 +930,14 @@ A (parallel from day 0)
   - assignee: coder
   - max-runtime: 60m
   - worklog: 2026-08-05 — Hermes coder. **AC met.** `ShopPilotVerifySHAKEe` (21 checks, PASS): Booleans via the session's `BooleanOps` engine (union bbox 3600, subtract strips 1200, intersect 400); join/close/trim via `ShapeJoinEngine` (joinLines spans, closeAll line→forward+reverse / freehand passes through — documented engine contract, trim clips into box); transforms via `ShapeTransformer` (move, rotate 90° DEGREES w/h swap + re-derived bbox, scale 1.1×, flip H mirror); layers CRUD + `LayerVisibility` (hidden excluded from render, locked excluded from edit); **G4 undo matrix closed**: 9 families (union/subtract/join/close/trim/move/rotate/scale/flip) each walk op → snapshot → restore → identical + redo-contract (forward snapshot restores pre-op state) — the same (job, shapes, layerIDs) snapshot contract `AppSession.performUndoRestore` uses.
-- [ ] **SPK-SHAKEf** **QA** Cut strategies + dirty/recalc/export gates
+- [x] **SPK-SHAKEf** **QA** Cut strategies + dirty/recalc/export gates
   - AC: CLT matrix — each of Profile/Pocket/Drill/V-Carve(+clearance)/Rough3D/Finish3D (if unlocked) emits its marker, recalc regenerates dirty nodes only, export blocked while dirty, recalc clears the badge
   - Out of scope: new strategies
   - Verify: `./scripts/verify_locked.sh ShopPilotVerifySHAKEf`
   - worktree: master
   - assignee: coder
   - max-runtime: 60m
+  - worklog: 2026-08-05 — Hermes coder. **AC met.** `ShopPilotVerifySHAKEf` (14 checks, PASS): 6-strategy marker matrix on real engine output (O=PROFILE/POCKET/DRILL/V_CARVE/ROUGH_3D/FINISH_3D; V-Carve clearance block `O=VCARVE_CLEARANCE` precedes the V-bit marker; pocket F1500 reaches G-code); clean tree → export valid; ONE dirty node (Pocket) → export blocked → recalc regenerates exactly it (siblings' G-code byte-identical) → badge 0 → export unblocked; per-strategy badge-clear loop for Profile/Drill/V-Carve/Rough3D/Finish3D (dirty → recalc → clean + marker intact). Rough/Finish 3D engines exercised via flat 10×10 heightfield.
 - [ ] **SPK-SHAKEg** **QA** Preview + Machine sim + Hold/Resume/Reset
   - AC: CLT — preview wireframe non-blank; draft sim cancellable; machine sim connect → load (zero bytes, no auto-run) → preflight gate → Start → Hold/Resume → Reset → complete
   - Out of scope: live serial, real cuts
