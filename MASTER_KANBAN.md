@@ -914,13 +914,14 @@ A (parallel from day 0)
   - assignee: coder
   - max-runtime: 60m
   - worklog: 2026-08-05 — Hermes coder. Harness script written + chmod +x. Initial sweep stopped at 1106a (macOS bash 3.2 `mapfile` bug). Patched to while-read loop. Manual sweep completed: 78/78 targets, 78 PASS, 0 FAIL. One fix: ShopPilotVerify1104c CLT stale (expected 6 preflight items, engine now has 7 with datum-z0) — patched expectations + acknowledged items + re-ran PASS. import_torture fixture gate: 28/28 checks PASS. CLTS.md has 81 rows (header + 80 data rows).
-- [ ] **SPK-SHAKEd** **QA** Import/export round-trip matrix (SVG/DXF/STL/.shoppilot/G-code)
+- [x] **SPK-SHAKEd** **QA** Import/export round-trip matrix (SVG/DXF/STL/.shoppilot/G-code)
   - AC: thin CLT(s) prove import → persist → export round-trip per format family on fixtures (SVG→shapes→.shoppilot, DXF→shapes, STL→heightfield, .shoppilot payload save/open, G-code export lines); extend existing verifies where possible instead of parallel suites
   - Out of scope: new importers/exporters; proprietary formats
   - Verify: `./scripts/verify_locked.sh ShopPilotVerifySHAKEd`
   - worktree: master
   - assignee: coder
   - max-runtime: 60m
+  - worklog: 2026-08-05 — Hermes coder. **AC met.** New `ShopPilotVerifySHAKEd` CLT (7 checks, PASS): (1) SVG→shapes→.shoppilot: happy_compose.svg parses 4 shapes, saves a Job package, reloads with 4 vectors + design bbox intact; (2) DXF→shapes: happy_square.dxf → closed square (5 pts) + LINE + CIRCLE with exact geometry; (3) STL→heightfield: happy_box.stl → 12 triangles, 10×10 grid, top 10mm; (4) Calibration.shoppilot loads (50mm square + Profile toolpath, 113 lines, marker); (5) Sign.shoppilot loads (4 glyphs + border + V-Carve, 403 lines, marker); (6) GRBL post on loaded toolpath: wrapper (G21/G90/M2/% framing) + move parity (72/72 G1). Cross-validates the SPK-SHAKEb packages.
 - [ ] **SPK-SHAKEe** **QA** Design ops matrix (boolean/transform/layers/undo)
   - AC: CLT covering weld/subtract/intersect, join/close/trim, transforms (move/rotate/scale/flip), layers CRUD + visibility/lock, and undo/redo restoring each op (session snapshot path)
   - Out of scope: new design tools
