@@ -14,7 +14,7 @@
 | CLT sweep (78 ShopPilotVerify*) | **PASS** | 78/78 PASS, 0 FAIL, 0 WARN. One fix: 1104c CLT stale (6→7 preflight items). |
 | Import-torture fixtures | **PASS** | 28/28 checks PASS. |
 | G1-A Setup → Design → Cut → Preview → Machine | **PARTIAL** | Decorative Panel recipe produced 0 vectors; Machine ran built-in air-cut (11 lines), not recipe handoff. Post-stream state bug (SPK-UI607) found + fixed in-loop. |
-| G1-B Sign → V-Carve | **CLT PASS / UI owner glance** | `ShopPilotVerify0601` + `1106b` PASS. Cursor AX walk TCC-blocked; owner Signage click recommended before 0623. |
+| G1-B Sign → V-Carve | **PASS (native AX walk 2026-08-05, Hermes)** | Full Signage recipe walk driven via AX: Setup → Signage → Design (glyphs + border, no Import panel — UI605 fix confirmed on-screen) → Cut (V-Carve 1 (Recipe) node, "All toolpaths up to date") → Preview (path in-sheet) → Machine (Simulator, connect, load 403 lines **zero auto-run**, Hold/Resume/Reset visible, preflight ack → Run → stream 394/394 → **checklist returns, big RUN gone — UI607 re-verified**). One new a11y bug found + fixed in-loop (SPK-UI608). |
 | G1-C Dirty export gate | **PASS (CLT-proven)** | SPK-0603 CLT proves dirty blocks export + expert override. No in-app trigger (no dirty toolpaths). |
 | G1-D V-Carve open-vector block | **PASS (CLT-proven)** | SPK-0604 CLT proves open vectors block V-Carve. No in-app trigger (no open vectors). |
 | G1-E Stage density + safety chrome | **PASS** | 6 stage rail buttons ≤12 per stage; Hold/Resume/Reset visible when connected. |
@@ -130,7 +130,7 @@
 | G1-A-8 Machine: stream complete | **PASS** | — | 11/11 ok responses received; sim completed air-cut square |
 | G1-A-9 Machine: post-stream state | **PASS (fixed in-loop)** | — | **SPK-UI607** fixed + verified: preflight checklist visible again, big RUN gone, no "Streaming" stuck after 11-line air-cut |
 | G1-A overall | **PARTIAL** | — | Decorative Panel recipe produced 0 vectors — Design/Cut walked empty; Machine ran **built-in air-cut (11 lines)**, not a recipe-toolpath handoff. Full chain not proven end-to-end. |
-| G1-B Sign/V-Carve | **CLT PASS / UI owner glance** | — | `ShopPilotVerify0601` + `1106b` PASS. Cursor AX walk TCC-blocked; owner Signage click recommended before 0623. |
+| G1-B Sign/V-Carve | **PASS (AX walk 2026-08-05)** | Signage recipe E2E walked natively via AXPress (see Signage walk table below); CLTs 0601/1106b PASS as engine evidence |
 | G1-C Dirty export | **PASS (CLT)** | — | SPK-0603 CLT proves dirty blocks export + expert override |
 | G1-D V-Carve open-vector | **PASS (CLT)** | — | SPK-0604 CLT proves open vectors block V-Carve |
 | G1-E Stage density + safety | **PASS** | — | 6 stage rail buttons ≤12; Hold/Resume/Reset visible when connected |
@@ -147,6 +147,7 @@
 | **SPK-UI603** [x] | P2 | **FIXED 2026-08-05 (Cursor):** Profile create routes through `addToolpathNode` (default tool); summary distinguishes depth vs finish passes; layer-membership guard. |
 | **SPK-UI604** [x] | P2 | Tutorial rewritten to match app (Hermes 2026-08-05). |
 | **SPK-UI606** [x] | P2 | **FIXED 2026-08-05 (Cursor):** `Window("ShopPilot", id: "main")` + `NSQuitAlwaysKeepsWindows=false`. |
+| **SPK-UI608** [x] | P2 | **FIXED 2026-08-05 (Hermes, Signage walk):** Recipe cards `.onTapGesture`-only → not AX/keyboard accessible, Create Job stayed disabled. Added `.accessibilityElement(.combine)` + `.isButton` + `.accessibilityAction` on the card; AXPress-select verified. |
 
 ---
 
@@ -158,6 +159,35 @@
 4. **SPK-UI603** [x] — Profile create anomalies — fixed
 5. **SPK-UI604** [x] — Tutorial stale — fixed
 6. **SPK-UI606** [x] — Double window — fixed
+
+---
+
+## Signage UI walk — P0-B follow-up (2026-08-05, Hermes coder)
+
+**Run:** `.build/debug/ShopPilot` @ `f3eed0a` + SPK-UI608 fix, driven natively with AXPress (System Events) + window capture + vision asserts. Simulator only. Screenshots: `/tmp/shoppilot-signage-walk-20260805/shots/`.
+
+| Step | Result | Screenshot | Notes |
+| --- | --- | --- | --- |
+| S1 Setup initial | **PASS** | S1_setup_initial.png | Setup active; "Choose a Recipe" card copy = "Portrait Relief • Decorative Panel • Signage • Custom" (generated from `JobRecipe.defaultRecipes` — UI602 copy fix on-screen) |
+| S2 Recipe sheet | **PASS** | S2_recipe_sheet.png | Sheet shows all 4 recipes incl. **Custom**, search field, Cancel + Create Job (UI602 sheet fix on-screen) |
+| S3 Signage selected | **PASS** | S5_signage_selected.png | Signage card AXPress-selectable after SPK-UI608 a11y fix (blue border + tint); **before fix the cards were `.onTapGesture`-only — invisible to AX/keyboard, Create Job stayed disabled** |
+| S4 Job created | **PASS** | S7b_signage_created.png | Design active; "Signage Job" + "Sign Sheet"; layers Text(4)/Border(1); V-Carve 1 (Recipe) node; 5 vectors, 1 toolpath; glyphs visible |
+| S5 Design import panel | **PASS** | S7b_signage_created.png | **No "Import Design File" panel on canvas despite 5 vectors present** (UI605 fix on-screen; the 08-05 morning shot SHAKE_02_design_signage.png showed the panel over this exact job) |
+| S6 Cut stage | **PASS** | S8b_cut.png | V-Carve 1 (Recipe) node in tree; "All toolpaths up to date" (no dirty badge); G-code preview live; total ~4m 27s |
+| S7 Preview stage | **PASS** | S9b_preview.png | Wireframe path visible in-sheet (not blank); stats 403 lines · 1 op · 5 vectors; ~4m 27s (3m 51s cutting) |
+| S8 Machine: connect | **PASS** | S11_connected.png | Simulator selected (default); Connect → **Connected** (green); Hold/Resume/Reset visible; jog + Zero X/Y/Z present |
+| S9 Machine: load, no auto-run | **PASS** | S11_connected.png | Buffer loaded "403 G-code lines" on connect; **status Idle — zero motion until explicit RUN** |
+| S10 Preflight ack | **PASS** | S12_preflight_acked.png | "I've Verified All Items — Ready to Run" → **"Pre-flight passed"** + big green **RUN** armed |
+| S11 Machine: run | **PASS** | S13_running.png | RUN → **Streaming 29/394**, progress bar, console "ok" acks flowing |
+| S12 Machine: complete + post-stream | **PASS** | S14_complete.png | Stream finished; **preflight checklist returned (items unchecked + "I've Verified All Items" bar), big RUN gone, no stuck "Streaming"** — SPK-UI607 re-verified on the recipe-toolpath handoff (403-line V-Carve, not the 11-line air-cut) |
+| Spot-check G1-C dirty export | **CLT-proven, UI trigger blocked** | — | SPK-0603 CLT proves dirty blocks export + expert override. In-app trigger needs a canvas mouse op (select vector → nudge/delete); **CGEvent clicks are TCC-denied for this harness** (AXPress only). No new bug. |
+| Spot-check G1-D open-vector V-Carve | **CLT-proven, UI trigger blocked** | — | SPK-0604 CLT proves open vectors block V-Carve. Same harness limitation (needs canvas draw). No new bug. |
+
+### Bug found + fixed in-loop
+
+| Card | Priority | Description |
+| --- | --- | --- |
+| **SPK-UI608** [x] | P2 | **Recipe cards not accessible** — `RecipeCard` used `.onTapGesture` only (no accessibility element/action, no keyboard path), so AX/keyboard users could never select a recipe and "Create Job" stayed disabled. **FIXED 2026-08-05 (Hermes, in-loop):** `.accessibilityElement(children: .combine)` + `.accessibilityAddTraits(.isButton)` + label/hint + `.accessibilityAction { selectedRecipe = recipe }` on the card in `recipeGrid`. Verified by the S3 step above (AXPress selects the card; Create Job enabled). |
 
 ---
 

@@ -107,6 +107,15 @@ struct RecipePickerView: View {
                     .onTapGesture {
                         selectedRecipe = recipe
                     }
+                    // SPK-UI608: cards were .onTapGesture-only — invisible to AX/keyboard,
+                    // so AT users could never select a recipe (Create Job stayed disabled).
+                    .accessibilityElement(children: .combine)
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityLabel(recipe.name)
+                    .accessibilityHint(recipe.recommendedStrategy)
+                    .accessibilityAction {
+                        selectedRecipe = recipe
+                    }
             }
         }
     }
