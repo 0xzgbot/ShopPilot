@@ -922,13 +922,14 @@ A (parallel from day 0)
   - assignee: coder
   - max-runtime: 60m
   - worklog: 2026-08-05 — Hermes coder. **AC met.** New `ShopPilotVerifySHAKEd` CLT (7 checks, PASS): (1) SVG→shapes→.shoppilot: happy_compose.svg parses 4 shapes, saves a Job package, reloads with 4 vectors + design bbox intact; (2) DXF→shapes: happy_square.dxf → closed square (5 pts) + LINE + CIRCLE with exact geometry; (3) STL→heightfield: happy_box.stl → 12 triangles, 10×10 grid, top 10mm; (4) Calibration.shoppilot loads (50mm square + Profile toolpath, 113 lines, marker); (5) Sign.shoppilot loads (4 glyphs + border + V-Carve, 403 lines, marker); (6) GRBL post on loaded toolpath: wrapper (G21/G90/M2/% framing) + move parity (72/72 G1). Cross-validates the SPK-SHAKEb packages.
-- [ ] **SPK-SHAKEe** **QA** Design ops matrix (boolean/transform/layers/undo)
+- [x] **SPK-SHAKEe** **QA** Design ops matrix (boolean/transform/layers/undo)
   - AC: CLT covering weld/subtract/intersect, join/close/trim, transforms (move/rotate/scale/flip), layers CRUD + visibility/lock, and undo/redo restoring each op (session snapshot path)
   - Out of scope: new design tools
   - Verify: `./scripts/verify_locked.sh ShopPilotVerifySHAKEe`
   - worktree: master
   - assignee: coder
   - max-runtime: 60m
+  - worklog: 2026-08-05 — Hermes coder. **AC met.** `ShopPilotVerifySHAKEe` (21 checks, PASS): Booleans via the session's `BooleanOps` engine (union bbox 3600, subtract strips 1200, intersect 400); join/close/trim via `ShapeJoinEngine` (joinLines spans, closeAll line→forward+reverse / freehand passes through — documented engine contract, trim clips into box); transforms via `ShapeTransformer` (move, rotate 90° DEGREES w/h swap + re-derived bbox, scale 1.1×, flip H mirror); layers CRUD + `LayerVisibility` (hidden excluded from render, locked excluded from edit); **G4 undo matrix closed**: 9 families (union/subtract/join/close/trim/move/rotate/scale/flip) each walk op → snapshot → restore → identical + redo-contract (forward snapshot restores pre-op state) — the same (job, shapes, layerIDs) snapshot contract `AppSession.performUndoRestore` uses.
 - [ ] **SPK-SHAKEf** **QA** Cut strategies + dirty/recalc/export gates
   - AC: CLT matrix — each of Profile/Pocket/Drill/V-Carve(+clearance)/Rough3D/Finish3D (if unlocked) emits its marker, recalc regenerates dirty nodes only, export blocked while dirty, recalc clears the badge
   - Out of scope: new strategies
