@@ -55,7 +55,8 @@ public struct NewJobView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Choose a Recipe")
                             .font(.headline)
-                        Text("Portrait Relief • Signage • Decorative Panel • Custom")
+                        // SPK-UI602: copy matches JobRecipe.defaultRecipes (incl. Custom).
+                        Text(JobRecipe.defaultRecipes.map(\.name).joined(separator: " • "))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -86,14 +87,16 @@ public struct NewJobView: View {
             }
         }
         .padding()
-        .alert("Select Recipe", isPresented: $showRecipePicker) {
-            ForEach(JobRecipe.defaultRecipes) { recipe in
-                Button(recipe.name) {
+        // SPK-UI602: real sheet with Cancel + all recipes (incl. Custom).
+        // The previous .alert truncated options and had no cancel affordance.
+        .sheet(isPresented: $showRecipePicker) {
+            RecipePickerView(
+                onConfirm: { recipe in
                     createJob(from: recipe)
-                }
-            }
-        } message: {
-            Text("Choose a recipe to create a new job.")
+                    showRecipePicker = false
+                },
+                onCancel: { showRecipePicker = false }
+            )
         }
     }
     

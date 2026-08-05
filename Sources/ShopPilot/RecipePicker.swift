@@ -6,11 +6,14 @@ import ShopPilotGeometry
 
 /// Shows a grid of predefined job recipes for users to select from when creating a new project.
 struct RecipePickerView: View {
+    @Environment(\.dismiss) private var dismiss
     @State private var searchText = ""
     @State private var selectedRecipe: JobRecipe? = nil
     @State private var showConfirm = false
     
     let onConfirm: (JobRecipe) -> Void
+    /// SPK-UI602: Cancel must dismiss the sheet, not only clear selection.
+    var onCancel: (() -> Void)? = nil
     
     private var recipes: [JobRecipe] {
         if searchText.isEmpty {
@@ -43,7 +46,10 @@ struct RecipePickerView: View {
                 
                 Button("Cancel") {
                     selectedRecipe = nil
+                    onCancel?()
+                    dismiss()
                 }
+                .keyboardShortcut(.cancelAction)
                 
                 Button("Create Job") {
                     showConfirm = true
@@ -56,18 +62,15 @@ struct RecipePickerView: View {
         .frame(minWidth: 500, minHeight: 400)
         .alert("Confirm Recipe", isPresented: $showConfirm) {
             if let recipe = selectedRecipe {
-                Button("Create Job", role: .destructive) {
+                Button("Create Job") {
                     onConfirm(recipe)
+                    dismiss()
                 }
                 Button("Cancel", role: .cancel) {}
             }
         } message: {
             if let recipe = selectedRecipe {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Creating job from \"\(recipe.name)\":")
-                    InfoRow(label: "Stock Size", value: recipe.displayDimensions)
-                    InfoRow(label: "Strategy", value: recipe.recommendedStrategy)
-                }
+                Text("Create a job from \"\(recipe.name)\" (\(recipe.displayDimensions)). Strategy: \(recipe.recommendedStrategy)")
             }
         }
     }

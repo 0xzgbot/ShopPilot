@@ -1345,26 +1345,37 @@ final class AppSession: ObservableObject {
             statusMessage = "No vectors — import SVG or add a demo shape first"
             return
         }
+        // Snapshot layer membership before the op — Profile must not reshuffle
+        // shapes across layers (SPK-UI603a).
+        let layerIDsBefore = shapeLayerIDs
         registerUndoPoint()
+        // SPK-UI603: route through addToolpathNode so the strategy default tool
+        // is assigned (was "No tool" when this path called addOperation bare).
+        // Stock height comes from the sheet — matches Pocket/Drill/V-Carve.
+        let params = ProfileToolpathParams()
+        let stockHeight = job.sheets.first?.height ?? 6.0
         let result = ProfileToolpathEngine.compute(
             vectors: vectors,
-            params: ProfileToolpathParams(),
+            params: params,
             material: nil,
-            stockHeightMm: 6.0
+            stockHeightMm: stockHeight
         )
-        gcodeLines = result.gcodeLines
+        let node = addToolpathNode(
+            named: "Profile \(toolpathTree.allNodes.count)",
+            gcode: result.gcodeLines,
+            estimatedTime: result.estimatedTimeSeconds
+        )
+        node.paramsJSON = encodeParams(params)
+        // SPK-UI603c: form "Finish passes" ≠ engine depth/Z passes — label clearly.
         lastToolpathSummary =
-            "Profile: \(result.gcodeLines.count) lines, ~\(Int(result.estimatedTimeSeconds))s, \(result.passCount) pass(es)"
+            "Profile: \(result.gcodeLines.count) lines, ~\(Int(result.estimatedTimeSeconds))s, " +
+            "\(result.passCount) depth pass(es), \(params.finishPasses) finish pass(es)"
         statusMessage = lastToolpathSummary
-        let node = toolpathTree.addOperation("Profile \(toolpathTree.allNodes.count)")
-        node.toolpathResult = result.gcodeLines.joined(separator: "\n")
-        node.estimatedTimeSeconds = result.estimatedTimeSeconds
-        node.paramsJSON = encodeParams(ProfileToolpathParams())
-        // SPK-0319 lite: remember which source vectors this op was cut from.
-        linkToolpathToSources(node)
-        selectToolpath(node.id)
-        selectedStage = .cut
-        markDirty()
+        // SPK-UI603a: Profile must not reshuffle shape→layer membership.
+        if shapeLayerIDs != layerIDsBefore {
+            shapeLayerIDs = layerIDsBefore
+            statusMessage = "Profile created — restored layer membership after unexpected reshuffle"
+        }
     }
 
     /// Apply Profile params to an operation: store them on the node and

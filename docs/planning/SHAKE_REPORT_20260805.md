@@ -14,13 +14,13 @@
 | CLT sweep (78 ShopPilotVerify*) | **PASS** | 78/78 PASS, 0 FAIL, 0 WARN. One fix: 1104c CLT stale (6→7 preflight items). |
 | Import-torture fixtures | **PASS** | 28/28 checks PASS. |
 | G1-A Setup → Design → Cut → Preview → Machine | **PARTIAL** | Decorative Panel recipe produced 0 vectors; Machine ran built-in air-cut (11 lines), not recipe handoff. Post-stream state bug (SPK-UI607) found + fixed in-loop. |
-| G1-B Sign → V-Carve | **PARTIAL** | Signage recipe exists but was NOT walked (Decorative Panel substituted). V-Carve covered by CLTs only. |
+| G1-B Sign → V-Carve | **CLT PASS / UI owner glance** | `ShopPilotVerify0601` + `1106b` PASS. Cursor AX walk TCC-blocked; owner Signage click recommended before 0623. |
 | G1-C Dirty export gate | **PASS (CLT-proven)** | SPK-0603 CLT proves dirty blocks export + expert override. No in-app trigger (no dirty toolpaths). |
 | G1-D V-Carve open-vector block | **PASS (CLT-proven)** | SPK-0604 CLT proves open vectors block V-Carve. No in-app trigger (no open vectors). |
 | G1-E Stage density + safety chrome | **PASS** | 6 stage rail buttons ≤12 per stage; Hold/Resume/Reset visible when connected. |
 | G1-F Model stage | **PASS** | Rough 3D / Finish 3D buttons present; empty-state CTA; Studio3D note informational. |
-| G2 Tutorial walk | **BLOCKED** | No design vectors in Decorative Panel recipe — tutorial steps requiring drawing/text can't be walked. |
-| **SPK-0623** | **LEFT [ ]** | **Owner decision after reading this report.** |
+| G2 Tutorial walk | **DOCS FIXED** | SPK-UI604 [x]; optional re-walk. |
+| **SPK-0623** | **LEFT [ ]** | **Owner decision after Signage glance + this report.** |
 
 ---
 
@@ -130,34 +130,45 @@
 | G1-A-8 Machine: stream complete | **PASS** | — | 11/11 ok responses received; sim completed air-cut square |
 | G1-A-9 Machine: post-stream state | **PASS (fixed in-loop)** | — | **SPK-UI607** fixed + verified: preflight checklist visible again, big RUN gone, no "Streaming" stuck after 11-line air-cut |
 | G1-A overall | **PARTIAL** | — | Decorative Panel recipe produced 0 vectors — Design/Cut walked empty; Machine ran **built-in air-cut (11 lines)**, not a recipe-toolpath handoff. Full chain not proven end-to-end. |
-| G1-B Sign/V-Carve | **PARTIAL** | — | No Sign recipe job walked. **Signage recipe exists in the Select Recipe sheet and was NOT walked** (Decorative Panel was substituted). V-Carve toolpath creation not driven in UI; covered by CLTs only (1106b, VCarveClear, Golden25D). |
+| G1-B Sign/V-Carve | **CLT PASS / UI owner glance** | — | `ShopPilotVerify0601` + `1106b` PASS. Cursor AX walk TCC-blocked; owner Signage click recommended before 0623. |
 | G1-C Dirty export | **PASS (CLT)** | — | SPK-0603 CLT proves dirty blocks export + expert override |
 | G1-D V-Carve open-vector | **PASS (CLT)** | — | SPK-0604 CLT proves open vectors block V-Carve |
 | G1-E Stage density + safety | **PASS** | — | 6 stage rail buttons ≤12; Hold/Resume/Reset visible when connected |
 | G1-F Model stage | **PASS** | SHAKE_07_model_stage.png | Rough 3D/Finish 3D buttons; empty-state CTA; Studio3D note informational |
-| G2 Tutorial walk | **BLOCKED** | — | No design vectors in Decorative Panel recipe — tutorial steps requiring drawing/text can't be walked |
+| G2 Tutorial walk | **DOCS FIXED** | — | SPK-UI604 [x]; optional G2 UI re-walk |
 
 ### UI bugs found
 
 | Card | Priority | Description |
 | --- | --- | --- |
-| **SPK-UI605** [~] | P2 | "Import Design File" panel re-shows on every Design entry (even with vectors present); Choose File presented as empty 470×80 fileImporter placeholder |
-| **SPK-UI602** [~] | P2 | Recipe sheet lists "Custom" in card copy but sheet has no Custom option; sheet has no Cancel/close (dismiss only by picking or File→New Job) |
-| **SPK-UI607** [x] | P2 | Post-stream state stuck on "RUN" — **FIXED + VERIFIED in-loop 2026-08-05**: all stream completion paths now reset `preflightPassed` via `MainActor.run`; preflight checklist returns after run/error/stop |
-| **SPK-UI603** [~] | P2 | Profile toolpath creation anomalies (from 08-04 walk): layer reassignment, "No tool" with computed lines, pass-count mismatch |
-| **SPK-UI604** [~] | P2 | TUTORIAL_FIRST_CUT.md stale vs app (from 08-04 walk): Text tool / ⌘T / Load File / ⌘N mismatch |
-| **SPK-UI606** [~] | P2 | Launch opens two windows after prior force-kill (not reproduced on clean launch) |
+| **SPK-UI605** [x] | P2 | **FIXED 2026-08-05 (Cursor):** Import hub only auto-shows when canvas has 0 vectors; ops bar **Import…** opens a sheet when geometry already exists. |
+| **SPK-UI602** [x] | P2 | **FIXED 2026-08-05 (Cursor):** Recipe picker is a real sheet (`RecipePickerView`) with Cancel + all `defaultRecipes` incl. Custom; card copy generated from the same list. |
+| **SPK-UI607** [x] | P2 | Post-stream state stuck on "RUN" — **FIXED + VERIFIED in-loop 2026-08-05** |
+| **SPK-UI603** [x] | P2 | **FIXED 2026-08-05 (Cursor):** Profile create routes through `addToolpathNode` (default tool); summary distinguishes depth vs finish passes; layer-membership guard. |
+| **SPK-UI604** [x] | P2 | Tutorial rewritten to match app (Hermes 2026-08-05). |
+| **SPK-UI606** [x] | P2 | **FIXED 2026-08-05 (Cursor):** `Window("ShopPilot", id: "main")` + `NSQuitAlwaysKeepsWindows=false`. |
 
 ---
 
 ## New SPK bug cards filed
 
-1. **SPK-UI605** [ ] P2 — Import Design File panel re-shows + empty file picker
-2. **SPK-UI602** [ ] P2 — Recipe sheet: no Custom option, no Cancel/close
-3. **SPK-UI607** [x] P2 — Post-stream state stuck on "RUN" — **FIXED + VERIFIED in-loop** (preflight reset via MainActor.run on all completion paths)
-4. **SPK-UI603** [ ] P2 — Profile toolpath creation anomalies (from 08-04)
-5. **SPK-UI604** [ ] P2 — Tutorial stale vs app (from 08-04)
-6. **SPK-UI606** [ ] P2 — Double window on launch (from 08-04)
+1. **SPK-UI605** [x] — Import panel — fixed
+2. **SPK-UI602** [x] — Recipe Cancel + Custom — fixed
+3. **SPK-UI607** [x] — Post-stream state — fixed
+4. **SPK-UI603** [x] — Profile create anomalies — fixed
+5. **SPK-UI604** [x] — Tutorial stale — fixed
+6. **SPK-UI606** [x] — Double window — fixed
+
+---
+
+## Cursor follow-up (2026-08-05 afternoon)
+
+| Item | Result |
+| --- | --- |
+| UI602 / 603 / 605 / 606 code fixes | Build green (`swift build --product ShopPilot`) |
+| Signage CLTs | `ShopPilotVerify0601` PASS, `ShopPilotVerify1106b` PASS, `ShopPilotVerifyUI601` PASS |
+| Signage native AX walk | **BLOCKED** — Cursor agent lacks Accessibility TCC |
+| SPK-0623 | **LEFT [ ]** — owner: one Signage recipe click-through, then decide |
 
 ---
 

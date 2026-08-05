@@ -124,6 +124,9 @@ private struct DesignStageView: View {
     @ObservedObject var session: AppSession
     @State private var showOffsetDialog = false
     @State private var offsetDistance = "3.0"
+    /// SPK-UI605: Import hub is a sheet / empty-canvas panel — not a permanent
+    /// right rail that reappears on every Design entry when vectors exist.
+    @State private var showImportHub = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -134,13 +137,21 @@ private struct DesignStageView: View {
                 if session.preflightPanelVisible {
                     PreflightDoctorView(session: session)
                         .frame(minWidth: 280, idealWidth: 320)
-                } else {
+                } else if session.vectors.isEmpty {
+                    // Empty canvas: surface Import once so first-time flow is obvious.
                     ImportHubView { shapes in
                         session.addShapes(shapes)
                     }
                     .frame(minWidth: 280, idealWidth: 320)
                 }
             }
+        }
+        .sheet(isPresented: $showImportHub) {
+            ImportHubView { shapes in
+                session.addShapes(shapes)
+                showImportHub = false
+            }
+            .frame(width: 420, height: 520)
         }
         .alert("Offset Vectors", isPresented: $showOffsetDialog) {
             TextField("Distance (mm)", text: $offsetDistance)
@@ -196,6 +207,9 @@ private struct DesignStageView: View {
                 .help("Scale selected vectors 1.1× about the selection centroid")
             Divider().frame(height: 14)
             // SPK-0211+0212: Vector Preflight Doctor — run before Cut.
+            // SPK-UI605: Import is opt-in once the canvas has geometry.
+            Button("Import…") { showImportHub = true }
+                .help("Import SVG / DXF into the current job")
             Button("Check Vectors") {
                 _ = session.runPreflight()
                 session.preflightPanelVisible = true
@@ -715,6 +729,11 @@ private struct ProfileParamsForm: View {
                     Picker("Finish passes", selection: $params.finishPasses) {
                         ForEach(1...5, id: \.self) { Text("\($0)").tag($0) }
                     }
+                    // SPK-UI603c: disambiguate from engine depth/Z pass count in the summary.
+                    Text("Finish passes = cleanup cuts. Depth/Z passes come from stock ÷ depth/pass.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 .labelsHidden()
             }
