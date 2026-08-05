@@ -1430,3 +1430,14 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 - SPK-0419 live air-cut remains `[!]` but **not required** for personal SPK-0623.
 - Redefined SPK-0623 exit: sim UI acceptance + safety gates via `docs/planning/UI_ACCEPTANCE_DRIVER.md`; owner flips `[x]` after honest PASS report — no rubber stamp.
 - Updated root `SHIP_CHECKLIST.md` for personal use.
+
+### 2026-08-04 — UI acceptance driver G1/G2 walk (Hermes)
+
+Ran `docs/planning/UI_ACCEPTANCE_DRIVER.md` G1-A → G1-F → G2 against `.build/debug/ShopPilot` @ 413c82b (Simulator only; AXPress-driven — CGEvent clicks denied by TCC). Full table + screenshots: `docs/planning/UI_ACCEPTANCE_REPORT_20260804.md` (+ shots in `/tmp/shoppilot-ui-accept-20260804/`). SPK-0623 left `[ ]` — owner decision after report. New cards filed:
+
+- **SPK-UI601** [ ] P0 Stop Stream deadlock — pressing Stop Stream while the sim is in alarm/paused state freezes the app: main thread blocked in `stopStreaming()` → `addSystemMessage` (MachineConnection.swift:1161→282) → `PublishedSubject.send` (sample stack captured); window frozen, 0% CPU, AX dead, kill -9 required. Repro: connect Simulator → Run Job (1,845 lines) → let it soft-limit alarm → Stop Stream. Fix AC: stopStreaming must not block on the console @Published path (offload message append or break a re-entrant transaction); verify: reproduce alarm → Stop Stream → UI stays responsive.
+- **SPK-UI602** [ ] P2 "Choose a Recipe" card lists "Custom" but the Select Recipe sheet has no Custom option, and the sheet has no Cancel/close (dismiss only by picking or File→New Job). Fix AC: card copy matches sheet (add Custom or drop from copy) + sheet gets a cancel affordance.
+- **SPK-UI603** [ ] P2 Profile-toolpath creation anomalies — creating a Profile with no selection: (a) reassigned a vector's layer (Text 4→5, Border 1→0); (b) node created with Tool: "No tool" yet computed 1458 lines (feeds show 6 mm diameter); (c) inspector form says "1 pass" while summary says "3 pass(es)". Fix AC: layer membership preserved on toolpath creation; tool defaulted consistently; pass count single-sourced.
+- **SPK-UI604** [ ] P2 TUTORIAL_FIRST_CUT.md stale vs app — Text tool (Step 3), Object→Text to Curves ⌘T, Job Setup dialog ⌘N (inline now), Machine "Load File" (handoff instead). Fix AC: update tutorial to match app or add missing UI.
+- **SPK-UI605** [ ] P2 "Import Design File" panel re-shows on every Design entry (even with vectors present); Choose File presented an empty 470×80 fileImporter placeholder sheet twice. Fix AC: panel shows once per job (or only when empty); fileImporter presents a real panel.
+- **SPK-UI606** [ ] P2 Launch opens two windows (restored frame + new default) after prior force-kill. Fix AC: single window on launch.
