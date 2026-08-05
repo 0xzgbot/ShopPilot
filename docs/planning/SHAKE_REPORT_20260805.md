@@ -206,8 +206,8 @@
 
 | Gap | Status |
 | --- | --- |
-| G1 — `fixtures/gcode/calibration_square.nc` missing | **OPEN** — AppSession.swift:1754 references it; only rapid_only.nc + square_air_10mm.nc exist |
-| G2 — No Calibration recipe | **OPEN** — Only SignRecipeManager (Signage) exists |
+| G1 — `fixtures/gcode/calibration_square.nc` missing | **CLOSED (SPK-SHAKEb)** — 50mm air-cut calibration square committed; `AppSession.loadFixtureGCodeIfNeeded` now finds it (falls back to built-in air-cut only when absent) |
+| G2 — No Calibration recipe | **CLOSED (SPK-SHAKEb, fixture path)** — `fixtures/shoppilot/Calibration.shoppilot` package (200×200×18, 50mm square + real Profile toolpath) covers the driver's G1-A flow; a first-class recipe stays out of scope unless owner wants it |
 | G3 — Torture fixtures not fed through importer | **OPEN** — verify_import_torture.py asserts fixture classes, not import behavior |
 | G4 — Undo matrix unproven | **OPEN** — No CLT walks op → snapshot → undo → restored |
 | G5 — Import→save→open→export round-trip | **OPEN** — No single CLT does format-family round-trip |

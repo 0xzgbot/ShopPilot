@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Unit metadata: explicit mm width/height; 25.4 mm square inside. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="50mm" height="50mm" viewBox="0 0 25.4 25.4">
+  <rect x="0" y="0" width="25.4" height="25.4" fill="none" stroke="black" stroke-width="0.5"/>
+  <circle cx="12.7" cy="12.7" r="6.35" fill="none" stroke="black" stroke-width="0.5"/>
+</svg>

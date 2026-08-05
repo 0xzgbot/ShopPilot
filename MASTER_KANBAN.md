@@ -898,14 +898,14 @@ A (parallel from day 0)
   - assignee: coder
   - max-runtime: 45m
   - worklog: 2026-08-05 — Matrix delivered; closed [x] on Cursor follow-up (was left [~] after Hermes wrap).
-- [~] **SPK-SHAKEb** **QA** Fixture pack + import torture expansion
+- [x] **SPK-SHAKEb** **QA** Fixture pack + import torture expansion
   - AC: fixtures/ gains happy-path SVG/DXF/STL + `.shoppilot` packages for Calibration + Sign; import_torture set expanded (unit metadata, malformed-tolerant, more bezier/gap classes); air-cut-safe G-code fixtures for Profile/Pocket/Drill/V-Carve/3D; `scripts/verify_import_torture.py` gate stays green (28 → N checks)
   - Out of scope: Vectric proprietary CRV/clipart/paid packs; only public-domain/CC0/self-authored geometry
   - Verify: `python3 scripts/verify_import_torture.py`
   - worktree: master
   - assignee: coder
   - max-runtime: 60m
-  - worklog: 2026-08-05 — Hermes coder. Claimed after P0-B Signage walk. TODO: (1) fixtures/ happy-path SVG/DXF/STL; (2) Calibration + Sign `.shoppilot` packages; (3) import_torture expansion; (4) air-cut G-code fixtures; (5) gate 28 → N.
+  - worklog: 2026-08-05 — Hermes coder. **AC met.** (1) `fixtures/import/`: happy_square.dxf (closed square+LINE+CIRCLE, INSUNITS=4), happy_compose.svg (rect/circle/closed+open paths, 100mm), happy_box.stl (20×20×10, 12 facets). (2) `fixtures/shoppilot/`: **Calibration.shoppilot** (200×200×18, 50mm square + real ProfileToolpathEngine output) + **Sign.shoppilot** (SignRecipeManager "SHOP" — 4 glyphs, border, 408-line V-Carve), both generated via new checked-in `ShopPilotFixtureGen` target (DocumentSaver→DocumentLoader round-trip asserted in-run; kept for reproducibility). **G1 gap closed**: `fixtures/gcode/calibration_square.nc` (50mm air) now exists — AppSession.loadFixtureGCodeIfNeeded finds it. **G2 gap closed (fixture path)**: Calibration package covers the G1-A driver flow. (3) import_torture expanded: unit_mm.svg (SVG units), malformed.dxf (odd-pair rejection), bezier_loop.svg (bowtie self-crossing), gap_chain.dxf (3 open segments). (4) air-cut fixtures: profile/pocket/drill/vcarve/rough3d `*_air_*.nc` (all Z ≥ 0, G21, M2). (5) gate extended with happy-path + gcode air-safety sections: **28 → 86 checks, 86/86 PASS**; whole-package `swift build` green.
 - [x] **SPK-SHAKEc** **QA** CLT regression harness (run-all verify)
   - AC: `scripts/run_overnight_shakedown.sh` creates run dir, runs import-torture gate, discovers + runs ALL ShopPilotVerify* via verify_locked.sh (serialized, exit codes + seconds captured), optionally verify_golden*/verify_base_tier, writes `results/CLTS.md` table, continues on failure (never aborts whole night on first fail), and on FAIL appends a MASTER_KANBAN bug card with repro + log path (Engine+UI+Persist+Verify AC if product bug; Verify-only if harness flake)
   - Out of scope: parallel swift invocations, .build wipes, live serial
@@ -1540,3 +1540,6 @@ Ran `docs/planning/UI_ACCEPTANCE_DRIVER.md` G1-A → G1-F → G2 against `.build
 - Design: glyphs + border visible; **Import Design File panel absent with vectors present** (UI605 fix on-screen). Cut: V-Carve node, "All toolpaths up to date". Preview: wireframe path in-sheet (403 lines, ~4m27s). Machine: Simulator → Connected → load 403 lines **zero auto-run (Idle)** → Hold/Resume/Reset visible → preflight ack → "Pre-flight passed" → RUN → streaming 29/394 → **complete → checklist returned, big RUN gone (SPK-UI607 re-verified on the full recipe handoff)**.
 - Spot-checks: G1-C dirty export + G1-D open-vector V-Carve remain **CLT-proven** (SPK-0603/0604); in-app triggers need canvas mouse ops (CGEvent TCC-blocked for this harness) — no new bugs.
 - SHAKE_REPORT_20260805.md amended (G1-B → PASS, Signage walk table, SPK-UI608). **SPK-0623 left [ ] — owner decision.** Claimed SPK-SHAKEb [~].
+
+### 2026-08-05 — SPK-SHAKEb closed (Hermes coder)
+- **SPK-SHAKEb [x]** — fixture pack + import torture expansion. Happy-path imports (`fixtures/import/`: SVG/DXF/STL), `.shoppilot` packages for **Calibration + Sign** (generated from real models/recipe via new checked-in `ShopPilotFixtureGen` target — reproducible), **calibration_square.nc committed** (G1 gap closed), torture set +4 fixtures (unit_mm.svg, malformed.dxf, bezier_loop.svg, gap_chain.dxf), 5 strategy air-cut G-code fixtures, gate **28 → 86 checks all PASS**, whole-package build green. G2 gap closed via Calibration package (recipe itself stays out of scope).

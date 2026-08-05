@@ -18,6 +18,10 @@
 | `text_as_curves_open.dxf` | DXF | U-shaped open path (letter-like) | open vector (V-Carve mode ignores font intersections only) |
 | `nested.dxf` | DXF | Circle inside circle (valid, intentional) | **clean — must NOT flag** |
 | `fusion_units.dxf` | DXF | 25.4-unit square + `$INSUNITS=4` (mm) header | import-units handling (mm vs inch) |
+| `unit_mm.svg` | SVG | 25.4 mm square + `width="50mm"` attr | SVG unit metadata parsing |
+| `malformed.dxf` | DXF | Truncated mid-entity, odd pair count | malformed-tolerant reject (never crash) |
+| `bezier_loop.svg` | SVG | Closed bowtie — two cubics crossing at center | bezier self-intersection detection |
+| `gap_chain.dxf` | DXF | Three separate open segments (chain) | multi-gap / open-vector class |
 | `inkscape_style.svg` | SVG | Groups + transforms, mm units, open path, duplicate rects | transform/group handling; open + dupe detection |
 | `illustrator_arc.svg` | SVG | Cubic bezier closed blob, open bezier U, self-intersecting bezier | bezier conversion; open + self-intersect detection |
 
@@ -41,9 +45,11 @@ python3 scripts/verify_import_torture.py --list   # list fixtures only
 python3 scripts/verify_import_torture.py --dir <path>  # explicit dir
 ```
 
-Exit code 0 = all checks pass (currently **28 checks**); 1 = any failure.
+Exit code 0 = all checks pass (currently **86 checks**); 1 = any failure.
 Run it after editing any fixture — a fixture that stops encoding its claimed
-defect class will fail the suite.
+defect class will fail the suite. The gate also covers the happy-path imports
+(`fixtures/import/`) and the air-cut safety of every G-code fixture
+(`fixtures/gcode/`): no negative Z, G21 present, M2 terminator.
 
 ## Notes / caveats
 

@@ -1,0 +1,23 @@
+; Malformed DXF: truncated mid-entity with an odd pair count (dangling value).
+; Importer must tolerate (reject/skip), never crash.
+0
+SECTION
+2
+ENTITIES
+0
+LWPOLYLINE
+8
+0
+90
+4
+70
+1
+10
+0
+20
+0
+10
+10
+20
+0
+10

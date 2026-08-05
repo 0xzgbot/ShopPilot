@@ -8,7 +8,16 @@ Sample jobs for **simulator** development, UI path preview, and the verify suite
 | --- | --- |
 | `square_air_10mm.nc` | Short closed path for streamer smoke tests |
 | `rapid_only.nc` | Rapids only (no cutting moves) |
-| `calibration_square.nc` | **Expected** calibration square — not yet committed (app falls back to the built-in 11-line air-cut square when absent; see `AppSession.loadFixtureGCodeIfNeeded`) |
+| `calibration_square.nc` | **Calibration square (50mm, air)** — auto-loaded by `AppSession.loadFixtureGCodeIfNeeded` when the session buffer is empty (SPK-SHAKEb closed the G1 gap: the file was referenced but missing) |
+| `profile_air_40mm.nc` | Profile-strategy air-cut fixture (40mm square) |
+| `pocket_air_40mm.nc` | Pocket-strategy air-cut fixture (raster rows) |
+| `drill_air_4holes.nc` | Drill-strategy air-cut fixture (4 points, peck retracts) |
+| `vcarve_air_letter.nc` | V-Carve-strategy air-cut fixture (letter "V" path) |
+| `rough3d_air.nc` | 3D-rough-strategy air-cut fixture (raster rows) |
+
+**Air-safety gate:** `scripts/verify_import_torture.py` asserts every `.nc`
+fixture here has G21, ends with M2, and contains **no negative Z** — a fixture
+that dips below stock breaks the gate (SPK-SHAKEb).
 
 ## How fixtures are used
 

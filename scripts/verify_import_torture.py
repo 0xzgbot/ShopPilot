@@ -4,6 +4,8 @@
 Asserts the defect class each fixture in docs/planning/research/import_torture/
 claims in its README (open vectors, duplicates, self-intersections, zero-length
 spans, overlaps, unit metadata, SVG structure). Stdlib-only. Reproducible.
+Also gates the happy-path import fixtures (fixtures/import/) and the air-cut
+safety of every G-code fixture (fixtures/gcode/) added by SPK-SHAKEb.
 
 Run:
     python3 scripts/verify_import_torture.py                  # repo-relative default
@@ -11,7 +13,7 @@ Run:
     python3 scripts/verify_import_torture.py --list           # list checks only
 
 Exit code 0 = all checks pass; 1 = any failure. Mirrors the 28-check ad-hoc
-pass that validated these fixtures (see import_torture/README.md).
+pass that validated the original fixtures (see import_torture/README.md).
 """
 import argparse
 import os
@@ -145,6 +147,16 @@ def self_intersections(verts):
 # --------------------------------------------------------------------------
 
 def verify_dxf(fname, path):
+    # Malformed fixture: the defect class IS the parse rejection. The R12
+    # parser raises on odd pair count; that must never crash the app.
+    if fname == "malformed.dxf":
+        try:
+            parse_dxf(path)
+            check(fname, False, "expected odd-pair-count rejection, parsed anyway")
+        except ValueError as e:
+            check(fname, True, f"rejected: {e}")
+        return
+
     try:
         ents, hdr = parse_dxf(path)
     except Exception as e:  # malformed file
@@ -204,6 +216,18 @@ def verify_dxf(fname, path):
         verts, _ = poly_vertices(ents[0])
         check(f"{fname} 25.4 square",
               abs(verts[1][0] - 25.4) < 1e-9 and abs(verts[2][1] - 25.4) < 1e-9)
+    elif fname == "gap_chain.dxf":
+        check(f"{fname} entity count 3", len(ents) == 3, f"({len(ents)})")
+        all_open = True
+        all_gapped = True
+        for ent in ents:
+            verts, closed = poly_vertices(ent)
+            if closed != "0":
+                all_open = False
+            if dist(verts[-1], verts[0]) < 1e-3:
+                all_gapped = False
+        check(f"{fname} all three open", all_open)
+        check(f"{fname} every segment gapped (start != end)", all_gapped)
 
 
 def verify_svg(fname, path):
@@ -224,12 +248,184 @@ def verify_svg(fname, path):
         check(f"{fname} 2 rects (dupe pair)", len(rects) == 2)
         check(f"{fname} 2 groups (transforms)", len(groups) == 2)
         check(f"{fname} mm width attr", root.get("width") == "100mm")
+    elif fname == "unit_mm.svg":
+        check(f"{fname} well-formed XML", True)
+        check(f"{fname} mm width attr", root.get("width") == "50mm",
+              f"({root.get('width')})")
+        check(f"{fname} mm height attr", root.get("height") == "50mm",
+              f"({root.get('height')})")
+        check(f"{fname} 1 rect", len(rects) == 1, f"({len(rects)})")
+        check(f"{fname} 25.4mm square rect",
+              rects[0].get("width") == "25.4" and rects[0].get("height") == "25.4")
+        check(f"{fname} 1 circle", len(circles) == 1, f"({len(circles)})")
+    elif fname == "bezier_loop.svg":
+        check(f"{fname} well-formed XML", True)
+        check(f"{fname} 1 path", len(paths) == 1, f"({len(paths)})")
+        d = paths[0].get("d") or ""
+        check(f"{fname} cubic beziers present", "C" in d)
+        check(f"{fname} closed (Z)", "Z" in d)
+        segs = svg_path_segments(d)
+        check(f"{fname} sampled segments >= 48", len(segs) >= 48, f"({len(segs)})")
+        crossings = segment_self_crossings(segs)
+        check(f"{fname} figure-8 self-crossing", crossings >= 1,
+              f"crossings={crossings}")
+    elif fname == "happy_compose.svg":
+        check(f"{fname} well-formed XML", True)
+        check(f"{fname} 1 rect", len(rects) == 1, f"({len(rects)})")
+        check(f"{fname} 1 circle", len(circles) == 1, f"({len(circles)})")
+        check(f"{fname} 2 paths", len(paths) == 2, f"({len(paths)})")
+        ds = [p.get("d") or "" for p in paths]
+        check(f"{fname} one closed (Z)", any("Z" in d for d in ds))
+        check(f"{fname} one open", any("Z" not in d for d in ds))
+        check(f"{fname} one bezier (C)", any("C" in d for d in ds))
     else:  # illustrator_arc.svg
         check(f"{fname} well-formed XML", True)
         check(f"{fname} 3 paths", len(paths) == 3, f"({len(paths)})")
         check(f"{fname} one closed (Z)", any("Z" in (p.get("d") or "") for p in paths))
         check(f"{fname} one open", any("Z" not in (p.get("d") or "") for p in paths))
         check(f"{fname} beziers present", all("C" in (p.get("d") or "") for p in paths))
+
+
+# --------------------------------------------------------------------------
+# Bezier sampling (for bezier_loop.svg self-intersection check)
+# --------------------------------------------------------------------------
+
+def cubic_at(p0, p1, p2, p3, t):
+    """Point on a cubic bezier at parameter t."""
+    mt = 1.0 - t
+    return (
+        mt * mt * mt * p0[0] + 3 * mt * mt * t * p1[0] + 3 * mt * t * t * p2[0] + t * t * t * p3[0],
+        mt * mt * mt * p0[1] + 3 * mt * mt * t * p1[1] + 3 * mt * t * t * p2[1] + t * t * t * p3[1],
+    )
+
+
+def svg_path_segments(d, samples=24):
+    """Parse the simple fixture path grammar (M/C/Z) into sampled segments.
+
+    Supports 'M x y' moveto, 'C x1 y1 x2 y2 x y' cubic, 'Z' close.
+    Returns a list of (p1, p2) segments in drawing units.
+    """
+    import re
+    tokens = re.findall(r"[MCZ]|-?\d+(?:\.\d+)?", d)
+    segs = []
+    cur = None
+    start = None
+    i = 0
+    while i < len(tokens):
+        cmd = tokens[i]
+        if cmd == "M":
+            x, y = float(tokens[i + 1]), float(tokens[i + 2])
+            cur = (x, y)
+            start = cur
+            i += 3
+        elif cmd == "C":
+            x1, y1 = float(tokens[i + 1]), float(tokens[i + 2])
+            x2, y2 = float(tokens[i + 3]), float(tokens[i + 4])
+            x3, y3 = float(tokens[i + 5]), float(tokens[i + 6])
+            prev = cur
+            for s in range(1, samples + 1):
+                t = s / samples
+                pt = cubic_at(prev, (x1, y1), (x2, y2), (x3, y3), t)
+                segs.append((cur, pt))
+                cur = pt
+            i += 7
+        elif cmd == "Z":
+            if cur is not None and start is not None and cur != start:
+                segs.append((cur, start))
+                cur = start
+            i += 1
+        else:
+            i += 1
+    return segs
+
+
+def segment_self_crossings(segs):
+    """Count proper crossings among non-adjacent segments."""
+    n = len(segs)
+    count = 0
+    for i in range(n - 1):
+        for j in range(i + 2, n):
+            if i == 0 and j == n - 1:
+                continue  # seam pair shares the closing vertex
+            if segs_cross(segs[i][0], segs[i][1], segs[j][0], segs[j][1]):
+                count += 1
+    return count
+
+
+# --------------------------------------------------------------------------
+# Happy-path imports (fixtures/import/) — must be defect-free
+# --------------------------------------------------------------------------
+
+def verify_happy_imports(import_dir):
+    """Assert fixtures/import/ files are clean, valid, and parseable."""
+    dxf_path = os.path.join(import_dir, "happy_square.dxf")
+    svg_path = os.path.join(import_dir, "happy_compose.svg")
+    stl_path = os.path.join(import_dir, "happy_box.stl")
+
+    if os.path.exists(dxf_path):
+        ents, hdr = parse_dxf(dxf_path)
+        check("happy_square.dxf parses", len(ents) > 0)
+        check("happy_square.dxf INSUNITS=4", hdr.get("$INSUNITS") == "4",
+              f"({hdr.get('$INSUNITS')})")
+        poly = next((e for e in ents if e[0] == "LWPOLYLINE"), None)
+        check("happy_square.dxf has LWPOLYLINE", poly is not None)
+        if poly:
+            verts, closed = poly_vertices(poly)
+            check("happy_square.dxf polyline closed", closed == "1")
+            check("happy_square.dxf 5 vertices", len(verts) == 5, f"({len(verts)})")
+            check("happy_square.dxf square (last == first)",
+                  dist(verts[-1], verts[0]) < 1e-9)
+            check("happy_square.dxf no self-crossings",
+                  self_intersections(verts) == 0, f"crossings={self_intersections(verts)}")
+        check("happy_square.dxf has LINE", any(e[0] == "LINE" for e in ents))
+        check("happy_square.dxf has CIRCLE", any(e[0] == "CIRCLE" for e in ents))
+    else:
+        check("happy_square.dxf present", False, f"missing {dxf_path}")
+
+    if os.path.exists(svg_path):
+        root = ET.parse(svg_path).getroot()
+        ns = {"svg": "http://www.w3.org/2000/svg"}
+        paths = root.findall(".//svg:path", ns)
+        check("happy_compose.svg well-formed", True)
+        check("happy_compose.svg 2 paths", len(paths) == 2, f"({len(paths)})")
+        ds = [p.get("d") or "" for p in paths]
+        check("happy_compose.svg one closed + one open",
+              any("Z" in d for d in ds) and any("Z" not in d for d in ds))
+        check("happy_compose.svg mm width", root.get("width") == "100mm",
+              f"({root.get('width')})")
+    else:
+        check("happy_compose.svg present", False, f"missing {svg_path}")
+
+    if os.path.exists(stl_path):
+        text = open(stl_path, encoding="utf-8", errors="replace").read()
+        check("happy_box.stl has solid/endsolid",
+              "solid happy_box" in text and "endsolid happy_box" in text)
+        check("happy_box.stl 12 facets", text.count("facet normal") == 12,
+              f"({text.count('facet normal')})")
+        check("happy_box.stl 36 vertex records", text.count("vertex") == 36,
+              f"({text.count('vertex')})")
+        check("happy_box.stl 20x20x10 box", "vertex 20 20 10" in text)
+    else:
+        check("happy_box.stl present", False, f"missing {stl_path}")
+
+
+# --------------------------------------------------------------------------
+# G-code fixtures — air-cut safety gate (fixtures/gcode/)
+# --------------------------------------------------------------------------
+
+def verify_gcode_air_safety(gcode_dir):
+    """Assert every .nc fixture is air-cut safe: no negative Z, G21, M2 end."""
+    files = sorted(f for f in os.listdir(gcode_dir) if f.endswith(".nc"))
+    check(f"gcode fixtures present ({len(files)})", len(files) >= 8, f"({len(files)})")
+    for fname in files:
+        path = os.path.join(gcode_dir, fname)
+        lines = open(path, encoding="utf-8", errors="replace").read().splitlines()
+        body = [l for l in lines if l.strip() and not l.strip().startswith(";")]
+        check(f"{fname} G21 present", any("G21" in l for l in body))
+        check(f"{fname} ends with M2", any(l.strip() == "M2" for l in body))
+        neg = [l for l in body if "Z-" in l]
+        check(f"{fname} no negative Z (air-safe)", not neg, f"({len(neg)} lines)")
+
 
 
 def main():
@@ -258,6 +454,28 @@ def main():
     for f in svgs:
         print(f"{f}:")
         verify_svg(f, os.path.join(args.dir, f))
+
+    # Happy-path imports (fixtures/import/) — clean files must pass clean.
+    import_dir = os.path.normpath(
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "..",
+                     "fixtures", "import")
+    )
+    print("== HAPPY-PATH IMPORTS ==")
+    if os.path.isdir(import_dir):
+        verify_happy_imports(import_dir)
+    else:
+        check("fixtures/import present", False, f"missing {import_dir}")
+
+    # G-code air-safety gate (fixtures/gcode/) — every fixture stays above stock.
+    gcode_dir = os.path.normpath(
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "..",
+                     "fixtures", "gcode")
+    )
+    print("== GCODE AIR-SAFETY ==")
+    if os.path.isdir(gcode_dir):
+        verify_gcode_air_safety(gcode_dir)
+    else:
+        check("fixtures/gcode present", False, f"missing {gcode_dir}")
 
     print(f"\nRESULT: {TOTAL['n']} checks, {len(FAILURES)} failures")
     if FAILURES:
