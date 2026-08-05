@@ -387,8 +387,12 @@ final class AppSession: ObservableObject {
         }
         keepOutZones = newJob.keepOutZones ?? []
         docVars.variables = newJob.documentVariables
-        shapes = []
-        shapeLayerIDs = []
+        // Materialize the job's layer vectors into the session design canvas —
+        // mirrors the open path (shapesFromLayerVectors). Without this, recipe
+        // jobs (Signage glyphs, borders) open with a blank canvas.
+        let layerShapes = Self.shapesFromLayerVectors(newJob)
+        shapes = layerShapes.shapes
+        shapeLayerIDs = layerShapes.layerIDs
         gcodeLines = []
         selectedVectorIDs = []
         selection = .job
