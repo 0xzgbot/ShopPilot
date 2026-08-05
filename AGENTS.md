@@ -203,11 +203,15 @@ ShopPilot/
 
 ---
 
-## 7. Human-only blockers (mark `[!]`)
+## 7. Human-only / deferred blockers
 
-- Access to a physical CNC router for live integration test
-- Apple Developer Program for notarized distribution (optional for local build)
-- Confirm exact controller firmware (GRBL 1.1 vs FluidNC vs other) on user’s machine
+**Personal-use product (2026-08-04):** no App Store, notarization, or license finalization — those cards are `[-]` on MASTER_KANBAN and are **not** SPK-0623 blockers.
+
+- `[!]` Physical CNC router for live air-cut (SPK-0419) — **optional** for personal SPK-0623; sim acceptance is enough
+- `[-]` Apple Developer / notarization / public DMG release / App Store / license text
+- Confirm controller firmware (GRBL 1.1 vs FluidNC) when wiring real hardware
+
+**SPK-0623 personal exit:** UI acceptance driver (`docs/planning/UI_ACCEPTANCE_DRIVER.md`) + safety gates; owner marks `[x]` — agents must not rubber-stamp.
 
 ---
 
@@ -227,12 +231,12 @@ Append to `HERMES_BUILD_TODO.md` § Work log:
 ## 9. Hand-off prompt (copy for Hermes)
 
 ```
-You are building ShopPilot at ~/Desktop/ShopPilot.
-North star: docs/planning/LEAN_CNC_SCOPE.md (offline G-code / V-Carve / 3D carving / GRBL).
-Board: MASTER_KANBAN.md. Finish order: docs/planning/FINISH_ROADMAP.md.
+You are building ShopPilot at ~/Desktop/ShopPilot (personal-use Mac CNC — no App Store/notarize).
+North star: docs/planning/LEAN_CNC_SCOPE.md.
+Board: MASTER_KANBAN.md. Personal ship gate: SHIP_CHECKLIST.md + docs/planning/UI_ACCEPTANCE_DRIVER.md.
 Read AGENTS.md safety. No Vectric proprietary assets. No cloud/social/in-app video.
 DoD: Engine + UI + Persist + Verify — never mark [x] for build-only/file-drop.
-Prefer SPK-1100–1106, lean 3D/V-Carve quality, then open P0 — skip [-] non-goals.
-Loop: claim → implement full AC → [x] + work log → repeat.
-Lean 3D rough/finish may ship before SPK-0623. Never idle on [!] — next Ready card.
+Never rubber-stamp SPK-0623; UI driver reports PASS/FAIL and files bug cards.
+Prefer lean harden / FM preflight / UI acceptance — skip [-] distribution cards.
+Loop: claim → implement full AC → [x] + work log → repeat. Never idle on [!].
 ```
