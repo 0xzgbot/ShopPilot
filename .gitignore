@@ -49,3 +49,6 @@ research/raw/
 # Python bytecode
 **/__pycache__/
 *.py[cod]
+
+# Packaged app builds (regenerate with scripts/package_app.sh)
+dist/
