@@ -1,142 +1,136 @@
 # ShopPilot — First Cut Tutorial
 
-**Date:** 2026-07-28  
-**Audience:** New users with a Mac and (optionally) a CNC machine.
+**Audience:** New users with a Mac and (optionally) a CNC machine.  
+**Time:** ~15 minutes, simulator only — no hardware required.
 
 ---
 
 ## Goal
 
-Take you from "ShopPilot is installed" to "I've generated G-code for my first job" in under 15 minutes.
+Take you from "ShopPilot is installed" to "I've generated G-code and streamed it through the simulator" — safely, without touching real hardware.
 
 ---
 
 ## Prerequisites
 
-- macOS 14+ on Apple Silicon or Intel
-- ShopPilot installed (download from releases or App Store)
-- Optional: A CNC machine connected via USB serial cable
+- macOS 14+ (Apple Silicon or Intel)
+- ShopPilot installed — download [`dist/ShopPilot-macOS.zip`](../../dist/ShopPilot-macOS.zip) or build from source (see [README](../../README.md))
+- Optional: a CNC machine connected via USB serial (Step 8)
 
 ---
 
-## Step 1 — Create a New Job
+## Step 1 — Create a Job (Start with a Recipe)
 
-1. Launch ShopPilot. You'll see the **Setup** stage with a blank canvas.
-2. Click **New Job** (or ⌘N).
-3. In the Job Setup dialog:
-   - **Stock width:** `100` mm
-   - **Stock depth:** `100` mm  
-   - **Stock height:** `12` mm
-   - **Units:** Millimeters
-   - **Origin:** Center
-4. Click **Create**.
+1. Launch ShopPilot. You land on the **Setup** stage.
+2. Click the **Choose a Recipe** card.
+3. Pick **Signage**. ShopPilot creates the job, a sign-shaped sheet, and even pre-generates a V-Carve toolpath (you'll see "Recipe V-Carve ready" in the status bar).
+4. Set your material: choose a **Material** and confirm **Stock Dimensions** (width / depth / height in mm).
 
-You now have a virtual piece of material to work with.
+> ✨ Recipes give you a complete, working job in one click — the fastest way to learn the pipeline. You can also start with a blank **Custom** job and set stock yourself.
+
+![Setup stage](../screenshots/01-setup.png)
 
 ---
 
-## Step 2 — Draw Your Design
+## Step 2 — Design (Vectors & Layers)
 
-Switch to the **Design** stage (click "Design" in the stage rail at the top).
+Switch to the **Design** stage. The Signage recipe already placed your art on layers.
 
-1. Select the **Rectangle** tool from the left toolbar (or press R).
-2. Click and drag on the canvas to draw a rectangle roughly centered on your stock.
-3. With the rectangle selected, open the **Inspector** panel (right side) and set:
-   - **Width:** `60` mm
-   - **Height:** `40` mm
-4. Select the **Offset** tool (or press O). Set offset to `2` mm and click Apply. This creates a border around your rectangle — perfect for a simple sign or plaque outline.
+1. Look at the **LAYERS** panel (left): `Text` (4 items) and `Border` (1 item).
+2. Draw your own shape with the **Rect**, **Circle**, **Line**, or **Polyline** tools.
+3. Use the **Ops bar** for vector surgery: **Weld / Subtract / Intersect / Join / Close / Trim**, plus Nudge, Flip, Rotate, Scale.
+4. Import artwork anytime: **SVG**, **DXF**, or **STL relief** (Design → STL Relief…).
 
----
-
-## Step 3 — Add Text
-
-1. Select the **Text** tool (or press T).
-2. Click inside your offset shape and type something like "HELLO".
-3. In the Inspector, choose a font (system fonts are available by default) and set size to `14` pt.
-4. With the text selected, go to **Object → Text to Curves** (or ⌘T). This converts editable text into vector paths that can be toolpathed.
+![Design stage](../screenshots/02-design-signage.png)
 
 ---
 
-## Step 4 — Generate Toolpaths
+## Step 3 — Cut (Toolpaths)
 
 Switch to the **Cut** stage.
 
-### Profile Toolpath (cutting the outline)
-1. Click **+ Add Toolpath** → select **Profile**.
-2. In the Vector Selector, click your offset rectangle.
-3. Configure:
-   - **Tool:** End mill 6mm (default — adjust in Tool Database if needed)
-   - **Cut type:** On line
-   - **Depth:** `-2` mm (cuts 2mm deep into stock)
-   - **Feed rate:** `800` mm/min
-4. Click **Calculate**. You'll see the toolpath preview on the canvas in green.
+1. **+ Add Toolpath** → choose a strategy:
+   - **Profile** — cut around the outline (on/inside/outside line)
+   - **Pocket** — clear an enclosed area
+   - **Drill** — plunge holes
+   - **V-Carve** — engrave with a V-bit (the recipe already made one for you)
+2. Pick the vectors to cut, choose a **Tool**, set depth / feed / passes.
+3. Click **Calculate** — the toolpath appears in the list and on canvas.
 
-### V-Carve Toolpath (engraving text)
-1. Click **+ Add Toolpath** → select **V-Carve**.
-2. In the Vector Selector, click your text curves.
-3. Configure:
-   - **Tool:** V-bit 90° (select from tool dropdown)
-   - **Depth:** `-1` mm
-   - **Feed rate:** `500` mm/min
-4. Click **Calculate**. The toolpath preview shows in blue.
+**Dirty workflow (important):** edit your design after generating a toolpath and it goes **dirty** ("Recalculate Dirty (1)"). Export is blocked until you **Recalculate** — this protects you from cutting stale art.
+
+![Cut stage](../screenshots/03-cut.png)
 
 ---
 
-## Step 5 — Preview Simulation
+## Step 4 — Preview (Simulate Before You Cut)
 
 Switch to the **Preview** stage.
 
-1. Select both toolpaths (click one, then ⌘-click the other).
-2. Click **Simulate** (or press Space).
-3. Watch the material simulation animate — you'll see the virtual cutter removing material layer by layer.
-4. Toggle between **Draft** and **Final** preview modes to see progressive refinement.
+1. Select a toolpath and click **Simulate**.
+2. Watch the virtual cutter remove material — toggle **Wireframe / Heightfield / Combined** views.
+3. Run the draft simulation; **Cancel** aborts a long sim.
+
+![Preview stage](../screenshots/06-preview.png)
 
 ---
 
-## Step 6 — Export G-Code
+## Step 5 — Model (3D Relief, Optional)
 
-1. With your toolpaths selected, click **Export G-Code**.
-2. Choose a save location (e.g., `~/Desktop/hello.nc`).
-3. The file is GRBL-compatible and ready for your machine controller.
+The **Model** stage shows 3D relief and offers **Rough 3D / Finish 3D** toolpaths (Studio3D tier). Import an STL in Design → STL Relief… to populate it.
+
+![Model stage](../screenshots/04-model.png)
 
 ---
 
-## Step 7 — Run on Simulator (No Hardware Required)
+## Step 6 — Run on the Simulator (No Hardware)
 
 1. Switch to the **Machine** stage.
-2. In the Transport dropdown, select **Simulator**.
-3. Click **Connect** → then **Load File** → select your `hello.nc`.
-4. Review the preflight checklist (should show all green).
-5. Click **Run**. The simulator will stream through your G-code and report completion.
+2. Transport: **Simulator** (default). Click **Connect** — status turns green **Connected**.
+3. Send your toolpath: **Send to Machine Stage** in Cut (or the air-cut square loads automatically if the buffer is empty).
+4. Work through the **Pre-Flight Checklist** — all items must be acknowledged.
+5. Click **RUN**. The simulator streams the G-code line-by-line (each line gets an `ok`) and reports **Stream complete**.
+6. After a run, the checklist returns — you can adjust and run again.
+
+![Machine stage](../screenshots/05-machine.png)
+
+> Safety chrome: **Hold / Resume / Reset** are always visible while connected — no auto-run on load, ever.
 
 ---
 
-## Step 8 — Run on Real Hardware (Optional)
+## Step 7 — Save, Open, Export
 
-1. Connect your CNC machine via USB serial cable.
-2. In the Machine stage, select **Serial** transport.
-3. Choose the correct port (ShopPilot auto-detects available ports).
-4. Click **Connect**.
-5. Set your work zero using the Jog controls (X, Y, Z axes).
-6. Review the preflight checklist — all items must be green.
-7. Ensure the material is securely clamped and the correct tool is loaded.
-8. Click **Run** to start cutting.
+- **Save / Open** (`.shoppilot` package) — job, layers, toolpaths, and machine profile all round-trip.
+- **Export G-code** — GRBL-compatible output, blocked while any toolpath is dirty.
+- Export happens through the Cut stage (**Save Toolpaths…** / **Send to Machine Stage**).
+
+---
+
+## Step 8 — Real Hardware (Optional)
+
+1. Connect your CNC via USB serial.
+2. Machine stage → Transport: **Serial** → **Connect**.
+3. Set work zero with the **Jog** pad + **Zero X / Y / Z**.
+4. Re-run the preflight checklist — all green.
+5. Clamp material, confirm the tool, click **RUN**.
 
 ---
 
 ## Troubleshooting
 
-| Problem | Solution |
-|---------|----------|
-| "Toolpath outside stock bounds" | Check stock dimensions in Setup stage match your physical material |
-| "Dirty toolpath — cannot export" | Click Recalculate after making design changes |
-| "No machine connected" | Use Simulator transport for testing, or check USB cable connection |
-| Toolpaths don't appear on canvas | Make sure vectors are selected in the Vector Selector panel |
+| Problem | Fix |
+| --- | --- |
+| "Dirty toolpath — cannot export" | Recalculate in the Cut stage after editing art |
+| Toolpaths don't appear on canvas | Select vectors in the Cut stage's vector selector before calculating |
+| Simulator won't connect | Ensure Transport = Simulator, then Connect |
+| Machine shows alarm / soft-limit | Press **Reset**, re-home, reduce jog step, retry |
+| "Toolpath outside stock bounds" | Fix stock dimensions in Setup to match your material |
 
 ---
 
 ## What's Next?
 
-- Try importing an SVG file (File → Import) instead of drawing from scratch.
-- Explore the **Model** stage for 3D relief work (requires Studio3D license).
-- Check out [KEYBOARD_SHORTCUTS.md](./planning/KEYBOARD_SHORTCUTS.md) to speed up your workflow.
+- Import an **SVG/DXF** instead of drawing (Design stage, Import Design File).
+- Try the **Decorative Panel** and **Portrait Relief** recipes for different workflows.
+- Read the [product overview](README_MAC_NATIVE.md) for the full feature map.
+- Check `MASTER_KANBAN.md` for what's shipping next.

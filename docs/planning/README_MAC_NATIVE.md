@@ -1,93 +1,97 @@
-# ShopPilot — Mac-Native CNC Suite
+# ShopPilot — Mac-Native CNC Studio
 
-**Native Apple Silicon.** No Windows VM. No emulation layer.
-
----
-
-## What Is ShopPilot?
-
-ShopPilot is a professional-grade Computer-Aided Manufacturing (CAM) application built from the ground up for macOS on Apple Silicon. It brings Aspire-class vector design, toolpath calculation, and machine control to Mac — without requiring Parallels, VMWare, or any Windows dependency.
-
-### What It Does
-
-1. **Design** — Draw and edit 2D vectors: lines, arcs, circles, rectangles. Import SVG/DXF. Join, trim, offset, boolean operations.
-2. **Toolpath** — Calculate cutting paths for profile, pocket, drill, and V-carve strategies using a built-in tool database.
-3. **Preview** — Simulate material removal with heightfield rendering (draft + final modes).
-4. **Machine Control** — Connect to GRBL-compatible CNC machines via simulator or real serial port. Stream G-code, jog axes, manage work zeros.
-
-### What It Does NOT Do (v1.0)
-
-- **Full 3D solid modeling** — ShopPilot handles 2D vectors and v1.1 relief components, but does not replace Fusion 360 or SolidWorks for parametric 3D CAD.
-- **Laser cutting** — Laser support is planned for v1.3+; not included in any v1.0 tier.
-- **Double-sided machining** — Single-sided stock only in v1.0.
+**Native macOS · Apple Silicon + Intel · No Windows VM required**
 
 ---
 
-## System Requirements
+## What is ShopPilot?
 
-| Requirement | Minimum | Recommended |
-|-------------|---------|-------------|
-| macOS | 14.0 (Sonoma) | 15.0 (Sequoia) |
-| Chip | Apple Silicon (M1+) | M2 or newer |
-| RAM | 8 GB | 16 GB+ |
-| Storage | 500 MB free | 2 GB free |
+ShopPilot is a professional-grade Computer-Aided Manufacturing (CAM) application built natively for macOS. It generates CNC toolpaths from 2D vector designs and 3D relief models, then streams G-code to your machine — all without the bloat, Windows-only limitations, or subscription pricing of legacy alternatives.
 
-**Intel Macs are not supported in v1.0.** ShopPilot is built exclusively for Apple Silicon native performance.
+## Screenshots
+
+| Design & layers | Toolpaths & dirty gating | Machine control & safety |
+| --- | --- | --- |
+| ![Design](../screenshots/02-design-signage.png) | ![Cut](../screenshots/03-cut.png) | ![Machine](../screenshots/05-machine.png) |
+
+| Setup & recipes | Preview & simulation | Model & 3D |
+| --- | --- | --- |
+| ![Setup](../screenshots/01-setup.png) | ![Preview](../screenshots/06-preview.png) | ![Model](../screenshots/04-model.png) |
 
 ---
 
-## Product Tiers
+## Why ShopPilot?
 
-### Core (Free)
-Vector design, profile/pocket/drill toolpaths, GRBL simulator, basic preview, save/open `.shoppilot` files.
+### Native Mac, Not a VM
+ShopPilot runs natively on Apple Silicon (M1/M2/M3/M4) and Intel Macs. No Parallels, no Boot Camp, no Windows license needed. The app leverages SwiftUI for the UI and Metal for 3D rendering — technologies built specifically for macOS.
 
-### Studio (Paid Unlock)
-SVG/DXF import, text-to-curves, V-carve strategy, keep-out zones, job sheet PDFs.
+### Fair Pricing
+One-time purchase with tiered feature levels. No subscription required. Start free with Core features, upgrade when you need more power.
 
-### Studio 3D (Paid Unlock)
-Component modeling, combine modes, bitmap-to-component, 3D rough/finish toolpaths, sculpt mode.
+### Integrated Machine Control
+Connect your CNC machine directly from ShopPilot — jog axes, set work zero, stream G-code, and monitor status in real time. The built-in simulator lets you test everything before touching hardware.
 
-See [PACKAGING.md](./PACKAGING.md) for full tier details and upgrade policy.
+### Smart Safety
+- **Preflight checklist** — ack each item (work zero, Z0, tool loaded, material secured, workspace clear, G-code verified) before Run unlocks.
+- **Dirty flag system** — prevents exporting stale toolpaths after design changes.
+- **Always-visible Hold / Resume / Reset** during machine operation.
+- **Simulator-first workflow** — rehearse every job in software, then cut.
+
+---
+
+## Key Features
+
+| Category | Features |
+|----------|----------|
+| **Design** | Draw/edit vectors, import SVG/DXF/STL, offset, boolean ops (weld/subtract/intersect), join/close/trim, layers, undo/redo |
+| **Toolpaths** | Profile, Pocket, Drill, V-Carve (+ clearance), Rough3D/Finish3D (Studio3D), recalc-on-edit dirty gating |
+| **Machine** | Serial connection, jog/zero, G-code streaming, Hold/Reset safety controls, simulator transport |
+| **Preview** | Heightfield + wireframe + combined simulation, cancellable draft sim |
+| **Export** | GRBL-compatible G-code, dirty-export blocking, `.shoppilot` job packages |
+| **UX** | Stage rail (≤12 icons), ⌘K command palette, recipes, context coach panel |
 
 ---
 
 ## Getting Started
 
-1. **Build from source** — `swift build` produces `.build/debug/ShopPilot`
-2. **Run the simulator** — Connect to the built-in GRBL simulator (no hardware required)
-3. **Follow the tutorial** — See [TUTORIAL_FIRST_CUT.md](./TUTORIAL_FIRST_CUT.md) for a complete walkthrough
+1. **Install:** Download [`dist/ShopPilot-macOS.zip`](../../dist/ShopPilot-macOS.zip), unzip, drag to Applications. First launch: right-click → Open.
+2. **Create a job:** Setup stage → choose a **recipe** (Signage / Decorative Panel / Portrait Relief) or set custom stock.
+3. **Design:** Draw vectors or import SVG/DXF in the Design stage.
+4. **Toolpaths:** Cut stage → strategy (Profile/Pocket/Drill/V-Carve) → calculate.
+5. **Preview:** Simulate before exporting.
+6. **Export:** Save toolpaths / send to Machine.
+7. **Run:** Connect simulator or serial, preflight, run.
+
+See [TUTORIAL_FIRST_CUT.md](./TUTORIAL_FIRST_CUT.md) for the complete step-by-step walkthrough.
 
 ---
 
-## Safety
+## Safety First
 
-ShopPilot is designed with safety as a first-class concern:
+ShopPilot is a toolpath generator — **you are responsible for verifying all toolpaths before running on hardware.** Always:
+- Run simulations first (simulator transport included).
+- Complete the preflight checklist before Run.
+- Verify stock dimensions match your physical material.
+- Use Hold/Reset controls during machine operation.
+- Never rely on software as a substitute for a hardware e-stop.
 
-- **Simulator-first workflow** — Test everything on the simulator before connecting real hardware
-- **Preflight checks** — Block toolpath export on invalid geometry (open vectors, out-of-bounds cuts)
-- **Always-visible Hold/Reset** — Safety controls are never hidden behind menus
-- **Dirty flag protection** — Cannot export G-code from dirty/unrecalculated toolpaths
-
-See [SAFETY.md](../SAFETY.md) for the complete safety policy.
+See [SAFETY.md](./SAFETY.md) for complete safety guidelines.
 
 ---
 
-## Architecture
+## Documentation
 
-ShopPilot is structured as a Swift Package Manager multi-target project:
-
-| Target | Purpose |
-|--------|---------|
-| `ShopPilot` | SwiftUI app shell, views, stages, commands |
-| `ShopPilotCore` | Document model (Job/Sheet/Layer), machine transport, status parser, G-code streamer |
-| `ShopPilotGeometry` | 2D vector kernel: points, shapes, nodes, transforms, offsets, booleans |
-| `ShopPilotSerial` | Serial port enumeration, real serial transport, machine profiles |
-| `ShopPilotTests` | Unit tests for geometry, parser, streamer |
-
-See [ASPIRE_REIMAGINED_PRODUCT_PLAN.md](./ASPIRE_REIMAGINED_PRODUCT_PLAN.md) for the full architecture vision.
+| Document | Purpose |
+|----------|---------|
+| [TUTORIAL_FIRST_CUT.md](./TUTORIAL_FIRST_CUT.md) | End-user first-cut tutorial |
+| [KEYBOARD_SHORTCUTS.md](./KEYBOARD_SHORTCUTS.md) | Keyboard shortcut reference |
+| [SAFETY.md](./SAFETY.md) | Safety guidelines and compliance rules |
+| [PACKAGING.md](./PACKAGING.md) | Product tiers and pricing strategy |
+| [FEATURE_PARITY_MATRIX.md](./FEATURE_PARITY_MATRIX.md) | Aspire V12 feature comparison |
+| [AGENTS.md](../AGENTS.md) | Agent operating manual (architecture, rules, workflow) |
 
 ---
 
 ## License
 
-See LICENSE file in repository root.
+ShopPilot is proprietary software. No Vectric proprietary assets are used in this project — all code and documentation written from scratch.
