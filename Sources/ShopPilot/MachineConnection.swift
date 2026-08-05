@@ -1,31 +1,20 @@
 import Foundation
+import Combine
 import SwiftUI
 import ShopPilotCore
 import ShopPilotSerial
 
 // MARK: - Console Message
 
-/// A single message in the machine console.
-public struct ConsoleMessage: Identifiable, Sendable {
-    public let id = UUID()
-    public let timestamp: Date
-    public let text: String
-    public let type: MessageType
-    
-    public enum MessageType: String, Codable, Sendable {
-        /// User input (sent to machine).
-        case sent
-        /// Machine output (received from machine).
-        case received
-        /// System message.
-        case system
-        
-        public var uiColor: Color {
-            switch self {
-            case .sent: return .blue
-            case .received: return .green
-            case .system: return .gray
-            }
+/// Console message type + SwiftUI color (base type lives in ShopPilotCore —
+/// SPK-UI601: message buffering moved to `ConsoleLog` for deadlock-free,
+/// CLT-verifiable appends).
+extension ConsoleMessage.ConsoleMessageType {
+    public var uiColor: Color {
+        switch self {
+        case .sent: return .blue
+        case .received: return .green
+        case .system: return .gray
         }
     }
 }
@@ -150,17 +139,22 @@ public final class TransportFactory {
 public final class ConnectionManager: ObservableObject {
     
     @Published public var connectionState: ConnectionState = .disconnected
-    @Published public var consoleMessages: [ConsoleMessage] = []
+    /// Console messages are served from `consoleLog` (SPK-UI601). The view
+    /// reads `consoleLog.messages` directly + observes `$messages` — there is
+    /// deliberately NO mirror @Published here: a sink that re-publishes
+    /// creates a nested send (log send -> sink -> this @Published send) that
+    /// can contend with the streaming thread's own publishes and stall the
+    /// main thread (observed mid-stream freeze, 2026-08-04).
     @Published public var currentStatus: String = ""
+
+    /// Single chokepoint for console message appends (Core, deadlock-free).
+    public let consoleLog: ConsoleLog = ConsoleLog()
     
     /// The active transport (if connected).
     var transport: MachineTransport?
     
     /// Task handling the event stream.
     private var eventTask: Task<Void, Never>?
-    
-    /// Maximum number of console messages to keep.
-    private let maxConsoleMessages = 500
     
     /// Connect to machine using the specified transport type.
     public func connect(to type: MachineTransportType) async {
@@ -268,20 +262,16 @@ public final class ConnectionManager: ObservableObject {
         }
     }
     
-    /// Add a console message.
-    private func addConsoleMessage(text: String, type: ConsoleMessage.MessageType) {
+    /// Add a console message. All appends are deferred to the main queue by
+    /// ConsoleLog so a message arriving mid-Combine-send can never deadlock
+    /// the main thread (SPK-UI601).
+    private func addConsoleMessage(text: String, type: ConsoleMessage.ConsoleMessageType) {
         let message = ConsoleMessage(
             timestamp: Date(),
             text: text,
             type: type
         )
-        
-        consoleMessages.append(message)
-        
-        // Trim old messages if over limit
-        while consoleMessages.count > maxConsoleMessages {
-            consoleMessages.removeFirst()
-        }
+        consoleLog.append(message)
     }
     
     /// Add a system message (internal for SwiftUI view access).
@@ -291,7 +281,7 @@ public final class ConnectionManager: ObservableObject {
     
     /// Clear the console.
     public func clearConsole() {
-        consoleMessages.removeAll()
+        consoleLog.clear()
     }
 }
 
@@ -307,6 +297,12 @@ public struct MachineConnectionView: View {
     @State private var jogStepSize: Double = 1.0
     @State private var streamer = GCodeStreamer()
     @State private var isStreamingJob = false
+    /// The running stream task — cancelled by Stop Stream. SPK-UI601: the
+    /// stream loop only exits on cancellation (its ok-wait ignores non-ok
+    /// text, so an alarm leaves it blocked; a bare streamer.reset() then
+    /// unblocks it via the reset's "ok" and it writes the next buffered
+    /// move, re-tripping the soft-limit alarm).
+    @State private var jobTask: Task<Void, Never>?
     @State private var preflightPassed = false
     @State private var showRawTXRX = false
     @State private var softLimitWarning: String? = nil
@@ -435,7 +431,7 @@ public struct MachineConnectionView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 2) {
-                        ForEach(connectionManager.consoleMessages) { message in
+                        ForEach(Array(connectionManager.consoleLog.messages)) { message in
                             // In raw mode, show sent/received with TX/RX labels
                             if showRawTXRX && (message.type == .sent || message.type == .received) {
                                 let label = message.type == .sent ? "TX: " : "RX: "
@@ -460,13 +456,16 @@ public struct MachineConnectionView: View {
                     .padding(8)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     .background(Color.black.opacity(0.95))
-                    .onChange(of: connectionManager.consoleMessages.count) { count in
+                    .onChange(of: connectionManager.consoleLog.messages.count) { count in
                         withAnimation {
-                            if let lastMessage = connectionManager.consoleMessages.last {
+                            if let lastMessage = connectionManager.consoleLog.messages.last {
                                 proxy.scrollTo(lastMessage.id, anchor: .bottom)
                             }
                         }
                     }
+                    // SPK-UI601: re-render when the (deferred) log appends land.
+                    // Observing the log directly avoids a mirror @Published.
+                    .onReceive(connectionManager.consoleLog.$messages) { _ in }
                 }
             }
         }
@@ -761,7 +760,7 @@ public struct MachineConnectionView: View {
                     
                     // Stream job button (when connected, not already streaming)
                     if connectionManager.connectionState.isConnected && !isStreamingJob {
-                        Button(action: { Task { await streamJob() } }) {
+                        Button(action: { jobTask = Task { await streamJob() } }) {
                             HStack {
                                 Image(systemName: "play.fill")
                                 Text(machineSession.gcodeBuffer.isEmpty ? "Stream Job from File" : "Run Job (\(machineSession.gcodeBuffer.count) lines)")
@@ -955,9 +954,9 @@ public struct MachineConnectionView: View {
     /// otherwise falls back to file-based streaming.
     private func runJob() {
         if !machineSession.gcodeBuffer.isEmpty {
-            Task { await runJobFromSession() }
+            jobTask = Task { await runJobFromSession() }
         } else {
-            streamJobFromFile()
+            jobTask = Task { await streamJobFromFile() }
         }
     }
     
@@ -976,7 +975,9 @@ public struct MachineConnectionView: View {
             connectionManager.addSystemMessage("Streaming \(machineSession.gcodeBuffer.count) lines from session buffer")
             try await streamer.stream(lines: machineSession.gcodeBuffer, to: transport)
             isStreamingJob = false
-            connectionManager.addSystemMessage("Stream complete — \(streamer.currentLine) lines")
+            if !Task.isCancelled {
+                connectionManager.addSystemMessage("Stream complete — \(streamer.currentLine) lines")
+            }
         } catch {
             isStreamingJob = false
             connectionManager.addSystemMessage("Stream error: \(error.localizedDescription)")
@@ -984,7 +985,7 @@ public struct MachineConnectionView: View {
     }
     
     /// Open file picker and stream selected G-code job.
-    private func streamJobFromFile() {
+    private func streamJobFromFile() async {
         isStreamingJob = true
         
         // Check for recent export files from CutToMachineBridge first,
@@ -992,8 +993,7 @@ public struct MachineConnectionView: View {
         let bridgeExportURLs = findRecentBridgeExports()
         let sessionLines = pendingGCode
         
-        Task {
-            do {
+        do {
                 var lines: [String]
                 
                 if !sessionLines.isEmpty {
@@ -1043,12 +1043,13 @@ public struct MachineConnectionView: View {
                 // post processor type (GRBL vs universal) before writing to file.
                 try await streamer.stream(lines: lines, to: transport)
                 isStreamingJob = false
-                connectionManager.addSystemMessage("Stream complete — \(streamer.currentLine) lines")
+                if !Task.isCancelled {
+                    connectionManager.addSystemMessage("Stream complete — \(streamer.currentLine) lines")
+                }
             } catch {
                 isStreamingJob = false
                 connectionManager.addSystemMessage("Stream error: \(error.localizedDescription)")
             }
-        }
     }
     
     /// Stream G-code from the MachineSession buffer (called from the "Run Job" button).
@@ -1056,7 +1057,7 @@ public struct MachineConnectionView: View {
         if !machineSession.gcodeBuffer.isEmpty {
             await runJobFromSession()
         } else {
-            streamJobFromFile()
+            await streamJobFromFile()
         }
     }
     
@@ -1155,6 +1156,12 @@ public struct MachineConnectionView: View {
     
     /// Stop and reset the current stream.
     private func stopStreaming() {
+        // SPK-UI601: cancel the stream task FIRST — the stream loop only
+        // stops on cancellation; without it, streamer.reset()'s "ok" unblocks
+        // the alarm-stalled ok-wait and the loop writes the next buffered
+        // move, re-tripping the soft-limit alarm.
+        jobTask?.cancel()
+        jobTask = nil
         Task {
             await streamer.reset()
             isStreamingJob = false

@@ -80,7 +80,7 @@
 
 | Card | Sev | Summary | Evidence |
 | --- | --- | --- | --- |
-| **SPK-UI601** | P0 | **Stop Stream during alarm/paused state deadlocks the app** — main thread blocked in `stopStreaming()` → console `@Published` send (Combine); window frozen (byte-identical captures), 0% CPU, AX unresponsive; kill -9 required | `sample` stack: `MachineConnectionView.stopStreaming()` → `ConnectionManager.addSystemMessage` (MachineConnection.swift:1161→282) → `PublishedSubject.send` blocked |
+| **SPK-UI601** | P0 → **FIXED** | **Stop Stream during alarm/paused state deadlocked the app** — main thread blocked in `stopStreaming()` → console `@Published` send (Combine); fixed by (a) Core `ConsoleLog` deferred-append chokepoint and (b) cancelling the stream task in `stopStreaming` (a bare reset unblocked the alarm-stalled ok-wait and re-tripped the soft limit). `ShopPilotVerifyUI601` PASS. Manual walk: Stop Stream → responsive, "Stream stopped"; Reset → "Reset sent — machine cleared" + `<Idle>`. Final "stays Idle" re-check pending AX-server recovery (global wedge from driver tooling) — 30s owner confirm recommended. | sample stack: `stopStreaming()` → `addSystemMessage` (MachineConnection.swift:1161→282) → `PublishedSubject.send` |
 | **SPK-UI602** | P2 | Recipe card lists "Custom" ("Portrait Relief • Signage • Decorative Panel • Custom") but the Select Recipe sheet has **no Custom option** and **no Cancel/close** (dismiss only by picking or File menu) | `G1A_01_setup.png` card text; sheet dump |
 | **SPK-UI603** | P2 | Creating a Profile toolpath (no selection) reassigned a vector's layer (Text 4→5, Border 1→0) and created with **Tool: No tool**; form shows "1 pass" while summary shows "3 pass(es)" | AX layer counts pre/post; Profile 2 inspector vs summary |
 | **SPK-UI604** | P2 | `TUTORIAL_FIRST_CUT.md` stale vs app: Text tool, Object→Text to Curves, ⌘N Job Setup dialog, Machine "Load File" — all missing/different | G2 notes above |
@@ -109,4 +109,4 @@
 
 ## Sign-off
 
-**SPK-0623 left `[ ]` — owner decision.** Personal-use exit items 2–4 (UI driver, safety gates, P0 dispositions) are addressed here: driver complete (PASS/BLOCKED with causes), safety gates observed (no auto-run, Hold/Reset chrome, alarm reset), P0 filed (SPK-UI601). Owner to review and decide.
+**SPK-0623 left `[ ]` — owner decision.** Personal-use exit items 2–4 (UI driver, safety gates, P0 dispositions) are addressed here: driver complete (PASS/BLOCKED with causes), safety gates observed (no auto-run, Hold/Reset chrome, alarm reset), P0 filed **and fixed** (SPK-UI601, `ShopPilotVerifyUI601` PASS; final "Reset → stays Idle" live re-check pending AX-server recovery). Owner to review and decide.
