@@ -295,7 +295,7 @@ public struct MachineConnectionView: View {
     @State private var commandInput = ""
     @State private var selectedTransportType: MachineTransportType = .simulator
     @State private var jogStepSize: Double = 1.0
-    @State private var streamer = GCodeStreamer()
+    @ObservedObject private var streamer = GCodeStreamer()
     @State private var isStreamingJob = false
     /// The running stream task — cancelled by Stop Stream. SPK-UI601: the
     /// stream loop only exits on cancellation (its ok-wait ignores non-ok
@@ -341,6 +341,13 @@ public struct MachineConnectionView: View {
     
     /// Reset the preflight checklist.
     private func resetPreflight() {
+        withAnimation {
+            preflightPassed = false
+        }
+    }
+    
+    /// Reset preflight after a completed stream.
+    private func resetPreflightAfterStream() {
         withAnimation {
             preflightPassed = false
         }
@@ -974,12 +981,18 @@ public struct MachineConnectionView: View {
         do {
             connectionManager.addSystemMessage("Streaming \(machineSession.gcodeBuffer.count) lines from session buffer")
             try await streamer.stream(lines: machineSession.gcodeBuffer, to: transport)
-            isStreamingJob = false
+            await MainActor.run {
+                isStreamingJob = false
+                preflightPassed = false
+            }
             if !Task.isCancelled {
                 connectionManager.addSystemMessage("Stream complete — \(streamer.currentLine) lines")
             }
         } catch {
-            isStreamingJob = false
+            await MainActor.run {
+                isStreamingJob = false
+                preflightPassed = false
+            }
             connectionManager.addSystemMessage("Stream error: \(error.localizedDescription)")
         }
     }
@@ -1033,7 +1046,10 @@ public struct MachineConnectionView: View {
                 }
                 
                 guard let transport = connectionManager.transport else {
-                    isStreamingJob = false
+                    await MainActor.run {
+                        isStreamingJob = false
+                        preflightPassed = false
+                    }
                     return
                 }
                 
@@ -1042,12 +1058,18 @@ public struct MachineConnectionView: View {
                 // which post-processes toolpath results using the machine profile's auto-selected
                 // post processor type (GRBL vs universal) before writing to file.
                 try await streamer.stream(lines: lines, to: transport)
-                isStreamingJob = false
+                await MainActor.run {
+                    isStreamingJob = false
+                    preflightPassed = false
+                }
                 if !Task.isCancelled {
                     connectionManager.addSystemMessage("Stream complete — \(streamer.currentLine) lines")
                 }
             } catch {
-                isStreamingJob = false
+                await MainActor.run {
+                    isStreamingJob = false
+                    preflightPassed = false
+                }
                 connectionManager.addSystemMessage("Stream error: \(error.localizedDescription)")
             }
     }
@@ -1110,7 +1132,10 @@ public struct MachineConnectionView: View {
             // Step 2: Load into MachineSession buffer (primary handoff path)
             guard let outputFileURL = result.outputFileURL,
                   FileManager.default.fileExists(atPath: outputFileURL.path) else {
-                isStreamingJob = false
+                await MainActor.run {
+                    isStreamingJob = false
+                    preflightPassed = false
+                }
                 connectionManager.addSystemMessage("Error: Exported file not found")
                 return
             }
@@ -1121,19 +1146,29 @@ public struct MachineConnectionView: View {
             
             // Step 3: Stream if connected
             guard let transport = connectionManager.transport else {
-                isStreamingJob = false
+                await MainActor.run {
+                    isStreamingJob = false
+                    preflightPassed = false
+                }
                 connectionManager.addSystemMessage("Not connected — G-code loaded into buffer for later use")
                 return
             }
             
             machineSession.attachStreamer(streamer)
             try await streamer.stream(lines: lines, to: transport)
+            await MainActor.run {
+                isStreamingJob = false
+                preflightPassed = false
+            }
             
             // Step 4: Update result with actual streamed line count
             connectionManager.addSystemMessage("Stream complete — \(streamer.currentLine) lines")
             
         } catch {
-            isStreamingJob = false
+            await MainActor.run {
+                isStreamingJob = false
+                preflightPassed = false
+            }
             connectionManager.addSystemMessage("Export/stream error: \(error.localizedDescription)")
         }
     }
@@ -1164,7 +1199,10 @@ public struct MachineConnectionView: View {
         jobTask = nil
         Task {
             await streamer.reset()
-            isStreamingJob = false
+            await MainActor.run {
+                isStreamingJob = false
+                preflightPassed = false
+            }
             connectionManager.addSystemMessage("Stream stopped")
         }
     }

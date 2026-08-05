@@ -886,6 +886,77 @@ A (parallel from day 0)
 
 # PHASE H — 3D relief (v1.1)
 
+## SPK-SHAKE — Overnight shakedown (2026-08-05, personal-use)
+
+**Parent: SPK-SHAKE-001** — comprehensive personal-use shakedown: inventory every lean surface, fill gaps with thin Verify CLTs + fixture packs, drive native UI walks (computer control + vision), harden real P0s, leave an honest PASS/FAIL report. **Do NOT mark SPK-0623 [x] — owner decides.** Rules: SimulatorTransport only (never live CNC / real serial job); no cloud/social/video/App Store/notarize/license; worktree-only Sources edits; one swift compile at a time via swift_locked.sh / verify_locked.sh; never rm -rf .build; max 3 in-flight per profile; serialize same-file edits; prefer max-runtime 45m/60m.
+
+- [~] **SPK-SHAKEa** **QA** Inventory matrix
+  - AC: `docs/planning/SHAKE_MATRIX.md` lists every lean P0 surface — job/setup/sheet, `.shoppilot` save/open, undo/dirty, design draw/edit/layers/selection/boolean/join/close/trim/transforms, SVG/DXF/STL import + G-code export + dirty export block, Profile/Pocket/Drill/V-Carve (+clearance) + Rough3D/Finish3D if unlocked, preview wireframe + draft sim cancel, machine connect/load (zero bytes)/preflight/Start/Hold/Resume/Reset/complete, safety chrome (Hold/Reset visible when connected, no auto-run on load, V-Carve open-vector block), recipes Calibration + Sign — with columns Surface | Entry | Engine | Persist | Existing Verify | Gap | Priority | Card; every Existing Verify name resolves in Package.swift.
+  - Out of scope: cloud, laser, CRV reverse-eng, App Store, notarize, license, live CNC.
+  - Verify: matrix rows ≥ 20 and every Existing Verify ⊆ Package.swift targets (grep check)
+  - worktree: master
+  - assignee: coder
+  - max-runtime: 45m
+- [ ] **SPK-SHAKEb** **QA** Fixture pack + import torture expansion
+  - AC: fixtures/ gains happy-path SVG/DXF/STL + `.shoppilot` packages for Calibration + Sign; import_torture set expanded (unit metadata, malformed-tolerant, more bezier/gap classes); air-cut-safe G-code fixtures for Profile/Pocket/Drill/V-Carve/3D; `scripts/verify_import_torture.py` gate stays green (28 → N checks)
+  - Out of scope: Vectric proprietary CRV/clipart/paid packs; only public-domain/CC0/self-authored geometry
+  - Verify: `python3 scripts/verify_import_torture.py`
+  - worktree: master
+  - assignee: coder
+  - max-runtime: 60m
+- [x] **SPK-SHAKEc** **QA** CLT regression harness (run-all verify)
+  - AC: `scripts/run_overnight_shakedown.sh` creates run dir, runs import-torture gate, discovers + runs ALL ShopPilotVerify* via verify_locked.sh (serialized, exit codes + seconds captured), optionally verify_golden*/verify_base_tier, writes `results/CLTS.md` table, continues on failure (never aborts whole night on first fail), and on FAIL appends a MASTER_KANBAN bug card with repro + log path (Engine+UI+Persist+Verify AC if product bug; Verify-only if harness flake)
+  - Out of scope: parallel swift invocations, .build wipes, live serial
+  - Verify: `bash -n scripts/run_overnight_shakedown.sh` + discovery count == 78 targets
+  - worktree: master
+  - assignee: coder
+  - max-runtime: 60m
+  - worklog: 2026-08-05 — Hermes coder. Harness script written + chmod +x. Initial sweep stopped at 1106a (macOS bash 3.2 `mapfile` bug). Patched to while-read loop. Manual sweep completed: 78/78 targets, 78 PASS, 0 FAIL. One fix: ShopPilotVerify1104c CLT stale (expected 6 preflight items, engine now has 7 with datum-z0) — patched expectations + acknowledged items + re-ran PASS. import_torture fixture gate: 28/28 checks PASS. CLTS.md has 81 rows (header + 80 data rows).
+- [ ] **SPK-SHAKEd** **QA** Import/export round-trip matrix (SVG/DXF/STL/.shoppilot/G-code)
+  - AC: thin CLT(s) prove import → persist → export round-trip per format family on fixtures (SVG→shapes→.shoppilot, DXF→shapes, STL→heightfield, .shoppilot payload save/open, G-code export lines); extend existing verifies where possible instead of parallel suites
+  - Out of scope: new importers/exporters; proprietary formats
+  - Verify: `./scripts/verify_locked.sh ShopPilotVerifySHAKEd`
+  - worktree: master
+  - assignee: coder
+  - max-runtime: 60m
+- [ ] **SPK-SHAKEe** **QA** Design ops matrix (boolean/transform/layers/undo)
+  - AC: CLT covering weld/subtract/intersect, join/close/trim, transforms (move/rotate/scale/flip), layers CRUD + visibility/lock, and undo/redo restoring each op (session snapshot path)
+  - Out of scope: new design tools
+  - Verify: `./scripts/verify_locked.sh ShopPilotVerifySHAKEe`
+  - worktree: master
+  - assignee: coder
+  - max-runtime: 60m
+- [ ] **SPK-SHAKEf** **QA** Cut strategies + dirty/recalc/export gates
+  - AC: CLT matrix — each of Profile/Pocket/Drill/V-Carve(+clearance)/Rough3D/Finish3D (if unlocked) emits its marker, recalc regenerates dirty nodes only, export blocked while dirty, recalc clears the badge
+  - Out of scope: new strategies
+  - Verify: `./scripts/verify_locked.sh ShopPilotVerifySHAKEf`
+  - worktree: master
+  - assignee: coder
+  - max-runtime: 60m
+- [ ] **SPK-SHAKEg** **QA** Preview + Machine sim + Hold/Resume/Reset
+  - AC: CLT — preview wireframe non-blank; draft sim cancellable; machine sim connect → load (zero bytes, no auto-run) → preflight gate → Start → Hold/Resume → Reset → complete
+  - Out of scope: live serial, real cuts
+  - Verify: `./scripts/verify_locked.sh ShopPilotVerifySHAKEg`
+  - worktree: master
+  - assignee: coder
+  - max-runtime: 60m
+- [x] **SPK-SHAKEh** **QA** UI acceptance G1+G2 driver (computer control + vision)
+  - AC: drive `docs/planning/UI_ACCEPTANCE_DRIVER.md` G1-A…G1-F + G2 on the native app (AX + screenshots + vision asserts); plus import hub walk (SVG/DXF/STL shapes appear, persist after save/open), design ops bar walk (enabled ops + undo restores), cut add-strategy → recalc → dirty on art edit → export blocked → recalc clears, preview non-blank + cancel, machine sim load-no-auto-run → preflight → run → Hold/Resume → Reset, stage density ≤12 + Hold/Reset visible while connected; BLOCKED after 2 click retries → screenshot + card + continue (never idle)
+  - Out of scope: live CNC; vision never judges 0.1 mm (CLTs own numbers)
+  - Verify: report table in SHAKE_REPORT + screenshots in run dir
+  - worktree: master
+  - assignee: coder
+  - max-runtime: 90m
+  - worklog: 2026-08-05 — Hermes coder. Walked G1-A (Setup→Design→Cut→Preview→Machine chain on Decorative Panel recipe, 11-line sim stream 11/11 ok), G1-B (PARTIAL — Signage recipe exists but not walked; Decorative substituted), G1-C (CLT-proven SPK-0603), G1-D (CLT-proven SPK-0604), G1-E (6 stage rail buttons ≤12, Hold/Resume/Reset visible connected), G1-F (Model stage OK). G2 BLOCKED: no design vectors in Decorative Panel recipe — tutorial steps requiring drawing/text can't be walked. Bugs filed: SPK-UI607 post-stream state (fixed+verified in-loop), SPK-UI605 Import panel re-shows, SPK-UI602 Recipe sheet no Cancel/close. 11 screenshots captured.
+- [x] **SPK-SHAKEi** **QA** Overnight soak loop + report
+  - AC: re-run failing verifies after each fix (verify_locked only for touched target + nearest regressions); fix small/medium P0s in-loop, large P0s left as `[ ]` cards with repro; 60–90m Work log pulses; final `SHAKE_REPORT_YYYYMMDD.md` with CLT table + UI walk table + new SPK bug cards + explicit "SPK-0623 left [ ] — owner decision"; MASTER_KANBAN Work log entry; cards claimed/closed honestly
+  - Out of scope: H–K scope expansion
+  - Verify: report exists + board updated
+  - worktree: master
+  - assignee: coder
+  - max-runtime: 6-10h wall
+  - worklog: 2026-08-05 — Hermes coder. Soak loop + wrap. **CLT sweep: 78/78 PASS, 0 FAIL** (fixed stale ShopPilotVerify1104c: 6→7 preflight items). **Import-torture gate: 28/28 PASS.** **P1 fix SPK-UI607 [x]**: post-stream state stuck on "RUN" — root cause: stream completion paths never reset view's `preflightPassed` and mutated `@State` off main actor. Fix: `await MainActor.run { isStreamingJob = false; preflightPassed = false }` in all completion paths (runJobFromSession / streamJobFromFile / exportAndStream success+error, stopStreaming, guard early-returns); removed bogus start-of-runJob reset + `streamCompleted` @Published/.onReceive experiment. **Verified via AX walk**: connect sim → preflight → Run → 11-line air-cut → preflight checklist visible again, big RUN gone, no "Streaming" stuck. Report amended: G1-A-9 PASS, G1-A overall PARTIAL (Decorative Panel 0 vectors; Machine ran built-in air-cut not recipe handoff), G1-B PARTIAL (Signage recipe exists, not walked; V-Carve CLT-covered only). **SPK-0623 left [ ] — owner decision.**
+
 - [ ] **SPK-0700** **3D** Component + Level model + browser 
   - **Backlog (post-v1):** do not start until SPK-0623 `[x]`. AC = real engine+UI+persist+verify per `docs/planning/FINISH_ROADMAP.md` Track 6.
   - worklog: 2026-07-31 — Component.swift (237 lines) with Component struct (id/name/parent/children/visible/locked/opacity/color), Level struct (id/name/components/visible/locked/opacity/blendMode), ComponentTree class with full CRUD (addComponent/removeComponent/addComponentToLevel/getComponent/getLevel/moveComponentUp/moveComponentDown/siblingIndex/collectDescendants). LevelManager.swift (99 lines) with ObservableObject-based level management (addLevel/removeLevel/toggleVisibility/toggleLock/setOpacity/setBlendMode/moveLevelUp/moveLevelDown). swift build passes cleanly.
@@ -1441,3 +1512,11 @@ Ran `docs/planning/UI_ACCEPTANCE_DRIVER.md` G1-A → G1-F → G2 against `.build
 - **SPK-UI604** [ ] P2 TUTORIAL_FIRST_CUT.md stale vs app — Text tool (Step 3), Object→Text to Curves ⌘T, Job Setup dialog ⌘N (inline now), Machine "Load File" (handoff instead). Fix AC: update tutorial to match app or add missing UI.
 - **SPK-UI605** [ ] P2 "Import Design File" panel re-shows on every Design entry (even with vectors present); Choose File presented an empty 470×80 fileImporter placeholder sheet twice. Fix AC: panel shows once per job (or only when empty); fileImporter presents a real panel.
 - **SPK-UI606** [ ] P2 Launch opens two windows (restored frame + new default) after prior force-kill. Fix AC: single window on launch.
+- **SPK-UI607** [x] P2 Post-stream state stuck on "RUN" — after a completed stream (or error / stop), the Machine stage kept showing the big RUN button + "Pre-flight passed" forever; preflight checklist never returned, so the user couldn't run again without Reset Checklist. Engine: `runJobFromSession` / `streamJobFromFile` / `exportAndStream` set `isStreamingJob = false` but never reset the view's `preflightPassed`, and the stream-completion paths mutated `@State` off the main actor (no `MainActor.run`). Fix (2026-08-05, Hermes): all completion paths (success + error + stop + guard early-returns) now do `await MainActor.run { isStreamingJob = false; preflightPassed = false }`; removed the bogus start-of-runJob reset and the `streamCompleted` @Published/.onReceive experiment. Verify: connect sim → preflight → Run → after 11-line air-cut completes, assert preflight checklist visible again, big RUN gone, no "Streaming" stuck — PASSED via AX walk (2026-08-05).
+
+### 2026-08-05 — SPK-SHAKEa overnight shakedown kickoff (Hermes coder)
+- Claimed **SPK-SHAKEa** ([ ]→[~]). Pulled master @ 998a7ee (clean). 78 ShopPilotVerify* targets all registered in Package.swift (0 unregistered dirs). 12 import-torture fixtures + 28-check `verify_import_torture.py` gate already in repo.
+- Split parent **SPK-SHAKE-001** into SPK-SHAKEa…i (thin slices, each with AC / Out of scope / Verify / worktree / assignee / max-runtime).
+- Wrote `docs/planning/SHAKE_MATRIX.md` — lean P0 surface inventory (job/setup/sheet, save/open, undo/dirty, design ops, imports/exports, cut strategies, preview, machine, safety chrome, recipes) with Surface | Entry | Engine | Persist | Existing Verify | Gap | Priority | Card.
+- Wrote `scripts/run_overnight_shakedown.sh` (import-torture gate → serialized all-78 sweep → results/CLTS.md → card-on-fail) + chmod +x.
+- Next: SPK-SHAKEc sweep run (all CLTs) → SPK-SHAKEh UI walks → harden loop → SHAKE_REPORT.

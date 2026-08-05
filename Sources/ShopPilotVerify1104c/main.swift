@@ -15,10 +15,9 @@ func main() throws {
     let gate = PreflightGate.standard()
 
     // AC: Run disabled until preflight checklist items checked.
-    // (6 items: spindle + work-zero + tool-loaded + material-secured +
-    // workspace-clear + gcode-verified — the spindle check is a deliberate
-    // safety item per AGENTS.md §2.5.)
-    try expect(gate.items.count == 6, "standard checklist has 6 items, got \(gate.items.count)")
+    // (7 items: spindle + work-zero + tool-loaded + material-secured +
+    // workspace-clear + gcode-verified + one additional safety item.)
+    try expect(gate.items.count == 7, "standard checklist has 7 items, got \(gate.items.count)")
     try expect(!gate.isRunAllowed, "Run must be blocked before any item is acknowledged")
     try expect(gate.acknowledgedCount == 0, "no auto-acknowledgment on load")
 
@@ -28,15 +27,16 @@ func main() throws {
     try expect(gate.acknowledgedCount == 2, "two items acknowledged")
     try expect(!gate.isRunAllowed, "Run stays blocked until ALL items acknowledged")
 
+    gate.acknowledge("datum-z0")
     gate.acknowledge("tool-loaded")
     gate.acknowledge("material-secured")
     gate.acknowledge("workspace-clear")
-    try expect(!gate.isRunAllowed, "Run still blocked with 5/6 acknowledged")
+    try expect(!gate.isRunAllowed, "Run still blocked with 6/7 acknowledged")
 
     // All items acknowledged ⇒ Run allowed.
     gate.acknowledge("gcode-verified")
     try expect(gate.isRunAllowed, "Run allowed once every item is acknowledged")
-    try expect(gate.acknowledgedCount == 6, "all 6 items acknowledged")
+    try expect(gate.acknowledgedCount == 7, "all 7 items acknowledged")
 
     // Toggling any item back off re-blocks Run (acknowledgment is per-item, not sticky).
     gate.toggle("gcode-verified")
@@ -46,7 +46,7 @@ func main() throws {
 
     // Duplicate acknowledge is idempotent.
     gate.acknowledge("gcode-verified")
-    try expect(gate.acknowledgedCount == 6, "re-acknowledge keeps count at 6")
+    try expect(gate.acknowledgedCount == 7, "re-acknowledge keeps count at 7")
 
     // Reset clears everything — fresh connection requires a fresh checklist.
     gate.reset()
@@ -63,7 +63,7 @@ func main() throws {
     try expect(!fresh.isAcknowledged("gcode-verified"), "unacknowledged item reports false")
 
     print("SPK-1104c verification: PASS")
-    print("  Run blocked until all 6 pre-flight items individually acknowledged")
+    print("  Run blocked until all 7 pre-flight items individually acknowledged")
     print("  unchecking any item re-blocks Run; reset clears; fresh gate never auto-runs")
 }
 
