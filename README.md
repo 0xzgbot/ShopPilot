@@ -32,6 +32,56 @@
 
 ---
 
+## Features
+
+### Job & setup
+- **Job setup** — single-sided stock with sheet presets (72 imperial/metric), custom material, mm/inch units, document variables.
+- **Recipes** — one-click Signage, Decorative Panel, and Portrait Relief jobs that pre-build the design and toolpath tree.
+- **Documents** — save/open `.shoppilot` packages (vectors + layers + toolpaths + params), autosave, full undo/redo.
+- **Preferences** — units, theme, safety-checklist skip.
+
+### Design (2D)
+- **Create** — rectangle, circle, line, polyline (click-to-close), text (glyphs → curves, text on curve for signs).
+- **Edit** — select / drag-move / multi-select (⌘/⇧), node editing (vertex drag), measure tool, undo/redo.
+- **Operations** — Offset, Weld, Subtract, Intersect, Join, Close, Trim, Fillet, Extend, Array copy, Circular copy, Keyhole.
+- **Transforms** — nudge, flip horizontal, rotate 90°, scale.
+- **Layers** — create/rename/remove/reorder, per-layer hide & lock, layer-faithful save/open.
+- **Import / export** — SVG and DXF (LINE/Polyline/Circle/Arc) import, bitmap trace, DXF & STL export.
+
+### Model & 3D (lean spine)
+- **STL → relief** — real ASCII-STL parser + triangle rasterizer turns a mesh into a heightfield grid.
+- **Bitmap → relief** — grayscale bitmap to heightfield.
+- **Model stage** — grayscale relief view with pan/zoom camera, grid/peak readout, contour strip, Reset View.
+- **Sculpt mode** — interactive heightfield sculpting strokes (v1).
+- **3D toolpaths** — Rough 3D and Finish 3D from the heightfield, rest machining (z-level allowance) support.
+
+### Toolpaths (CAM)
+- **Profile** — cut type (in/out/on), climb/conventional, pass depths, tabs, ramping, lead-in/out, corner sharpening, ordering & start-point strategies, allowance.
+- **Pocket** — offset/raster fill, multi-tool clearance, profile pass, allowance, ramping, pass control.
+- **Drill** — peck cycles (fixed/relative retract), dwell at bottom, plunge feeds.
+- **V-Carve** — per-vector depth shading, V-bit angle presets, flat-depth mode, clearance-tool pass before the V-bit, corner sharpen.
+- **Specialty** — Quick Engrave, Inlay (pocket/plug + V-carve inlay recipes 30/45/60/90°), Drag Knife (blade-offset pivot arcs), Photo V-Carve (brightness → depth raster), Texture (parallel/crosshatch grooves), Fluting, Prism, Chamfer, Sketch Carve.
+- **Tool database** — 13 tool classes, 17 strategy defaults, 3-part cut-data linkage (geometry / per-material / per-machine) with resolved feeds, plunge, RPM (`M3 S…`) and depth.
+- **Tree & safety** — toolpath tree with per-op params, dirty flags, recalc-all, keep-out zones, time estimates, group-by-tool export, dirty-export blocking.
+
+### Preview
+- Full-tree wireframe overlay, selected-op highlight, sheet-aware material/heightfield simulation that removes stock along cut moves — cancellable and non-blocking.
+
+### Machine control
+- **Transports** — built-in simulator plus real serial (GRBL / FluidNC over USB).
+- **Operation** — jog, home, set work zero, stream G-code, Hold / Resume / Reset realtime, raw TX/RX console.
+- **Safety** — preflight checklist gates Start, zero bytes on load (no auto-run), disconnect stops the stream, E-stop / Reset always visible.
+
+### Platform & UX
+- **Stage rail** — Setup → Design → Model → Cut → Preview → Machine, capped at 12 icons per stage.
+- **⌘K command palette** — searchable commands including Import SVG/DXF/STL.
+- **Context coach** — stage-aware tips with follow-source warnings.
+- **GRBL post** — full-tree export with mm/inch variants.
+
+> Roadmap (not yet shipped): double-sided/rotary jobs, advanced 3D component compositing, laser strategies, Post Studio, App Store distribution — tracked in [`docs/planning/FEATURE_PARITY_MATRIX.md`](docs/planning/FEATURE_PARITY_MATRIX.md).
+
+---
+
 ## Download
 
 Grab the prebuilt app — no build required:
