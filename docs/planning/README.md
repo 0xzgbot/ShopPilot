@@ -12,7 +12,7 @@ Other planning docs:
 | [`SAFETY.md`](SAFETY.md) | Safety guidelines |
 | [`PACKAGING.md`](PACKAGING.md) | Product tiers & pricing |
 | [`FINISH_ROADMAP.md`](FINISH_ROADMAP.md) | Feature-completion roadmap (Tracks 1–6) |
-| [`FEATURE_PARITY_MATRIX.md`](FEATURE_PARITY_MATRIX.md) | Aspire V12 feature comparison |
+| [`FEATURE_PARITY_MATRIX.md`](FEATURE_PARITY_MATRIX.md) | reference V12 feature comparison |
 | [`research/INDEX.md`](research/INDEX.md) | Research corpus index |
 
 Work tracking lives in [`MASTER_KANBAN.md`](../../MASTER_KANBAN.md).

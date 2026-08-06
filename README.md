@@ -26,7 +26,7 @@
 ## Why ShopPilot?
 
 - **Native, not a VM.** SwiftUI + Metal on Apple Silicon and Intel. No Parallels, no Boot Camp, no Windows license.
-- **Aspire-class workflows.** Vectors, boolean ops, layers, Profile / Pocket / Drill / V-Carve toolpaths, 3D relief (Studio3D tier), heightfield preview.
+- **Professional-grade workflows.** Vectors, boolean ops, layers, Profile / Pocket / Drill / V-Carve toolpaths, 3D relief (Studio3D tier), heightfield preview.
 - **Machine control built in.** Jog, set work zero, stream G-code over serial to GRBL/FluidNC — or rehearse every job in the included simulator first.
 - **Safety by design.** Preflight checklist before Run, always-visible **Hold / Resume / Reset**, dirty-toolpath export blocking, no auto-run on load.
 
@@ -164,4 +164,4 @@ SwiftUI · macOS 14+ · `ShopPilot` (app) · `ShopPilotCore` (engine) · `ShopPi
 
 ## License
 
-Proprietary — see `LICENSE`. All code and documentation written from scratch; **no Vectric proprietary assets** (no CRV/clipart/paid samples) are used in this project.
+Proprietary — see `LICENSE`. All code and documentation written from scratch; **no third-party proprietary assets** (no CRV/clipart/paid samples) are used in this project.

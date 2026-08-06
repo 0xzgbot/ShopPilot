@@ -1,16 +1,16 @@
-# ShopPilot Studio — Aspire Reimagined for Mac
+# ShopPilot Studio — Reimagined for Mac
 
 **Document type:** Master product + team execution plan  
-**Source studied:** [Vectric Aspire V12.0 User Guide](https://docs.vectric.com/docs/V12.0/Aspire/ENU/Help/page/user-guide/) (full TOC + workflow + 3D system + What’s New V12)  
+**Source studied:** reference V12.0 user guide (public docs; full TOC + workflow + 3D system + What’s New V12)  
 **Date:** 2026-07-28  
 **Product family:** **ShopPilot**  
-**Scope:** Every Aspire-class capability, reorganized for Mac-native clarity; plus native machine control (Aspire’s gap)
+**Scope:** Every professional-grade capability, reorganized for Mac-native clarity; plus native machine control (the incumbent’s gap)
 
 ---
 
 ## 1. North star
 
-**Aspire proved the workflow.** The CNC job is:
+**The reference proved the workflow.** The CNC job is:
 
 > **Material → Vectors/Bitmaps → 3D Components → Toolpaths → Preview → Post → Cut**
 
@@ -19,11 +19,11 @@ That logic is correct and must not be “simplified away.”
 
 ### Promise
 
-> A Mac-native creative CNC suite that can do **everything Aspire does** — signs, inlays, 3D relief, rotary, laser, production nesting — while feeling like **Final Cut / Figma / Lightroom**: one calm canvas, progressive disclosure, search-first power tools, and **Run on Machine** without leaving the app.
+> A Mac-native creative CNC suite that can do **everything the incumbent does** — signs, inlays, 3D relief, rotary, laser, production nesting — while feeling like **Final Cut / Figma / Lightroom**: one calm canvas, progressive disclosure, search-first power tools, and **Run on Machine** without leaving the app.
 
-### Strategic advantages over Aspire (Mac)
+### Strategic advantages over the incumbent (Mac)
 
-| Aspire (Windows-centric) | ShopPilot (Mac reimagined) |
+| Incumbent (Windows-centric) | ShopPilot (Mac reimagined) |
 | --- | --- |
 | Design ↔ Toolpath tab thrash | **Stage rail** (Setup → Design → Model → Toolpaths → Preview → Machine) |
 | Dense left icon grids | **Primary tools + overflow + ⌘K command palette** |
@@ -49,7 +49,7 @@ That logic is correct and must not be “simplified away.”
 └─────────────────────────────────────────────────────────────┘
 ```
 
-| Module | Responsibility | Aspire analog |
+| Module | Responsibility | Reference analog |
 | --- | --- | --- |
 | **Job & Sheets** | Single/double/rotary stock, multi-sheet, templates, variables | Job Setup, Sheet Management |
 | **Design 2D** | Vectors, text, bitmaps, layers, nest, plate | Drawing tab |
@@ -77,7 +77,7 @@ Replace dual-tab thrash with a **persistent horizontal stage**:
 ```
 
 - Stages are **modes**, not separate apps. Document state is continuous.
-- **Cut** = toolpath creation (Aspire “Toolpaths”).
+- **Cut** = toolpath creation (the reference’s “Toolpaths”).
 - **Machine** = live control (our differentiator).
 - Keyboard: `1…6` switch stages; `Space` pan; standard Mac conventions.
 - **Figma-like:** advanced panels collapse; selection drives inspector.
@@ -94,7 +94,7 @@ Replace dual-tab thrash with a **persistent horizontal stage**:
 
 1. **Primary toolbar** (8–12 tools for current stage).  
 2. **More…** overflow (grouped).  
-3. **⌘K Command Palette** — every Aspire command discoverable by name.  
+3. **⌘K Command Palette** — every reference command discoverable by name.  
 4. **Recipes** — one-click multi-step (e.g. “V-Carve Inlay pair”, “Sign: text + border + pocket”).
 
 ### 3.3 Progressive disclosure rules
@@ -119,22 +119,22 @@ On **New Job**, pick a recipe instead of blank form density:
 | Rotary column | Rotary job + wrap layout helpers |
 | Laser cut | Laser strategies, laser post |
 | Production nest | Nest + multi-sheet + job sheet |
-| Calibration | Aspire-style square/circle/star test |
+| Calibration | reference-style square/circle/star test |
 
 Every recipe still opens the **same full app** — nothing is locked away permanently.
 
 ### 3.5 Smart inspector pattern
 
-Toolpath forms follow Aspire’s top→bottom logic, but:
+Toolpath forms follow the reference’s top→bottom logic, but:
 
 1. **Essentials** always open (depth, tool, vectors, cut side).  
 2. **Passes / tabs / ramps / leads** collapsed.  
 3. **Advanced** (start points, order, spiral, etc.) behind disclosure.  
 4. Live **risk chips**: “plunges into keep-out”, “tool too large for corners”, “needs recalculation”.
 
-### 3.6 Aspire principles we keep (non-negotiable)
+### 3.6 Reference principles we keep (non-negotiable)
 
-From Vectric workflow docs:
+From reference workflow docs:
 
 1. **Toolpaths do not auto-mutate when art moves** — explicit recalculate (safety + predictability).  
 2. Toolpaths **remember source vectors** for re-edit.  
@@ -154,16 +154,16 @@ From Vectric workflow docs:
 
 ---
 
-## 4. Complete Aspire feature inventory → ShopPilot mapping
+## 4. Complete reference feature inventory → ShopPilot mapping
 
-> **Parity rule:** If it exists in Aspire V12 docs, it must appear in our capability matrix.  
+> **Parity rule:** If it exists in the reference V12 docs, it must appear in our capability matrix.  
 > **UX rule:** It need not appear as a permanent top-level icon.
 
 Legend: **P0** MVP parity slice · **P1** full creative · **P2** production/power · **P3** specialist
 
 ### 4.1 Getting started & job system
 
-| Aspire feature | ShopPilot | Pri | UX placement |
+| Reference feature | ShopPilot | Pri | UX placement |
 | --- | --- | --- | --- |
 | Kickstarter / first-run | Onboarding + Machine Wizard | P0 | First launch |
 | License / V&Co sign-in | Local license / optional account | P2 | Settings (local-first) |
@@ -183,7 +183,7 @@ Legend: **P0** MVP parity slice · **P1** full creative · **P2** production/pow
 
 ### 4.2 Views & interface
 
-| Aspire feature | ShopPilot | Pri | UX placement |
+| Reference feature | ShopPilot | Pri | UX placement |
 | --- | --- | --- | --- |
 | 2D design window | Canvas 2D mode | P0 | Canvas |
 | 3D view | Canvas 3D mode | P0 | Canvas |
@@ -206,7 +206,7 @@ Legend: **P0** MVP parity slice · **P1** full creative · **P2** production/pow
 
 ### 4.3 2D design — create
 
-| Aspire feature | ShopPilot | Pri | UX |
+| Reference feature | ShopPilot | Pri | UX |
 | --- | --- | --- | --- |
 | Draw line/polyline | Line | P0 | Primary |
 | Draw arc | Arc | P0 | Primary |
@@ -230,7 +230,7 @@ Legend: **P0** MVP parity slice · **P1** full creative · **P2** production/pow
 
 ### 4.4 2D design — edit & organize
 
-| Aspire feature | ShopPilot | Pri | UX |
+| Reference feature | ShopPilot | Pri | UX |
 | --- | --- | --- | --- |
 | Selection / interactive selection | Select | P0 | Default tool |
 | Vector selection mode | Select filter | P1 | Inspector |
@@ -263,9 +263,9 @@ Legend: **P0** MVP parity slice · **P1** full creative · **P2** production/pow
 | PDF export | Export PDF | P1 | Share |
 | Undo / redo / cut / copy / paste | Standard | P0 | |
 
-### 4.5 3D model system (Aspire core differentiator)
+### 4.5 3D model system (the incumbent’s core differentiator)
 
-| Aspire feature | ShopPilot | Pri | UX |
+| Reference feature | ShopPilot | Pri | UX |
 | --- | --- | --- | --- |
 | Components + Levels + tree | Scene / Component browser | P0 | Browser → Model |
 | Composite model | Live heightfield composite | P0 | 3D view |
@@ -358,7 +358,7 @@ Legend: **P0** MVP parity slice · **P1** full creative · **P2** production/pow
 
 ### 4.7 Tools, machines, posts, shop docs
 
-| Aspire feature | ShopPilot | Pri |
+| Reference feature | ShopPilot | Pri |
 | --- | --- | --- |
 | Tool database | Tools library | P0 |
 | Custom naming variables | Naming templates | P2 |
@@ -397,12 +397,12 @@ Legend: **P0** MVP parity slice · **P1** full creative · **P2** production/pow
 | Imported 3D toolpath files | P2 | External TP import |
 | Gadgets system | P1 | Sandboxed recipes (not arbitrary unsafe scripts by default) |
 
-### 4.10 Beyond Aspire (must-build differentiators)
+### 4.10 Beyond the incumbent (must-build differentiators)
 
 | Idea | Why | Pri |
 | --- | --- | --- |
 | **Native machine control** | End-to-end Mac shop | P0 |
-| **Pre-flight checklist** | Air-cut, zero, tool, hold-downs (from Aspire’s own run guide) | P0 |
+| **Pre-flight checklist** | Air-cut, zero, tool, hold-downs (from the reference’s own run guide) | P0 |
 | **Live keep-outs** | Sync toolpath rapids + machine awareness | P1 |
 | **Command palette** | Discover 200 tools without clutter | P0 |
 | **AI assist (optional)** | Suggest strategy, feeds, trace cleanup — offline-capable | P2 |
@@ -446,7 +446,7 @@ Legend: **P0** MVP parity slice · **P1** full creative · **P2** production/pow
 | --- | --- | --- |
 | App shell | SwiftUI macOS 14+ | User direction; native |
 | Geometry kernel | C++/Rust core (vectors, offset, boolean) + Swift bridge | Performance; testability |
-| 3D composite | Heightfield + optional mesh; Metal | Aspire-like relief speed |
+| 3D composite | Heightfield + optional mesh; Metal | reference-like relief speed |
 | Toolpath engine | Separate compute worker process | Don’t freeze UI |
 | Simulation | Voxel/heightfield material remove | Preview trust |
 | Serial | Existing ShopPilot Control module | Unified product |
@@ -527,7 +527,7 @@ Job
 - GRBL post + Machine stage (from ShopPilot Control)  
 - Command palette skeleton  
 
-**Exit criteria:** Aspire calibration-pattern equivalent cut on real router.
+**Exit criteria:** reference calibration-pattern equivalent cut on real router.
 
 ### Phase B — Sign shop (Weeks 8–16)  
 **Outcome:** Compete for 80% of hobby sign work.
@@ -541,7 +541,7 @@ Job
 - Templates  
 
 ### Phase C — 3D relief (Weeks 16–28)  
-**Outcome:** Aspire’s artistic heart.
+**Outcome:** the reference’s artistic heart.
 
 - Component tree + combine modes  
 - Shape tools (angled/round/smooth/flat/custom)  
@@ -567,7 +567,7 @@ Job
 
 ### Phase F — Power user (Weeks 48–60)
 
-- Post Studio (Aspire post editing parity)  
+- Post Studio (reference post editing parity)  
 - Photo V-Carve, sketch carving, fluting, prism, texture, moulding, thread  
 - Document variables, remote tool DB optional  
 - Polish, performance, App Store/notarization  
@@ -603,17 +603,17 @@ Use with `HERMES_BUILD_TODO.md` (Control) and new `HERMES_STUDIO_TODO.md` (below
 
 | Product | Strength | Our angle |
 | --- | --- | --- |
-| **Aspire** | Deep creative toolpaths, ecosystem, tutorials | Mac-native, cleaner UI, integrated machine, modern Metal |
+| **Incumbent** | Deep creative toolpaths, ecosystem, tutorials | Mac-native, cleaner UI, integrated machine, modern Metal |
 | **Fusion** | Full CAD/CAM parametric | Faster artistic/relief, shop-simple, not enterprise bloat |
-| **Carbide Create** | Easy | Full Aspire-depth when needed |
-| **VCarve** | Mid-tier Vectric | We target Aspire-depth with VCarve simplicity at surface |
+| **Carbide Create** | Easy | Full reference-depth when needed |
+| **VCarve** | Mid-tier incumbent | We target reference-depth with VCarve simplicity at surface |
 | **LightBurn** | Laser UX gold standard | Learn from LB clarity for laser pack |
 
 ---
 
 ## 11. Legal / IP note for the team
 
-- **Do not** copy Vectric assets, clipart, icons, docs text, or proprietary file format internals.  
+- **Do not** copy third-party assets, clipart, icons, docs text, or proprietary file format internals.  
 - **Do** implement **independent** geometry and toolpath algorithms to match *capabilities* and *user outcomes*.  
 - Study is for **feature completeness and workflow research** only.  
 - Prefer open standards (SVG, DXF, STL, 3MF) for interchange.
@@ -624,9 +624,9 @@ Use with `HERMES_BUILD_TODO.md` (Control) and new `HERMES_STUDIO_TODO.md` (below
 
 | Metric | Target |
 | --- | --- |
-| Time to first good cut (new user) | < 45 minutes (match Aspire guide claim) |
+| Time to first good cut (new user) | < 45 minutes (match the reference guide claim) |
 | Tools visible at idle Design stage | ≤ 12 primary icons |
-| All Aspire strategies reachable | ≤ 2 clicks or ⌘K |
+| All reference strategies reachable | ≤ 2 clicks or ⌘K |
 | Preview vs machine surprise rate | Near-zero for software issues |
 | Mac App polish (HIG) | Pass internal review |
 | Parity matrix coverage | 100% listed features shipped or explicitly deferred with date |
@@ -640,7 +640,7 @@ Use with `HERMES_BUILD_TODO.md` (Control) and new `HERMES_STUDIO_TODO.md` (below
 3. UX: one Figma/sketch of Stage Rail + Profile inspector (essentials vs advanced).  
 4. Engineering: spin **vector kernel spike** (offset + boolean) and **Metal heightfield spike**.  
 5. Hermes: continue Control path (machine) in parallel with Studio foundation todos.  
-6. Hardware lab: one GRBL router + calibration plate SOP (from Aspire §05).  
+6. Hardware lab: one GRBL router + calibration plate SOP (from the reference guide §05).  
 
 ---
 
@@ -657,4 +657,4 @@ Use with `HERMES_BUILD_TODO.md` (Control) and new `HERMES_STUDIO_TODO.md` (below
 
 ---
 
-*Aspire taught the industry how CNC creative software should think. ShopPilot’s job is to make that power feel inevitable on a Mac — never heavy, never incomplete.*
+*The reference taught the industry how CNC creative software should think. ShopPilot’s job is to make that power feel inevitable on a Mac — never heavy, never incomplete.*

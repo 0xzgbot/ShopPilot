@@ -1,9 +1,9 @@
 # ShopPilot — Installer-Verified Build Plan
 
 **Date:** 2026-08-03
-**Supersedes:** nothing — sits alongside `FINISH_ROADMAP.md` (order of tracks unchanged) and `ASPIRE_REIMAGINED_PRODUCT_PLAN.md` (vision unchanged).
-**Provenance:** `AspireTrialEdition_Setup.exe` (V12.5.1.0 Build 12738) unpacked + 4 analysis passes → `/tmp/aspire_reports/01–04_*.md`, distilled in `ASPIRE_INSTALLER_BREAKDOWN.md`, evidence rows in `FEATURE_PARITY_MATRIX.md` §R.
-**One-line change:** We now have **installer-verified ground truth** for the P0 toolpath forms, the post-processor ecosystem (964 posts incl. GRBL), the tool database, and the data an Aspire-class app ships — so the next build steps ship *data + form parity* instead of more engine stubs.
+**Supersedes:** nothing — sits alongside `FINISH_ROADMAP.md` (order of tracks unchanged) and `PRODUCT_VISION_PLAN.md` (vision unchanged).
+**Provenance:** reference trial installer (V12.5.1.0 Build 12738) unpacked + 4 analysis passes → `/tmp/installer_reports/01–04_*.md`, distilled in `INSTALLER_BREAKDOWN.md`, evidence rows in `FEATURE_PARITY_MATRIX.md` §R.
+**One-line change:** We now have **installer-verified ground truth** for the P0 toolpath forms, the post-processor ecosystem (964 posts incl. GRBL), the tool database, and the data a professional-grade app ships — so the next build steps ship *data + form parity* instead of more engine stubs.
 
 ---
 
@@ -17,7 +17,7 @@
 | 4 | Tool DB: 13 classes (`mc*Tool`), 17 default tool assignments (Profile→End Mill ¼", V-Carve→V-Bit 90° 1¼", QuickEngrave→Diamond Drag…), 3-part linkage `db_geom_id`/`db_cut_data_id`/`db_mach_cut_data_id`, per-machine cutting data | **SPK-1133**: seed tool DB with real defaults; model geometry/cut-data/machine-cut-data split so switching machines doesn't re-enter speeds/feeds | Track 3 |
 | 5 | **72 stock sheet presets** (6 imperial × 6 thickness, 6 metric × 6 thickness) shipped as `.crvt3d` templates | **SPK-1132**: ship the same preset set as data + Job Setup picker (our own format, same dimensions) | Track 1–2 boundary |
 | 6 | Job sheet = **HTML template** (`PrintSheetTemplate.html`, A4 CSS) rendered per toolpath | **SPK-1135**: HTML job-sheet template rendered to PDF via WebKit — replaces PDF-only approach | Track 3 |
-| 7 | Aspire has **no machine-control UI at all** (control = posts + machine DB); machine capability flags (`SupportsDwell/Spindle/Toolchange`) gate form options | Confirms Track 4 machine control is our differentiator. Add capability flags to `ToolDatabase`/machine profile models. | Track 4 |
+| 7 | The reference has **no machine-control UI at all** (control = posts + machine DB); machine capability flags (`SupportsDwell/Spindle/Toolchange`) gate form options | Confirms Track 4 machine control is our differentiator. Add capability flags to `ToolDatabase`/machine profile models. | Track 4 |
 | 8 | V12.5 verified: Keep-Out Zones (non-rotary, tiling-incompatible, violation blocks calc), Sketch Carving, Laser Sketch Engraving, Fluting, Inlay wizards, Wrapping, Double-sided | Keep-outs v0 (SPK-0308) is ship-critical; everything else stays post-v1 with verified AC | Track 3 / post-v1 |
 | 9 | Trial limits: export disabled, laser gated, content remote-fed | No impact on build; informs Windows live-capture expectations | — |
 | 10 | Import list verified: dxf/dwg/eps/ai/pdf/svg/stl/3dm/skp/3dClip/v3m/v3d/pvc + bitmaps; export DXF/SVG/STL/grayscale/PDF | Locks K-section AC; SVG/DXF import stay P0; 3dm/skp stay P2 | Track 2 |
@@ -46,18 +46,18 @@ Track 5 v1 gate → Track 6 H–K (post-v1)
 
 | Card | Upgrade |
 |---|---|
-| SPK-1102 Cut stage | Profile/Pocket/V-Carve/Drill forms meet **SPK-1136** parity (matrix §R2). Export block covers dirty + keep-out violation (verified behavior: Aspire blocks calc on keep-out violation). GRBL post from tree uses **SPK-1134** engine. |
+| SPK-1102 Cut stage | Profile/Pocket/V-Carve/Drill forms meet **SPK-1136** parity (matrix §R2). Export block covers dirty + keep-out violation (verified behavior: calc blocks on keep-out violation). GRBL post from tree uses **SPK-1134** engine. |
 | SPK-0301 Tool DB | Seed per **SPK-1133**; tool classes named after our own taxonomy but matching the 13-class surface (end mill, radiused end mill, ball nose, V-bit, engraving, radiused engraving, drill, diamond drag, laser, thread mill, multi thread mill, plasma, form). |
-| SPK-0302/0303/0304 | Engines must accept the §R2 parameter sets (e.g. Profile `GeometryDepthOffset`, `Use3dTabs`, `Merge`; Pocket `RasterOptimizer`). G-code output must be GRBL-valid (verified: GRBL post exists in Aspire's own DB → it's the hobby default). |
-| SPK-0313 GRBL post | Use **SPK-1134** template engine; add rotary-wrap variant (Grbl WrapY2A is a real Aspire post — wrap X or Y axis, A-axis output). |
-| SPK-0508 Job sheet | HTML template per **SPK-1135** (Aspire's own is HTML; we mirror the *pattern*, not the file). |
+| SPK-0302/0303/0304 | Engines must accept the §R2 parameter sets (e.g. Profile `GeometryDepthOffset`, `Use3dTabs`, `Merge`; Pocket `RasterOptimizer`). G-code output must be GRBL-valid (verified: GRBL post exists in the reference's own DB → it's the hobby default). |
+| SPK-0313 GRBL post | Use **SPK-1134** template engine; add rotary-wrap variant (Grbl WrapY2A is a real reference post — wrap X or Y axis, A-axis output). |
+| SPK-0508 Job sheet | HTML template per **SPK-1135** (the reference's own is HTML; we mirror the *pattern*, not the file). |
 | SPK-0308 Keep-out zones | Verified semantics: zones create from selection, carry clearance, toolpath calc **fails** on violation, non-rotary only, tiling-incompatible. Matches existing KeepOutZones.swift design — keep, productize. |
-| SPK-0300 Material setup | Add material→tool cutting-data linkage when SPK-1133 lands ("a machine and a material are required" is Aspire's rule for cutting data). |
+| SPK-0300 Material setup | Add material→tool cutting-data linkage when SPK-1133 lands ("a machine and a material are required" is the reference's rule for cutting data). |
 
 ## 5. Data-first deliverables (spec from reports)
 
-- **Presets (SPK-1132):** exactly 72 — the six imperial sheets and six metric sheets with six thicknesses each (full list in `/tmp/aspire_reports/03_assets.md` §2 / breakdown §3). Our own JSON asset, same dimensions.
-- **Default tools (SPK-1133):** the 17 assignment table (`/tmp/aspire_reports/01_toolpaths.md` §1) — strategy → tool class → canonical default (e.g. `VCarve → mcVBitTool → V-Bit (90°, 1¼")`). These are industry-typical defaults, not Vectric IP.
+- **Presets (SPK-1132):** exactly 72 — the six imperial sheets and six metric sheets with six thicknesses each (full list in `/tmp/installer_reports/03_assets.md` §2 / breakdown §3). Our own JSON asset, same dimensions.
+- **Default tools (SPK-1133):** the 17 assignment table (`/tmp/installer_reports/01_toolpaths.md` §1) — strategy → tool class → canonical default (e.g. `VCarve → mcVBitTool → V-Bit (90°, 1¼")`). These are industry-typical defaults, not third-party IP.
 - **Post grammar (SPK-1134):** own format modeled on the observed pattern: identity header (`POST_NAME`/`FILE_EXTENSION`/`UNITS`), line-ending + block numbering options, per-variable format specifiers (prefix/alignment/text/decimals), tool-change + spindle blocks, optional A-axis for rotary. Two templates ship in v1.
 - **Job sheet (SPK-1135):** own A4 HTML template with CSS vars; content = job dims, per-toolpath: name, tool, feed/plunge/speed, depth, time estimate (from SPK-0312), total.
 
@@ -83,4 +83,4 @@ Track 5 v1 gate → Track 6 H–K (post-v1)
 
 ---
 
-*Companion docs: `ASPIRE_INSTALLER_BREAKDOWN.md` (the 9-item basic feature set), `FEATURE_PARITY_MATRIX.md` §R (evidence), `ASPIRE_WINDOWS_EXPLORER_PROMPT.md` (live capture, pending).*
+*Companion docs: `INSTALLER_BREAKDOWN.md` (the 9-item basic feature set), `FEATURE_PARITY_MATRIX.md` §R (evidence), `WINDOWS_EXPLORER_PROMPT.md` (live capture, pending).*

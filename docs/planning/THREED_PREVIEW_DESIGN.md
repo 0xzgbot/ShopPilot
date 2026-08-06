@@ -168,7 +168,7 @@ SceneKit uses Metal by default on macOS 10.15+. For custom rendering effects (e.
 
 ## Notes
 
-- No Vectric proprietary assets or rendering algorithms used
+- No third-party proprietary assets or rendering algorithms used
 - SceneKit API surface documented in Apple Developer documentation
 - All mesh parsing (STL/OBJ) implemented from open format specifications
-- False-color elevation visualization uses standard gradient mapping, not derived from Aspire/VCarve implementations
+- False-color elevation visualization uses standard gradient mapping, not derived from third-party implementations

@@ -1,37 +1,37 @@
-# ShopPilot Studio — Hermes Build Todo (Aspire-class CAM)
+# ShopPilot Studio — Hermes Build Todo (professional-grade CAM)
 
 > ⚠️ **SUPERSEDED** by [`MASTER_KANBAN.md`](./MASTER_KANBAN.md).  
 > Do **not** claim new work here. Kept for ID history / crosswalk only.
 
 **Companion to:** [`HERMES_BUILD_TODO.md`](./HERMES_BUILD_TODO.md) (Machine Control)  
-**Plan:** [`docs/planning/ASPIRE_REIMAGINED_PRODUCT_PLAN.md`](./docs/planning/ASPIRE_REIMAGINED_PRODUCT_PLAN.md)  
+**Plan:** [`docs/planning/PRODUCT_VISION_PLAN.md`](./docs/planning/PRODUCT_VISION_PLAN.md)  
 **Parity checklist:** [`docs/planning/FEATURE_PARITY_MATRIX.md`](./docs/planning/FEATURE_PARITY_MATRIX.md)  
-**Market pain research:** [`docs/planning/ASPIRE_INGESTION_AND_MARKET_RESEARCH.md`](./docs/planning/ASPIRE_INGESTION_AND_MARKET_RESEARCH.md)  
+**Market pain research:** [`docs/planning/MARKET_RESEARCH.md`](./docs/planning/MARKET_RESEARCH.md)  
 **Last updated:** 2026-07-28  
 
-Agents: claim `[~]`, done `[x]`, human `[!]`. Prefer **simulator** and golden fixtures. No proprietary Vectric assets.
+Agents: claim `[~]`, done `[x]`, human `[!]`. Prefer **simulator** and golden fixtures. No third-party proprietary assets.
 
 **Priority note:** **PAIN-*** and **DOC-*** items are first-class. Interleave them with capability waves — do not ship feature depth while ignoring Mac-native, preflight, dirty toolpaths, preview speed, or machine handoff.
 
 ---
 
-## Wave DOC — Aspire baseline integrity (close the FAQ gap)
+## Wave DOC — Reference baseline integrity (close the FAQ gap)
 
 > Completes honest ingestion: TOC inventory is not field-level parity.
 
-- [ ] **DOC-01** Crawl all Aspire V12 form/help URLs → CSV (name, category, URL)  
+- [ ] **DOC-01** Crawl all reference V12 form/help URLs → CSV (name, category, URL)  
   - **Cluster:** baseline · **// parallel-ok**  
-  - **AC:** Row count matches docs nav; checked into `docs/planning/aspire_form_index.csv`
+  - **AC:** Row count matches docs nav; checked into the form-index CSV under `docs/planning/`
 - [ ] **DOC-02** For each toolpath strategy form: map every control → ShopPilot field or intentional omission  
   - **deps:** DOC-01  
   - **AC:** Profile, Pocket, Drill, V-Carve fully mapped first; others tracked
 - [ ] **DOC-03** Diff V12 → latest release notes (e.g. V12.5); update FEATURE_PARITY_MATRIX  
   - **// parallel-ok**  
   - **AC:** Matrix has “source version” column notes
-- [ ] **DOC-04** Golden job pack: recreate Aspire tutorial/calibration projects as `.shoppilot` fixtures  
+- [ ] **DOC-04** Golden job pack: recreate reference tutorial/calibration projects as `.shoppilot` fixtures  
   - **deps:** STU-202+  
   - **AC:** Calibration square/circle/star job + at least one V-Carve sign fixture
-- [ ] **DOC-05** Record known Aspire error strings (e.g. “Ignoring unsuitable open vectors”) → Preflight rule IDs  
+- [ ] **DOC-05** Record known reference error strings (e.g. “Ignoring unsuitable open vectors”) → Preflight rule IDs  
   - **// parallel-ok**  
   - **AC:** Listed in `docs/planning/PREFLIGHT_RULES.md` with plain-English ShopPilot messages
 
@@ -40,7 +40,7 @@ Agents: claim `[~]`, done `[x]`, human `[!]`. Prefer **simulator** and golden fi
 ## Wave PAIN — Market complaints → product fixes
 
 > Source: user reports (Mac VM, price ladder, parametric gap, UI density, slow preview, recalc confusion, machine handoff).  
-> Detail: `ASPIRE_INGESTION_AND_MARKET_RESEARCH.md` Part 2–3.
+> Detail: `MARKET_RESEARCH.md` Part 2–3.
 
 ### PAIN-1 — No native Mac (cluster 1)
 
@@ -71,7 +71,7 @@ Agents: claim `[~]`, done `[x]`, human `[!]`. Prefer **simulator** and golden fi
 - [ ] **PAIN-302** **Driven dimensions** on vectors (edit dimension → geometry updates)  
   - **deps:** PAIN-301, STU-100 · **AC:** Unit test + UI demo job
 - [ ] **PAIN-303** **Optional “Follow source” link** on toolpaths (opt-in auto-recalc; default **off**)  
-  - **deps:** STU-206 · **AC:** Default stays Aspire-safe; link mode documented
+  - **deps:** STU-206 · **AC:** Default stays safe; link mode documented
 - [ ] **PAIN-304** Sign/plaque **recipe with width/height variables**  
   - **deps:** STU-007, PAIN-301 · **AC:** Change height → layout updates before toolpath calc
 
@@ -83,7 +83,7 @@ Agents: claim `[~]`, done `[x]`, human `[!]`. Prefer **simulator** and golden fi
   - **deps:** STU-003 · **AC:** “nest”, “vcarve inlay”, “keep out” all find tools
 - [ ] **PAIN-403** **Vector Preflight Doctor** before toolpath Calculate  
   - **deps:** DOC-05, STU-105 · **AC:** Detect open gaps, self-intersect, tiny segments; one-click Join/Close
-- [ ] **PAIN-404** Replace cryptic errors with **fix actions** (no raw Aspire-clone messages)  
+- [ ] **PAIN-404** Replace cryptic errors with **fix actions** (no raw clone messages)  
   - **deps:** PAIN-403 · **AC:** “3 open gaps — Join within 0.1 mm” style UX
 - [ ] **PAIN-405** **Context coach** panel (tip + link to local help for active tool)  
   - **deps:** STU-005 · **AC:** Shows on Profile / V-Carve / Job Setup
@@ -149,7 +149,7 @@ Agents: claim `[~]`, done `[x]`, human `[!]`. Prefer **simulator** and golden fi
 - [ ] **PAIN-903** Sandboxed plugin API design doc only (implement later)  
   - **// parallel-ok** · **AC:** `docs/planning/PLUGIN_API_DRAFT.md`
 
-### PAIN-10 — Protect Aspire strengths (do not regress)
+### PAIN-10 — Protect reference strengths (do not regress)
 
 - [ ] **PAIN-A01** Profile + V-Carve remain **≤2 clicks** from Cut stage (not buried)  
   - **AC:** UX review sign-off
@@ -162,11 +162,11 @@ Agents: claim `[~]`, done `[x]`, human `[!]`. Prefer **simulator** and golden fi
 
 ### PAIN — Research follow-ups (human + agent)
 
-- [ ] **PAIN-R01** Browse Vectric forum wishlists → top 50 themes → append to research doc  
+- [ ] **PAIN-R01** Browse CAM forum wishlists → top 50 themes → append to research doc  
   - **Role:** PM/research · **[!] / agent**
-- [ ] **PAIN-R02** 5 interviews: Aspire users + 5 Mac CNC (Fusion/Carbide) win-loss notes  
+- [ ] **PAIN-R02** 5 interviews: incumbent users + 5 Mac CNC (Fusion/Carbide) win-loss notes  
   - **Role:** Human · **[!]**
-- [ ] **PAIN-R03** Alpha survey: “Why leave/avoid Aspire?”  
+- [ ] **PAIN-R03** Alpha survey: “Why leave/avoid the incumbent?”  
   - **Role:** PM · **deps:** alpha build
 
 ---
@@ -282,7 +282,7 @@ Agents: claim `[~]`, done `[x]`, human `[!]`. Prefer **simulator** and golden fi
 - **PAIN-701…705** couple tightly to Control board — claim both boards when working Machine stage.  
 - Suggested early interleave: **S0 + DOC-01 + PAIN-401/402** → **S1 + PAIN-403** → **S2 + PAIN-501/601/701**.
 
-### Suggested claim order for “beat Aspire on experience”
+### Suggested claim order for “beat the incumbent on experience”
 
 1. DOC-01, PAIN-201 (packaging truth)  
 2. STU-000…007 + PAIN-101/104 (native Mac shell)  
@@ -295,12 +295,12 @@ Agents: claim `[~]`, done `[x]`, human `[!]`. Prefer **simulator** and golden fi
 ## Work log
 
 ### 2026-07-28 — product planning
-- Studied Aspire V12 user guide + what’s new  
-- Wrote ASPIRE_REIMAGINED_PRODUCT_PLAN, FEATURE_PARITY_MATRIX, UX_STAGE_SYSTEM  
+- Studied the reference V12 user guide + what’s new  
+- Wrote PRODUCT_VISION_PLAN, FEATURE_PARITY_MATRIX, UX_STAGE_SYSTEM  
 - Opened this Studio todo board for team/Hermes execution  
 
 ### 2026-07-28 — market pain + baseline honesty
 - Added **Wave DOC** (DOC-01…05) and **Wave PAIN** (PAIN-101…R03, PAIN-A01…A04)  
-- Source: `docs/planning/ASPIRE_INGESTION_AND_MARKET_RESEARCH.md`  
+- Source: `docs/planning/MARKET_RESEARCH.md`  
 - Cross-linked STU-206/207 to dirty/preview pain items  
 

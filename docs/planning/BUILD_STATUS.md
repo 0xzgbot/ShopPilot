@@ -29,7 +29,7 @@
 
 - Finish roadmap: [`FINISH_ROADMAP.md`](./FINISH_ROADMAP.md) — Tracks 1–6, DoD = Engine+UI+Persist+Verify.
 - Kanban: false v1 `[x]` reopened; H–K backlog; human `[!]`; spine cards SPK-1100–1106.
-- Empty `aspire_form_index_cleaned.csv` removed earlier.
+- Empty form-index CSV removed earlier.
 - **Next implementation claim:** SPK-1100 (document session spine).
 
 ## How to launch

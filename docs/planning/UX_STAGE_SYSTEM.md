@@ -1,8 +1,8 @@
 # ShopPilot UX — Stage System & Anti-Bloat Rules
 
-## Problem Aspire has (that we fix without removing features)
+## Problem the reference has (that we fix without removing features)
 
-Aspire is powerful but **visually dense**: large icon matrices, left design panel + right toolpath panel, frequent layout thrash, and many tools that 90% of sessions never touch. V12 improved unification; we go further with **stages + progressive disclosure**.
+The reference is powerful but **visually dense**: large icon matrices, left design panel + right toolpath panel, frequent layout thrash, and many tools that 90% of sessions never touch. V12 improved unification; we go further with **stages + progressive disclosure**.
 
 ## Stage rail
 
@@ -30,7 +30,7 @@ Aspire is powerful but **visually dense**: large icon matrices, left design pane
 
 ## Command palette
 
-Every Aspire-named operation must be findable:
+Every reference-named operation must be findable:
 
 - “Nest Parts”, “Photo V-Carve”, “Level Mirror Left to Right”, “Post Processor Management”  
 Results show: name, stage, shortcut, one-line plain English.
@@ -41,7 +41,7 @@ Recipes preconfigure; user can always leave recipe rails.
 
 Examples:
 
-- Calibration pattern (Aspire §05)  
+- Calibration pattern (reference guide §05)  
 - V-Carve letter sign  
 - Raised panel  
 - V-Carve inlay pair  

@@ -253,7 +253,7 @@ SP-000 → SP-001 → SP-200 → SP-201 → SP-108 → SP-202 → SP-301/305 →
 
 ---
 
-## Phase 5b — Market pain: machine handoff (from Aspire research)
+## Phase 5b — Market pain: machine handoff (from competitor research)
 
 > Full PAIN board: [`HERMES_STUDIO_TODO.md`](./HERMES_STUDIO_TODO.md) Wave **PAIN**. These Control tasks close **cluster 7** (fragmented machine handoff).
 

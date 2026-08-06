@@ -13,7 +13,7 @@ The material stock setup defines the physical boundaries of the workpiece that t
 
 ## Stock Dimensions
 
-### Fields (mirroring Aspire's Material Setup form)
+### Fields (mirroring the reference Material Setup form)
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
@@ -94,8 +94,8 @@ This shared definition prevents confusion — users set up their material once, 
 
 ---
 
-## Key Differences from Aspire
+## Key Differences from the Reference
 
-- **Simpler UI:** Aspire has separate Material Setup forms for flat and rotary jobs. ShopPilot uses a single unified form with an optional "Rotary" toggle that appears in later phases.
+- **Simpler UI:** The reference has separate Material Setup forms for flat and rotary jobs. ShopPilot uses a single unified form with an optional "Rotary" toggle that appears in later phases.
 - **Live preview:** Stock dimensions update the 3D canvas in real-time as users type, rather than requiring a dialog close/reopen cycle.
-- **Origin visualization:** Axis arrows on the canvas make it immediately clear where (0,0,0) is located — Aspire requires users to remember which corner was selected.
+- **Origin visualization:** Axis arrows on the canvas make it immediately clear where (0,0,0) is located — The reference requires users to remember which corner was selected.

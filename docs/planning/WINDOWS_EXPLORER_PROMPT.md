@@ -1,16 +1,16 @@
-# Aspire on Windows — Live App Explorer Prompt
+# Reference App on Windows — Live Explorer Prompt
 
 Paste this whole block into a Hermes session running on the Windows PC that has
-**Vectric Aspire Trial Edition** installed. It produces a feature-parity capture
+**Reference CAM trial** installed. It produces a feature-parity capture
 report for the ShopPilot macOS CNC suite (docs/planning/FEATURE_PARITY_MATRIX.md).
 
 ---
 
 ```
-You are a feature-parity research agent running on a Windows PC with Vectric
-Aspire Trial Edition installed. We are independently building ShopPilot, a
+You are a feature-parity research agent running on a Windows PC with the
+reference CAM trial installed. We are independently building ShopPilot, a
 native macOS CNC suite (SwiftUI, GRBL/FluidNC-class hobby routers). We already
-unpacked the Aspire installer and captured its static assets (post-processors,
+unpacked the reference installer and captured its static assets (post-processors,
 tool database, toolpath defaults, 140 UI screenshots). What we CANNOT get from
 the installer is the LIVE app surface: every form field, menu leaf, dialog,
 machine-control workflow, and trial limitation. That is your mission.
@@ -18,14 +18,14 @@ machine-control workflow, and trial limitation. That is your mission.
 ## Hard rules
 1. Feature-parity research only. You may record feature names, menu items,
    field labels, defaults, options, and workflow ORDER. Do NOT copy, save, or
-   ship Vectric proprietary assets: no fonts, textures, tool database files,
+   ship third-party proprietary assets: no fonts, textures, tool database files,
    post-processor files, sample projects, or screenshots beyond what this brief
    requires as reference evidence. No reverse engineering of the CRV file
    format, no memory/process inspection.
 2. If a physical CNC machine is connected: you may OBSERVE and DOCUMENT the
    connection workflow, but do NOT start a cut, move axes, or spindle without
    explicit user consent for each action. Machine safety outranks completeness.
-3. Work in a single output folder: C:\Users\<you>\Desktop\aspire-explore\
+3. Work in a single output folder: C:\Users\<you>\Desktop\capture-explore\
    Create it first. Every screenshot and report goes there, organized by
    section (01_jobsetup, 02_2d, 03_3d, 04_toolpaths, 05_machine, 06_output,
    07_gadgets, 08_prefs).
@@ -37,7 +37,7 @@ machine-control workflow, and trial limitation. That is your mission.
    structured breakdown, do not truncate.
 
 ## Step 0 — Identity
-Launch Aspire. From Help → About (or the title bar), record: exact product
+Launch the reference app. From Help → About (or the title bar), record: exact product
 name, version + build (e.g. "V12.5.1.0 Build 12738"), trial vs licensed,
 license expiry/limitations notice. Screenshot the startup page and note what
 the trial highlights.
@@ -103,7 +103,7 @@ This is the second critical capture. Document the complete workflow surface:
 - Running: load/stream a toolpath file, start/pause/resume/stop, feed rate
   override, spindle speed override, position display (machine vs work coords),
   DRO layout, and the emergency stop / reset surface.
-- Document the exact MENU structure and labels Aspire uses for these (e.g.
+- Document the exact MENU structure and labels the reference uses for these (e.g.
   Machine menu items, control panel dialog), so we can compare with
   GRBL-class conventions. Screenshot the machine control panel and DRO.
 - If a machine is connected, and ONLY with user consent per action, observe
@@ -133,12 +133,12 @@ path, update behavior, simulation settings.
 
 ## Deliverables
 1. One markdown report per section (01_jobsetup.md … 08_prefs.md) written to
-   C:\Users\<you>\Desktop\aspire-explore\, each with: feature/field inventory
+   C:\Users\<you>\Desktop\capture-explore\, each with: feature/field inventory
    tables, defaults, trial-limitation notes, and screenshot filenames.
-2. A single ASPIRE_LIVE_CAPTURE.md at the folder root: executive summary +
+2. A single LIVE_CAPTURE.md at the folder root: executive summary +
    the full menu tree + the complete toolpath form field matrix + machine
    control workflow + trial limitation list.
-3. Your final chat summary: the COMPLETE contents of ASPIRE_LIVE_CAPTURE.md
+3. Your final chat summary: the COMPLETE contents of LIVE_CAPTURE.md
    (do not summarize the summary — paste the full structured breakdown, up to
    ~400 lines). Screenshots stay on disk; reference them by filename.
 ```

@@ -6,7 +6,7 @@ import ImageIO
 
 /// Configuration for converting an image's brightness into a heightmap.
 ///
-/// Semantics match Aspire's "Component from bitmap": white = peak, black =
+/// Semantics match the standard "Component from bitmap" convention: white = peak, black =
 /// floor; `maxHeightMm` is the tallest relief point. `mmPerPixel` scales the
 /// image's pixel grid into world millimeters; `invert` flips the mapping so
 /// dark = peak (useful for photographs scanned dark-on-light).

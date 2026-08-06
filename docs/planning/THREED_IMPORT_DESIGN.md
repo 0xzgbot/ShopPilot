@@ -201,4 +201,4 @@ Import is a single undoable operation — `DirtyDocument` marks the document dir
 
 - All format specifications described here are from open standards (STL spec by 3D Systems, OBJ spec by Wavefront Technologies)
 - QEM simplification algorithm is published academic work (Garland & Heckbert, 1997)
-- No Vectric proprietary assets or algorithms used
+- No third-party proprietary assets or algorithms used

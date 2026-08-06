@@ -17,7 +17,7 @@ public enum ProfileCutMode: String, Codable, Sendable {
     }
 }
 
-/// Plunge/entry strategy (installer-verified: Aspire Ramping page).
+/// Plunge/entry strategy (installer-verified: Ramping page).
 public enum ProfileRampType: String, Codable, Sendable {
     case none
     case smooth
@@ -34,7 +34,7 @@ public enum ProfileRampType: String, Codable, Sendable {
     }
 }
 
-/// Lead-in move shape (installer-verified: Aspire Leads page).
+/// Lead-in move shape (installer-verified: Leads page).
 public enum ProfileLeadType: String, Codable, Sendable {
     case none
     case straightLine

@@ -2,8 +2,8 @@
 
 **Status:** List only — no artwork generated yet  
 **Last updated:** 2026-08-01  
-**Capability source:** [FEATURE_PARITY_MATRIX.md](./FEATURE_PARITY_MATRIX.md) (Aspire V12 User Guide TOC) + [UX_STAGE_SYSTEM.md](./UX_STAGE_SYSTEM.md)  
-**Visual language:** Apple HIG + [SF Symbols](https://developer.apple.com/sf-symbols/) — **do not** clone Vectric/Aspire toolbar art  
+**Capability source:** [FEATURE_PARITY_MATRIX.md](./FEATURE_PARITY_MATRIX.md) (reference V12 User Guide TOC) + [UX_STAGE_SYSTEM.md](./UX_STAGE_SYSTEM.md)  
+**Visual language:** Apple HIG + [SF Symbols](https://developer.apple.com/sf-symbols/) — **do not** clone third-party toolbar art  
 **Density rule:** ≤12 primary toolbar icons per stage ([IconEnforcement.swift](../../Sources/ShopPilot/IconEnforcement.swift))
 
 ---
@@ -553,7 +553,7 @@ Ensures every current iconized (or icon-owed) control maps to a catalog ID.
 
 - Generating PNG/SVG/PDF or Icon Composer assets  
 - Editing Swift call sites (inventory first; symbol swaps tracked in stage audit)  
-- Copying Aspire/Vectric icon shapes  
+- Copying third-party icon shapes  
 
 ## Next steps (after this inventory)
 

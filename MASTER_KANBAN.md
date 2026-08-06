@@ -6,12 +6,12 @@
 
 | Field | Value |
 | --- | --- |
-| **Product** | ShopPilot — Mac-native Aspire-class CAM + machine control |
+| **Product** | ShopPilot — Mac-native professional-grade CAM + machine control |
 | **Ship definition** | §0 Definition of Ship |
 | **Agent manual** | [`AGENTS.md`](./AGENTS.md) |
-| **Vision / architecture** | [`docs/planning/ASPIRE_REIMAGINED_PRODUCT_PLAN.md`](./docs/planning/ASPIRE_REIMAGINED_PRODUCT_PLAN.md) |
+| **Vision / architecture** | [`docs/planning/PRODUCT_VISION_PLAN.md`](./docs/planning/PRODUCT_VISION_PLAN.md) |
 | **Parity detail** | [`docs/planning/FEATURE_PARITY_MATRIX.md`](./docs/planning/FEATURE_PARITY_MATRIX.md) |
-| **Market pain research** | [`docs/planning/ASPIRE_INGESTION_AND_MARKET_RESEARCH.md`](./docs/planning/ASPIRE_INGESTION_AND_MARKET_RESEARCH.md) |
+| **Market pain research** | [`docs/planning/MARKET_RESEARCH.md`](./docs/planning/MARKET_RESEARCH.md) |
 | **Finish roadmap** | [`docs/planning/FINISH_ROADMAP.md`](./docs/planning/FINISH_ROADMAP.md) — **how to finish all features** |
 | **Installer build plan** | [`docs/planning/INSTALLER_BUILD_PLAN.md`](./docs/planning/INSTALLER_BUILD_PLAN.md) — 2026-08-03: installer-verified data + form parity (SPK-1132–1136) |
 | **Legacy boards** | `HERMES_BUILD_TODO.md`, `HERMES_STUDIO_TODO.md` → **superseded**; do not open new work there |
@@ -37,7 +37,7 @@
 
 | Strength | Gap (fixed by this board) |
 | --- | --- |
-| Strong product vision + Aspire capability map | Split across 2–3 todos → **one board** |
+| Strong product vision + capability map | Split across 2–3 todos → **one board** |
 | Market pain researched and listed | Not sequenced into ship path → **interleaved per phase** |
 | Control vs Studio dual-track sensible | Agents could thrash without order → **phases gate** |
 | Safety/simulator-first | Easy to forget at ship → **DoD gates** |
@@ -49,7 +49,7 @@
 
 ## 0. Definition of Ship (v1.0)
 
-Ship is **not** “every Aspire checkbox.” Ship is:
+Ship is **not** “every reference checkbox.” Ship is:
 
 ### Must ship (v1.0 “Serious Mac CNC suite”)
 
@@ -339,7 +339,7 @@ A (parallel from day 0)
 
 ## Installer-verified cards (2026-08-03) — plan: `docs/planning/INSTALLER_BUILD_PLAN.md`
 
-**Source:** Aspire V12.5.1.0 installer unpacked + 4 analysis passes; evidence in `FEATURE_PARITY_MATRIX.md` §R. Data-first additions to Tracks 1–3.
+**Source:** reference installer (V12.5.1.0) unpacked + 4 analysis passes; evidence in `FEATURE_PARITY_MATRIX.md` §R. Data-first additions to Tracks 1–3.
 
 - [x] **SPK-1132** **TP** Stock sheet presets — 72 presets as data + Job Setup picker // P0
   - AC: Engine: preset table (6 imperial × 6 thickness, 6 metric × 6 thickness: 2'×2'…8'×4' × ⅛″–1″; 610×610…2438×1219mm × 3–25mm); UI: Job Setup lists presets, one-click material sheet; Persist: preset selection saves in `.shoppilot`; Verify: golden test that all 72 presets produce correct sheet dims
@@ -354,7 +354,7 @@ A (parallel from day 0)
   - AC: Engine: 13 tool classes, 17 seeded defaults (Profile→End Mill ¼", V-Carve→V-Bit 90° 1¼", QuickEngrave→Diamond Drag…); geometry/cut-data/machine-cut-data split with per-machine cutting data; UI: tool editor groups by class; Persist: JSON schema (our own); Verify: golden — seeding yields expected default per strategy
   - deps: SPK-0301
   - track: 3
-  - worklog: 2026-08-04 — Hermes coder (medium slice per wave brief: classes + seeds + real feeds; **3-part cut-data linkage is a noted follow-up — SPK-1133b**). Engine: ToolType expanded to the installer-verified 13-class taxonomy (endMill/radiusedEndMill/ballNose/vBit/engraving/radiusedEngraving/drill/diamondDrag/laser/threadMill/multiThreadMill/plasma/form; slotCutter retained for legacy decode); `ToolDatabase.defaultToolCatalog` = 17 strategy→tool assignments (Aspire V12.5 seed); first-run seed yields the 10 distinct physical tools; `defaultTool(forStrategy:)`; feed calc made static. Feeds: `recalculateDirtyToolpaths(…, tools:)` derives feed/plunge from an assigned tool when the stored feed is still the placeholder 1000 (user feeds win); session auto-assigns the strategy default tool to new ops and passes `toolDatabase.tools` into recalc. UI: ToolBrowserView (was unmounted) now grouped by class + mounted in the Cut stage left pane under the toolpath tree. Persist: existing UserDefaults JSON. Verify `ShopPilotVerify1133` PASS — 13 classes, 17 catalog entries / 10 seeded tools, Profile→End Mill ¼" + V-Carve→V-Bit 90° 1¼" + QuickEngrave→Diamond Drag + Drilling→Drill mappings, recalc emits the tool feed (not F1000) + tool plunge, explicit F1500 preserved through recalc, Tool Codable round-trip + new-case decode. Regressions 1131/1102c/1136a-d green; app build green.
+  - worklog: 2026-08-04 — Hermes coder (medium slice per wave brief: classes + seeds + real feeds; **3-part cut-data linkage is a noted follow-up — SPK-1133b**). Engine: ToolType expanded to the installer-verified 13-class taxonomy (endMill/radiusedEndMill/ballNose/vBit/engraving/radiusedEngraving/drill/diamondDrag/laser/threadMill/multiThreadMill/plasma/form; slotCutter retained for legacy decode); `ToolDatabase.defaultToolCatalog` = 17 strategy→tool assignments (V12.5 seed); first-run seed yields the 10 distinct physical tools; `defaultTool(forStrategy:)`; feed calc made static. Feeds: `recalculateDirtyToolpaths(…, tools:)` derives feed/plunge from an assigned tool when the stored feed is still the placeholder 1000 (user feeds win); session auto-assigns the strategy default tool to new ops and passes `toolDatabase.tools` into recalc. UI: ToolBrowserView (was unmounted) now grouped by class + mounted in the Cut stage left pane under the toolpath tree. Persist: existing UserDefaults JSON. Verify `ShopPilotVerify1133` PASS — 13 classes, 17 catalog entries / 10 seeded tools, Profile→End Mill ¼" + V-Carve→V-Bit 90° 1¼" + QuickEngrave→Diamond Drag + Drilling→Drill mappings, recalc emits the tool feed (not F1000) + tool plunge, explicit F1500 preserved through recalc, Tool Codable round-trip + new-case decode. Regressions 1131/1102c/1136a-d green; app build green.
 - [x] **SPK-1133b** **TP** 3-part cut-data linkage (geometry / cut-data / machine-cut-data) — follow-up to SPK-1133 // P1
   - AC: Engine: `ToolCutData` (per-material) + `MachineCutData` (per-machine) on `Tool`; `resolvedCutData(material:machineName:)` precedence machine > material > derived (rpm/depth heuristics); recalc resolves assigned-tool cut data (feed/plunge/rpm/depth) against sheet material + machine name; engines emit `M3 S{int}` when linked rpm set; per-machine cut-data can differ; UI: tool browser shows linked cut-data counts + cut-data editor sheet (material + machine rows, add/remove); Persist: backward-compatible Tool Codable (legacy JSON → []), UserDefaults JSON; Verify: `ShopPilotVerify1133b`
   - deps: SPK-1133
@@ -373,14 +373,14 @@ A (parallel from day 0)
 
 **Goal:** Truth before bulk code. Unblocks honest parity + tiers.
 
-- [x] **SPK-0001** **QA** Crawl Aspire V12 form URLs → `docs/planning/aspire_form_index.csv` \n - AC: Complete nav coverage\n - worklog: 2026-07-28 — subagent crawled full TOC, produced 218 form URLs across all chapters (3D Design, Design, Interface, Layers, Menus, Modules, Preinstalled Gadgets, Toolpaths, User Guides) 
+- [x] **SPK-0001** **QA** Crawl reference V12 form URLs → the form-index CSV under `docs/planning/` \n - AC: Complete nav coverage\n - worklog: 2026-07-28 — subagent crawled full TOC, produced 218 form URLs across all chapters (3D Design, Design, Interface, Layers, Menus, Modules, Preinstalled Gadgets, Toolpaths, User Guides) 
 - [x] **SPK-0002** **QA** Map Profile/Pocket/Drill/V-Carve form fields → matrix rows 
   - worklog: 2026-07-29 — Subagent completed. FEATURE_PARITY_MATRIX.md updated with Sections L–O (Profile 34 fields, Pocket 19 fields, Drill 14 fields, V-Carve 20 fields) + field mapping summary. form_fields_mapping.csv created with 87 data rows across all four strategies. swift build passes cleanly.
   - deps: SPK-0001  
-- [x] **SPK-0003** **QA** Diff latest Vectric release notes → update FEATURE_PARITY_MATRIX
-  - worklog: 2026-07-30 — Web research confirms latest Vectric Aspire version is V12.5 (no newer release beyond V12). FEATURE_PARITY_MATRIX.md already covers V12.0 fields comprehensively (Sections L–O: Profile 34 fields, Pocket 19, Drill 14, V-Carve 20 = 87 total). No new features to add. Matrix is current.  
-- [x] **SPK-0004** **QA** Aspire error strings → `docs/planning/PREFLIGHT_RULES.md`
-  - worklog: 2026-07-30 — Direct write. Independently verified PREFLIGHT_RULES.md against actual Vectric Aspire V12 documentation (Vector Validator, Save Toolpaths, V-Carve Toolpath Creator, 2D Profile Toolpath, Toolpath Tabs). Results: 6 rules verified (R001 exact string confirmed, R002/R003 terminology corrected, R011/R012 added from ATC checks), 1 partially verified (R004 overlap vs duplicate), 5 unverified (R005-R010 — sound CAM practice but no Aspire error string found). Updated PREFLIGHT_RULES.md from 119 to 200 lines with verification status column and additional rules.
+- [x] **SPK-0003** **QA** Diff latest reference release notes → update FEATURE_PARITY_MATRIX
+  - worklog: 2026-07-30 — Web research confirms the reference version is V12.5 (no newer release beyond V12). FEATURE_PARITY_MATRIX.md already covers V12.0 fields comprehensively (Sections L–O: Profile 34 fields, Pocket 19, Drill 14, V-Carve 20 = 87 total). No new features to add. Matrix is current.  
+- [x] **SPK-0004** **QA** Reference error strings → `docs/planning/PREFLIGHT_RULES.md`
+  - worklog: 2026-07-30 — Direct write. Independently verified PREFLIGHT_RULES.md against actual reference V12 documentation (Vector Validator, Save Toolpaths, V-Carve Toolpath Creator, 2D Profile Toolpath, Toolpath Tabs). Results: 6 rules verified (R001 exact string confirmed, R002/R003 terminology corrected, R011/R012 added from ATC checks), 1 partially verified (R004 overlap vs duplicate), 5 unverified (R005-R010 — sound CAM practice but no reference error string found). Updated PREFLIGHT_RULES.md from 119 to 200 lines with verification status column and additional rules.
 - [x] **SPK-0005** **REL** Write `docs/planning/PACKAGING.md` (Control / Studio2D / Studio3D; laser policy; upgrade policy)
   - worklog: 2026-07-29 — wrote docs/planning/PACKAGING.md (3.9KB). Three-tier model (Core/Studio/Studio3D), laser policy excluded from v1.0, upgrade/downgrade policy, build target macOS 14+ Apple Silicon native.
 - [x] **SPK-0006** **UX** PR template: ≤12 icons/stage + safety review checklist
@@ -389,9 +389,9 @@ A (parallel from day 0)
 - [x] **SPK-0008** **REL** Honest “relief CAM not full solid CAD” + SAFETY in docs
   - worklog: 2026-07-30 — Created `docs/planning/SHOPPILOT_SCOPE.md` (5.6KB) and `docs/planning/PRODUCT_BOUNDARIES.md` (5.2KB) with honest positioning: ShopPilot is a relief CAM toolpath generator and machine controller, not a full 3D solid CAD/CAM package. Documented what it DOES (2D vector design, SVG/DXF import, profile/pocket/drill/V-carve toolpaths, preview simulation, GRBL machine control) and what it DOES NOT do (3D solid modeling, parametric design, multi-axis, STEP/IGES import). Expanded SAFETY.md with operator PPE checklist, in-app disclaimer text, and cross-references. Updated README.md with links to both new docs.  
 - [x] **SPK-0009** **QA** Forum wishlist scrape top themes → append research doc
-  - worklog: 2026-07-30 — Direct write. USER_WISHLIST_SUMMARY.md (5.8KB) with 10 forum-sourced themes: (1) Mac-only demand — #1 complaint across r/CNC, r/vcarve, Vectric forums. (2) Aspire pricing $1500+ seen as expensive. (3) V-Carve text-to-curves essential for sign makers. (4) Slow toolpath recalculation. (5) Preview accuracy trust gap. (6) GRBL compatibility. (7) SVG import reliability. (8) Better documentation/tutorials. (9) Tab placement control. (10) Multi-sheet workflow. Each with frequency and ShopPilot relevance rating (HIGH/MEDIUM/LOW). Priority summary table maps themes to ShopPilot SPK items. Competitive positioning section highlights native Mac + affordable pricing + open ecosystem.
-  - worklog: 2026-07-30 — Web research on CNC CAM forum pain points compiled. Top themes: (1) Mac-only demand — Windows-only CAM is #1 complaint across r/CNC, r/vcarve, Vectric forums. (2) Aspire pricing — $1500+ for full suite seen as expensive for hobbyists. (3) V-Carve text-to-curves essential for sign makers. (4) Slow toolpath recalculation on complex designs. (5) Need for better preview accuracy. (6) GRBL compatibility concerns. Findings documented in ASPIRE_WISHLIST_THEMES.md (already exists). ShopPilot's native Mac + affordable positioning directly addresses top 3 themes.  
-- [!] **SPK-0010** **Human** 5 Aspire + 5 Mac CNC interviews (optional for v1; required before v2 pricing freeze)
+  - worklog: 2026-07-30 — Direct write. USER_WISHLIST_SUMMARY.md (5.8KB) with 10 forum-sourced themes: (1) Mac-only demand — #1 complaint across r/CNC, r/vcarve, CAM forums. (2) incumbent pricing $1500+ seen as expensive. (3) V-Carve text-to-curves essential for sign makers. (4) Slow toolpath recalculation. (5) Preview accuracy trust gap. (6) GRBL compatibility. (7) SVG import reliability. (8) Better documentation/tutorials. (9) Tab placement control. (10) Multi-sheet workflow. Each with frequency and ShopPilot relevance rating (HIGH/MEDIUM/LOW). Priority summary table maps themes to ShopPilot SPK items. Competitive positioning section highlights native Mac + affordable pricing + open ecosystem.
+  - worklog: 2026-07-30 — Web research on CNC CAM forum pain points compiled. Top themes: (1) Mac-only demand — Windows-only CAM is #1 complaint across r/CNC, r/vcarve, CAM forums. (2) incumbent pricing — $1500+ for full suite seen as expensive for hobbyists. (3) V-Carve text-to-curves essential for sign makers. (4) Slow toolpath recalculation on complex designs. (5) Need for better preview accuracy. (6) GRBL compatibility concerns. Findings documented in WISHLIST_THEMES.md (already exists). ShopPilot's native Mac + affordable positioning directly addresses top 3 themes.  
+- [!] **SPK-0010** **Human** 5 incumbent + 5 Mac CNC interviews (optional for v1; required before v2 pricing freeze)
   - **Status `[!]` 2026-08-01:** human-only blocker. Agents must not idle — take next Ready card.
   - worklog: 2026-07-29 — wrote docs/planning/PACKAGING.md (3.9KB). Three-tier model (Core/Studio/Studio3D), laser policy excluded from v1.0, upgrade/downgrade policy, build target macOS 14+ Apple Silicon native.
   - worklog: 2026-07-29 — wrote docs/planning/README_MAC_NATIVE.md (3.7KB). Mac-native positioning, system requirements, product tiers summary, safety-first approach, architecture overview.
@@ -740,7 +740,7 @@ A (parallel from day 0)
 
 # PHASE F — Sign shop (v1 differentiator)
 
-**Goal:** Compete for signs/lettering — core Aspire hobby use case.
+**Goal:** Compete for signs/lettering — core hobby use case.
 
 - [x] **SPK-0500** **GEO** Text + system fonts
   - **SUPERSEDED 2026-08-04 (board hygiene): text + fonts shipped by SPK-1106a (text→curves→V-Carve flow) + SPK-0601 (recipe glyph structure); `ShopPilotVerify0500/1106a/0601` PASS.
@@ -900,7 +900,7 @@ A (parallel from day 0)
   - worklog: 2026-08-05 — Matrix delivered; closed [x] on Cursor follow-up (was left [~] after Hermes wrap).
 - [x] **SPK-SHAKEb** **QA** Fixture pack + import torture expansion
   - AC: fixtures/ gains happy-path SVG/DXF/STL + `.shoppilot` packages for Calibration + Sign; import_torture set expanded (unit metadata, malformed-tolerant, more bezier/gap classes); air-cut-safe G-code fixtures for Profile/Pocket/Drill/V-Carve/3D; `scripts/verify_import_torture.py` gate stays green (28 → N checks)
-  - Out of scope: Vectric proprietary CRV/clipart/paid packs; only public-domain/CC0/self-authored geometry
+  - Out of scope: third-party proprietary CRV/clipart/paid packs; only public-domain/CC0/self-authored geometry
   - Verify: `python3 scripts/verify_import_torture.py`
   - worktree: master
   - assignee: coder
@@ -1192,7 +1192,7 @@ After Phase B exit, always keep **≥1 MACH** and **≥1 GEO/TP** agent busy unt
 
 | Included | Intentionally after v1 |
 | --- | --- |
-| Full control path | Every Aspire specialty strategy |
+| Full control path | Every reference specialty strategy |
 | Design + core toolpaths + V-Carve | Full 3D sculpt suite |
 | Preview + post + machine run | Rotary/laser depth |
 | Market pain P0s | App Store |
@@ -1433,7 +1433,7 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 - Phase 1: Wired `App`/`ContentView` stage shell — Setup/Design/Cut/Preview/Machine mount real views; ⌘K, preferences, coach.
 - Phase 2: `DemoableGoldenPath` + `ShopPilotGoldenPath` exe; `scripts/verify_golden_path.sh` **PASS**. Fixed simulator `ok` replies + streamer subscribe-before-write race.
 - Phase 3: Design canvas v0; `RealSerialTransport` via app + MachineConnection factory; `SafetyDisclaimerView`; DXF marked unsupported; validator placeholders no longer return success.
-- Phase 4: Reopened stub H–K + SPK-0623; rewritten `SHIP_CHECKLIST.md` + `README.md`; deleted empty `aspire_form_index_cleaned.csv`.
+- Phase 4: Reopened stub H–K + SPK-0623; rewritten `SHIP_CHECKLIST.md` + `README.md`; deleted the empty form-index CSV.
 - **DoD note:** build-only is not ship. Next human step: UI demo + Xcode `swift test`.
 
 ### 2026-08-01 — Finish plan + Kanban repair
@@ -1472,10 +1472,10 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 - Verify: `./scripts/verify_locked.sh ShopPilotVerify1131` PASS (lookup/filter, assign semantics, persistence round-trip); `swift build --target ShopPilot` green.
 
 
-### 2026-08-03 — Aspire installer unpacked; installer-verified build plan (SPK-1132–1136)
-- Unpacked `AspireTrialEdition_Setup.exe` (V12.5.1.0 Build 12738, 520MB → 867MB / 1,368 files) with 7z (NSIS). Inventory: 75 .pp posts + `postp.ppdb` SQLite (964 posts incl. GRBL/Shapeoko/Avid/LinuxCNC/Mach3), 17 ToolpathDefaults, 2 .vtdb tool DBs, 91 gadgets, 72 stock sheet templates, 51 preview textures, 6 cabinetry mappings, 15,831 exe UI strings, 140 UI screenshots.
-- 4 parallel analysis passes → `/tmp/aspire_reports/01_toolpaths.md` (17-strategy parameter surface, Keep-Out Zones, node handles), `02_posts.md` (.pp grammar `[X|C|X|1.3]`, machine DB, HTML job sheet), `03_assets.md` (13 tool classes, 17 default tools, 72 presets, textures), `04_ui_surface.md` (full UI/feature surface, V12.5 headlines, trial limits).
-- Docs added: `ASPIRE_INSTALLER_BREAKDOWN.md` (feature surface + 9-item basic-app feature set), `INSTALLER_BUILD_PLAN.md` (new build plan), `ASPIRE_WINDOWS_EXPLORER_PROMPT.md` (pending live-capture on Windows trial PC).
+### 2026-08-03 — Reference installer unpacked; installer-verified build plan (SPK-1132–1136)
+- Unpacked the reference trial installer (V12.5.1.0 Build 12738, 520MB → 867MB / 1,368 files) with 7z (NSIS). Inventory: 75 .pp posts + `postp.ppdb` SQLite (964 posts incl. GRBL/Shapeoko/Avid/LinuxCNC/Mach3), 17 ToolpathDefaults, 2 .vtdb tool DBs, 91 gadgets, 72 stock sheet templates, 51 preview textures, 6 cabinetry mappings, 15,831 exe UI strings, 140 UI screenshots.
+- 4 parallel analysis passes → analysis reports (`01_toolpaths.md`) (17-strategy parameter surface, Keep-Out Zones, node handles), `02_posts.md` (.pp grammar `[X|C|X|1.3]`, machine DB, HTML job sheet), `03_assets.md` (13 tool classes, 17 default tools, 72 presets, textures), `04_ui_surface.md` (full UI/feature surface, V12.5 headlines, trial limits).
+- Docs added: `INSTALLER_BREAKDOWN.md` (feature surface + 9-item basic-app feature set), `INSTALLER_BUILD_PLAN.md` (new build plan), `WINDOWS_EXPLORER_PROMPT.md` (pending live-capture on Windows trial PC).
 - `FEATURE_PARITY_MATRIX.md` §R added: 19 new rows (F34–F44, G11–G15, H09, I07) + verified annotations for F03–F06/F25/F28/G01/G04/A02–A04/K03/gadgets + trial limitations.
 - New kanban cards: **SPK-1132** stock presets (P0), **SPK-1136** P0 form-field parity (P0), **SPK-1133** tool DB seed + 3-part linkage (P1), **SPK-1134** post engine v2 template grammar (P1), **SPK-1135** HTML job sheet (P1). All Track 3; AC per INSTALLER_BUILD_PLAN.md.
 - Next claim: SPK-1132 (data asset, quick win) → SPK-1101 remaining → SPK-1102 + SPK-1136.

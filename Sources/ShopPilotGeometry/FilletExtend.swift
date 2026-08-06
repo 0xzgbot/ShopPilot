@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - Fillet & Extend (SPK-0215)
 
-/// Rounds the corners of selected vectors, Aspire-style.
+/// Rounds the corners of selected vectors.
 ///
 /// Freehand polylines get every applicable interior vertex rounded (including
 /// the wrap vertex on closed loops); rectangles convert to a rounded-corner
@@ -112,7 +112,7 @@ public enum ShapeFilletEngine {
     }
 }
 
-/// Extends the open ends of selected vectors by a distance, Aspire-style.
+/// Extends the open ends of selected vectors by a distance.
 ///
 /// Lines extend at both ends; open freehand polylines extend their first and
 /// last segments in the segment direction. Closed shapes are unchanged.

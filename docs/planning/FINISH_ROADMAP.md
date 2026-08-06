@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-08-04  
 **Companion board:** [`MASTER_KANBAN.md`](../../MASTER_KANBAN.md)  
-**North star:** [`LEAN_CNC_SCOPE.md`](./LEAN_CNC_SCOPE.md) — lean CNC overrides Aspire feature-count parity.  
+**North star:** [`LEAN_CNC_SCOPE.md`](./LEAN_CNC_SCOPE.md) — lean CNC overrides feature-count parity.  
 **Intent:** Finish lean bar (G-code, V-Carve, 3D carving, GRBL control), then remaining Tracks.  
 **Not the goal:** Thin demos, cloud/social chrome, or “build passes = done.”
 

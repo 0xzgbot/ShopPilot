@@ -190,4 +190,4 @@ M3 S8000 (spindle start)
 
 - Z-level contouring algorithm described here is standard CNC CAM practice, not derived from any proprietary implementation
 - All formulas and recommendations are based on open machining references and general engineering principles
-- No Vectric proprietary assets or algorithms used
+- No third-party proprietary assets or algorithms used

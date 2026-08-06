@@ -24,7 +24,7 @@ PROTOCOL = """
 4. Update MASTER_KANBAN.md checkbox + Work log before kanban_complete.
 5. Implement ONLY this card. Do not start SPK-07xx+ until SPK-0623 is [x].
 6. Use this task's worktree workspace; do not edit the main checkout if on a worktree.
-7. Simulator-first for machine work. No Vectric proprietary / CRV reverse-engineering.
+7. Simulator-first for machine work. No third-party proprietary / CRV reverse-engineering.
 8. If blocked on a human, kanban_block with a clear reason and stop.
 """.strip()
 

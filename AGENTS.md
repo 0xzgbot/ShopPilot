@@ -7,19 +7,19 @@
 | --- | --- |
 | **Project root** | `~/Desktop/ShopPilot` |
 | **Working name** | ShopPilot |
-| **Product class** | Native **macOS CNC suite**: Aspire-class **design + toolpaths + preview** + **machine control** |
+| **Product class** | Native **macOS CNC suite**: professional-grade **design + toolpaths + preview** + **machine control** |
 | **Primary machines** | CNC routers (GRBL / FluidNC class controllers over USB serial); laser later |
 | **Stack** | **SwiftUI** (macOS 14+) · geometry/toolpath core · Metal preview · serial IOKit/ORSSerialPort |
 | **Not in first ship** | Illegal reverse-engineering of proprietary CRV; Windows/Linux ports |
 | **Doc status** | Living — agents **must** update task checkboxes + Work log |
 | **Last updated** | 2026-08-04 |
 | **Current phase focus** | Lean CNC bar (G-code, V-Carve, 3D carving, GRBL control) — see LEAN_CNC_SCOPE |
-| **★ Lean north star** | [`docs/planning/LEAN_CNC_SCOPE.md`](./docs/planning/LEAN_CNC_SCOPE.md) — **overrides Aspire feature-count parity** |
+| **★ Lean north star** | [`docs/planning/LEAN_CNC_SCOPE.md`](./docs/planning/LEAN_CNC_SCOPE.md) — **overrides feature-count parity** |
 | **★ Single task board** | [`MASTER_KANBAN.md`](./MASTER_KANBAN.md) — **only** place to claim work |
 | **★ Finish roadmap** | [`docs/planning/FINISH_ROADMAP.md`](./docs/planning/FINISH_ROADMAP.md) — Tracks 1–6 + lean 3D |
 | **Legacy boards** | `HERMES_BUILD_TODO.md`, `HERMES_STUDIO_TODO.md` — superseded (reference only) |
-| **Aspire reimagined plan** | [`docs/planning/ASPIRE_REIMAGINED_PRODUCT_PLAN.md`](./docs/planning/ASPIRE_REIMAGINED_PRODUCT_PLAN.md) — vision/reference |
-| **Market pain research** | [`docs/planning/ASPIRE_INGESTION_AND_MARKET_RESEARCH.md`](./docs/planning/ASPIRE_INGESTION_AND_MARKET_RESEARCH.md) |
+| **Product vision plan** | [`docs/planning/PRODUCT_VISION_PLAN.md`](./docs/planning/PRODUCT_VISION_PLAN.md) — vision/reference |
+| **Market pain research** | [`docs/planning/MARKET_RESEARCH.md`](./docs/planning/MARKET_RESEARCH.md) |
 | **Parity matrix** | [`docs/planning/FEATURE_PARITY_MATRIX.md`](./docs/planning/FEATURE_PARITY_MATRIX.md) — evidence; `[-]` = lean non-goal |
 | **Planning notes** | [`docs/planning/`](./docs/planning/) |
 
@@ -70,14 +70,14 @@
 
 ## 1. Mission
 
-Build **ShopPilot**: a Mac-native **Aspire-class** creative CNC suite **plus** integrated machine control.
+Build **ShopPilot**: a Mac-native **professional-grade** creative CNC suite **plus** integrated machine control.
 
 ### Track A — Machine Control (existing board)
 1. Plug in a **CNC router** (USB serial GRBL/FluidNC-class).
 2. Connection status, jog/home/zero, stream G-code, hold/resume/reset, console.
 3. Simulator-first development.
 
-### Track B — Studio / CAM (Aspire reimagined)
+### Track B — Studio / CAM (reimagined)
 1. Job setup (single → double → rotary).
 2. 2D design (vectors, text, bitmaps, layers, nest).
 3. 3D components (combine modes, shapes, sculpt, import).
@@ -85,7 +85,7 @@ Build **ShopPilot**: a Mac-native **Aspire-class** creative CNC suite **plus** i
 5. Accurate preview simulation + posts + job sheets.
 6. **Stage-rail UI**: full power, no permanent icon walls (see UX plan).
 
-**Capability bar:** Vectric Aspire V12 feature surface (independently implemented).  
+**Capability bar:** professional CAM feature surface (independently implemented).  
 **UX bar:** progressive disclosure — every feature reachable via stage, overflow, recipe, or ⌘K — not via clutter.
 
 ---
@@ -234,7 +234,7 @@ Append to `HERMES_BUILD_TODO.md` § Work log:
 You are building ShopPilot at ~/Desktop/ShopPilot (personal-use Mac CNC — no App Store/notarize).
 North star: docs/planning/LEAN_CNC_SCOPE.md.
 Board: MASTER_KANBAN.md. Personal ship gate: SHIP_CHECKLIST.md + docs/planning/UI_ACCEPTANCE_DRIVER.md.
-Read AGENTS.md safety. No Vectric proprietary assets. No cloud/social/in-app video.
+Read AGENTS.md safety. No third-party proprietary assets. No cloud/social/in-app video.
 DoD: Engine + UI + Persist + Verify — never mark [x] for build-only/file-drop.
 Never rubber-stamp SPK-0623; UI driver reports PASS/FAIL and files bug cards.
 Prefer lean harden / FM preflight / UI acceptance — skip [-] distribution cards.

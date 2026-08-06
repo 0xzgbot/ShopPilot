@@ -72,7 +72,7 @@ Laser cutting is **NOT included in any tier for v1.0**. Laser requires different
 
 ### Other Exclusions
 - No Windows or Linux support (macOS native only)
-- No proprietary Vectric asset reverse-engineering
+- No third-party proprietary asset reverse-engineering
 - No App Store distribution for v1.0 (direct download + GitHub Releases)
 
 ---
@@ -146,5 +146,5 @@ ShopPilot is designed to complement — not replace — other tools in your work
 
 - [`PACKAGING.md`](./PACKAGING.md) — Product tiers and distribution
 - [`SAFETY.md`](./SAFETY.md) — Safety policy and operator checklist
-- [`ASPIRE_REIMAGINED_PRODUCT_PLAN.md`](./ASPIRE_REIMAGINED_PRODUCT_PLAN.md) — Full product vision
-- [`FEATURE_PARITY_MATRIX.md`](./FEATURE_PARITY_MATRIX.md) — Aspire V12 feature comparison
+- [`PRODUCT_VISION_PLAN.md`](./PRODUCT_VISION_PLAN.md) — Full product vision
+- [`FEATURE_PARITY_MATRIX.md`](./FEATURE_PARITY_MATRIX.md) — reference V12 feature comparison

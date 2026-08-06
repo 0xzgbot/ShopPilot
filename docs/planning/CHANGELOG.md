@@ -123,7 +123,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 - Project scaffolding and architecture decision records
-- Feature parity matrix against Aspire V12
+- Feature parity matrix against the reference V12
 - UX stage system design with anti-bloat rules
 - Product boundaries document (relief CAM only, no solid CAD)
-- Aspire form index crawl (218 URLs across all chapters)
+- Form index crawl (218 URLs across all chapters)

@@ -1,6 +1,6 @@
 # Windows Aspire Live Form Capture — narrow runspec (field defaults only)
 
-**Date:** 2026-08-04 · **Relationship:** complements `docs/planning/ASPIRE_WINDOWS_EXPLORER_PROMPT.md` (broad feature-parity capture). This runspec is **narrow**: only the four toolpath forms ShopPilot must match by default — **Profile, V-Carve, 3D Roughing, 3D Finishing**. Skip everything else (gadgets, laser, rotary, clipart, install).
+**Date:** 2026-08-04 · **Relationship:** complements `docs/planning/WINDOWS_EXPLORER_PROMPT.md` (broad feature-parity capture). This runspec is **narrow**: only the four toolpath forms ShopPilot must match by default — **Profile, V-Carve, 3D Roughing, 3D Finishing**. Skip everything else (gadgets, laser, rotary, clipart, install).
 **Prereq:** Windows PC with Vectric Aspire Trial (V12.5) installed. Paste into a Hermes session on that PC.
 
 ---

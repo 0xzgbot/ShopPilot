@@ -1,6 +1,6 @@
-# Aspire V12 → ShopPilot Feature Parity Matrix
+# ShopPilot Feature Parity Matrix
 
-**Source:** Vectric Aspire V12 User Guide TOC + What's New  
+**Source:** reference V12 CAM user guide TOC + What's New  
 **Status keys:** `[ ]` not started · `[~]` in progress · `[x]` shipped · `[-]` deferred (date) · `[!]` blocked  
 **Last audited:** 2026-07-31 — automated audit against source tree (183 items: 62✅, 2⚠️, 119⏸️)
 
@@ -10,7 +10,7 @@ Track ownership in your PM tool; keep this file as the living checklist.
 
 ## A. Platform & job
 
-| ID | Aspire capability | Stage | Pri | Status | Notes |
+| ID | Reference capability | Stage | Pri | Status | Notes |
 | --- | --- | --- | --- | --- | --- |
 | A01 | New job / open / save | All | P0 | [ ] | `.shoppilot` package |
 | A02 | Job setup single-sided | Setup | P0 | [ ] | |
@@ -25,7 +25,7 @@ Track ownership in your PM tool; keep this file as the living checklist.
 | A11 | Machine online/manual config | Setup | P0 | [ ] | |
 | A12 | Kickstarter / onboarding | Setup | P0 | [ ] | |
 | A13 | Crash recovery | All | P1 | [ ] | |
-| A14 | Units mm/inch independence vs post | Setup | P0 | [ ] | Aspire principle |
+| A14 | Units mm/inch independence vs post | Setup | P0 | [ ] | reference principle |
 
 ## B. Views & chrome
 
@@ -221,7 +221,7 @@ Track ownership in your PM tool; keep this file as the living checklist.
 | I05 | Twisted/spiral model features | P2 | [ ] |
 | I06 | Import models rotary | P2 | [ ] |
 
-## J. Machine (beyond Aspire)
+## J. Machine (beyond the reference)
 
 | ID | Capability | Pri | Status |
 | --- | --- | --- | --- |
@@ -253,7 +253,7 @@ Track ownership in your PM tool; keep this file as the living checklist.
 | Area | Count (approx) | P0 subset |
 | --- | --- | --- |
 | Full matrix rows | ~150+ | ~45–55 for first shippable “serious” Mac CAM+control |
-| Aspire strategies | 25+ | Profile, pocket, drill, V-carve, 3D rough/finish, preview |
+| Reference strategies | 25+ | Profile, pocket, drill, V-carve, 3D rough/finish, preview |
 | Machine (ours) | 7 | All P0 for Control path |
 
 Update **Status** column as epics complete. PM owns weekly parity review.
@@ -262,7 +262,7 @@ Update **Status** column as epics complete. PM owns weekly parity review.
 
 ## L. Profile Toolpath — Form Fields (SPK-0002)
 
-Source: [Vectric Aspire V12 2D Profile Toolpath docs](https://docs.vectric.com/docs/V12.0/Aspire/ENU/Help/form/uiProfileMachineForm/index.html)
+Source: reference V12 2D Profile Toolpath documentation.
 
 | ID | Field | Type | Default | Description |
 | --- | --- | --- | --- | --- |
@@ -305,7 +305,7 @@ Source: [Vectric Aspire V12 2D Profile Toolpath docs](https://docs.vectric.com/d
 
 ## M. Pocket Toolpath — Form Fields (SPK-0002)
 
-Source: [Vectric Aspire V12 Pocketing Toolpath docs](https://docs.vectric.com/docs/V12.0/VCarvePro/ENU/Help/form/uiPocketMachineForm/index.html)
+Source: reference V12 Pocketing Toolpath documentation.
 
 | ID | Field | Type | Default | Description |
 | --- | --- | --- | --- | --- |
@@ -333,7 +333,7 @@ Source: [Vectric Aspire V12 Pocketing Toolpath docs](https://docs.vectric.com/do
 
 ## N. Drill Toolpath — Form Fields (SPK-0002)
 
-Source: [Vectric Aspire V12 Drilling Toolpaths docs](https://docs.vectric.com/docs/V12.5/Aspire/ENU/Help/form/Drilling%20Toolpath/index.html)
+Source: reference V12.5 Drilling Toolpaths documentation.
 
 | ID | Field | Type | Default | Description |
 | --- | --- | --- | --- | --- |
@@ -356,7 +356,7 @@ Source: [Vectric Aspire V12 Drilling Toolpaths docs](https://docs.vectric.com/do
 
 ## O. V-Carve Toolpath — Form Fields (SPK-0002)
 
-Source: [Vectric Aspire V12 V-Carve Toolpath docs](https://docs.vectric.com/docs/V12.0/Aspire/ENU/Help/form/VCarve%20Toolpath%20Creator/index.html)
+Source: reference V12 V-Carve Toolpath documentation.
 
 | ID | Field | Type | Default | Description |
 | --- | --- | --- | --- | --- |
@@ -423,8 +423,8 @@ A summary CSV is available at `docs/planning/form_fields_mapping.csv` with colum
 
 ## R. Installer-verified evidence (2026-08-03)
 
-**Source:** `AspireTrialEdition_Setup.exe` (V12.5.1.0 Build 12738) unpacked + 4 analysis passes.
-Full breakdown: `docs/planning/ASPIRE_INSTALLER_BREAKDOWN.md`. Reports: `/tmp/aspire_reports/01_toolpaths.md` (strategy parameter surface), `02_posts.md` (964 posts, .pp format), `03_assets.md` (tool DB, 72 sheets, textures), `04_ui_surface.md` (UI/feature surface).
+**Source:** reference trial installer (V12.5.1.0 Build 12738) unpacked + 4 analysis passes.
+Full breakdown: `docs/planning/INSTALLER_BREAKDOWN.md`. Reports: `/tmp/installer_reports/01_toolpaths.md` (strategy parameter surface), `02_posts.md` (964 posts, .pp format), `03_assets.md` (tool DB, 72 sheets, textures), `04_ui_surface.md` (UI/feature surface).
 
 ### R1. New rows discovered (add to sections above on next edit)
 

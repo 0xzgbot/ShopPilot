@@ -5,7 +5,7 @@ import UniformTypeIdentifiers
 import ShopPilotCore
 import ShopPilotGeometry
 
-/// Studio-surface verify (CLT machine, no XCTest) — the Aspire-expected
+/// Studio-surface verify (CLT machine, no XCTest) — the expected
 /// features: text, bitmap trace, DXF export, STL export, quick engrave.
 ///   1. TEXT: TextTool renders glyph curves (CoreText) — non-empty shapes,
 ///      sensible bounding box for a known string.

@@ -24,7 +24,7 @@
 
 > All items must be checked before merging. If any safety item is N/A, mark it as such with a reason.
 
-- [ ] **No Vectric proprietary assets** — no CRV files, no Vectric UI mockups, no reverse-engineered graphics or resource bundles
+- [ ] **No third-party proprietary assets** — no CRV files, no third-party UI mockups, no reverse-engineered graphics or resource bundles
 - [ ] **SAFETY.md compliance** — reviewed [`docs/planning/SAFETY.md`](../docs/planning/SAFETY.md); this PR does not violate any required product behaviour
 - [ ] **E-stop / Reset visibility** — if machine-connected UI is touched, emergency controls remain always-visible in fixed chrome (not buried in menus)
 - [ ] **No auto-start streaming** — file open never triggers G-code stream; explicit Start required after user review

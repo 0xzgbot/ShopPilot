@@ -87,11 +87,11 @@ See [SAFETY.md](./SAFETY.md) for complete safety guidelines.
 | [KEYBOARD_SHORTCUTS.md](./KEYBOARD_SHORTCUTS.md) | Keyboard shortcut reference |
 | [SAFETY.md](./SAFETY.md) | Safety guidelines and compliance rules |
 | [PACKAGING.md](./PACKAGING.md) | Product tiers and pricing strategy |
-| [FEATURE_PARITY_MATRIX.md](./FEATURE_PARITY_MATRIX.md) | Aspire V12 feature comparison |
+| [FEATURE_PARITY_MATRIX.md](./FEATURE_PARITY_MATRIX.md) | reference V12 feature comparison |
 | [AGENTS.md](../AGENTS.md) | Agent operating manual (architecture, rules, workflow) |
 
 ---
 
 ## License
 
-ShopPilot is proprietary software. No Vectric proprietary assets are used in this project — all code and documentation written from scratch.
+ShopPilot is proprietary software. No third-party proprietary assets are used in this project — all code and documentation written from scratch.

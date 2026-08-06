@@ -74,7 +74,7 @@ Laser cutting is **not included in any tier for v1.0**. Laser requires different
 
 ### Other Exclusions (v1.0)
 - No Windows or Linux support (macOS native only)
-- No proprietary Vectric asset reverse-engineering
+- No third-party proprietary asset reverse-engineering
 - No App Store distribution (direct download + GitHub Releases only for v1.0)
 
 ---
@@ -99,7 +99,7 @@ ShopPilot is designed to **complement** (not replace) other tools in your workfl
 
 - **CAD tools** (Fusion 360, FreeCAD, Rhino, TinkerCAD) → create your 3D geometry or 2D designs
 - **ShopPilot** → take 2D vectors (or future STL/OBJ imports) → generate toolpaths → preview → run on your CNC router
-- **Other CAM tools** → ShopPilot fills the gap for Mac users who want an Aspire-class experience natively
+- **Other CAM tools** → ShopPilot fills the gap for Mac users who want a professional-grade experience natively
 
 ---
 
@@ -131,5 +131,5 @@ See [`SAFETY.md`](./SAFETY.md) for the complete safety policy. Key points:
 
 - [`PACKAGING.md`](./PACKAGING.md) — Product tiers and distribution
 - [`SAFETY.md`](./SAFETY.md) — Safety policy and operator checklist
-- [`ASPIRE_REIMAGINED_PRODUCT_PLAN.md`](./ASPIRE_REIMAGINED_PRODUCT_PLAN.md) — Full product vision
-- [`FEATURE_PARITY_MATRIX.md`](./FEATURE_PARITY_MATRIX.md) — Aspire V12 feature comparison
+- [`PRODUCT_VISION_PLAN.md`](./PRODUCT_VISION_PLAN.md) — Full product vision
+- [`FEATURE_PARITY_MATRIX.md`](./FEATURE_PARITY_MATRIX.md) — reference V12 feature comparison

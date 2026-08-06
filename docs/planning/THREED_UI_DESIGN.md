@@ -56,7 +56,7 @@ The 3D relief stage in ShopPilot adds a SceneKit-powered canvas alongside the ex
 ### Main Canvas (SceneKit View)
 
 - **Rendering:** SceneKit with Metal backend for GPU-accelerated 3D rendering on Apple Silicon.
-- **Camera controls:** Orbit (drag), zoom (scroll/pinch), pan (middle-click/drag). Matches Aspire's 3D view controls.
+- **Camera controls:** Orbit (drag), zoom (scroll/pinch), pan (middle-click/drag). Matches the reference 3D view controls.
 - **Lighting:** Three-point lighting setup optimized for visualizing relief depth — key light at 45° angle, fill light opposite side, rim light from behind.
 - **Color mapping options:**
   - Default: Mesh color with subtle shading
@@ -97,12 +97,12 @@ The 3D relief stage integrates into the existing five-stage rail:
 4. **Cut** — Toolpath management, preview, G-code export.
 5. **Preview** — Machine simulation and streaming.
 
-The Model stage sits between Design and Cut because 3D models are created in Model, then toolpaths are generated from them in Cut. This mirrors Aspire's workflow where 3D components feed into the toolpath tree.
+The Model stage sits between Design and Cut because 3D models are created in Model, then toolpaths are generated from them in Cut. This mirrors the reference workflow where 3D components feed into the toolpath tree.
 
 ---
 
-## Key Differences from Aspire
+## Key Differences from the Reference
 
-- **Simpler panel layout:** Aspire has a left design panel AND right toolpath panel simultaneously. ShopPilot uses progressive disclosure — only one side panel is visible at a time, reducing visual density.
+- **Simpler panel layout:** The reference has a left design panel AND right toolpath panel simultaneously. ShopPilot uses progressive disclosure — only one side panel is visible at a time, reducing visual density.
 - **Metal-backed preview:** Uses SceneKit/Metal instead of OpenGL for better performance on Apple Silicon.
 - **Stage rail ≤12 icons:** The Model stage icon count stays within the 12-icon limit defined in SPK-0111.

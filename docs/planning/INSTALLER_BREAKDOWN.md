@@ -1,8 +1,8 @@
-# Aspire V12.5.1.0 — Installer Breakdown & "Basic CNC App" Feature Set
+# Reference Installer Breakdown (V12.5.1.0) & "Basic CNC App" Feature Set
 
 **Date:** 2026-08-03
-**Source:** `AspireTrialEdition_Setup.exe` (520MB NSIS, V12.5.1.0 Build 12738) unpacked to
-`/tmp/aspire_unpacked` (867MB, 1,368 files) + 4 parallel analysis passes.
+**Source:** reference trial installer (520MB NSIS, V12.5.1.0 Build 12738) unpacked to
+`/tmp/installer_unpacked` (867MB, 1,368 files) + 4 parallel analysis passes.
 **Purpose:** Ground ShopPilot's feature surface in the real product, then distill what a
 **basic** Mac CNC app must have ("the features all CNC apps have").
 **Compliance:** Feature/parameter NAMES only — no proprietary assets, formats, or content
@@ -14,9 +14,9 @@ copied. CRV reverse-engineering remains out of scope.
 
 | Asset | Evidence |
 |---|---|
-| Product | Vectric Aspire **Trial Edition 12.5** (V12.5.1.0 Build 12738, 2026-05-29) |
+| Product | Reference **Trial Edition 12.5** (V12.5.1.0 Build 12738, 2026-05-29) |
 | Installer | NSIS-3 Unicode self-extractor; 1,368 files |
-| App | `x64/AspireTrialEdition.exe` (86MB) — CAM suite, **no machine-control UI** (control = posts + machine database) |
+| App | trial-edition CAM suite (86MB) — **no machine-control UI** (control = posts + machine database) |
 | Key binaries | OpenNURBS (3DM import), SketchUpAPI (SKP import), ZXing (QR), osgViewer (3D view), pstill (PDF), BugSplat (crash reports) |
 | Data payloads | PostP/ (75 .pp), postp.ppdb (SQLite: 964 posts + machine configs), ToolpathDefaults/ (17), ToolDatabase/ (2 .vtdb), Gadgets/ (91), BitmapTextures/ (51), Templates/ (72 sheets), CabinetryImport/ (6 mappings) |
 
@@ -67,12 +67,12 @@ Distilled from the above: the P0 core every hobby CNC app ships, in workflow ord
 | 6 | Toolpath shared | Tool DB (13 classes), feeds/speeds, safe Z, tabs/ramps/leads blocks, ordering, time estimate, toolpath tree with recalc | §2 shared subsystems | XL |
 | 7 | Post & output | **GRBL in/mm post** (ours: first-class), generic GCode, save toolpaths, **HTML job sheet** | ppdb Grbl posts; PrintSheetTemplate | M |
 | 8 | Preview | 2D toolpath draw + 3D simulation (voxel/heightfield), playback, machined-area/material colors | Preview panel, BitmapTextures | XL |
-| 9 | Machine control (ours, beyond Aspire) | Serial connect (GRBL/FluidNC), DRO, jog/step, home, zero XYZ, stream with hold/resume/reset, console TX/RX, **e-stop always visible** | AGENTS.md §2 | XL |
+| 9 | Machine control (ours, beyond the reference) | Serial connect (GRBL/FluidNC), DRO, jog/step, home, zero XYZ, stream with hold/resume/reset, console TX/RX, **e-stop always visible** | AGENTS.md §2 | XL |
 
 **Deliberate exclusions for the basic tier** (Studio3D/advanced, per matrix): 3D components/sculpt, rotary, laser, photo V-carve, thread milling, tiling, nesting, cabinet import, gadgets, keep-out zones, drill banks, 964 posts.
 
 ### Why this set
-- Every competitor in the class (Carbide Create, Estlcam, Fusion free, Easel) ships 1–9; Aspire's P0 form fields (verified §2) match this exact surface.
+- Every competitor in the class (Carbide Create, Estlcam, Fusion free, Easel) ships 1–9; the reference's P0 form fields (verified §2) match this exact surface.
 - It's the *workflow-complete* floor: design → toolpath → post → run, with no dead ends.
 - Existing ShopPilot Core already contains: serial transport, GRBL parser, streamer, G-code model, ToolDatabase, document model, geometry kernel — the gap is toolpath *calculation* (profile/pocket/v-carve/drill) + preview + the 72 presets + HTML job sheet.
 
@@ -82,12 +82,12 @@ Distilled from the above: the P0 core every hobby CNC app ships, in workflow ord
 
 | Topic | Report |
 |---|---|
-| Toolpath strategy parameter surface (17 strategies, shared subsystems, Keep-Out Zones, node handles) | `/tmp/aspire_reports/01_toolpaths.md` |
-| Post-processor ecosystem (964 posts, .pp format, job sheet template, machine DB) | `/tmp/aspire_reports/02_posts.md` |
-| Data assets (tool DB taxonomy, 17 default tools, 72 sheets, 51 textures, 6 cabinet mappings) | `/tmp/aspire_reports/03_assets.md` |
-| UI/feature surface (job setup, 2D/3D, menus, gadgets, V12.5 headlines, trial limits) | `/tmp/aspire_reports/04_ui_surface.md` |
+| Toolpath strategy parameter surface (17 strategies, shared subsystems, Keep-Out Zones, node handles) | `/tmp/installer_reports/01_toolpaths.md` |
+| Post-processor ecosystem (964 posts, .pp format, job sheet template, machine DB) | `/tmp/installer_reports/02_posts.md` |
+| Data assets (tool DB taxonomy, 17 default tools, 72 sheets, 51 textures, 6 cabinet mappings) | `/tmp/installer_reports/03_assets.md` |
+| UI/feature surface (job setup, 2D/3D, menus, gadgets, V12.5 headlines, trial limits) | `/tmp/installer_reports/04_ui_surface.md` |
 | Raw string dumps (exe 15,831; ENU DLL 3,224) | `/tmp/exe_strings16.txt`, `/tmp/enu_strings16.txt` |
-| Windows live-app capture (pending, user-run) | `docs/planning/ASPIRE_WINDOWS_EXPLORER_PROMPT.md` |
+| Windows live-app capture (pending, user-run) | `docs/planning/WINDOWS_EXPLORER_PROMPT.md` |
 
 ## 5. Next steps
 1. [ ] Merge evidence into FEATURE_PARITY_MATRIX.md (new section R, done in this commit).

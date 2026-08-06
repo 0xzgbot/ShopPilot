@@ -834,7 +834,7 @@ final class AppSession: ObservableObject {
     // MARK: - Array / circular copy (SPK-0214)
 
     /// Grid-copy every selected shape (columns × rows at a spacing). The
-    /// selection becomes the full grid (Aspire array-copy semantics).
+    /// selection becomes the full grid (grid array-copy semantics).
     @discardableResult
     func applyArrayCopy(columns: Int, rows: Int, spacingX: Double, spacingY: Double) -> Bool {
         let sel = selectedShapeIndices.compactMap { shapes.indices.contains($0) ? shapes[$0] : nil }
@@ -1181,7 +1181,7 @@ final class AppSession: ObservableObject {
 
     /// Capture the CURRENT active relief as a named component (Add mode) and
     /// recomposite. The first capture seeds the stack; later imports then
-    /// combine with it — the Aspire "combine" workflow in lean form.
+    /// combine with it — the component combine workflow in lean form.
     @discardableResult
     func addComponentFromActiveRelief(named name: String) -> Bool {
         guard let hf = job.stlHeightfield else {

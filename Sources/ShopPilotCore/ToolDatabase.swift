@@ -372,7 +372,7 @@ public final class ToolDatabase: ObservableObject {
     // MARK: - Defaults
 
     /// SPK-1133 — the installer-verified 17 default tool assignments, keyed by
-    /// strategy name (Aspire V12.5 seed catalog). Used for first-run seeding
+    /// strategy name (V12.5 seed catalog). Used for first-run seeding
     /// AND the strategy→default mapping so Cut ops start with a real tool.
     public static let defaultToolCatalog: [(strategy: String, name: String, type: ToolType, diameterMm: Double)] = [
         ("Profile", "End Mill 1/4\"", .endMill, 6.35),

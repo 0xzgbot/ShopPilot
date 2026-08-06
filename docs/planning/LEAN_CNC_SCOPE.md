@@ -1,7 +1,7 @@
 # ShopPilot — Lean CNC Scope (agent north star)
 
 **Last updated:** 2026-08-04  
-**Overrides:** Aspire feature-count parity is **reference evidence only**. This file is the product bar for agents.
+**Overrides:** feature-count parity is **reference evidence only**. This file is the product bar for agents.
 
 ---
 
@@ -30,15 +30,15 @@
 - In-app tutorial **videos**, YouTube / social links, remote-fed startup marketing
 - Cabinet import, gadget marketplace, clipart library
 - Laser / plasma / photo V-carve / 964-post library chase
-- Aspire CRV reverse-engineering
+- Proprietary CRV reverse-engineering
 
 Offline markdown for developers (SAFETY, first-cut text) is fine. Keep it **out of app chrome**.
 
 ---
 
-## Aspire comparison (honest)
+## Reference comparison (honest)
 
-| Area | Aspire | ShopPilot lean target |
+| Area | Reference | ShopPilot lean target |
 | --- | --- | --- |
 | 2.5D CAM | Mature | Harden algorithms + goldens — not form-field tourism |
 | V-Carve | Clearance tools + engraving | Clearance chain + flat depth — match cut quality, not every gadget |
@@ -47,7 +47,7 @@ Offline markdown for developers (SAFETY, first-cut text) is fine. Keep it **out 
 | Machine control | File out only | **Ours** — keep |
 | Cloud / tutorials | Trial remote content | **Never** |
 
-Evidence: [`ASPIRE_INSTALLER_BREAKDOWN.md`](./ASPIRE_INSTALLER_BREAKDOWN.md), [`FEATURE_PARITY_MATRIX.md`](./FEATURE_PARITY_MATRIX.md) §R (status column may be stale — trust Sources + MASTER_KANBAN).
+Evidence: [`INSTALLER_BREAKDOWN.md`](./INSTALLER_BREAKDOWN.md), [`FEATURE_PARITY_MATRIX.md`](./FEATURE_PARITY_MATRIX.md) §R (status column may be stale — trust Sources + MASTER_KANBAN).
 
 ---
 
@@ -65,7 +65,7 @@ Dual-side, rotary, laser, Post Studio, App Store remain post-lean.
 
 ## Agent protocol delta
 
-When this conflicts with “Aspire parity” or “Phase H only after SPK-0623”:
+When this conflicts with “reference parity” or “Phase H only after SPK-0623”:
 
 1. Prefer **this file**.
 2. Prefer earliest open P0 on the lean list above.

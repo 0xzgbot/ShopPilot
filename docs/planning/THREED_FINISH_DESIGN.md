@@ -175,6 +175,6 @@ G1 Z-2.0 F300 (plunge at finishing rate)
 
 ## Notes
 
-- All formulas and strategies are derived from standard CNC machining references, not from Vectric/Aspire proprietary implementations
+- All formulas and strategies are derived from standard CNC machining references, not from third-party proprietary implementations
 - Scallop height formula is universal geometry — applies to any ball nose cutter regardless of CAM software
-- No Vectric proprietary assets or algorithms used
+- No third-party proprietary assets or algorithms used

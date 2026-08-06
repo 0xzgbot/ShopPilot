@@ -22,7 +22,7 @@ Execute the ShopPilot product until v1.0 ships, then continue to full product (P
 3. Implement the card AC in the **worktree** (or project root only if card says so).
 4. Mark MASTER_KANBAN.md when closing a parent; `kanban_complete` / `kanban_block` for Hermes tasks; append Work log.
 5. Repeat. Never idle on human [!] — pick another Ready card.
-6. Simulator-first for machine work. No Vectric proprietary assets/CRV reverse-engineering.
+6. Simulator-first for machine work. No third-party proprietary assets/CRV reverse-engineering.
 
 ## v1.0 must ship (Phase G)
 Native Mac app, vectors, Profile/Pocket/Drill/V-Carve, preview, GRBL post, machine sim run, preflight, stage rail, dirty toolpath safety, docs.

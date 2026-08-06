@@ -5,7 +5,7 @@ import ShopPilotGeometry
 /// SPK-0214 verify (CLT machine, no XCTest).
 /// Proves array + circular copy semantics:
 ///   1. GRID: 3×2 array of a rect at 20/30 spacing lands each copy at the
-///      exact grid offset (Aspire array-copy layout).
+///      exact grid offset (grid array-copy layout).
 ///   2. CIRCULAR around a center: 4 copies of a line at distance 10 land at
 ///      angles 0/90/180/270 around the center; k=0 coincides with the source.
 ///   3. ROTATE COPIES: each copy spins by its angular position — the 90°

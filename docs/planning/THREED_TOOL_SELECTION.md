@@ -118,4 +118,4 @@ This enables automatic toolpath parameter suggestions when a user selects a tool
 - All recommendations assume rigid machine setup with proper workholding
 - Actual optimal parameters depend on machine rigidity, spindle power, and tool quality
 - ShopPilot will provide speed/feed calculators based on material and tool selection (future enhancement)
-- No Vectric proprietary data used — all values derived from standard machining handbooks and community knowledge
+- No third-party proprietary data used — all values derived from standard machining handbooks and community knowledge

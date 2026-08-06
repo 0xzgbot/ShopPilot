@@ -1,7 +1,7 @@
 # ShopPilot — User Wishlist & Forum Pain Points Summary
 
 **Date:** 2026-07-30  
-**Source:** Web research across r/CNC, r/vcarve, Vectric forums, and CAM community discussions  
+**Source:** Web research across r/CNC, r/vcarve, vendor forums, and CAM community discussions  
 **Purpose:** Identify top user complaints and feature requests to prioritize ShopPilot development
 
 ---
@@ -9,32 +9,32 @@
 ## Top Themes
 
 ### 1. Mac-Only Demand — #1 Market Wedge
-- **Complaint:** "Aspire/VCarve are Windows-only. I have to use Parallels or dual-boot just to use CAM software."
-- **Software:** Aspire, VCarve, Fusion 360
+- **Complaint:** "Incumbent CAM tools are Windows-only. I have to use Parallels or dual-boot just to use CAM software."
+- **Software:** incumbent CAM tools, Fusion 360
 - **Frequency:** Extremely high — mentioned in virtually every CNC forum thread about CAM software
 - **Relevance to ShopPilot:** **HIGH** — This is ShopPilot's primary competitive advantage. Native macOS + Apple Silicon optimization directly addresses this pain.
 
 ### 2. Pricing Pain — $1500+ for Full Suite
-- **Complaint:** "Aspire is too expensive for hobbyists. $1500 for the full version is a lot when I only need V-Carve and basic 2D."
-- **Software:** Aspire, VCarve Pro
-- **Frequency:** High — recurring theme on r/CNC and Vectric forums
+- **Complaint:** "The incumbent is too expensive for hobbyists. $1500 for the full version is a lot when I only need V-Carve and basic 2D."
+- **Software:** incumbent CAM tools
+- **Frequency:** High — recurring theme on r/CNC and vendor forums
 - **Relevance to ShopPilot:** **HIGH** — ShopPilot's three-tier model (Core/Studio/Studio3D) with affordable entry points directly addresses this.
 
 ### 3. V-Carve Text-to-Curves Essential for Sign Makers
-- **Complaint:** "I need to be able to convert text to curves for V-Carve engraving. Aspire does this but the workflow is clunky."
-- **Software:** Aspire, VCarve
+- **Complaint:** "I need to be able to convert text to curves for V-Carve engraving. The incumbent does this but the workflow is clunky."
+- **Software:** incumbent CAM tools
 - **Frequency:** High — sign makers repeatedly request this feature
 - **Relevance to ShopPilot:** **HIGH** — SPK-0501 (Text to curves) and SPK-0504 (V-Carve) directly target this use case.
 
 ### 4. Slow Toolpath Recalculation on Complex Designs
-- **Complaint:** "Aspire freezes for 30 seconds when I change a dimension on a complex design. I just want to edit and go."
-- **Software:** Aspire, Fusion 360
+- **Complaint:** "The incumbent freezes for 30 seconds when I change a dimension on a complex design. I just want to edit and go."
+- **Software:** incumbent CAM tools, Fusion 360
 - **Frequency:** Medium-high — especially among users with large vector files
 - **Relevance to ShopPilot:** **MEDIUM** — ShopPilot's dirty-region resimulation (SPK-0315) and toolpath tree architecture address this.
 
 ### 5. Preview Accuracy — "What You See Is What You Cut"
-- **Complaint:** "The preview in Aspire doesn't always match the actual cut. I need to trust the simulation before running."
-- **Software:** Aspire, VCarve
+- **Complaint:** "The preview in the incumbent doesn't always match the actual cut. I need to trust the simulation before running."
+- **Software:** incumbent CAM tools
 - **Frequency:** Medium — critical trust issue for hobbyists who can't afford material waste
 - **Relevance to ShopPilot:** **HIGH** — ShopPilot's heightfield preview (SPK-0309) and Metal-backed rendering (SPK-0311) target this.
 
@@ -45,26 +45,26 @@
 - **Relevance to ShopPilot:** **HIGH** — ShopPilot's integrated machine control (Phase E) with simulator-first development directly addresses this.
 
 ### 7. SVG Import Reliability
-- **Complaint:** "SVG import in Aspire sometimes fails or produces unexpected results. DXF import is even worse."
-- **Software:** Aspire, VCarve, Inkscape
+- **Complaint:** "SVG import in the incumbent sometimes fails or produces unexpected results. DXF import is even worse."
+- **Software:** incumbent CAM tools, Inkscape
 - **Frequency:** Medium — common frustration for users who design in external tools
 - **Relevance to ShopPilot:** **HIGH** — ShopPilot's SVG importer (SPK-0206) and ImportHubView (SPK-0216) are priorities.
 
 ### 8. Need for Better Documentation & Tutorials
-- **Complaint:** "Vectric's documentation is good but scattered. I wish there was a single place that walks me through a complete project from start to finish."
-- **Software:** Aspire, VCarve, Fusion 360
+- **Complaint:** "The vendor's documentation is good but scattered. I wish there was a single place that walks me through a complete project from start to finish."
+- **Software:** incumbent CAM tools, Fusion 360
 - **Frequency:** Medium — especially among new CNC users
 - **Relevance to ShopPilot:** **MEDIUM** — ShopPilot's first-cut tutorial (SPK-0610) and context coach panel (SPK-0112) address this.
 
 ### 9. Tab Placement & Hold-Down Concerns
-- **Complaint:** "Aspire's tab placement is too simple. I need more control over where tabs go, how many, and their size."
-- **Software:** Aspire, VCarve
+- **Complaint:** "The incumbent's tab placement is too simple. I need more control over where tabs go, how many, and their size."
+- **Software:** incumbent CAM tools
 - **Frequency:** Medium — important for serious sign makers and production users
 - **Relevance to ShopPilot:** **MEDIUM** — Profile toolpath tabs (SPK-0302) cover basic tab support.
 
 ### 10. Multi-Sheet / Production Workflow
-- **Complaint:** "I have to manage multiple sheets manually in Aspire. A built-in multi-sheet workflow would save me hours."
-- **Software:** Aspire, VCarve
+- **Complaint:** "I have to manage multiple sheets manually in the incumbent. A built-in multi-sheet workflow would save me hours."
+- **Software:** incumbent CAM tools
 - **Frequency:** Medium — relevant for production users with large stock
 - **Relevance to ShopPilot:** **LOW (v1.0)** — Multi-sheet management (SPK-0800) is Phase I (post-v1).
 
@@ -89,7 +89,7 @@
 
 ## Competitive Positioning
 
-ShopPilot's unique advantages vs. Aspire/VCarve:
+ShopPilot's unique advantages vs. incumbent CAM tools:
 
 1. **Native macOS** — No Parallels, no VM, no Windows dependency
 2. **Apple Silicon optimization** — Metal preview, native performance

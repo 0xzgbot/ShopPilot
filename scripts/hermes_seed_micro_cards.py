@@ -23,7 +23,7 @@ See also: {PROMPT}
 2. Only this micro card — no scope expansion.
 3. Worktree only. Assignee coder.
 4. No Phase H–K until SPK-0623 [x].
-5. Simulator-first for machine. No Vectric proprietary/CRV reverse-eng.
+5. Simulator-first for machine. No third-party proprietary/CRV reverse-eng.
 """.strip()
 
 
@@ -131,7 +131,7 @@ AC:
 - README states what works today vs stub (sim-first, no false production-ready)
 - Links SAFETY.md
 Out of scope: full ship checklist, notarization
-Verify: README section exists; no contradictory 'complete Aspire' claim"""),
+Verify: README section exists; no contradictory 'complete reference' claim"""),
     (910, "SPK-1161a One XCTest target runs a trivial assert", """Parent: SPK-1161 / SPK-1105
 AC:
 - `swift test` runs at least one ShopPilotTests case successfully on this machine OR documents Xcode-only blocker honestly in card result
