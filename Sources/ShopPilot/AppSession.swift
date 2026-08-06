@@ -1146,6 +1146,102 @@ final class AppSession: ObservableObject {
         return result
     }
 
+    // MARK: - Relief components (SPK-0700/0701 lean slice)
+
+    /// The document's relief component stack (nil = single-relief doc).
+    var reliefComponents: [ReliefComponent] {
+        job.reliefComponents ?? []
+    }
+
+    /// Fold the visible components into the ACTIVE relief (`stlHeightfield`)
+    /// with the real element-wise engine. Mirrors the sculpt pattern: undo
+    /// point, markDirty, and dirty every Rough3D/Finish3D node so the next
+    /// recalc regenerates from the composited surface. Returns true when the
+    /// composition is usable.
+    @discardableResult
+    func recompositeRelief() -> Bool {
+        let components = reliefComponents
+        guard !components.isEmpty else {
+            statusMessage = "No components to composite — add the active relief as a component first"
+            return false
+        }
+        guard let merged = ComponentCompositor.composite(components) else {
+            statusMessage = "Composite failed: component grids must be aligned (same cells, size, origin) — resampling is not supported yet"
+            return false
+        }
+        registerUndoPoint()
+        job.stlHeightfield = merged
+        markDirty()
+        for node in toolpathTree.allNodes where node.strategyKind == .rough3D || node.strategyKind == .finish3D {
+            node.markDirty()
+        }
+        statusMessage = "Composited \(components.filter(\.visible).count) component(s) → \(merged.width)×\(merged.height) relief, max \(String(format: "%.1f", merged.maxHeight))mm"
+        return true
+    }
+
+    /// Capture the CURRENT active relief as a named component (Add mode) and
+    /// recomposite. The first capture seeds the stack; later imports then
+    /// combine with it — the Aspire "combine" workflow in lean form.
+    @discardableResult
+    func addComponentFromActiveRelief(named name: String) -> Bool {
+        guard let hf = job.stlHeightfield else {
+            statusMessage = "No active relief — import an image or STL first"
+            return false
+        }
+        registerUndoPoint()
+        var stack = job.reliefComponents ?? []
+        stack.append(ReliefComponent(name: name.isEmpty ? "Relief \(stack.count + 1)" : name, heightfield: hf))
+        job.reliefComponents = stack
+        markDirty()
+        let ok = recompositeRelief()
+        return ok
+    }
+
+    /// Change a component's combine mode and recomposite.
+    @discardableResult
+    func updateComponentMode(_ id: UUID, mode: OperationMode) -> Bool {
+        guard var stack = job.reliefComponents,
+              let index = stack.firstIndex(where: { $0.id == id }) else {
+            statusMessage = "Component not found"
+            return false
+        }
+        registerUndoPoint()
+        stack[index].combineMode = mode
+        job.reliefComponents = stack
+        markDirty()
+        return recompositeRelief()
+    }
+
+    /// Toggle component visibility and recomposite.
+    @discardableResult
+    func toggleComponentVisibility(_ id: UUID) -> Bool {
+        guard var stack = job.reliefComponents,
+              let index = stack.firstIndex(where: { $0.id == id }) else {
+            statusMessage = "Component not found"
+            return false
+        }
+        registerUndoPoint()
+        stack[index].visible.toggle()
+        job.reliefComponents = stack
+        markDirty()
+        return recompositeRelief()
+    }
+
+    /// Remove a component and recomposite (or clear the stack when last).
+    @discardableResult
+    func removeComponent(_ id: UUID) -> Bool {
+        guard var stack = job.reliefComponents,
+              let index = stack.firstIndex(where: { $0.id == id }) else {
+            statusMessage = "Component not found"
+            return false
+        }
+        registerUndoPoint()
+        stack.remove(at: index)
+        job.reliefComponents = stack.isEmpty ? nil : stack
+        markDirty()
+        return recompositeRelief()
+    }
+
     /// ⌘K "Import Image Relief…" / Model-stage button: pick an image and
     /// convert it to a heightmap. A small config alert sets max height,
     /// mm-per-pixel scale and invert before import (SPK-0706).

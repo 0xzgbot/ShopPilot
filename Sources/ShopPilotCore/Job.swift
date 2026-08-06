@@ -33,6 +33,13 @@ public struct Job: Identifiable, Codable, Sendable {
     /// older documents decode unchanged (synthesized Codable).
     public var stlHeightfield: HeightfieldData?
 
+    /// SPK-0700/0701 lean slice — the document's relief component stack.
+    /// Each component holds a heightfield + combine mode; the compositor
+    /// folds them into the ACTIVE relief (`stlHeightfield`). Optional →
+    /// older documents decode unchanged. When nil/empty, `stlHeightfield`
+    /// is used directly (single-relief docs behave exactly as before).
+    public var reliefComponents: [ReliefComponent]?
+
     /// SPK-0319 lite — persisted Follow-source mode ("manual" | "autoFollow").
     /// Optional → older documents decode unchanged.
     public var followSourceModeRaw: String?

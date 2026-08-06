@@ -22,6 +22,10 @@ struct ModelStageView: View {
     var body: some View {
         VStack(spacing: 0) {
             opsBar
+            if !session.reliefComponents.isEmpty {
+                Divider()
+                componentBar
+            }
             if sculptMode {
                 Divider()
                 sculptBar
@@ -60,6 +64,60 @@ struct ModelStageView: View {
         }
     }
 
+    /// SPK-0700/0701 — component stack browser: each captured relief with its
+    /// combine mode (Add/Subtract/Merge/Low/Max/Min/Multiply), visibility
+    /// toggle, and remove. The compositor folds them into the active relief.
+    private var componentBar: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Components (\(session.reliefComponents.count)) — combine modes fold into the active relief")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            ForEach(session.reliefComponents) { component in
+                HStack(spacing: 6) {
+                    Button {
+                        _ = session.toggleComponentVisibility(component.id)
+                    } label: {
+                        Image(systemName: component.visible ? "eye" : "eye.slash")
+                    }
+                    .buttonStyle(.borderless)
+                    .help(component.visible ? "Hide component" : "Show component")
+                    Text(component.name)
+                        .font(.caption)
+                        .lineLimit(1)
+                    Spacer()
+                    Picker("", selection: Binding(
+                        get: { component.combineMode },
+                        set: { _ = session.updateComponentMode(component.id, mode: $0) }
+                    )) {
+                        Text("Add").tag(OperationMode.combineAdd)
+                        Text("Subtract").tag(OperationMode.combineSubtract)
+                        Text("Merge High").tag(OperationMode.combineMerge)
+                        Text("Low").tag(OperationMode.combineLow)
+                        Text("Max").tag(OperationMode.combineMax)
+                        Text("Min").tag(OperationMode.combineMin)
+                        Text("Multiply").tag(OperationMode.combineMultiply)
+                    }
+                    .pickerStyle(.menu)
+                    .frame(width: 130)
+                    .controlSize(.small)
+                    Text("\(component.heightfield.width)×\(component.heightfield.height) · \(String(format: "%.1f", component.heightfield.maxHeight))mm")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Button {
+                        _ = session.removeComponent(component.id)
+                    } label: {
+                        Image(systemName: "trash")
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Remove component")
+                }
+                .padding(.vertical, 2)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+    }
+
     private var opsBar: some View {
         HStack(spacing: 8) {
             Text("Model:")
@@ -89,6 +147,16 @@ struct ModelStageView: View {
             Button("Export STL…") { exportSTL() }
                 .disabled(session.job.stlHeightfield == nil)
                 .help("Export the relief as an ASCII STL mesh")
+            Divider().frame(height: 14)
+            // SPK-0700/0701 lean slice: component stack — capture the active
+            // relief as a component, then combine multiple reliefs.
+            Button("Add as Component") { session.addComponentFromActiveRelief(named: "Relief") }
+                .disabled(session.job.stlHeightfield == nil)
+                .help("Capture the current relief into the component stack (combine modes compose them)")
+            if !session.reliefComponents.isEmpty {
+                Button("Recomposite") { session.recompositeRelief() }
+                    .help("Re-run the combine modes over the component stack")
+            }
             Divider().frame(height: 14)
             Toggle(isOn: $sculptMode) {
                 Label("Sculpt", systemImage: "paintbrush.pointed.fill")
