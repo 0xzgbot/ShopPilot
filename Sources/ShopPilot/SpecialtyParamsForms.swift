@@ -147,6 +147,20 @@ struct InlayParamsForm: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
+            GroupBox("V-Carve Inlay Recipe") {
+                Picker("Preset", selection: $recipeIndex) {
+                    Text("Custom").tag(Int?.none)
+                    ForEach(Array(VCarveInlayRecipe.presets.enumerated()), id: \.offset) { index, recipe in
+                        Text(recipe.name).tag(Int?.some(index))
+                    }
+                }
+                .onChange(of: recipeIndex) { newValue in
+                    if let index = newValue, VCarveInlayRecipe.presets.indices.contains(index) {
+                        VCarveInlayRecipe.presets[index].apply(to: &params)
+                    }
+                }
+                .help("Load a classic angle/depth preset (30/45/60/90°)")
+            }
             GroupBox("Inlay") {
                 Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
                     Picker("Half", selection: $params.variant) {
@@ -172,6 +186,10 @@ struct InlayParamsForm: View {
         }
         .padding(8)
     }
+
+    /// Preset index currently matching the params (nil = custom). The getter
+    /// round-trips loaded presets so the picker shows the active recipe.
+    @State private var recipeIndex: Int?
 }
 
 struct QuickEngraveParamsForm: View {
@@ -200,6 +218,134 @@ struct QuickEngraveParamsForm: View {
                     SpecialtyNumRow(label: "Feed (mm/min)", value: $params.feedRateMmPerMin)
                     SpecialtyNumRow(label: "Plunge (mm/min)", value: $params.plungeRateMmPerMin)
                     SpecialtyNumRow(label: "Tool Ø (mm)", value: $params.toolDiameterMm)
+                }
+            }
+            Button("Apply Params — Regenerate") {
+                onApply(params)
+            }
+            .buttonStyle(.borderedProminent)
+            .frame(maxWidth: .infinity)
+        }
+        .padding(8)
+    }
+}
+
+struct PhotoVCarveParamsForm: View {
+    let node: ToolpathTreeNode
+    let onApply: (PhotoVCarveToolpathParams) -> Void
+
+    @State private var params: PhotoVCarveToolpathParams
+
+    init(node: ToolpathTreeNode, onApply: @escaping (PhotoVCarveToolpathParams) -> Void) {
+        self.node = node
+        self.onApply = onApply
+        _params = State(initialValue: node.photoVCarveParams())
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            GroupBox("Photo V-Carve") {
+                Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                    SpecialtyNumRow(label: "V-bit angle (°)", value: $params.vBitAngleDegrees)
+                    SpecialtyNumRow(label: "Max depth (mm)", value: $params.maxDepthMm)
+                    SpecialtyNumRow(label: "Step-over (mm)", value: $params.stepOverMm)
+                    SpecialtyNumRow(label: "Safe Z (mm)", value: $params.safeZHeightMm)
+                }
+            }
+            GroupBox("Feeds") {
+                Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                    SpecialtyNumRow(label: "Feed (mm/min)", value: $params.feedRateMmPerMin)
+                    SpecialtyNumRow(label: "Plunge (mm/min)", value: $params.plungeRateMmPerMin)
+                }
+            }
+            Button("Apply Params — Regenerate") {
+                onApply(params)
+            }
+            .buttonStyle(.borderedProminent)
+            .frame(maxWidth: .infinity)
+        }
+        .padding(8)
+    }
+}
+
+struct DragKnifeParamsForm: View {
+    let node: ToolpathTreeNode
+    let onApply: (DragKnifeToolpathParams) -> Void
+
+    @State private var params: DragKnifeToolpathParams
+
+    init(node: ToolpathTreeNode, onApply: @escaping (DragKnifeToolpathParams) -> Void) {
+        self.node = node
+        self.onApply = onApply
+        _params = State(initialValue: node.dragKnifeParams())
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            GroupBox("Drag Knife") {
+                Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                    SpecialtyNumRow(label: "Blade offset (mm)", value: $params.bladeOffsetMm)
+                    SpecialtyNumRow(label: "Cut depth (mm)", value: $params.cutDepthMm)
+                    SpecialtyNumRow(label: "Pivot threshold (°)", value: $params.pivotThresholdDegrees)
+                    SpecialtyNumRow(label: "Safe Z (mm)", value: $params.safeZHeightMm)
+                }
+            }
+            GroupBox("Feeds") {
+                Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                    SpecialtyNumRow(label: "Feed (mm/min)", value: $params.feedRateMmPerMin)
+                    SpecialtyNumRow(label: "Plunge (mm/min)", value: $params.plungeRateMmPerMin)
+                }
+            }
+            Button("Apply Params — Regenerate") {
+                onApply(params)
+            }
+            .buttonStyle(.borderedProminent)
+            .frame(maxWidth: .infinity)
+        }
+        .padding(8)
+    }
+}
+
+struct TextureParamsForm: View {
+    let node: ToolpathTreeNode
+    let onApply: (TextureToolpathParams) -> Void
+
+    @State private var params: TextureToolpathParams
+
+    init(node: ToolpathTreeNode, onApply: @escaping (TextureToolpathParams) -> Void) {
+        self.node = node
+        self.onApply = onApply
+        _params = State(initialValue: node.textureParams())
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            GroupBox("Texture") {
+                Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                    Picker("Pattern", selection: $params.pattern) {
+                        Text("Parallel").tag(TextureToolpathParams.Pattern.parallel)
+                        Text("Crosshatch").tag(TextureToolpathParams.Pattern.crosshatch)
+                    }
+                    .pickerStyle(.segmented)
+                    .gridCellColumns(2)
+                    SpecialtyNumRow(label: "Spacing (mm)", value: $params.spacingMm)
+                    SpecialtyNumRow(label: "Angle (°)", value: $params.angleDegrees)
+                    Picker("Cut style", selection: $params.cutStyle) {
+                        Text("V-groove").tag(TextureToolpathParams.TextureCutStyle.vGroove)
+                        Text("Flat").tag(TextureToolpathParams.TextureCutStyle.flat)
+                    }
+                    .pickerStyle(.segmented)
+                    .gridCellColumns(2)
+                    SpecialtyNumRow(label: "V-bit angle (°)", value: $params.vBitAngleDegrees)
+                    SpecialtyNumRow(label: "Flat depth (mm)", value: $params.flatDepthMm)
+                    SpecialtyNumRow(label: "Max depth (0 = auto)", value: $params.maxDepthMm)
+                    SpecialtyNumRow(label: "Safe Z (mm)", value: $params.safeZHeightMm)
+                }
+            }
+            GroupBox("Feeds") {
+                Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                    SpecialtyNumRow(label: "Feed (mm/min)", value: $params.feedRateMmPerMin)
+                    SpecialtyNumRow(label: "Plunge (mm/min)", value: $params.plungeRateMmPerMin)
                 }
             }
             Button("Apply Params — Regenerate") {

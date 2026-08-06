@@ -1678,6 +1678,8 @@ final class AppSession: ObservableObject {
                 let map: [String: String] = [
                     "Profile": "Profile", "Pocket": "Pocket", "Drill": "Drill", "V-Carve": "V-Carve",
                     "Prism": "V-Carve", "Fluting": "V-Carve", "Chamfer": "V-Carve", "Inlay": "V-Carve",
+                    "Quick Engrave": "V-Carve", "Photo V-Carve": "V-Carve", "Texture": "V-Carve",
+                    "Drag Knife": "V-Carve",
                 ]
                 strategy = map.keys.first(where: { name.hasPrefix($0) }).flatMap { map[$0] } ?? name
             }
@@ -2173,24 +2175,169 @@ final class AppSession: ObservableObject {
     }
 
     /// Generate a Photo V-Carve op: a fine V-bit raster over the imported
-    /// relief (image or STL), brightness → depth. Reuses the surface-following
-    /// finish engine with a fine step-over; the op label + stored finish
-    /// params make it recalc as a finish-3D node.
+    /// relief (image or STL), brightness → depth. Dark pixels carve deep,
+    /// bright pixels stay high — the classic sign-shop photo carve.
     func generatePhotoVCarveToolpath() {
         guard let hf = job.stlHeightfield else {
             statusMessage = "No relief — import an image (Model → Image Relief…) or STL first"
             return
         }
         registerUndoPoint()
-        let params = HeightfieldFinishParams(toolDiameterMm: 1.0, stepOverMm: 0.4)
-        let result = HeightfieldFinishEngine.compute(heightfield: hf, params: params)
+        let params = PhotoVCarveToolpathParams()
+        let result = PhotoVCarveToolpathEngine.compute(heightfield: hf, params: params)
         let node = addToolpathNode(
             named: "Photo V-Carve \(toolpathTree.allNodes.count)",
             gcode: result.gcodeLines,
             estimatedTime: result.estimatedTimeSeconds
         )
         node.paramsJSON = encodeParams(params)
-        statusMessage = "Photo V-Carve: \(result.gcodeLines.count) lines, \(result.passCount) rows, ~\(Int(result.estimatedTimeSeconds))s"
+        statusMessage = "Photo V-Carve: \(result.gcodeLines.count) lines, \(result.featureCount) passes, ~\(Int(result.estimatedTimeSeconds))s"
+    }
+
+    /// Apply Photo V-Carve params to an operation: store + regenerate with the
+    /// REAL engine, clearing the dirty badge (mirrors the apply* family).
+    @discardableResult
+    func applyPhotoVCarveParams(_ params: PhotoVCarveToolpathParams, to nodeID: UUID) -> Bool {
+        guard let node = toolpathTree.findNode(id: nodeID), node.strategyKind == .photoVCarve else {
+            statusMessage = "Apply params: select a Photo V-Carve operation"
+            return false
+        }
+        guard let hf = job.stlHeightfield else {
+            statusMessage = "No relief — import an image or STL first"
+            return false
+        }
+        registerUndoPoint()
+        node.paramsJSON = encodeParams(params)
+        let result = PhotoVCarveToolpathEngine.compute(heightfield: hf, params: params)
+        node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+        node.estimatedTimeSeconds = result.estimatedTimeSeconds
+        node.clearDirty()
+        let all = allToolpathGCode
+        if !all.isEmpty { gcodeLines = all }
+        statusMessage = "Photo V-Carve: \(result.featureCount) passes, ~\(Int(result.estimatedTimeSeconds))s"
+        markDirty()
+        return true
+    }
+
+    /// Generate a Drag Knife op: spindle-center path offset by the blade
+    /// offset with corner pivots — the classic drag-knife toolpath.
+    func generateDragKnifeToolpath() {
+        guard !vectors.isEmpty else {
+            statusMessage = "No vectors — draw or import shapes first"
+            return
+        }
+        registerUndoPoint()
+        let params = DragKnifeToolpathParams()
+        let result = DragKnifeToolpathEngine.compute(
+            paths: vectors, params: params, stockHeightMm: job.sheets.first?.height ?? 25.0
+        )
+        let node = addToolpathNode(
+            named: "Drag Knife \(toolpathTree.allNodes.count)",
+            gcode: result.gcodeLines,
+            estimatedTime: result.estimatedTimeSeconds
+        )
+        node.paramsJSON = encodeParams(params)
+        statusMessage = "Drag Knife: \(result.featureCount) path(s), ~\(Int(result.estimatedTimeSeconds))s"
+    }
+
+    @discardableResult
+    func applyDragKnifeParams(_ params: DragKnifeToolpathParams, to nodeID: UUID) -> Bool {
+        guard let node = toolpathTree.findNode(id: nodeID), node.strategyKind == .dragKnife else {
+            statusMessage = "Apply params: select a Drag Knife operation"
+            return false
+        }
+        guard !vectors.isEmpty else {
+            statusMessage = "No vectors — add shapes first"
+            return false
+        }
+        registerUndoPoint()
+        node.paramsJSON = encodeParams(params)
+        let result = DragKnifeToolpathEngine.compute(
+            paths: vectors, params: params, stockHeightMm: job.sheets.first?.height ?? 25.0
+        )
+        node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+        node.estimatedTimeSeconds = result.estimatedTimeSeconds
+        node.clearDirty()
+        let all = allToolpathGCode
+        if !all.isEmpty { gcodeLines = all }
+        statusMessage = "Drag Knife: \(result.featureCount) path(s), ~\(Int(result.estimatedTimeSeconds))s"
+        markDirty()
+        return true
+    }
+
+    /// Generate a Texture op: parallel or crosshatch grooves clipped inside
+    /// the selected closed vectors (SPK-0900 texture slice).
+    func generateTextureToolpath() {
+        guard !vectors.isEmpty else {
+            statusMessage = "No vectors — select a closed boundary first"
+            return
+        }
+        registerUndoPoint()
+        let params = TextureToolpathParams()
+        let result = TextureToolpathEngine.compute(
+            paths: vectors, params: params, stockHeightMm: job.sheets.first?.height ?? 25.0
+        )
+        let node = addToolpathNode(
+            named: "Texture \(toolpathTree.allNodes.count)",
+            gcode: result.gcodeLines,
+            estimatedTime: result.estimatedTimeSeconds
+        )
+        node.paramsJSON = encodeParams(params)
+        statusMessage = "Texture: \(result.featureCount) groove(s), ~\(Int(result.estimatedTimeSeconds))s"
+    }
+
+    @discardableResult
+    func applyTextureParams(_ params: TextureToolpathParams, to nodeID: UUID) -> Bool {
+        guard let node = toolpathTree.findNode(id: nodeID), node.strategyKind == .texture else {
+            statusMessage = "Apply params: select a Texture operation"
+            return false
+        }
+        guard !vectors.isEmpty else {
+            statusMessage = "No vectors — add shapes first"
+            return false
+        }
+        registerUndoPoint()
+        node.paramsJSON = encodeParams(params)
+        let result = TextureToolpathEngine.compute(
+            paths: vectors, params: params, stockHeightMm: job.sheets.first?.height ?? 25.0
+        )
+        node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+        node.estimatedTimeSeconds = result.estimatedTimeSeconds
+        node.clearDirty()
+        let all = allToolpathGCode
+        if !all.isEmpty { gcodeLines = all }
+        statusMessage = "Texture: \(result.featureCount) groove(s), ~\(Int(result.estimatedTimeSeconds))s"
+        markDirty()
+        return true
+    }
+
+    /// Generate an Inlay op from a named V-Carve recipe preset (SPK-0802
+    /// remainder): the recipe sets angle/depth/feeds on the real engine.
+    func generateInlayToolpath(variant: InlayToolpathParams.Variant, recipeName: String? = nil) {
+        guard !vectors.isEmpty else {
+            statusMessage = "No vectors — select the inlay shape"
+            return
+        }
+        registerUndoPoint()
+        var params: InlayToolpathParams
+        if let name = recipeName, let recipe = VCarveInlayRecipe.preset(named: name) {
+            params = recipe.params(variant: variant)
+            statusMessage = "Inlay \(variant == .pocket ? "pocket" : "plug") [\(recipe.name)]:"
+        } else {
+            params = InlayToolpathParams()
+            params.variant = variant
+            statusMessage = "Inlay \(variant == .pocket ? "pocket" : "plug"):"
+        }
+        let result: SpecialtyResult = variant == .pocket
+            ? InlayToolpathEngine.computePocket(paths: vectors, params: params, stockHeightMm: job.sheets.first?.height ?? 25.0)
+            : InlayToolpathEngine.computePlug(paths: vectors, params: params, stockHeightMm: job.sheets.first?.height ?? 25.0)
+        let node = addToolpathNode(
+            named: "Inlay \(variant == .pocket ? "Pocket" : "Plug") \(toolpathTree.allNodes.count)",
+            gcode: result.gcodeLines,
+            estimatedTime: result.estimatedTimeSeconds
+        )
+        node.paramsJSON = encodeParams(params)
+        statusMessage += " \(result.gcodeLines.count) lines, ~\(Int(result.estimatedTimeSeconds))s"
     }
 
     // MARK: - Text + bitmap trace + export (studio surface)

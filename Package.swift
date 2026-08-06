@@ -93,6 +93,26 @@ let package = Package(
             path: "Sources/ShopPilotVerifySculpt"
         ),
         .executableTarget(
+            name: "ShopPilotVerifyInlayRecipe",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerifyInlayRecipe"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerifyDragKnife",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerifyDragKnife"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerifyPhotoVCarve",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerifyPhotoVCarve"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerifyTexture",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerifyTexture"
+        ),
+        .executableTarget(
             name: "ShopPilotVerify1103a",
             dependencies: ["ShopPilotCore"],
             path: "Sources/ShopPilotVerify1103a"

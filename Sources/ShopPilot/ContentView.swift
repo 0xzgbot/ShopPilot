@@ -616,8 +616,12 @@ private struct CutStageView: View {
                         .help("Male half of a V-inlay: cut around the shape at inlay depth")
                     Button("Quick Engrave") { session.generateQuickEngraveToolpath() }
                         .help("Single-pass V-bit engraving along vectors — fast sign lettering")
+                    Button("Drag Knife") { session.generateDragKnifeToolpath() }
+                        .help("Blade-offset cutting with corner pivots (drag knife)")
                     Button("Photo V-Carve") { session.generatePhotoVCarveToolpath() }
                         .help("Fine V-bit raster over the imported image/STL relief (brightness → depth)")
+                    Button("Texture") { session.generateTextureToolpath() }
+                        .help("Parallel or crosshatch grooves clipped inside closed vectors")
                     Divider()
                     // SPK-3D-spine-b: relief strategies (need an imported STL).
                     Button("Rough 3D") { session.generateRough3DToolpath() }
@@ -1030,6 +1034,36 @@ private struct CutStageView: View {
                     ScrollView {
                         QuickEngraveParamsForm(node: node) { newParams in
                             _ = session.applyQuickEngraveParams(newParams, to: node.id)
+                        }
+                    }
+                    .frame(maxHeight: 320)
+                }
+
+                // SPK-0901: Photo V-Carve strategy form.
+                if node.strategyKind == .photoVCarve {
+                    ScrollView {
+                        PhotoVCarveParamsForm(node: node) { newParams in
+                            _ = session.applyPhotoVCarveParams(newParams, to: node.id)
+                        }
+                    }
+                    .frame(maxHeight: 320)
+                }
+
+                // SPK-0907: Drag Knife strategy form.
+                if node.strategyKind == .dragKnife {
+                    ScrollView {
+                        DragKnifeParamsForm(node: node) { newParams in
+                            _ = session.applyDragKnifeParams(newParams, to: node.id)
+                        }
+                    }
+                    .frame(maxHeight: 320)
+                }
+
+                // SPK-0900: Texture strategy form.
+                if node.strategyKind == .texture {
+                    ScrollView {
+                        TextureParamsForm(node: node) { newParams in
+                            _ = session.applyTextureParams(newParams, to: node.id)
                         }
                     }
                     .frame(maxHeight: 320)

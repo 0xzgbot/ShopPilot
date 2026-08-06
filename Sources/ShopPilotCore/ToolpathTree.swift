@@ -158,6 +158,9 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
         case chamfer
         case inlay
         case quickEngrave
+        case photoVCarve
+        case dragKnife
+        case texture
         case unknown
     }
 
@@ -182,12 +185,14 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
         if label.hasPrefix("V-Carve") { return .vcarve }
         if label.hasPrefix("Rough 3D") { return .rough3D }
         if label.hasPrefix("Finish 3D") { return .finish3D }
-        if label.hasPrefix("Photo V-Carve") { return .finish3D }   // relief raster op
+        if label.hasPrefix("Photo V-Carve") { return .photoVCarve }   // relief V-bit raster
         if label.hasPrefix("Prism") { return .prism }
         if label.hasPrefix("Fluting") { return .fluting }
         if label.hasPrefix("Chamfer") { return .chamfer }
         if label.hasPrefix("Inlay") { return .inlay }
         if label.hasPrefix("Quick Engrave") { return .quickEngrave }
+        if label.hasPrefix("Drag Knife") { return .dragKnife }
+        if label.hasPrefix("Texture") { return .texture }
         return .unknown
     }
 
@@ -316,6 +321,42 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
               let params = try? JSONDecoder().decode(QuickEngraveToolpathParams.self, from: data)
         else {
             return QuickEngraveToolpathParams()
+        }
+        return params
+    }
+
+    /// The Photo V-Carve params stored on this node (decoded from
+    /// `paramsJSON`), or defaults when none are stored (SPK-0901 slice).
+    public func photoVCarveParams() -> PhotoVCarveToolpathParams {
+        guard let json = paramsJSON,
+              let data = json.data(using: .utf8),
+              let params = try? JSONDecoder().decode(PhotoVCarveToolpathParams.self, from: data)
+        else {
+            return PhotoVCarveToolpathParams()
+        }
+        return params
+    }
+
+    /// The Drag Knife params stored on this node (decoded from `paramsJSON`),
+    /// or defaults when none are stored (SPK-0907 slice).
+    public func dragKnifeParams() -> DragKnifeToolpathParams {
+        guard let json = paramsJSON,
+              let data = json.data(using: .utf8),
+              let params = try? JSONDecoder().decode(DragKnifeToolpathParams.self, from: data)
+        else {
+            return DragKnifeToolpathParams()
+        }
+        return params
+    }
+
+    /// The Texture params stored on this node (decoded from `paramsJSON`),
+    /// or defaults when none are stored (SPK-0900 slice).
+    public func textureParams() -> TextureToolpathParams {
+        guard let json = paramsJSON,
+              let data = json.data(using: .utf8),
+              let params = try? JSONDecoder().decode(TextureToolpathParams.self, from: data)
+        else {
+            return TextureToolpathParams()
         }
         return params
     }
@@ -611,6 +652,41 @@ public final class ToolpathTreeManager: ObservableObject {
                 let result = QuickEngraveToolpathEngine.compute(
                     paths: vectors,
                     params: node.quickEngraveParams(),
+                    stockHeightMm: stockHeightMm
+                )
+                node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+                node.estimatedTimeSeconds = result.estimatedTimeSeconds
+                node.clearDirty()
+                regenerated.append(node)
+
+            case .photoVCarve:
+                // Needs the imported relief (image or STL); without one the
+                // node stays dirty.
+                guard let hf = heightfield else { continue }
+                let result = PhotoVCarveToolpathEngine.compute(
+                    heightfield: hf,
+                    params: node.photoVCarveParams()
+                )
+                node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+                node.estimatedTimeSeconds = result.estimatedTimeSeconds
+                node.clearDirty()
+                regenerated.append(node)
+
+            case .dragKnife:
+                let result = DragKnifeToolpathEngine.compute(
+                    paths: vectors,
+                    params: node.dragKnifeParams(),
+                    stockHeightMm: stockHeightMm
+                )
+                node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+                node.estimatedTimeSeconds = result.estimatedTimeSeconds
+                node.clearDirty()
+                regenerated.append(node)
+
+            case .texture:
+                let result = TextureToolpathEngine.compute(
+                    paths: vectors,
+                    params: node.textureParams(),
                     stockHeightMm: stockHeightMm
                 )
                 node.toolpathResult = result.gcodeLines.joined(separator: "\n")
