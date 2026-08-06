@@ -620,6 +620,8 @@ private struct CutStageView: View {
                         .help("Blade-offset cutting with corner pivots (drag knife)")
                     Button("Photo V-Carve") { session.generatePhotoVCarveToolpath() }
                         .help("Fine V-bit raster over the imported image/STL relief (brightness → depth)")
+                    Button("Sketch Carve") { session.generateSketchCarveToolpath() }
+                        .help("Edge-gated V-bit raster — only strong brightness transitions carve (sketch look)")
                     Button("Texture") { session.generateTextureToolpath() }
                         .help("Parallel or crosshatch grooves clipped inside closed vectors")
                     Divider()
@@ -1064,6 +1066,16 @@ private struct CutStageView: View {
                     ScrollView {
                         TextureParamsForm(node: node) { newParams in
                             _ = session.applyTextureParams(newParams, to: node.id)
+                        }
+                    }
+                    .frame(maxHeight: 320)
+                }
+
+                // SPK-0901: Sketch Carve strategy form.
+                if node.strategyKind == .sketchCarve {
+                    ScrollView {
+                        SketchCarveParamsForm(node: node) { newParams in
+                            _ = session.applySketchCarveParams(newParams, to: node.id)
                         }
                     }
                     .frame(maxHeight: 320)

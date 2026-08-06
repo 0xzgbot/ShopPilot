@@ -1679,7 +1679,7 @@ final class AppSession: ObservableObject {
                     "Profile": "Profile", "Pocket": "Pocket", "Drill": "Drill", "V-Carve": "V-Carve",
                     "Prism": "V-Carve", "Fluting": "V-Carve", "Chamfer": "V-Carve", "Inlay": "V-Carve",
                     "Quick Engrave": "V-Carve", "Photo V-Carve": "V-Carve", "Texture": "V-Carve",
-                    "Drag Knife": "V-Carve",
+                    "Drag Knife": "V-Carve", "Sketch Carve": "V-Carve",
                 ]
                 strategy = map.keys.first(where: { name.hasPrefix($0) }).flatMap { map[$0] } ?? name
             }
@@ -2307,6 +2307,51 @@ final class AppSession: ObservableObject {
         let all = allToolpathGCode
         if !all.isEmpty { gcodeLines = all }
         statusMessage = "Texture: \(result.featureCount) groove(s), ~\(Int(result.estimatedTimeSeconds))s"
+        markDirty()
+        return true
+    }
+
+    /// Generate a Sketch Carve op: a V-bit raster gated by the image's EDGES
+    /// (Sobel gradient), so only strong brightness transitions carve — the
+    /// hand-sketched line-art look (SPK-0901 remainder).
+    func generateSketchCarveToolpath() {
+        guard let hf = job.stlHeightfield else {
+            statusMessage = "No relief — import an image (Model → Image Relief…) or STL first"
+            return
+        }
+        registerUndoPoint()
+        let params = SketchCarveToolpathParams()
+        let result = SketchCarveToolpathEngine.compute(heightfield: hf, params: params)
+        let node = addToolpathNode(
+            named: "Sketch Carve \(toolpathTree.allNodes.count)",
+            gcode: result.gcodeLines,
+            estimatedTime: result.estimatedTimeSeconds
+        )
+        node.paramsJSON = encodeParams(params)
+        statusMessage = "Sketch Carve: \(result.featureCount) edge cells, \(result.gcodeLines.count) lines, ~\(Int(result.estimatedTimeSeconds))s"
+    }
+
+    /// Apply Sketch Carve params to an operation: store + regenerate with the
+    /// REAL engine, clearing the dirty badge (mirrors the apply* family).
+    @discardableResult
+    func applySketchCarveParams(_ params: SketchCarveToolpathParams, to nodeID: UUID) -> Bool {
+        guard let node = toolpathTree.findNode(id: nodeID), node.strategyKind == .sketchCarve else {
+            statusMessage = "Apply params: select a Sketch Carve operation"
+            return false
+        }
+        guard let hf = job.stlHeightfield else {
+            statusMessage = "No relief — import an image or STL first"
+            return false
+        }
+        registerUndoPoint()
+        node.paramsJSON = encodeParams(params)
+        let result = SketchCarveToolpathEngine.compute(heightfield: hf, params: params)
+        node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+        node.estimatedTimeSeconds = result.estimatedTimeSeconds
+        node.clearDirty()
+        let all = allToolpathGCode
+        if !all.isEmpty { gcodeLines = all }
+        statusMessage = "Sketch Carve: \(result.featureCount) edge cells, ~\(Int(result.estimatedTimeSeconds))s"
         markDirty()
         return true
     }

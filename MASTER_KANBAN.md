@@ -1078,8 +1078,8 @@ A (parallel from day 0)
 
 # PHASE J — Rotary, laser, specialty (v1.3)
 
-- [x] **SPK-0900** **TP** Fluting, texture, prism, chamfer, moulding — **4 of 5 shipped 2026-08-05 (fluting/prism/chamfer + texture lean slices); moulding remains** (SPK-0900 worklog)
-- [~] **SPK-0901** **TP** Photo V-Carve + Sketch carving — **photo V-Carve shipped 2026-08-05 (real V-bit raster engine: brightness→depth, own StrategyKind + form + verify); sketch carving remains** (SPK-0901 worklog)
+- [x] **SPK-0900** **TP** Fluting, texture, prism, chamfer, moulding — **4 of 5 shipped 2026-08-05 (fluting/prism/chamfer + texture lean slices); moulding DEFERRED to low priority (owner: not needed now)** (SPK-0900 worklog)
+- [x] **SPK-0901** **TP** Photo V-Carve + Sketch carving — **SHIPPED 2026-08-05: photo V-Carve (brightness→depth V-bit raster) + sketch carving (Sobel edge-gated V-bit raster)** (SPK-0901 worklog)
 - [ ] **SPK-0901** **TP** Photo V-Carve + Sketch carving
   - **Priority: P3** — Post-v1 feature. Nice-to-have for v1.3.
 - [ ] **SPK-0902** **TP** Thread milling
@@ -1201,6 +1201,11 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 ---
 
 ## 12. Work log
+
+### 2026-08-05 — Sketch carving (SPK-0901 remainder) + moulding deferral (Hermes coder)
+- **SPK-0901 [x]** — Sketch carving shipped: `SketchCarveToolpathEngine` (`ShopPilotCore/SketchCarveToolpath.swift`). Where photo V-Carve carves BRIGHTNESS as depth, sketch carving carves only EDGES: Sobel gradient map over the relief heightfield, normalized to max, gated by `edgeThreshold` (0–1); depth = edgeStrength·maxDepth so strong transitions carve deep V-lines and flat areas stay untouched — the hand-sketched line-art look. Params legacy-safe `decodeIfPresent`. StrategyKind `.sketchCarve` + label detection + `sketchCarveParams()` + recalc branch (needs the relief, else stays dirty); session `generateSketchCarveToolpath`/`applySketchCarveParams`; Cut menu "Sketch Carve" + tool map; `SketchCarveParamsForm`. **`ShopPilotVerifySketchCarve` PASS** — step edge carves −2.000 / flats 0, threshold gate (uniform grid → 0 cells), contrast monotonicity (taller step ≥ deeper), round-trip + legacy decode, tree recalc with/without relief. Sweep: 21 adjacent CLTs PASS, app builds 0 errors, **`swift test` 429/429 green**.
+- **SPK-0900** — moulding DEFERRED to low priority per owner ("don't need moulding toolpaths now"); card noted, worklog entry left as 4/5 shipped.
+- Verify-caught: `write_file` double-escapes `\(` AND `\"` inside interpolations the same way `patch` does — always byte-fix the new file after writing (collapse `\\` before `(`/`"` to single `\`, then `\"` → `"` inside `\(...)`), grep for `\\\\(`/`\\\\"` must stay 0.
 
 ### 2026-08-05 — Specialty toolpath completion wave (Hermes coder)
 - **SPK-0802 [x]** — VCarve inlay recipe presets wired to the REAL engine: `VCarveInlayRecipe` (name/angle/depth/feeds, legacy-safe `decodeIfPresent`) + 4 presets (Fine 30° / Medium 45° / Bold 60° / Deep 90°), `params(variant:)` + `apply(to:)`; session `generateInlayToolpath(variant:recipeName:)`; Inlay form recipe picker (loads angle/depth/feeds into the form). **`ShopPilotVerifyInlayRecipe` PASS** — 4 presets, named lookup, params materialize correct angle/depth/feeds, pocket floor at −recipe-depth (V-Carve marker), plug at −recipe-depth (Profile marker), apply preserves variant, round-trip + legacy decode, tree recalc.

@@ -357,3 +357,42 @@ struct TextureParamsForm: View {
         .padding(8)
     }
 }
+
+struct SketchCarveParamsForm: View {
+    let node: ToolpathTreeNode
+    let onApply: (SketchCarveToolpathParams) -> Void
+
+    @State private var params: SketchCarveToolpathParams
+
+    init(node: ToolpathTreeNode, onApply: @escaping (SketchCarveToolpathParams) -> Void) {
+        self.node = node
+        self.onApply = onApply
+        _params = State(initialValue: node.sketchCarveParams())
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            GroupBox("Sketch Carve") {
+                Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                    SpecialtyNumRow(label: "V-bit angle (°)", value: $params.vBitAngleDegrees)
+                    SpecialtyNumRow(label: "Max depth (mm)", value: $params.maxDepthMm)
+                    SpecialtyNumRow(label: "Edge threshold (0–1)", value: $params.edgeThreshold)
+                    SpecialtyNumRow(label: "Step-over (mm)", value: $params.stepOverMm)
+                    SpecialtyNumRow(label: "Safe Z (mm)", value: $params.safeZHeightMm)
+                }
+            }
+            GroupBox("Feeds") {
+                Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                    SpecialtyNumRow(label: "Feed (mm/min)", value: $params.feedRateMmPerMin)
+                    SpecialtyNumRow(label: "Plunge (mm/min)", value: $params.plungeRateMmPerMin)
+                }
+            }
+            Button("Apply Params — Regenerate") {
+                onApply(params)
+            }
+            .buttonStyle(.borderedProminent)
+            .frame(maxWidth: .infinity)
+        }
+        .padding(8)
+    }
+}

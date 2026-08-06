@@ -161,6 +161,7 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
         case photoVCarve
         case dragKnife
         case texture
+        case sketchCarve
         case unknown
     }
 
@@ -193,6 +194,7 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
         if label.hasPrefix("Quick Engrave") { return .quickEngrave }
         if label.hasPrefix("Drag Knife") { return .dragKnife }
         if label.hasPrefix("Texture") { return .texture }
+        if label.hasPrefix("Sketch Carve") { return .sketchCarve }
         return .unknown
     }
 
@@ -357,6 +359,18 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
               let params = try? JSONDecoder().decode(TextureToolpathParams.self, from: data)
         else {
             return TextureToolpathParams()
+        }
+        return params
+    }
+
+    /// The Sketch Carve params stored on this node (decoded from `paramsJSON`),
+    /// or defaults when none are stored (SPK-0901 slice).
+    public func sketchCarveParams() -> SketchCarveToolpathParams {
+        guard let json = paramsJSON,
+              let data = json.data(using: .utf8),
+              let params = try? JSONDecoder().decode(SketchCarveToolpathParams.self, from: data)
+        else {
+            return SketchCarveToolpathParams()
         }
         return params
     }
@@ -688,6 +702,19 @@ public final class ToolpathTreeManager: ObservableObject {
                     paths: vectors,
                     params: node.textureParams(),
                     stockHeightMm: stockHeightMm
+                )
+                node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+                node.estimatedTimeSeconds = result.estimatedTimeSeconds
+                node.clearDirty()
+                regenerated.append(node)
+
+            case .sketchCarve:
+                // Needs the imported relief (image or STL); without one the
+                // node stays dirty.
+                guard let hf = heightfield else { continue }
+                let result = SketchCarveToolpathEngine.compute(
+                    heightfield: hf,
+                    params: node.sketchCarveParams()
                 )
                 node.toolpathResult = result.gcodeLines.joined(separator: "\n")
                 node.estimatedTimeSeconds = result.estimatedTimeSeconds
