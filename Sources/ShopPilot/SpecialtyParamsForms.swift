@@ -358,6 +358,49 @@ struct TextureParamsForm: View {
     }
 }
 
+struct RotaryWrapParamsForm: View {
+    let node: ToolpathTreeNode
+    let onApply: (RotaryWrapToolpathParams) -> Void
+
+    @State private var params: RotaryWrapToolpathParams
+
+    init(node: ToolpathTreeNode, onApply: @escaping (RotaryWrapToolpathParams) -> Void) {
+        self.node = node
+        self.onApply = onApply
+        _params = State(initialValue: node.rotaryWrapParams())
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            GroupBox("Rotary Wrap") {
+                Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                    SpecialtyNumRow(label: "Stock Ø (mm)", value: $params.diameterMm)
+                    SpecialtyNumRow(label: "Cut depth (mm)", value: $params.cutDepthMm)
+                    Picker("Direction", selection: $params.direction) {
+                        Text("Clockwise").tag(RotaryDirection.clockwise)
+                        Text("Counter-clockwise").tag(RotaryDirection.counterClockwise)
+                    }
+                    .pickerStyle(.segmented)
+                    .gridCellColumns(2)
+                    SpecialtyNumRow(label: "Safe Z (mm)", value: $params.safeZHeightMm)
+                }
+            }
+            GroupBox("Feeds") {
+                Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                    SpecialtyNumRow(label: "Feed (mm/min)", value: $params.feedRateMmPerMin)
+                    SpecialtyNumRow(label: "Plunge (mm/min)", value: $params.plungeRateMmPerMin)
+                }
+            }
+            Button("Apply Params — Regenerate") {
+                onApply(params)
+            }
+            .buttonStyle(.borderedProminent)
+            .frame(maxWidth: .infinity)
+        }
+        .padding(8)
+    }
+}
+
 struct SketchCarveParamsForm: View {
     let node: ToolpathTreeNode
     let onApply: (SketchCarveToolpathParams) -> Void

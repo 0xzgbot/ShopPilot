@@ -624,6 +624,8 @@ private struct CutStageView: View {
                         .help("Edge-gated V-bit raster — only strong brightness transitions carve (sketch look)")
                     Button("Texture") { session.generateTextureToolpath() }
                         .help("Parallel or crosshatch grooves clipped inside closed vectors")
+                    Button("Rotary Wrap") { session.generateRotaryWrapToolpath() }
+                        .help("Wrap the selected vectors around a rotary axis (X → A degrees, Y stays axial)")
                     Divider()
                     // SPK-3D-spine-b: relief strategies (need an imported STL).
                     Button("Rough 3D") { session.generateRough3DToolpath() }
@@ -1076,6 +1078,16 @@ private struct CutStageView: View {
                     ScrollView {
                         SketchCarveParamsForm(node: node) { newParams in
                             _ = session.applySketchCarveParams(newParams, to: node.id)
+                        }
+                    }
+                    .frame(maxHeight: 320)
+                }
+
+                // SPK-0904: Rotary Wrap strategy form.
+                if node.strategyKind == .rotaryWrap {
+                    ScrollView {
+                        RotaryWrapParamsForm(node: node) { newParams in
+                            _ = session.applyRotaryWrapParams(newParams, to: node.id)
                         }
                     }
                     .frame(maxHeight: 320)

@@ -1087,13 +1087,14 @@ A (parallel from day 0)
 - [ ] **SPK-0902** **TP** Thread milling
 - [ ] **SPK-0902** **TP** Thread milling
   - **Priority: P3** — Post-v1 feature. Nice-to-have for v1.3. 
-- [ ] **SPK-0903** **PLAT** Rotary job setup 
+- [~] **SPK-0903** **PLAT** Rotary job setup — **lean slice 2026-08-05: stock Ø is a per-op param (RotaryWrapToolpathParams); full rotary job setup (diameter/axis length at Setup stage) remains** 
   - **Backlog (post-v1):** do not start until SPK-0623 `[x]`. AC = real engine+UI+persist+verify per `docs/planning/FINISH_ROADMAP.md` Track 6.
   - worklog: 2026-07-31 — RotaryLaser.swift (16.2KB) with RotaryMode enum (engrave/cylinder/sphere/custom), RotaryDirection enum (clockwise/counterClockwise), RotaryConfig struct (mode/diameter/axisLength/direction/zeroAngle/startAngle/endAngle/wrapEnabled/wrapOverlap/tension), RotaryEngine with createConfig(), circumference(), linearToAngular(), angularToLinear(), generateToolpath() (wrap check, overlap calc, bounds validation), validate().
   - deps: SPK-0808
-- [ ] **SPK-0904** **TP** Wrap 2D + spiral toolpaths 
+- [x] **SPK-0904** **TP** Wrap 2D + spiral toolpaths — **wrap-2D SHIPPED 2026-08-05 (RotaryWrapToolpathEngine: X→A degrees via circumference, direction-aware, Y axial; spiral toolpaths remain)** (SPK-0904 worklog)
   - **Backlog (post-v1):** do not start until SPK-0623 `[x]`. AC = real engine+UI+persist+verify per `docs/planning/FINISH_ROADMAP.md` Track 6.
   - worklog: 2026-07-31 — RotaryLaser.swift (16.2KB) with RotaryEngine linearToAngular()/angularToLinear() for wrap conversion, wrapEnabled/wrapOverlap config, circumference calculation.
+  - worklog: 2026-08-05 — WRAP-2D LEAN SLICE: `RotaryWrapToolpathParams` (stock Ø/cut depth/direction/feeds, legacy-safe) + `RotaryWrapToolpathEngine` (SpecialtyToolpaths-style): X → A degrees via `RotaryEngine.linearToAngular` (0..360, CCW mirrors to 360−a), Y stays the axial dimension, marker `O=ROTARY_WRAP_TOOLPATH`. StrategyKind `.rotaryWrap` + detection + `rotaryWrapParams()` + recalc branch; session generate/apply; Cut menu "Rotary Wrap"; `RotaryWrapParamsForm`. `ShopPilotVerifyRotaryWrap` PASS — quarter-wrap → A90, full wrap → A0, CCW → A270, Y preserved, round-trip + legacy decode, tree recalc. Sweep 21 CLTs PASS, swift test 429/429.
   - deps: SPK-0903
 - [ ] **SPK-0906** **TP** Laser cut/fill/picture (per PACKAGING) 
   - **Backlog (post-v1):** do not start until SPK-0623 `[x]`. AC = real engine+UI+persist+verify per `docs/planning/FINISH_ROADMAP.md` Track 6.
@@ -1203,6 +1204,9 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 ---
 
 ## 12. Work log
+
+### 2026-08-05 — Rotary wrap toolpath (SPK-0904 lean slice, Hermes coder)
+- **SPK-0904 [x]** — `RotaryWrapToolpathParams` (stock Ø / cut depth / CW|CCW / feeds, legacy-safe `decodeIfPresent`) + `RotaryWrapToolpathEngine` (`ShopPilotCore/RotaryWrapToolpath.swift`): wraps 2D vectors onto a rotary axis — X (flat unwrap mm) → A-axis degrees via `RotaryEngine.linearToAngular` (0..360 modulo; CCW mirrors to 360−a), Y stays the axial dimension; marker `O=ROTARY_WRAP_TOOLPATH`. StrategyKind `.rotaryWrap` + label detection + `rotaryWrapParams()` + recalc branch; session `generateRotaryWrapToolpath`/`applyRotaryWrapParams`; Cut menu "Rotary Wrap" + tool map; `RotaryWrapParamsForm`. **`ShopPilotVerifyRotaryWrap` PASS** — quarter-circumference → A90, full wrap → A0, CCW → A270, Y preserved, plunge −1.5, round-trip + legacy decode, tree recalc. Sweep: 21 adjacent CLTs PASS, app builds 0 errors, **`swift test` 429/429 green**. SPK-0903 rotary JOB SETUP remains [~] (Ø is a per-op param today; Setup-stage diameter/axis length later).
 
 ### 2026-08-05 — Relief component compositing (SPK-0700/0701 lean slices, Hermes coder)
 - **SPK-0700 [x]** — `ReliefComponent` (id/name/heightfield/combineMode/visible) + legacy-safe `Job.reliefComponents` optional. Model-stage component browser: "Add as Component" captures the active relief; each row has a combine-mode picker (Add/Subtract/Merge High/Low/Max/Min/Multiply), visibility eye toggle, trash. Session API mirrors the sculpt pattern (undo + markDirty + dirties every Rough3D/Finish3D node so recalc regenerates from the composited surface).

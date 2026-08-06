@@ -1775,7 +1775,7 @@ final class AppSession: ObservableObject {
                     "Profile": "Profile", "Pocket": "Pocket", "Drill": "Drill", "V-Carve": "V-Carve",
                     "Prism": "V-Carve", "Fluting": "V-Carve", "Chamfer": "V-Carve", "Inlay": "V-Carve",
                     "Quick Engrave": "V-Carve", "Photo V-Carve": "V-Carve", "Texture": "V-Carve",
-                    "Drag Knife": "V-Carve", "Sketch Carve": "V-Carve",
+                    "Drag Knife": "V-Carve", "Sketch Carve": "V-Carve", "Rotary Wrap": "V-Carve",
                 ]
                 strategy = map.keys.first(where: { name.hasPrefix($0) }).flatMap { map[$0] } ?? name
             }
@@ -2448,6 +2448,52 @@ final class AppSession: ObservableObject {
         let all = allToolpathGCode
         if !all.isEmpty { gcodeLines = all }
         statusMessage = "Sketch Carve: \(result.featureCount) edge cells, ~\(Int(result.estimatedTimeSeconds))s"
+        markDirty()
+        return true
+    }
+
+    /// Generate a Rotary Wrap op: wrap the selected vectors around a rotary
+    /// axis (X → A degrees, Y stays the axis dimension) — SPK-0904 slice.
+    func generateRotaryWrapToolpath() {
+        guard !vectors.isEmpty else {
+            statusMessage = "No vectors — draw or import shapes first"
+            return
+        }
+        registerUndoPoint()
+        let params = RotaryWrapToolpathParams()
+        let result = RotaryWrapToolpathEngine.compute(
+            paths: vectors, params: params, stockHeightMm: job.sheets.first?.height ?? 25.0
+        )
+        let node = addToolpathNode(
+            named: "Rotary Wrap \(toolpathTree.allNodes.count)",
+            gcode: result.gcodeLines,
+            estimatedTime: result.estimatedTimeSeconds
+        )
+        node.paramsJSON = encodeParams(params)
+        statusMessage = "Rotary Wrap: \(result.featureCount) path(s), ~\(Int(result.estimatedTimeSeconds))s"
+    }
+
+    @discardableResult
+    func applyRotaryWrapParams(_ params: RotaryWrapToolpathParams, to nodeID: UUID) -> Bool {
+        guard let node = toolpathTree.findNode(id: nodeID), node.strategyKind == .rotaryWrap else {
+            statusMessage = "Apply params: select a Rotary Wrap operation"
+            return false
+        }
+        guard !vectors.isEmpty else {
+            statusMessage = "No vectors — add shapes first"
+            return false
+        }
+        registerUndoPoint()
+        node.paramsJSON = encodeParams(params)
+        let result = RotaryWrapToolpathEngine.compute(
+            paths: vectors, params: params, stockHeightMm: job.sheets.first?.height ?? 25.0
+        )
+        node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+        node.estimatedTimeSeconds = result.estimatedTimeSeconds
+        node.clearDirty()
+        let all = allToolpathGCode
+        if !all.isEmpty { gcodeLines = all }
+        statusMessage = "Rotary Wrap: \(result.featureCount) path(s), ~\(Int(result.estimatedTimeSeconds))s"
         markDirty()
         return true
     }

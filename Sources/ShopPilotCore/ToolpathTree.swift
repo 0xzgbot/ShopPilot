@@ -162,6 +162,7 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
         case dragKnife
         case texture
         case sketchCarve
+        case rotaryWrap
         case unknown
     }
 
@@ -195,6 +196,7 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
         if label.hasPrefix("Drag Knife") { return .dragKnife }
         if label.hasPrefix("Texture") { return .texture }
         if label.hasPrefix("Sketch Carve") { return .sketchCarve }
+        if label.hasPrefix("Rotary Wrap") { return .rotaryWrap }
         return .unknown
     }
 
@@ -371,6 +373,18 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
               let params = try? JSONDecoder().decode(SketchCarveToolpathParams.self, from: data)
         else {
             return SketchCarveToolpathParams()
+        }
+        return params
+    }
+
+    /// The Rotary Wrap params stored on this node (decoded from `paramsJSON`),
+    /// or defaults when none are stored (SPK-0904 slice).
+    public func rotaryWrapParams() -> RotaryWrapToolpathParams {
+        guard let json = paramsJSON,
+              let data = json.data(using: .utf8),
+              let params = try? JSONDecoder().decode(RotaryWrapToolpathParams.self, from: data)
+        else {
+            return RotaryWrapToolpathParams()
         }
         return params
     }
@@ -715,6 +729,17 @@ public final class ToolpathTreeManager: ObservableObject {
                 let result = SketchCarveToolpathEngine.compute(
                     heightfield: hf,
                     params: node.sketchCarveParams()
+                )
+                node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+                node.estimatedTimeSeconds = result.estimatedTimeSeconds
+                node.clearDirty()
+                regenerated.append(node)
+
+            case .rotaryWrap:
+                let result = RotaryWrapToolpathEngine.compute(
+                    paths: vectors,
+                    params: node.rotaryWrapParams(),
+                    stockHeightMm: stockHeightMm
                 )
                 node.toolpathResult = result.gcodeLines.joined(separator: "\n")
                 node.estimatedTimeSeconds = result.estimatedTimeSeconds
