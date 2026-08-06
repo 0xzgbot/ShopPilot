@@ -18,15 +18,20 @@ func expect(_ cond: Bool, _ msg: String) throws {
     if !cond { throw VerifyError.failed(msg) }
 }
 
-/// Drain the main queue so deferred appends land.
-func drainMain(_ seconds: TimeInterval = 0.4) {
-    RunLoop.main.run(until: Date().addingTimeInterval(seconds))
+/// Let deferred main-queue appends land.
+///
+/// Must *await* — `RunLoop.main.run(until:)` holds the main thread and starves
+/// the cooperative pool, so a `Task.sleep` in code under test never resumes.
+@MainActor
+func drainMain(_ seconds: TimeInterval = 0.4) async {
+    try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
 }
 
 /// Test 1 — THE SPK-UI601 deadlock class: a subscriber re-enters append
 /// during the send. Pre-fix this hangs in PublishedSubject.send; post-fix
 /// the append defers and returns immediately.
-func testReentrantAppendDoesNotDeadlock() throws {
+@MainActor
+func testReentrantAppendDoesNotDeadlock() async throws {
     let log = ConsoleLog()
     var subscriberFires = 0
     let sub = log.$messages.sink { messages in
@@ -36,7 +41,7 @@ func testReentrantAppendDoesNotDeadlock() throws {
         }
     }
     log.append(ConsoleMessage(text: "first", type: .system)) // must return
-    drainMain()
+    await drainMain()
     try expect(log.messages.count == 2,
                "re-entrant append lost: \(log.messages.map(\.text))")
     try expect(log.messages.map(\.text) == ["first", "re-entrant"],
@@ -50,24 +55,26 @@ func testReentrantAppendDoesNotDeadlock() throws {
 }
 
 /// Test 2 — FIFO ordering across a burst of appends.
-func testOrderingPreserved() throws {
+@MainActor
+func testOrderingPreserved() async throws {
     let log = ConsoleLog()
     log.append(ConsoleMessage(text: "A", type: .system))
     log.append(ConsoleMessage(text: "B", type: .received))
     log.append(ConsoleMessage(text: "C", type: .system))
-    drainMain()
+    await drainMain()
     try expect(log.messages.map(\.text) == ["A", "B", "C"],
                "FIFO order broken: \(log.messages.map(\.text))")
     print("  [2/5] FIFO ordering preserved PASS")
 }
 
 /// Test 3 — trim to max keeps the newest, drops the oldest.
-func testTrim() throws {
+@MainActor
+func testTrim() async throws {
     let log = ConsoleLog(maxMessages: 5)
     for i in 0..<12 {
         log.append(ConsoleMessage(text: "m\(i)", type: .system))
     }
-    drainMain()
+    await drainMain()
     try expect(log.messages.count == 5, "trim to max failed: \(log.messages.count)")
     try expect(log.messages.first?.text == "m7",
                "oldest not dropped: \(log.messages.first?.text ?? "nil")")
@@ -76,20 +83,22 @@ func testTrim() throws {
 }
 
 /// Test 4 — clear empties the buffer.
-func testClear() throws {
+@MainActor
+func testClear() async throws {
     let log = ConsoleLog()
     log.append(ConsoleMessage(text: "x", type: .system))
-    drainMain()
+    await drainMain()
     try expect(log.messages.count == 1, "append before clear failed")
     log.clear()
-    drainMain()
+    await drainMain()
     try expect(log.messages.isEmpty, "clear failed: \(log.messages.count) remain")
     print("  [4/5] clear PASS")
 }
 
 /// Test 5 — alarm-path burst: many event-stream appends interleaved with a
 /// second @Published-style change (isStreamingJob analog) never block.
-func testAlarmPathBurst() throws {
+@MainActor
+func testAlarmPathBurst() async throws {
     let log = ConsoleLog()
     let flag = CurrentValueSubject<Bool, Never>(true)
     let flagSub = flag.sink { _ in
@@ -100,7 +109,7 @@ func testAlarmPathBurst() throws {
         log.append(ConsoleMessage(text: "evt\(i)", type: .received))
     }
     flag.send(false) // interleaved state change during the burst
-    drainMain()
+    await drainMain()
     // CurrentValueSubject delivers on subscription: "flag" is queued once at
     // subscribe and once at send(false) — 40 evt + 2 flag = 42.
     try expect(log.messages.count == 42, "burst count: \(log.messages.count)")
@@ -112,14 +121,19 @@ func testAlarmPathBurst() throws {
     print("  [5/5] alarm-path burst interleave PASS")
 }
 
-do {
-    try testReentrantAppendDoesNotDeadlock()
-    try testOrderingPreserved()
-    try testTrim()
-    try testClear()
-    try testAlarmPathBurst()
-    print("ShopPilotVerifyUI601: PASS — console append never deadlocks on re-entrant @Published send (SPK-UI601)")
-} catch {
-    print("ShopPilotVerifyUI601: FAIL — \(error)")
-    exit(1)
+func run() async -> Int32 {
+    do {
+        try await testReentrantAppendDoesNotDeadlock()
+        try await testOrderingPreserved()
+        try await testTrim()
+        try await testClear()
+        try await testAlarmPathBurst()
+        print("ShopPilotVerifyUI601: PASS — console append never deadlocks on re-entrant @Published send (SPK-UI601)")
+        return 0
+    } catch {
+        print("ShopPilotVerifyUI601: FAIL — \(error)")
+        return 1
+    }
 }
+
+exit(await run())

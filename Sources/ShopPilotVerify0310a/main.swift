@@ -13,13 +13,16 @@ func expect(_ cond: Bool, _ msg: String) throws {
     if !cond { throw VerifyError.failed(msg) }
 }
 
-/// Pump the main run loop so `DispatchQueue.main` completions actually run in a
-/// CLI process (plain Thread.sleep would starve them and hang the check).
-func waitFor(timeout: TimeInterval, _ condition: @escaping () -> Bool) -> Bool {
+/// Poll until `condition` is true, yielding so main-queue / async work can run.
+///
+/// Must *await* — `RunLoop.main.run(until:)` (or `Thread.sleep` alone) can
+/// starve the cooperative pool so a `Task.sleep` under test never resumes.
+@MainActor
+func waitFor(timeout: TimeInterval, _ condition: @escaping () -> Bool) async -> Bool {
     let deadline = Date().addingTimeInterval(timeout)
     while Date() < deadline {
         if condition() { return true }
-        RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+        try? await Task.sleep(nanoseconds: 20_000_000)
     }
     return condition()
 }
@@ -55,7 +58,8 @@ func draftConfig() -> PreviewConfiguration {
     )
 }
 
-func main() throws {
+@MainActor
+func main() async throws {
     // --- 1. Simulator-level: shouldCancel aborts the loop mid-way (deterministic). ---
     let big = makeRasterGcode(rows: 200, cols: 200, step: 0.5) // ~40k lines
     let sim = ToolpathSimulator.createDefault(cellSizeMm: 2.0, stockWidthMm: 100, stockHeightMm: 100)
@@ -86,7 +90,7 @@ func main() throws {
     let managerA = PreviewManager(simulator: sim, configuration: draftConfig())
     managerA.generatePreview(gcodeLines: big)
     managerA.cancelPreview() // lands before the 0.1s deferred start
-    try expect(waitFor(timeout: 5.0) { managerA.currentState != .generating }, "manager must settle after cancel")
+    try expect(await waitFor(timeout: 5.0) { managerA.currentState != .generating }, "manager must settle after cancel")
     try expect(managerA.currentState == .cancelled, "cancel-before-start must end .cancelled, got \(managerA.currentState)")
     try expect(managerA.currentResult == nil, "cancelled generation must not publish a result")
 
@@ -96,7 +100,7 @@ func main() throws {
     let managerFull = PreviewManager(simulator: sim, configuration: draftConfig())
     let fullStart = Date()
     managerFull.generatePreview(gcodeLines: heavy)
-    try expect(waitFor(timeout: 60.0) { managerFull.currentState == .ready },
+    try expect(await waitFor(timeout: 60.0) { managerFull.currentState == .ready },
                "full draft generation must complete")
     let fullElapsed = Date().timeIntervalSince(fullStart)
     try expect(fullElapsed > 0.2, "heavy input should take non-trivial time (got \(fullElapsed)s)")
@@ -107,9 +111,9 @@ func main() throws {
     let cancelStart = Date()
     managerC.generatePreview(gcodeLines: heavy)
     // Give the deferred work item time to start, then cancel while it is in flight.
-    Thread.sleep(forTimeInterval: 0.15)
+    try? await Task.sleep(nanoseconds: 150_000_000)
     managerC.cancelPreview()
-    try expect(waitFor(timeout: 10.0) { managerC.currentState != .generating }, "manager must settle promptly after mid-flight cancel")
+    try expect(await waitFor(timeout: 10.0) { managerC.currentState != .generating }, "manager must settle promptly after mid-flight cancel")
     let cancelElapsed = Date().timeIntervalSince(cancelStart)
     try expect(managerC.currentState == .cancelled, "mid-flight cancel must end .cancelled, got \(managerC.currentState)")
     try expect(managerC.currentResult == nil, "aborted generation must not publish a result")
@@ -117,7 +121,7 @@ func main() throws {
 
     // --- 4. Manager stays usable after a cancel. ---
     managerC.generatePreview(gcodeLines: makeRasterGcode(rows: 40, cols: 40, step: 2.5))
-    try expect(waitFor(timeout: 30.0) { managerC.currentState == .ready },
+    try expect(await waitFor(timeout: 30.0) { managerC.currentState == .ready },
                "manager must generate again after cancel")
     try expect(managerC.currentState == .ready, "regeneration must end .ready")
     try expect(managerC.currentResult?.isCancelled == false, "regenerated result must not be cancelled")
@@ -127,7 +131,7 @@ func main() throws {
 }
 
 do {
-    try main()
+    try await main()
 } catch {
     fputs("FAIL: \(error)\n", stderr)
     exit(1)

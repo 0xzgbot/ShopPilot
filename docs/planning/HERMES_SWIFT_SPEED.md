@@ -25,6 +25,9 @@ Add a tiny executable under `Sources/ShopPilotVerifyXXXX/main.swift` + `Package.
 | `./scripts/verify_locked.sh ShopPilotVerify*` | `swift test` (no Xcode.app/XCTest on CLT) |
 | Wait + `kanban_heartbeat` on lock | Second parallel `swift` |
 | Keep `.build` warm | `rm -rf .build` |
+| Wait with `await Task.sleep` (see UI609) | `RunLoop.main.run(until:)` while waiting on async work |
+
+**Waiting in verifies:** blocking the main thread with `RunLoop.main.run(until:)` starves Swift concurrency — a `Task.sleep` in the code under test never resumes and the check looks hung. Prefer `await Task.sleep` (UI609 / UI601 pattern).
 
 ## Card body snippet (paste)
 
