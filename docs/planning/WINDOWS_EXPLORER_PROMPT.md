@@ -123,7 +123,7 @@ This is the second critical capture. Document the complete workflow surface:
 ## Step 7 — Gadgets & extras
 Open the Gadgets menu and list every installed gadget. Open 2–3 (e.g.
 Keyhole Toolpath, Dragknife Toolpath) and record their form fields. Note the
-Gadgets folder location and file types (.lua / .VectricGadget). Record any
+Gadgets folder location and file types (.lua / proprietary gadget format). Record any
 "Schemas"/"PartListMapping" references in menus (cabinet import).
 
 ## Step 8 — Preferences

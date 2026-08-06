@@ -45,7 +45,7 @@ Profile, Pocket (offset/raster, multi-tool, clearance pass), V-Carve (+engraving
 - Machine database: OEM machine configs (make/model/series), cutting data per machine+material+tool, online tool-DB backup.
 
 ### V12.5 headline features (verified in binaries)
-Keep-Out Zones · Sketch Carving · Laser Sketch Engraving · Fluting · V-Carve Inlay · Wrapping/auto-wrap · Double-sided (side flip, two-sided nest) · Cabinet import (KCD/Mozaik/Polyboard/SmartWOP/CabinetSense/CabinetPartsPro) · Gadget packages (.VectricGadget, signed).
+Keep-Out Zones · Sketch Carving · Laser Sketch Engraving · Fluting · V-Carve Inlay · Wrapping/auto-wrap · Double-sided (side flip, two-sided nest) · Cabinet import (KCD/Mozaik/Polyboard/SmartWOP/CabinetSense/CabinetPartsPro) · Gadget packages (proprietary gadget format, signed).
 
 ### Trial limitations observed
 Vector/model export disabled; laser module gated; content remote-fed (startup page, tutorials); no local "What's New" text on disk.
