@@ -66,7 +66,7 @@ Put the mini on power; disable sleep while building (`caffeinate` or Energy Save
 On the **build Mac**:
 
 1. Install / copy your Hermes `coder` profile (or fresh install + same model keys).
-2. Set the ShopPilot board `default_workdir` to the clone on **that** machine, e.g. `/Users/zgbot/Desktop/ShopPilot`.
+2. Set the ShopPilot board `default_workdir` to the clone on **that** machine, e.g. `~/Desktop/ShopPilot`.
 3. Confirm kanban caps match the trial:
    - `coder` `max_in_progress_per_profile: 5` (or 4 if still thrashing)
    - `spark` `max_in_progress_per_profile: 0` until the mini is proven

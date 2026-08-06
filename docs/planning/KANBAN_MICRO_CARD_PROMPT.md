@@ -35,7 +35,7 @@ Each card: **~45–90 min**, **Engine + UI + Persist (when relevant) + Verify**,
    - **Never** `rm -rf .build` or wipe `.build`.
    - **Never** bare parallel `swift build` / `swift test` across workers.
    - If the lock says “still waiting”, call `kanban_heartbeat` and **wait** — do not start a second build.
-   - Worktree-only edits. Never patch `/Users/zgbot/Desktop/ShopPilot/Sources` from a worktree task unless the card says `dir:main`.
+   - Worktree-only edits. Never patch `~/Desktop/ShopPilot/Sources` from a worktree task unless the card says `dir:main`.
 9. **Verify order (CLT Mac — no Xcode.app / XCTest):**
     1. `./scripts/verify_locked.sh ShopPilotVerifyXXXX` or `./scripts/swift_locked.sh run ShopPilotVerifyXXXX`
     2. `scripts/verify_*.py` / standalone check
