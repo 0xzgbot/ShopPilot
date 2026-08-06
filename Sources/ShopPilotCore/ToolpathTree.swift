@@ -153,6 +153,11 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
         case vcarve
         case rough3D
         case finish3D
+        case prism
+        case fluting
+        case chamfer
+        case inlay
+        case quickEngrave
         case unknown
     }
 
@@ -177,6 +182,12 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
         if label.hasPrefix("V-Carve") { return .vcarve }
         if label.hasPrefix("Rough 3D") { return .rough3D }
         if label.hasPrefix("Finish 3D") { return .finish3D }
+        if label.hasPrefix("Photo V-Carve") { return .finish3D }   // relief raster op
+        if label.hasPrefix("Prism") { return .prism }
+        if label.hasPrefix("Fluting") { return .fluting }
+        if label.hasPrefix("Chamfer") { return .chamfer }
+        if label.hasPrefix("Inlay") { return .inlay }
+        if label.hasPrefix("Quick Engrave") { return .quickEngrave }
         return .unknown
     }
 
@@ -245,6 +256,66 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
               let params = try? JSONDecoder().decode(ProfileToolpathParams.self, from: data)
         else {
             return ProfileToolpathParams()
+        }
+        return params
+    }
+
+    /// The Prism params stored on this node (decoded from `paramsJSON`),
+    /// or defaults when none are stored (SPK-0900 slice).
+    public func prismParams() -> PrismToolpathParams {
+        guard let json = paramsJSON,
+              let data = json.data(using: .utf8),
+              let params = try? JSONDecoder().decode(PrismToolpathParams.self, from: data)
+        else {
+            return PrismToolpathParams()
+        }
+        return params
+    }
+
+    /// The Fluting params stored on this node (decoded from `paramsJSON`),
+    /// or defaults when none are stored (SPK-0900 slice).
+    public func flutingParams() -> FlutingToolpathParams {
+        guard let json = paramsJSON,
+              let data = json.data(using: .utf8),
+              let params = try? JSONDecoder().decode(FlutingToolpathParams.self, from: data)
+        else {
+            return FlutingToolpathParams()
+        }
+        return params
+    }
+
+    /// The Chamfer params stored on this node (decoded from `paramsJSON`),
+    /// or defaults when none are stored (SPK-0900 slice).
+    public func chamferParams() -> ChamferToolpathParams {
+        guard let json = paramsJSON,
+              let data = json.data(using: .utf8),
+              let params = try? JSONDecoder().decode(ChamferToolpathParams.self, from: data)
+        else {
+            return ChamferToolpathParams()
+        }
+        return params
+    }
+
+    /// The Inlay params stored on this node (decoded from `paramsJSON`),
+    /// or defaults when none are stored (SPK-0802 slice).
+    public func inlayParams() -> InlayToolpathParams {
+        guard let json = paramsJSON,
+              let data = json.data(using: .utf8),
+              let params = try? JSONDecoder().decode(InlayToolpathParams.self, from: data)
+        else {
+            return InlayToolpathParams()
+        }
+        return params
+    }
+
+    /// The Quick Engrave params stored on this node (decoded from
+    /// `paramsJSON`), or defaults when none are stored (F07 slice).
+    public func quickEngraveParams() -> QuickEngraveToolpathParams {
+        guard let json = paramsJSON,
+              let data = json.data(using: .utf8),
+              let params = try? JSONDecoder().decode(QuickEngraveToolpathParams.self, from: data)
+        else {
+            return QuickEngraveToolpathParams()
         }
         return params
     }
@@ -487,6 +558,60 @@ public final class ToolpathTreeManager: ObservableObject {
                 let result = HeightfieldFinishEngine.compute(
                     heightfield: hf,
                     params: withToolFeeds(node.finish3DParams(), node: node, tools: tools, materialName: materialName, machineName: machineName)
+                )
+                node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+                node.estimatedTimeSeconds = result.estimatedTimeSeconds
+                node.clearDirty()
+                regenerated.append(node)
+
+            case .prism:
+                let result = PrismToolpathEngine.compute(
+                    paths: vectors,
+                    params: node.prismParams(),
+                    stockHeightMm: stockHeightMm
+                )
+                node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+                node.estimatedTimeSeconds = result.estimatedTimeSeconds
+                node.clearDirty()
+                regenerated.append(node)
+
+            case .fluting:
+                let result = FlutingToolpathEngine.compute(
+                    paths: vectors,
+                    params: node.flutingParams(),
+                    stockHeightMm: stockHeightMm
+                )
+                node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+                node.estimatedTimeSeconds = result.estimatedTimeSeconds
+                node.clearDirty()
+                regenerated.append(node)
+
+            case .chamfer:
+                let result = ChamferToolpathEngine.compute(
+                    paths: vectors,
+                    params: node.chamferParams(),
+                    stockHeightMm: stockHeightMm
+                )
+                node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+                node.estimatedTimeSeconds = result.estimatedTimeSeconds
+                node.clearDirty()
+                regenerated.append(node)
+
+            case .inlay:
+                let params = node.inlayParams()
+                let result = params.variant == .pocket
+                    ? InlayToolpathEngine.computePocket(paths: vectors, params: params, stockHeightMm: stockHeightMm)
+                    : InlayToolpathEngine.computePlug(paths: vectors, params: params, stockHeightMm: stockHeightMm)
+                node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+                node.estimatedTimeSeconds = result.estimatedTimeSeconds
+                node.clearDirty()
+                regenerated.append(node)
+
+            case .quickEngrave:
+                let result = QuickEngraveToolpathEngine.compute(
+                    paths: vectors,
+                    params: node.quickEngraveParams(),
+                    stockHeightMm: stockHeightMm
                 )
                 node.toolpathResult = result.gcodeLines.joined(separator: "\n")
                 node.estimatedTimeSeconds = result.estimatedTimeSeconds

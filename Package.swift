@@ -43,6 +43,26 @@ let package = Package(
             path: "Sources/ShopPilotVerify0210"
         ),
         .executableTarget(
+            name: "ShopPilotVerify0215",
+            dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
+            path: "Sources/ShopPilotVerify0215"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify0214",
+            dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
+            path: "Sources/ShopPilotVerify0214"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerifyGadget",
+            dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
+            path: "Sources/ShopPilotVerifyGadget"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerifyStudio",
+            dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
+            path: "Sources/ShopPilotVerifyStudio"
+        ),
+        .executableTarget(
             name: "ShopPilotVerify1100",
             dependencies: ["ShopPilotCore"],
             path: "Sources/ShopPilotVerify1100"
@@ -56,6 +76,21 @@ let package = Package(
             name: "ShopPilotVerify3Db",
             dependencies: ["ShopPilotCore"],
             path: "Sources/ShopPilotVerify3Db"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerifyBitmapHF",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerifyBitmapHF"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerifySpecialty",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerifySpecialty"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerifySculpt",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerifySculpt"
         ),
         .executableTarget(
             name: "ShopPilotVerify1103a",

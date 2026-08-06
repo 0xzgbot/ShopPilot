@@ -10,6 +10,7 @@ public enum CommandID: String, CaseIterable {
     case exportGcode = "export_gcode"
     case importSVG = "import_svg"
     case importSTLRelief = "import_stl_relief"
+    case importImageRelief = "import_image_relief"
     
     case undo = "undo"
     case redo = "redo"
@@ -44,6 +45,7 @@ public enum CommandID: String, CaseIterable {
         case .exportGcode: return "Export G-code"
         case .importSVG: return "Import SVG…"
         case .importSTLRelief: return "Import STL Relief…"
+        case .importImageRelief: return "Import Image Relief…"
         case .undo: return "Undo"
         case .redo: return "Redo"
         case .cut: return "Cut"
@@ -70,7 +72,7 @@ public enum CommandID: String, CaseIterable {
     
     var category: CommandCategory {
         switch self {
-        case .newJob, .openJob, .saveJob, .exportGcode, .importSVG, .importSTLRelief:
+        case .newJob, .openJob, .saveJob, .exportGcode, .importSVG, .importSTLRelief, .importImageRelief:
             return .file
         case .undo, .redo, .cut, .copy, .paste, .deleteVector:
             return .edit
@@ -91,6 +93,7 @@ public enum CommandID: String, CaseIterable {
         case .exportGcode: return nil
         case .importSVG: return nil
         case .importSTLRelief: return nil
+        case .importImageRelief: return nil
         case .undo: return "z"
         case .redo: return "shift+z"
         case .cut: return "x"
@@ -137,7 +140,7 @@ public enum CommandID: String, CaseIterable {
     ///   that belong to the Machine stage's connection layer, not the session.
     var isComingSoon: Bool {
         switch self {
-        case .newJob, .openJob, .saveJob, .exportGcode, .importSVG, .importSTLRelief,
+        case .newJob, .openJob, .saveJob, .exportGcode, .importSVG, .importSTLRelief, .importImageRelief,
              .undo, .redo,
              .profileTP,
              .connectMachine, .airCut:

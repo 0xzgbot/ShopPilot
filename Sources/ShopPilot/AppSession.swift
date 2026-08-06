@@ -802,6 +802,102 @@ final class AppSession: ObservableObject {
         return true
     }
 
+    /// Fillet every selected shape's corners (SPK-0215). Freehand polylines
+    /// get interior corners rounded; rectangles convert to rounded freehands.
+    @discardableResult
+    func applyFillet(radius: Double) -> Bool {
+        let sel = selectedShapeIndices.compactMap { shapes.indices.contains($0) ? shapes[$0] : nil }
+        guard !sel.isEmpty else {
+            statusMessage = "Fillet needs a selected shape"
+            return false
+        }
+        let output = sel.map { ShapeFilletEngine.fillet($0, radius: radius) }
+        replaceSelectedShapes(with: output)
+        statusMessage = "Filleted \(sel.count) shape(s) (r \(String(format: "%.2f", radius))mm)"
+        return true
+    }
+
+    /// Extend selected open shapes by a distance at both open ends (SPK-0215).
+    @discardableResult
+    func applyExtend(distance: Double) -> Bool {
+        let sel = selectedShapeIndices.compactMap { shapes.indices.contains($0) ? shapes[$0] : nil }
+        guard !sel.isEmpty else {
+            statusMessage = "Extend needs a selected shape"
+            return false
+        }
+        let output = sel.map { ShapeExtendEngine.extend($0, distance: distance) }
+        replaceSelectedShapes(with: output)
+        statusMessage = "Extended \(sel.count) shape(s) by \(String(format: "%.2f", distance))mm"
+        return true
+    }
+
+    // MARK: - Array / circular copy (SPK-0214)
+
+    /// Grid-copy every selected shape (columns × rows at a spacing). The
+    /// selection becomes the full grid (Aspire array-copy semantics).
+    @discardableResult
+    func applyArrayCopy(columns: Int, rows: Int, spacingX: Double, spacingY: Double) -> Bool {
+        let sel = selectedShapeIndices.compactMap { shapes.indices.contains($0) ? shapes[$0] : nil }
+        guard !sel.isEmpty, columns > 0, rows > 0 else {
+            statusMessage = "Array copy needs selected shapes and positive columns/rows"
+            return false
+        }
+        var output: [VectorShape] = []
+        for shape in sel {
+            let result = ArrayCopyEngine.createGridArray(
+                source: shape, columns: columns, rows: rows,
+                spacingX: spacingX, spacingY: spacingY
+            )
+            output.append(contentsOf: result.copies)
+        }
+        replaceSelectedShapes(with: output)
+        statusMessage = "Array copy: \(sel.count) shape(s) → \(output.count) copies (\(columns)×\(rows) grid)"
+        return true
+    }
+
+    /// Copy every selected shape around a center (default: selection
+    /// centroid). With `rotateCopies`, each copy also spins by its angular
+    /// position (rectangles convert to freehand so the rotation is real).
+    @discardableResult
+    func applyCircularCopy(count: Int, center: VectorPoint? = nil, rotateCopies: Bool) -> Bool {
+        let sel = selectedShapeIndices.compactMap { shapes.indices.contains($0) ? shapes[$0] : nil }
+        guard !sel.isEmpty, count >= 2 else {
+            statusMessage = "Circular copy needs selected shapes and count ≥ 2"
+            return false
+        }
+        let ctr = center ?? selectionCentroid(of: sel) ?? VectorPoint(x: 0, y: 0)
+        var output: [VectorShape] = []
+        for shape in sel {
+            let result = ArrayCopyEngine.createCircularArrayAround(
+                source: shape, center: ctr, count: count, rotateCopies: rotateCopies
+            )
+            output.append(contentsOf: result.copies)
+        }
+        replaceSelectedShapes(with: output)
+        statusMessage = "Circular copy: \(sel.count) shape(s) → \(output.count) copies (\(count)×)"
+        return true
+    }
+
+    // MARK: - Keyhole gadget (H02, SPK-0907)
+
+    /// Add a keyhole-slot vector (circle + tangent shaft slot) for wall
+    /// hanging, placed with the slot bottom at the design origin. Users move
+    /// it with the transform tools. Undo + dirty via `addShapes`.
+    @discardableResult
+    func addKeyhole(screwHeadDiameterMm: Double, shaftDiameterMm: Double) -> Bool {
+        guard let shape = KeyholeGadget.keyholeShape(
+            screwHeadDiameterMm: screwHeadDiameterMm,
+            shaftDiameterMm: shaftDiameterMm
+        ) else {
+            statusMessage = "Keyhole: shaft diameter must be smaller than the head"
+            return false
+        }
+        registerUndoPoint()
+        addShapes([shape])
+        statusMessage = "Keyhole added (head Ø \(String(format: "%.1f", screwHeadDiameterMm))mm, shaft Ø \(String(format: "%.1f", shaftDiameterMm))mm) — profile-cut it from Cut"
+        return true
+    }
+
     /// Nudge every selected shape by (dx, dy) mm.
     @discardableResult
     func applyNudge(dx: Double, dy: Double) -> Bool {
@@ -1027,6 +1123,101 @@ final class AppSession: ObservableObject {
         job.stlHeightfield = hf
         markDirty()
         statusMessage = "STL relief imported: \(result.triangleCount) triangles → \(hf.width)×\(hf.height) grid, max \(String(format: "%.1f", hf.maxHeight))mm"
+        return result
+    }
+
+    // MARK: - Bitmap relief import (SPK-0706)
+
+    /// Import an image file as a heightfield relief: decode → grayscale →
+    /// heightfield, store on the document, mark dirty. Reuses the SAME
+    /// document relief slot as STL, so the Model stage + 3D rough/finish
+    /// engines consume bitmap reliefs unchanged.
+    @discardableResult
+    func importBitmapHeightfield(from url: URL, config: BitmapHeightfieldConfig) -> BitmapHeightfieldResult {
+        let result = BitmapHeightfieldImporter.decodeImage(at: url, config: config)
+        guard result.success, let hf = result.heightfield else {
+            statusMessage = "Image relief import failed: \(result.errorMessage ?? "unknown error")"
+            return result
+        }
+        registerUndoPoint()
+        job.stlHeightfield = hf
+        markDirty()
+        statusMessage = "Image relief imported: \(result.widthPx)×\(result.heightPx)px → \(hf.width)×\(hf.height) grid, max \(String(format: "%.1f", hf.maxHeight))mm"
+        return result
+    }
+
+    /// ⌘K "Import Image Relief…" / Model-stage button: pick an image and
+    /// convert it to a heightmap. A small config alert sets max height,
+    /// mm-per-pixel scale and invert before import (SPK-0706).
+    func importBitmapHeightfieldFromPanel() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.image]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.title = "Import Image Relief"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        let alert = NSAlert()
+        alert.messageText = "Image → Heightmap"
+        alert.informativeText = "Brightness becomes height: white = peak, black = floor."
+        alert.addButton(withTitle: "Import")
+        alert.addButton(withTitle: "Cancel")
+
+        let maxHeightField = NSTextField(string: "10.0")
+        maxHeightField.placeholderString = "Max height (mm)"
+        let mmPerPxField = NSTextField(string: "1.0")
+        mmPerPxField.placeholderString = "mm per pixel"
+        let invertBox = NSButton(checkboxWithTitle: "Invert (dark = peak)", target: nil, action: nil)
+
+        let stack = NSStackView()
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 8
+        stack.addArrangedSubview(NSTextField(labelWithString: "Max height (mm):"))
+        stack.addArrangedSubview(maxHeightField)
+        stack.addArrangedSubview(NSTextField(labelWithString: "mm per pixel:"))
+        stack.addArrangedSubview(mmPerPxField)
+        stack.addArrangedSubview(invertBox)
+        alert.accessoryView = stack
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+
+        let config = BitmapHeightfieldConfig(
+            mmPerPixel: Double(mmPerPxField.stringValue) ?? 1.0,
+            maxHeightMm: Double(maxHeightField.stringValue) ?? 10.0,
+            invert: invertBox.state == .on,
+            smoothingPasses: 1,
+            maxCells: 600
+        )
+        let result = importBitmapHeightfield(from: url, config: config)
+        selectedStage = .model
+        if !result.success {
+            statusMessage = "Image relief import failed: \(result.errorMessage ?? "unknown error")"
+        }
+    }
+
+    // MARK: - Sculpt (SPK-0713 lean slice)
+
+    /// Apply one sculpt stroke to the document relief. Returns the result
+    /// (new heightfield + affected-cell count) or nil when no relief is
+    /// loaded. Registers an undo point, stores the new grid, marks the
+    /// document dirty and dirties every 3D toolpath node so the next recalc
+    /// regenerates from the sculpted surface.
+    @discardableResult
+    func applySculptStroke(_ stroke: SculptStrokeParams, recordUndo: Bool = true) -> SculptStrokeResult? {
+        guard let hf = job.stlHeightfield else {
+            statusMessage = "Sculpt: import an STL or image relief first"
+            return nil
+        }
+        if recordUndo {
+            registerUndoPoint()
+        }
+        let result = SculptEngine.applyStroke(stroke, to: hf)
+        job.stlHeightfield = result.heightfield
+        markDirty()
+        for node in toolpathTree.allNodes where node.strategyKind == .rough3D || node.strategyKind == .finish3D {
+            node.markDirty()
+        }
+        statusMessage = "Sculpt \(stroke.tool.rawValue): \(result.cellsAffected) cells, peak \(String(format: "%.1f", result.maxHeight))mm"
         return result
     }
 
@@ -1483,7 +1674,12 @@ final class AppSession: ObservableObject {
             } else if name.hasPrefix("Finish 3D") {
                 strategy = "Finish"
             } else {
-                strategy = ["Profile", "Pocket", "Drill", "V-Carve"].first { name.hasPrefix($0) } ?? name
+                // SPK-0900/0802 slices: specialty strategies use V-bit tools.
+                let map: [String: String] = [
+                    "Profile": "Profile", "Pocket": "Pocket", "Drill": "Drill", "V-Carve": "V-Carve",
+                    "Prism": "V-Carve", "Fluting": "V-Carve", "Chamfer": "V-Carve", "Inlay": "V-Carve",
+                ]
+                strategy = map.keys.first(where: { name.hasPrefix($0) }).flatMap { map[$0] } ?? name
             }
             node.toolID = toolDatabase.defaultTool(forStrategy: strategy)?.id
         }
@@ -1729,6 +1925,387 @@ final class AppSession: ObservableObject {
         statusMessage = lastToolpathSummary
     }
 
+    // MARK: - Specialty strategies (SPK-0900 + SPK-0802 lean slices)
+
+    /// Generate a Prism toolpath: parallel V-grooves across every closed
+    /// vector (the prismatic sign effect) and add it to the tree.
+    func generatePrismToolpath() {
+        guard !vectors.isEmpty else {
+            statusMessage = "No vectors — import SVG or add a demo shape first"
+            return
+        }
+        registerUndoPoint()
+        let params = PrismToolpathParams()
+        let result = PrismToolpathEngine.compute(
+            paths: vectors,
+            params: params,
+            stockHeightMm: job.sheets.first?.height ?? 25.0
+        )
+        let node = addToolpathNode(
+            named: "Prism \(toolpathTree.allNodes.count)",
+            gcode: result.gcodeLines,
+            estimatedTime: result.estimatedTimeSeconds
+        )
+        node.paramsJSON = encodeParams(params)
+        statusMessage = result.featureCount > 0
+            ? "Prism: \(result.featureCount) groove(s), ~\(Int(result.estimatedTimeSeconds))s"
+            : "Prism: no closed vectors — the grooves raster needs closed shapes"
+    }
+
+    /// Generate a Fluting toolpath: the selected vectors ARE the flutes
+    /// (draw parallel lines for a ribbed board), cut in step-down passes.
+    func generateFlutingToolpath() {
+        guard !vectors.isEmpty else {
+            statusMessage = "No vectors — draw flute lines first"
+            return
+        }
+        registerUndoPoint()
+        let params = FlutingToolpathParams()
+        let result = FlutingToolpathEngine.compute(
+            paths: vectors,
+            params: params,
+            stockHeightMm: job.sheets.first?.height ?? 25.0
+        )
+        let node = addToolpathNode(
+            named: "Fluting \(toolpathTree.allNodes.count)",
+            gcode: result.gcodeLines,
+            estimatedTime: result.estimatedTimeSeconds
+        )
+        node.paramsJSON = encodeParams(params)
+        statusMessage = result.featureCount > 0
+            ? "Fluting: \(result.featureCount) flute(s), ~\(Int(result.estimatedTimeSeconds))s"
+            : "Fluting: no usable vectors (need ≥ 2 points)"
+    }
+
+    /// Generate a Chamfer toolpath: V-bevel on the selected edges.
+    func generateChamferToolpath() {
+        guard !vectors.isEmpty else {
+            statusMessage = "No vectors — select edges to chamfer"
+            return
+        }
+        registerUndoPoint()
+        let params = ChamferToolpathParams()
+        let result = ChamferToolpathEngine.compute(
+            paths: vectors,
+            params: params,
+            stockHeightMm: job.sheets.first?.height ?? 25.0
+        )
+        let node = addToolpathNode(
+            named: "Chamfer \(toolpathTree.allNodes.count)",
+            gcode: result.gcodeLines,
+            estimatedTime: result.estimatedTimeSeconds
+        )
+        node.paramsJSON = encodeParams(params)
+        statusMessage = result.featureCount > 0
+            ? "Chamfer: \(result.featureCount) edge(s), ~\(Int(result.estimatedTimeSeconds))s"
+            : "Chamfer: no usable vectors"
+    }
+
+    /// Generate the female (pocket) or male (plug) half of a V-inlay.
+    func generateInlayToolpath(variant: InlayToolpathParams.Variant) {
+        guard !vectors.isEmpty else {
+            statusMessage = "No vectors — select the inlay shape"
+            return
+        }
+        registerUndoPoint()
+        var params = InlayToolpathParams()
+        params.variant = variant
+        let result: SpecialtyResult = variant == .pocket
+            ? InlayToolpathEngine.computePocket(paths: vectors, params: params, stockHeightMm: job.sheets.first?.height ?? 25.0)
+            : InlayToolpathEngine.computePlug(paths: vectors, params: params, stockHeightMm: job.sheets.first?.height ?? 25.0)
+        let node = addToolpathNode(
+            named: "Inlay \(variant == .pocket ? "Pocket" : "Plug") \(toolpathTree.allNodes.count)",
+            gcode: result.gcodeLines,
+            estimatedTime: result.estimatedTimeSeconds
+        )
+        node.paramsJSON = encodeParams(params)
+        statusMessage = "Inlay \(variant == .pocket ? "pocket" : "plug"): \(result.gcodeLines.count) lines, ~\(Int(result.estimatedTimeSeconds))s"
+    }
+
+    /// Apply Prism params to an operation: store + regenerate with the REAL
+    /// engine, clearing the dirty badge (mirrors the SPK-1136 apply* family).
+    @discardableResult
+    func applyPrismParams(_ params: PrismToolpathParams, to nodeID: UUID) -> Bool {
+        guard let node = toolpathTree.findNode(id: nodeID), node.strategyKind == .prism else {
+            statusMessage = "Apply params: select a Prism operation"
+            return false
+        }
+        guard !vectors.isEmpty else {
+            statusMessage = "No vectors — add shapes first"
+            return false
+        }
+        registerUndoPoint()
+        node.paramsJSON = encodeParams(params)
+        let result = PrismToolpathEngine.compute(
+            paths: vectors, params: params, stockHeightMm: job.sheets.first?.height ?? 25.0
+        )
+        node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+        node.estimatedTimeSeconds = result.estimatedTimeSeconds
+        node.clearDirty()
+        let all = allToolpathGCode
+        if !all.isEmpty { gcodeLines = all }
+        statusMessage = "Prism: \(result.featureCount) groove(s), ~\(Int(result.estimatedTimeSeconds))s"
+        markDirty()
+        return true
+    }
+
+    @discardableResult
+    func applyFlutingParams(_ params: FlutingToolpathParams, to nodeID: UUID) -> Bool {
+        guard let node = toolpathTree.findNode(id: nodeID), node.strategyKind == .fluting else {
+            statusMessage = "Apply params: select a Fluting operation"
+            return false
+        }
+        guard !vectors.isEmpty else {
+            statusMessage = "No vectors — add shapes first"
+            return false
+        }
+        registerUndoPoint()
+        node.paramsJSON = encodeParams(params)
+        let result = FlutingToolpathEngine.compute(
+            paths: vectors, params: params, stockHeightMm: job.sheets.first?.height ?? 25.0
+        )
+        node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+        node.estimatedTimeSeconds = result.estimatedTimeSeconds
+        node.clearDirty()
+        let all = allToolpathGCode
+        if !all.isEmpty { gcodeLines = all }
+        statusMessage = "Fluting: \(result.featureCount) flute(s), ~\(Int(result.estimatedTimeSeconds))s"
+        markDirty()
+        return true
+    }
+
+    @discardableResult
+    func applyChamferParams(_ params: ChamferToolpathParams, to nodeID: UUID) -> Bool {
+        guard let node = toolpathTree.findNode(id: nodeID), node.strategyKind == .chamfer else {
+            statusMessage = "Apply params: select a Chamfer operation"
+            return false
+        }
+        guard !vectors.isEmpty else {
+            statusMessage = "No vectors — add shapes first"
+            return false
+        }
+        registerUndoPoint()
+        node.paramsJSON = encodeParams(params)
+        let result = ChamferToolpathEngine.compute(
+            paths: vectors, params: params, stockHeightMm: job.sheets.first?.height ?? 25.0
+        )
+        node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+        node.estimatedTimeSeconds = result.estimatedTimeSeconds
+        node.clearDirty()
+        let all = allToolpathGCode
+        if !all.isEmpty { gcodeLines = all }
+        statusMessage = "Chamfer: \(result.featureCount) edge(s), ~\(Int(result.estimatedTimeSeconds))s"
+        markDirty()
+        return true
+    }
+
+    @discardableResult
+    func applyInlayParams(_ params: InlayToolpathParams, to nodeID: UUID) -> Bool {
+        guard let node = toolpathTree.findNode(id: nodeID), node.strategyKind == .inlay else {
+            statusMessage = "Apply params: select an Inlay operation"
+            return false
+        }
+        guard !vectors.isEmpty else {
+            statusMessage = "No vectors — add shapes first"
+            return false
+        }
+        registerUndoPoint()
+        node.paramsJSON = encodeParams(params)
+        let result: SpecialtyResult = params.variant == .pocket
+            ? InlayToolpathEngine.computePocket(paths: vectors, params: params, stockHeightMm: job.sheets.first?.height ?? 25.0)
+            : InlayToolpathEngine.computePlug(paths: vectors, params: params, stockHeightMm: job.sheets.first?.height ?? 25.0)
+        node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+        node.estimatedTimeSeconds = result.estimatedTimeSeconds
+        node.clearDirty()
+        let all = allToolpathGCode
+        if !all.isEmpty { gcodeLines = all }
+        statusMessage = "Inlay \(params.variant == .pocket ? "pocket" : "plug"): ~\(Int(result.estimatedTimeSeconds))s"
+        markDirty()
+        return true
+    }
+
+    /// Generate a Quick Engrave toolpath: single-pass V-bit engraving along
+    /// the selected vectors (the sign-shop "just engrave it" op).
+    func generateQuickEngraveToolpath() {
+        guard !vectors.isEmpty else {
+            statusMessage = "No vectors — draw or import text/shapes first"
+            return
+        }
+        registerUndoPoint()
+        let params = QuickEngraveToolpathParams()
+        let result = QuickEngraveToolpathEngine.compute(
+            paths: vectors, params: params, stockHeightMm: job.sheets.first?.height ?? 25.0
+        )
+        let node = addToolpathNode(
+            named: "Quick Engrave \(toolpathTree.allNodes.count)",
+            gcode: result.gcodeLines,
+            estimatedTime: result.estimatedTimeSeconds
+        )
+        node.paramsJSON = encodeParams(params)
+        statusMessage = result.featureCount > 0
+            ? "Quick Engrave: \(result.featureCount) vector(s), ~\(Int(result.estimatedTimeSeconds))s"
+            : "Quick Engrave: no usable vectors"
+    }
+
+    @discardableResult
+    func applyQuickEngraveParams(_ params: QuickEngraveToolpathParams, to nodeID: UUID) -> Bool {
+        guard let node = toolpathTree.findNode(id: nodeID), node.strategyKind == .quickEngrave else {
+            statusMessage = "Apply params: select a Quick Engrave operation"
+            return false
+        }
+        guard !vectors.isEmpty else {
+            statusMessage = "No vectors — add shapes first"
+            return false
+        }
+        registerUndoPoint()
+        node.paramsJSON = encodeParams(params)
+        let result = QuickEngraveToolpathEngine.compute(
+            paths: vectors, params: params, stockHeightMm: job.sheets.first?.height ?? 25.0
+        )
+        node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+        node.estimatedTimeSeconds = result.estimatedTimeSeconds
+        node.clearDirty()
+        let all = allToolpathGCode
+        if !all.isEmpty { gcodeLines = all }
+        statusMessage = "Quick Engrave: \(result.featureCount) vector(s), ~\(Int(result.estimatedTimeSeconds))s"
+        markDirty()
+        return true
+    }
+
+    /// Generate a Photo V-Carve op: a fine V-bit raster over the imported
+    /// relief (image or STL), brightness → depth. Reuses the surface-following
+    /// finish engine with a fine step-over; the op label + stored finish
+    /// params make it recalc as a finish-3D node.
+    func generatePhotoVCarveToolpath() {
+        guard let hf = job.stlHeightfield else {
+            statusMessage = "No relief — import an image (Model → Image Relief…) or STL first"
+            return
+        }
+        registerUndoPoint()
+        let params = HeightfieldFinishParams(toolDiameterMm: 1.0, stepOverMm: 0.4)
+        let result = HeightfieldFinishEngine.compute(heightfield: hf, params: params)
+        let node = addToolpathNode(
+            named: "Photo V-Carve \(toolpathTree.allNodes.count)",
+            gcode: result.gcodeLines,
+            estimatedTime: result.estimatedTimeSeconds
+        )
+        node.paramsJSON = encodeParams(params)
+        statusMessage = "Photo V-Carve: \(result.gcodeLines.count) lines, \(result.passCount) rows, ~\(Int(result.estimatedTimeSeconds))s"
+    }
+
+    // MARK: - Text + bitmap trace + export (studio surface)
+
+    /// Add rendered text as vector glyph curves (CoreText → freehand shapes),
+    /// ready for V-Carve / Quick Engrave. Undo + dirty via `addShapes`.
+    @discardableResult
+    func addText(text: String, fontSizePoints: Double, scaleMmPerPoint: Double) -> Bool {
+        guard !text.trimmingCharacters(in: .whitespaces).isEmpty else {
+            statusMessage = "Text: enter some text"
+            return false
+        }
+        let result = TextTool.createText(
+            text: text,
+            font: "Helvetica Neue",
+            fontSize: max(6, fontSizePoints),
+            scale: max(0.01, scaleMmPerPoint)
+        )
+        guard !result.shapes.isEmpty else {
+            statusMessage = "Text: no glyphs rendered"
+            return false
+        }
+        registerUndoPoint()
+        addShapes(result.shapes)
+        statusMessage = "Text added: \(result.shapes.count) glyph(s), \(result.metrics.glyphCount) chars"
+        return true
+    }
+
+    /// Trace a bitmap image into vector paths (D22) and add them to the
+    /// document. The image is mapped onto the job sheet's dimensions.
+    @discardableResult
+    func traceBitmap(from url: URL, threshold: Double) -> Bool {
+        let sheet = job.sheets.first
+        let result = BitmapTracer.trace(
+            from: url,
+            quality: BitmapTraceQuality(threshold: threshold),
+            imageWidth: sheet?.width ?? 300.0,
+            imageHeight: sheet?.height ?? 300.0
+        )
+        guard !result.paths.isEmpty else {
+            statusMessage = "Trace: no paths found — adjust the threshold"
+            return false
+        }
+        let shapes = result.paths.map { path -> VectorShape in
+            .freehand(points: path.points)
+        }
+        registerUndoPoint()
+        addShapes(shapes)
+        statusMessage = "Trace: \(shapes.count) path(s) from \(result.pixelCount) px"
+        return true
+    }
+
+    /// Trace-bitmap panel flow: pick an image, ask for a threshold, trace.
+    func traceBitmapFromPanel() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.image]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.title = "Trace Bitmap"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        let alert = NSAlert()
+        alert.messageText = "Trace Bitmap"
+        alert.informativeText = "Brightness → vector outline (dark shapes on a light background work best)."
+        alert.addButton(withTitle: "Trace")
+        alert.addButton(withTitle: "Cancel")
+        let thresholdField = NSTextField(string: "0.5")
+        thresholdField.placeholderString = "Threshold (0–1)"
+        let stack = NSStackView()
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 8
+        stack.addArrangedSubview(NSTextField(labelWithString: "Threshold (0–1):"))
+        stack.addArrangedSubview(thresholdField)
+        alert.accessoryView = stack
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+
+        let threshold = min(1.0, max(0.0, Double(thresholdField.stringValue) ?? 0.5))
+        _ = traceBitmap(from: url, threshold: threshold)
+    }
+
+    /// Export the imported relief as an ASCII STL mesh (E38). Returns the
+    /// exported triangle count, or nil on failure.
+    @discardableResult
+    func exportSTL(to url: URL) -> Int? {
+        guard let hf = job.stlHeightfield,
+              let stl = HeightfieldSTLExporter.stlString(from: hf) else {
+            statusMessage = "Export STL: no relief to export"
+            return nil
+        }
+        do {
+            try stl.write(to: url, atomically: true, encoding: .utf8)
+            let triangles = stl.components(separatedBy: "facet normal").count - 1
+            statusMessage = "STL exported: \(triangles) triangles"
+            return triangles
+        } catch {
+            statusMessage = "STL export failed: \(error.localizedDescription)"
+            return nil
+        }
+    }
+
+    /// Export the design vectors as ASCII DXF R12 (mm).
+    @discardableResult
+    func exportDXF(to url: URL) -> Bool {
+        let dxf = VectorDXFExporter.dxfString(from: shapes)
+        do {
+            try dxf.write(to: url, atomically: true, encoding: .utf8)
+            statusMessage = "DXF exported: \(shapes.count) shape(s)"
+            return true
+        } catch {
+            statusMessage = "DXF export failed: \(error.localizedDescription)"
+            return false
+        }
+    }
+
     /// Apply V-Carve params to an operation: store them on the node and
     /// immediately regenerate its G-code with the REAL engine (SPK-1136d).
     @discardableResult
@@ -1838,6 +2415,8 @@ final class AppSession: ObservableObject {
             importSVGFromPanel()
         case .importSTLRelief:
             importSTLHeightfieldFromPanel()
+        case .importImageRelief:
+            importBitmapHeightfieldFromPanel()
         default:
             statusMessage = "Command: \(id.name)"
         }

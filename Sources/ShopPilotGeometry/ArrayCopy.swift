@@ -81,6 +81,55 @@ public final class ArrayCopyEngine {
         merged.append(contentsOf: result.copies)
         return merged
     }
+
+    /// Copy a shape around a CENTER point (not the origin). Each copy keeps
+    /// its distance and angular offset from `center`; with `rotateCopies` it
+    /// also spins by its angular position. Rectangles convert to closed
+    /// freehands when rotating so the rotation is geometrically honest.
+    /// The k=0 copy coincides with the source's original position.
+    public static func createCircularArrayAround(
+        source: VectorShape,
+        center: VectorPoint,
+        count: Int,
+        rotateCopies: Bool,
+        startAngle: Double = 0
+    ) -> ArrayCopyResult {
+        guard count > 0 else {
+            return ArrayCopyResult(sourceShape: source, copies: [], layout: .circular)
+        }
+        let b = source.boundingRect
+        let sc = VectorPoint(x: (b.minX + b.maxX) / 2, y: (b.minY + b.maxY) / 2)
+        let ox = sc.x - center.x, oy = sc.y - center.y
+        let dist = (ox * ox + oy * oy).squareRoot()
+        let baseAngle = dist > 1e-9 ? atan2(oy, ox) : 0
+        let base: VectorShape = {
+            if rotateCopies, case .rectangle(let o, let w, let h) = source {
+                return .freehand(points: [
+                    VectorPoint(x: o.x, y: o.y),
+                    VectorPoint(x: o.x + w, y: o.y),
+                    VectorPoint(x: o.x + w, y: o.y + h),
+                    VectorPoint(x: o.x, y: o.y + h),
+                    VectorPoint(x: o.x, y: o.y),
+                ])
+            }
+            return source
+        }()
+        let step = 2.0 * .pi / Double(count)
+        var copies: [VectorShape] = []
+        for k in 0..<count {
+            let angle = baseAngle + startAngle + step * Double(k)
+            let px = center.x + dist * cos(angle)
+            let py = center.y + dist * sin(angle)
+            var copy = base.translated(by: px - sc.x, py - sc.y)
+            if rotateCopies, k > 0 {
+                let cb = copy.boundingRect
+                let cc = VectorPoint(x: (cb.minX + cb.maxX) / 2, y: (cb.minY + cb.maxY) / 2)
+                copy = copy.rotated(around: cc, by: step * Double(k))
+            }
+            copies.append(copy)
+        }
+        return ArrayCopyResult(sourceShape: source, copies: copies, layout: .circular)
+    }
 }
 
 // MARK: - VectorShape Array Copy Helpers

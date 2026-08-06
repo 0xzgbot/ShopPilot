@@ -257,6 +257,25 @@ private struct DesignStageView: View {
     @ObservedObject var session: AppSession
     @State private var showOffsetDialog = false
     @State private var offsetDistance = "3.0"
+    @State private var showFilletDialog = false
+    @State private var filletRadius = "3.0"
+    @State private var showExtendDialog = false
+    @State private var extendDistance = "10.0"
+    @State private var showArrayDialog = false
+    @State private var arrayCols = "3"
+    @State private var arrayRows = "2"
+    @State private var arraySpacingX = "25.0"
+    @State private var arraySpacingY = "25.0"
+    @State private var showCircularDialog = false
+    @State private var circularCount = "6"
+    @State private var circularRotate = false
+    @State private var showKeyholeDialog = false
+    @State private var keyholeHeadDia = "10.0"
+    @State private var keyholeShaftDia = "5.0"
+    @State private var showTextDialog = false
+    @State private var textString = "ShopPilot"
+    @State private var textFontSize = "72.0"
+    @State private var textScale = "1.0"
     /// SPK-UI605: Import hub is a sheet / empty-canvas panel — not a permanent
     /// right rail that reappears on every Design entry when vectors exist.
     @State private var showImportHub = false
@@ -302,6 +321,55 @@ private struct DesignStageView: View {
         } message: {
             Text("Positive = outward, negative = inward.")
         }
+        .alert("Fillet Corners", isPresented: $showFilletDialog) {
+            TextField("Radius (mm)", text: $filletRadius)
+            Button("Fillet") { applyFillet() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Rounds every corner of the selected vectors (rectangles become rounded freehands).")
+        }
+        .alert("Extend Vectors", isPresented: $showExtendDialog) {
+            TextField("Distance (mm)", text: $extendDistance)
+            Button("Extend") { applyExtend() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Extends both open ends of the selected vectors.")
+        }
+        .alert("Array Copy", isPresented: $showArrayDialog) {
+            TextField("Columns", text: $arrayCols)
+            TextField("Rows", text: $arrayRows)
+            TextField("Spacing X (mm)", text: $arraySpacingX)
+            TextField("Spacing Y (mm)", text: $arraySpacingY)
+            Button("Copy") { applyArrayCopy() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Copies the selection into a columns × rows grid.")
+        }
+        .alert("Circular Copy", isPresented: $showCircularDialog) {
+            TextField("Copies", text: $circularCount)
+            Toggle("Rotate each copy", isOn: $circularRotate)
+            Button("Copy") { applyCircularCopy() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Copies the selection around its center.")
+        }
+        .alert("Keyhole", isPresented: $showKeyholeDialog) {
+            TextField("Screw head Ø (mm)", text: $keyholeHeadDia)
+            TextField("Shaft Ø (mm)", text: $keyholeShaftDia)
+            Button("Add Keyhole") { applyKeyhole() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Adds a keyhole-slot vector for wall-hanging mounts, ready for a profile cut.")
+        }
+        .alert("Add Text", isPresented: $showTextDialog) {
+            TextField("Text", text: $textString)
+            TextField("Font size (pt)", text: $textFontSize)
+            TextField("Scale (mm per pt)", text: $textScale)
+            Button("Add Text") { applyText() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Renders text as editable glyph curves — engrave it with V-Carve or Quick Engrave.")
+        }
     }
 
     /// SPK-1101d: Design ops bar — Offset / Weld / Subtract / Intersect /
@@ -333,6 +401,27 @@ private struct DesignStageView: View {
             Button("Trim") { _ = session.applyTrimToSelection() }
                 .disabled(session.selectedShapeIndices.count < 2)
                 .help("Clip open vectors to the selected closed shapes' bounds")
+            Button("Fillet…") { showFilletDialog = true }
+                .disabled(session.selectedShapeIndices.isEmpty)
+                .help("Round the corners of selected vectors")
+            Button("Extend…") { showExtendDialog = true }
+                .disabled(session.selectedShapeIndices.isEmpty)
+                .help("Extend the open ends of selected vectors")
+            Button("Array…") { showArrayDialog = true }
+                .disabled(session.selectedShapeIndices.isEmpty)
+                .help("Copy the selection into a columns × rows grid")
+            Button("Circular…") { showCircularDialog = true }
+                .disabled(session.selectedShapeIndices.isEmpty)
+                .help("Copy the selection around its center")
+            Button("Keyhole…") { showKeyholeDialog = true }
+                .help("Add a keyhole-slot vector for wall-hanging mounts")
+            Button("Text…") { showTextDialog = true }
+                .help("Add text as editable vector glyphs (ready for V-Carve)")
+            Button("Trace…") { session.traceBitmapFromPanel() }
+                .help("Trace a bitmap image into vector paths")
+            Button("Export DXF…") { exportDXF() }
+                .disabled(session.shapes.isEmpty)
+                .help("Export the design vectors as ASCII DXF (mm)")
             Divider().frame(height: 14)
             // SPK-1101f: transforms — one-shot, selection-gated, undo+dirty.
             Button("Nudge X+1") { _ = session.applyNudgeX() }
@@ -379,6 +468,74 @@ private struct DesignStageView: View {
         }
         _ = session.applyOffset(distance: distance)
     }
+
+    private func applyFillet() {
+        let normalized = filletRadius.replacingOccurrences(of: ",", with: ".")
+        guard let radius = Double(normalized), radius > 0 else {
+            session.statusMessage = "Fillet: enter a positive radius"
+            return
+        }
+        _ = session.applyFillet(radius: radius)
+    }
+
+    private func applyExtend() {
+        let normalized = extendDistance.replacingOccurrences(of: ",", with: ".")
+        guard let distance = Double(normalized), distance > 0 else {
+            session.statusMessage = "Extend: enter a positive distance"
+            return
+        }
+        _ = session.applyExtend(distance: distance)
+    }
+
+    private func applyArrayCopy() {
+        let cols = Int(arrayCols) ?? 0
+        let rows = Int(arrayRows) ?? 0
+        let sx = Double(arraySpacingX.replacingOccurrences(of: ",", with: ".")) ?? 0
+        let sy = Double(arraySpacingY.replacingOccurrences(of: ",", with: ".")) ?? 0
+        guard cols > 0, rows > 0, sx > 0, sy > 0 else {
+            session.statusMessage = "Array copy: positive columns, rows and spacing required"
+            return
+        }
+        _ = session.applyArrayCopy(columns: cols, rows: rows, spacingX: sx, spacingY: sy)
+    }
+
+    private func applyCircularCopy() {
+        let count = Int(circularCount) ?? 0
+        guard count >= 2 else {
+            session.statusMessage = "Circular copy: enter a count of at least 2"
+            return
+        }
+        _ = session.applyCircularCopy(count: count, center: nil, rotateCopies: circularRotate)
+    }
+
+    private func applyKeyhole() {
+        let head = Double(keyholeHeadDia.replacingOccurrences(of: ",", with: ".")) ?? 0
+        let shaft = Double(keyholeShaftDia.replacingOccurrences(of: ",", with: ".")) ?? 0
+        guard head > 0, shaft > 0, shaft < head else {
+            session.statusMessage = "Keyhole: shaft Ø must be smaller than the head Ø"
+            return
+        }
+        _ = session.addKeyhole(screwHeadDiameterMm: head, shaftDiameterMm: shaft)
+    }
+
+    private func applyText() {
+        let size = Double(textFontSize.replacingOccurrences(of: ",", with: ".")) ?? 0
+        let scale = Double(textScale.replacingOccurrences(of: ",", with: ".")) ?? 0
+        guard size > 0, scale > 0 else {
+            session.statusMessage = "Text: enter a positive font size and scale"
+            return
+        }
+        _ = session.addText(text: textString, fontSizePoints: size, scaleMmPerPoint: scale)
+    }
+
+    private func exportDXF() {
+        let panel = NSSavePanel()
+        panel.title = "Export DXF"
+        panel.allowedContentTypes = [UTType(filenameExtension: "dxf") ?? .data]
+        panel.nameFieldStringValue = "design.dxf"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        _ = session.exportDXF(to: url)
+    }
 }
 
 private struct CutStageView: View {
@@ -418,6 +575,22 @@ private struct CutStageView: View {
                         .help("Peck-drill holes at the centers of closed vectors")
                     Button("V-Carve") { session.generateVCarveToolpath() }
                         .help("Engrave vectors with a V-bit")
+                    Divider()
+                    // SPK-0900/0802 lean slices: specialty strategies.
+                    Button("Prism") { session.generatePrismToolpath() }
+                        .help("Parallel V-grooves across closed vectors (prismatic sign effect)")
+                    Button("Fluting") { session.generateFlutingToolpath() }
+                        .help("Grooves along the selected vectors (draw parallel lines for a ribbed board)")
+                    Button("Chamfer") { session.generateChamferToolpath() }
+                        .help("V-bevel the selected edges")
+                    Button("Inlay Pocket") { session.generateInlayToolpath(variant: .pocket) }
+                        .help("Female half of a V-inlay: flat-bottom recess with sloped walls")
+                    Button("Inlay Plug") { session.generateInlayToolpath(variant: .plug) }
+                        .help("Male half of a V-inlay: cut around the shape at inlay depth")
+                    Button("Quick Engrave") { session.generateQuickEngraveToolpath() }
+                        .help("Single-pass V-bit engraving along vectors — fast sign lettering")
+                    Button("Photo V-Carve") { session.generatePhotoVCarveToolpath() }
+                        .help("Fine V-bit raster over the imported image/STL relief (brightness → depth)")
                     Divider()
                     // SPK-3D-spine-b: relief strategies (need an imported STL).
                     Button("Rough 3D") { session.generateRough3DToolpath() }
@@ -780,6 +953,56 @@ private struct CutStageView: View {
                     ScrollView {
                         VCarveParamsForm(node: node) { newParams in
                             _ = session.applyVCarveParams(newParams, to: node.id)
+                        }
+                    }
+                    .frame(maxHeight: 320)
+                }
+
+                // SPK-0900: Prism strategy form.
+                if node.strategyKind == .prism {
+                    ScrollView {
+                        PrismParamsForm(node: node) { newParams in
+                            _ = session.applyPrismParams(newParams, to: node.id)
+                        }
+                    }
+                    .frame(maxHeight: 320)
+                }
+
+                // SPK-0900: Fluting strategy form.
+                if node.strategyKind == .fluting {
+                    ScrollView {
+                        FlutingParamsForm(node: node) { newParams in
+                            _ = session.applyFlutingParams(newParams, to: node.id)
+                        }
+                    }
+                    .frame(maxHeight: 320)
+                }
+
+                // SPK-0900: Chamfer strategy form.
+                if node.strategyKind == .chamfer {
+                    ScrollView {
+                        ChamferParamsForm(node: node) { newParams in
+                            _ = session.applyChamferParams(newParams, to: node.id)
+                        }
+                    }
+                    .frame(maxHeight: 320)
+                }
+
+                // SPK-0802: Inlay strategy form.
+                if node.strategyKind == .inlay {
+                    ScrollView {
+                        InlayParamsForm(node: node) { newParams in
+                            _ = session.applyInlayParams(newParams, to: node.id)
+                        }
+                    }
+                    .frame(maxHeight: 320)
+                }
+
+                // F07: Quick Engrave strategy form.
+                if node.strategyKind == .quickEngrave {
+                    ScrollView {
+                        QuickEngraveParamsForm(node: node) { newParams in
+                            _ = session.applyQuickEngraveParams(newParams, to: node.id)
                         }
                     }
                     .frame(maxHeight: 320)
