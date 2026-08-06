@@ -45,7 +45,13 @@ enum SP {
     enum Tint {
         static let safety = Color.red
         static let hold = Color.orange
+        /// Spindle is moving.
         static let running = Color.green
+        /// Connected and standing still. Deliberately not `running`: "the
+        /// machine is powered and waiting" and "the machine is cutting" must be
+        /// distinguishable at a glance across a shop.
+        static let ready = Color.blue
+        /// Nothing connected.
         static let idle = Color.secondary
     }
 }
@@ -170,7 +176,7 @@ public enum MachineChromeState: Equatable {
         switch self {
         case .offline: return "cable.connector.slash"
         case .connecting: return "cable.connector"
-        case .idle: return "circle.fill"
+        case .idle: return "checkmark.circle.fill"
         case .running: return "play.fill"
         case .hold: return "pause.fill"
         case .alarm: return "exclamationmark.octagon.fill"
@@ -181,19 +187,26 @@ public enum MachineChromeState: Equatable {
         switch self {
         case .offline: return SP.Tint.idle
         case .connecting: return SP.Tint.hold
-        case .idle: return SP.Tint.running
+        case .idle: return SP.Tint.ready
         case .running: return SP.Tint.running
         case .hold: return SP.Tint.hold
         case .alarm: return SP.Tint.safety
         }
     }
 
-    /// True while the machine can move — safety controls must be reachable.
+    /// True while the transport is open — safety controls must be reachable.
     var isLive: Bool {
         switch self {
         case .offline: return false
         default: return true
         }
+    }
+
+    /// Motion is paused, so the operator's next safety action is Resume rather
+    /// than Hold.
+    var isHeld: Bool {
+        if case .hold = self { return true }
+        return false
     }
 
     var detail: String? {
@@ -202,26 +215,14 @@ public enum MachineChromeState: Equatable {
     }
 }
 
-/// Bridge between the Machine stage (which owns the transport, streamer and
-/// `MachineSession`) and the global chrome. The stage publishes state and
-/// registers its hold/resume/reset handlers; the chrome only reads state and
-/// calls those handlers, so transport ownership stays in one place.
-public final class MachineChromeLink: ObservableObject {
-    @Published public var state: MachineChromeState = .offline
-
-    public var onHold: () -> Void = {}
-    public var onResume: () -> Void = {}
-    public var onReset: () -> Void = {}
-
-    public init() {}
-}
-
 // MARK: - Machine state pill
 
 /// Glanceable connection state for the top chrome. Tapping it jumps to the
 /// Machine stage; it never sends a command.
 struct MachineStatePill: View {
     let state: MachineChromeState
+    /// Drop the word and keep the glyph when the safety controls need the room.
+    var compact: Bool = false
     let action: () -> Void
 
     var body: some View {
@@ -231,9 +232,11 @@ struct MachineStatePill: View {
                     .font(.system(size: 9, weight: .bold))
                     .foregroundStyle(state.tint)
 
-                Text(state.label)
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(state.isLive ? .primary : .secondary)
+                if !compact {
+                    Text(state.label)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(state.isLive ? .primary : .secondary)
+                }
 
                 if case .running(let progress) = state {
                     Text("\(Int(progress * 100))%")
@@ -260,23 +263,34 @@ struct MachineStatePill: View {
 
 // MARK: - Compact safety controls
 
-/// Hold and Reset in the window chrome, shown whenever the machine is live but
-/// the Machine stage is not on screen. Safety Req #1: these must never be
-/// buried behind navigation.
+/// Hold (or Resume) and Reset in the window chrome, shown whenever the machine
+/// is live but the Machine stage is not on screen. Safety Req #1: these must
+/// never be buried behind navigation. They call straight into the app-lifetime
+/// `MachineController`, so they keep working on every stage.
 struct CompactSafetyControls: View {
-    let link: MachineChromeLink
+    @ObservedObject var controller: MachineController
 
     var body: some View {
         HStack(spacing: SP.Space.xs) {
-            Button(action: link.onHold) {
-                Label("Hold", systemImage: "pause.fill")
-                    .font(.caption.weight(.semibold))
+            if controller.chromeState.isHeld {
+                Button(action: controller.resume) {
+                    Label("Resume", systemImage: "play.fill")
+                        .font(.caption.weight(.semibold))
+                }
+                .tint(SP.Tint.running)
+                .help("Resume — continue the cut")
+                .accessibilityLabel("Resume. Continue machine motion")
+            } else {
+                Button(action: controller.hold) {
+                    Label("Hold", systemImage: "pause.fill")
+                        .font(.caption.weight(.semibold))
+                }
+                .tint(SP.Tint.hold)
+                .help("Hold — pause motion now")
+                .accessibilityLabel("Hold. Pause machine motion")
             }
-            .tint(SP.Tint.hold)
-            .help("Hold — pause motion now")
-            .accessibilityLabel("Hold. Pause machine motion")
 
-            Button(action: link.onReset) {
+            Button(action: controller.reset) {
                 Label("Reset", systemImage: "arrow.counterclockwise")
                     .font(.caption.weight(.semibold))
             }
@@ -286,5 +300,6 @@ struct CompactSafetyControls: View {
         }
         .buttonStyle(.borderedProminent)
         .controlSize(.small)
+        .fixedSize()
     }
 }

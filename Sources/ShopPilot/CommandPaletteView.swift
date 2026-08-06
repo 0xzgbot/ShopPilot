@@ -53,13 +53,49 @@ struct CommandPaletteView: View {
                 .strokeBorder(.separator.opacity(0.7), lineWidth: 0.5)
         )
         .shadow(color: .black.opacity(0.28), radius: 28, y: 12)
+        // The footer promises ↑↓ / ↵ / ⎋, so wire them up. Zero-sized buttons
+        // are used rather than `onKeyPress` because the search field holds
+        // focus and would otherwise eat the arrow keys as cursor movement.
+        .background { keyboardShortcuts }
         .onAppear {
             isFocused = true
-            selectedIndex = min(selectedIndex, flatFiltered.count - 1)
+            selectedIndex = min(max(selectedIndex, 0), max(flatFiltered.count - 1, 0))
         }
         .onChange(of: searchText) { _, _ in
             selectedIndex = 0
         }
+    }
+
+    // MARK: - Keyboard navigation
+
+    private var keyboardShortcuts: some View {
+        VStack(spacing: 0) {
+            Button("") { moveSelection(by: -1) }
+                .keyboardShortcut(.upArrow, modifiers: [])
+            Button("") { moveSelection(by: 1) }
+                .keyboardShortcut(.downArrow, modifiers: [])
+            Button("") { activateSelection() }
+                .keyboardShortcut(.return, modifiers: [])
+            Button("") { isOpen = false }
+                .keyboardShortcut(.escape, modifiers: [])
+        }
+        .opacity(0)
+        .frame(width: 0, height: 0)
+        .accessibilityHidden(true)
+    }
+
+    /// Move the highlight, stopping at the ends rather than wrapping.
+    private func moveSelection(by delta: Int) {
+        let count = flatFiltered.count
+        guard count > 0 else { return }
+        selectedIndex = min(max(selectedIndex + delta, 0), count - 1)
+    }
+
+    /// Run whatever is highlighted.
+    private func activateSelection() {
+        guard flatFiltered.indices.contains(selectedIndex) else { return }
+        onCommandSelected(flatFiltered[selectedIndex])
+        isOpen = false
     }
     
     // MARK: - Subviews
@@ -87,6 +123,15 @@ struct CommandPaletteView: View {
     }
     
     private var commandList: some View {
+        ScrollViewReader { proxy in
+            scrollableCommandList
+                .onChange(of: selectedIndex) { _, index in
+                    withAnimation(SP.Motion.state) { proxy.scrollTo(index, anchor: .center) }
+                }
+        }
+    }
+
+    private var scrollableCommandList: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
                 if filteredCommands.isEmpty {
@@ -109,10 +154,12 @@ struct CommandPaletteView: View {
                             
                             // Commands in this category — use rawValue as ID since CommandID isn't Identifiable
                             ForEach(group.items.map { ($0.category.rawValue + "_" + $0.command.rawValue, $0) }, id: \.0) { _, item in
-                                commandRow(item.command, isHighlighted: selectedIndex == globalIndex(for: item))
+                                let index = globalIndex(for: item)
+                                commandRow(item.command, isHighlighted: selectedIndex == index)
+                                    .id(index)
                                     .onHover { hovering in
                                         if hovering {
-                                            selectedIndex = globalIndex(for: item)
+                                            selectedIndex = index
                                         }
                                     }
                             }

@@ -289,41 +289,21 @@ public final class ConnectionManager: ObservableObject {
 
 /// SwiftUI view for connecting to and controlling a machine.
 public struct MachineConnectionView: View {
-    
-    @StateObject private var connectionManager = ConnectionManager()
-    
+
+    /// App-lifetime machine owner. The stage renders and commands it but never
+    /// owns it, so navigating away no longer drops the connection or the job.
+    @ObservedObject private var controller: MachineController
+
+    /// Console log and streamer are observed directly so their published
+    /// changes redraw this view.
+    @ObservedObject private var connectionManager: ConnectionManager
+    @ObservedObject private var streamer: GCodeStreamer
+
     @State private var commandInput = ""
-    @State private var selectedTransportType: MachineTransportType = .simulator
-    @State private var jogStepSize: Double = 1.0
-    @ObservedObject private var streamer = GCodeStreamer()
-    @State private var isStreamingJob = false
-    /// The running stream task — cancelled by Stop Stream. SPK-UI601: the
-    /// stream loop only exits on cancellation (its ok-wait ignores non-ok
-    /// text, so an alarm leaves it blocked; a bare streamer.reset() then
-    /// unblocks it via the reset's "ok" and it writes the next buffered
-    /// move, re-tripping the soft-limit alarm).
-    @State private var jobTask: Task<Void, Never>?
-    @State private var preflightPassed = false
     @State private var showRawTXRX = false
-    @State private var softLimitWarning: String? = nil
 
     /// Optional G-code lines from the Cut/Preview stages (session golden path).
     private let pendingGCode: [String]
-
-    /// Window-chrome bridge: state out, Hold/Reset back in. Optional so the
-    /// view stays usable standalone (previews, verifiers).
-    private let chrome: MachineChromeLink?
-    
-    /// MachineSession facade for hold/resume/reset and buffer loading.
-    @State private var machineSession = MachineSession()
-    
-    /// Load pending G-code into MachineSession when the view appears.
-    private func loadPendingGCode() {
-        if !pendingGCode.isEmpty {
-            machineSession.loadGCode(pendingGCode)
-            connectionManager.addSystemMessage("Loaded \(pendingGCode.count) G-code lines into session buffer")
-        }
-    }
     
     private let preflightItems: [PreFlightItem] = [
         PreFlightItem(title: "Work zero set", description: "Confirm X/Y/Z work coordinates are correct"),
@@ -335,31 +315,30 @@ public struct MachineConnectionView: View {
     ]
     
     // MARK: - Pre-flight Actions
-    
+
+    /// Operator confirmation lives on the controller so it survives a stage
+    /// change mid-job.
+    private var preflightPassed: Bool { controller.preflightPassed }
+
     /// Mark all preflight items as passed.
     private func markPreflightPassed() {
-        withAnimation {
-            preflightPassed = true
+        withAnimation(SP.Motion.state) {
+            controller.preflightPassed = true
         }
     }
     
     /// Reset the preflight checklist.
     private func resetPreflight() {
-        withAnimation {
-            preflightPassed = false
+        withAnimation(SP.Motion.state) {
+            controller.preflightPassed = false
         }
     }
-    
-    /// Reset preflight after a completed stream.
-    private func resetPreflightAfterStream() {
-        withAnimation {
-            preflightPassed = false
-        }
-    }
-    
-    public init(pendingGCode: [String] = [], chrome: MachineChromeLink? = nil) {
+
+    public init(pendingGCode: [String] = [], controller: MachineController) {
         self.pendingGCode = pendingGCode
-        self.chrome = chrome
+        self.controller = controller
+        self.connectionManager = controller.connection
+        self.streamer = controller.streamer
     }
     
     public var body: some View {
@@ -390,47 +369,13 @@ public struct MachineConnectionView: View {
             // Command input
             commandInputView
         }
-        .task { loadPendingGCode() }
-        .onAppear { registerChromeHandlers() }
-        .onDisappear { chrome?.state = .offline }
-        .onChange(of: connectionManager.connectionState) { _ in publishChromeState() }
-        .onChange(of: streamer.state) { _ in publishChromeState() }
-        .onChange(of: streamer.progress) { _ in publishChromeState() }
+        .task { controller.loadPendingGCode(pendingGCode) }
         // NOTE: No auto-connect on appear. Safety Req #9: never auto-connect
         // or auto-run on application launch. User must explicitly press Connect.
-    }
-
-    // MARK: - Window chrome bridge
-
-    /// Hand the window chrome its Hold/Reset actions so the safety controls
-    /// keep working from anywhere in the app.
-    private func registerChromeHandlers() {
-        chrome?.onHold = holdMachine
-        chrome?.onResume = resumeMachine
-        chrome?.onReset = resetMachine
-        publishChromeState()
-    }
-
-    /// Mirror connection + streamer state into the glanceable chrome state.
-    private func publishChromeState() {
-        guard let chrome else { return }
-        switch connectionManager.connectionState {
-        case .disconnected:
-            chrome.state = .offline
-        case .connecting:
-            chrome.state = .connecting
-        case .error(let message):
-            chrome.state = .alarm(message)
-        case .connected:
-            switch streamer.state {
-            case .streaming:
-                chrome.state = .running(progress: streamer.progress)
-            case .paused:
-                chrome.state = .hold
-            default:
-                chrome.state = .idle
-            }
-        }
+        //
+        // There is deliberately no `onDisappear` teardown: the connection and
+        // any running job outlive this view, and the chrome must keep telling
+        // the truth about the machine after the operator leaves the stage.
     }
 
     // MARK: - Machine Header
@@ -460,7 +405,7 @@ public struct MachineConnectionView: View {
 
             Spacer(minLength: SP.Space.m)
 
-            Picker("Transport", selection: $selectedTransportType) {
+            Picker("Transport", selection: $controller.transportType) {
                 ForEach(MachineTransportType.allCases) { type in
                     Text(type.displayName).tag(type)
                 }
@@ -472,7 +417,7 @@ public struct MachineConnectionView: View {
 
             if connectionManager.connectionState.isDisconnected {
                 Button {
-                    Task { await connectToMachine() }
+                    Task { await controller.connect() }
                 } label: {
                     Label("Connect", systemImage: "cable.connector")
                 }
@@ -480,7 +425,7 @@ public struct MachineConnectionView: View {
                 .help("Open the port — no motion happens until you press Run")
             } else {
                 Button {
-                    Task { await disconnectFromMachine() }
+                    Task { await controller.disconnect() }
                 } label: {
                     Label("Disconnect", systemImage: "cable.connector.slash")
                 }
@@ -493,21 +438,8 @@ public struct MachineConnectionView: View {
         .background(.bar)
     }
 
-    /// Local mirror of the chrome state so the header can render it even when
-    /// no `MachineChromeLink` was supplied.
-    private var chromeState: MachineChromeState {
-        switch connectionManager.connectionState {
-        case .disconnected: return .offline
-        case .connecting: return .connecting
-        case .error(let message): return .alarm(message)
-        case .connected:
-            switch streamer.state {
-            case .streaming: return .running(progress: streamer.progress)
-            case .paused: return .hold
-            default: return .idle
-            }
-        }
-    }
+    /// Single source of truth, shared with the window chrome.
+    private var chromeState: MachineChromeState { controller.chromeState }
 
     /// Second line under the state: the machine's own last report, or what is
     /// loaded and waiting.
@@ -518,10 +450,10 @@ public struct MachineConnectionView: View {
         if !connectionManager.currentStatus.isEmpty {
             return String(connectionManager.currentStatus.prefix(60))
         }
-        if machineSession.gcodeBuffer.isEmpty {
+        if controller.machineSession.gcodeBuffer.isEmpty {
             return "No job loaded"
         }
-        return "\(machineSession.gcodeBuffer.count) lines ready"
+        return "\(controller.machineSession.gcodeBuffer.count) lines ready"
     }
     
     // MARK: - Console View
@@ -620,7 +552,7 @@ public struct MachineConnectionView: View {
     /// Progress bar shown while streaming a G-code job.
     private var streamProgress: some View {
         Group {
-            if isStreamingJob || streamer.state == .streaming || streamer.state == .paused {
+            if controller.isStreamingJob || streamer.state == .streaming || streamer.state == .paused {
                 VStack(spacing: SP.Space.xs) {
                     HStack {
                         Text(streamer.state == .paused ? "Held — motion paused" : "Running")
@@ -745,7 +677,7 @@ public struct MachineConnectionView: View {
                     HStack {
                         SectionLabel("Jog")
                         Spacer()
-                        Picker("", selection: $jogStepSize) {
+                        Picker("", selection: $controller.jogStepSize) {
                             ForEach(jogStepSizes, id: \.self) { size in
                                 Text(stepLabel(size)).tag(size)
                             }
@@ -805,7 +737,7 @@ public struct MachineConnectionView: View {
                     
                     // Stream controls. Starting a job lives with the pre-flight
                     // checklist above, so nothing here can begin motion.
-                    if isStreamingJob || streamer.state == .streaming {
+                    if controller.isStreamingJob || streamer.state == .streaming {
                         Button(action: stopStreaming) {
                             Label("Stop Stream", systemImage: "stop.fill")
                         }
@@ -863,10 +795,10 @@ public struct MachineConnectionView: View {
     /// — sized for gloves and shop lighting, not for a mouse in an office.
     private var safetyChrome: some View {
         Group {
-            if connectionManager.connectionState.isConnected
-                || connectionManager.connectionState == .connecting
-                || connectionManager.connectionState.isInAlarm
-            {
+            // Driven by the shared chrome state so a latched controller alarm
+            // (ALARM:/error: on the wire, not just a transport failure) keeps
+            // the safety controls on screen.
+            if chromeState.isLive {
                 HStack(spacing: SP.Space.s) {
                     SafetyButton(
                         title: "Hold",
@@ -876,7 +808,9 @@ public struct MachineConnectionView: View {
                         voiceOver: "Hold. Pause machine motion now",
                         action: holdMachine
                     )
-                    .keyboardShortcut(KeyEquivalent("h"), modifiers: .command)
+                    // ⌘H/⌘R/⌘X are Hide, Refresh-ish and Edit ▸ Cut — the
+                    // system wins those. Safety chords take Option as well.
+                    .keyboardShortcut(KeyEquivalent("h"), modifiers: [.command, .option])
 
                     SafetyButton(
                         title: "Resume",
@@ -886,7 +820,7 @@ public struct MachineConnectionView: View {
                         voiceOver: "Resume. Continue machine motion",
                         action: resumeMachine
                     )
-                    .keyboardShortcut(KeyEquivalent("r"), modifiers: .command)
+                    .keyboardShortcut(KeyEquivalent("r"), modifiers: [.command, .option])
 
                     SafetyButton(
                         title: "Reset",
@@ -896,12 +830,12 @@ public struct MachineConnectionView: View {
                         voiceOver: "Reset. Stop the machine and clear the controller",
                         action: resetMachine
                     )
-                    .keyboardShortcut(KeyEquivalent("x"), modifiers: .command)
+                    .keyboardShortcut(KeyEquivalent("x"), modifiers: [.command, .option])
                 }
                 .padding(.horizontal, SP.Space.m)
                 .padding(.vertical, SP.Space.s)
                 .background(
-                    SP.Tint.safety.opacity(connectionManager.connectionState.isInAlarm ? 0.10 : 0.0)
+                    SP.Tint.safety.opacity(chromeState.detail == nil ? 0.0 : 0.10)
                 )
                 .transition(.move(edge: .top).combined(with: .opacity))
             } else {
@@ -918,7 +852,7 @@ public struct MachineConnectionView: View {
                 .padding(.vertical, SP.Space.s)
             }
         }
-        .animation(SP.Motion.state, value: connectionManager.connectionState)
+        .animation(SP.Motion.state, value: chromeState)
     }
 
     // MARK: - Safety Button
@@ -958,361 +892,26 @@ public struct MachineConnectionView: View {
     }
     
     // MARK: - Actions
-    
-    private func connectToMachine() async {
-        await connectionManager.connect(to: selectedTransportType)
-        // Wire up MachineSession transport after connection so hold/resume/reset
-        // realtime commands (!, ~, 0x18) reach the connected transport.
-        if let transport = connectionManager.transport, connectionManager.connectionState == .connected {
-            machineSession.connectionState = connectionManager.connectionState
-            machineSession.attach(transport: transport)
-            machineSession.attachStreamer(streamer)
-        }
-    }
-    
-    private func disconnectFromMachine() async {
-        await connectionManager.disconnect()
-        // ConnectionManager owns the transport lifecycle — session detaches
-        // (no double-close) and resets its own state.
-        machineSession.detach()
-    }
-    
-    /// Send GRBL hold command (pause machine motion) via MachineSession.
-    private func holdMachine() {
-        Task {
-            await machineSession.hold()
-            await streamer.pause()
-            connectionManager.addSystemMessage("Hold sent — machine paused")
-        }
-    }
-    
-    /// Resume a held machine via MachineSession.
-    private func resumeMachine() {
-        Task {
-            await machineSession.resume()
-            await streamer.resume()
-            connectionManager.addSystemMessage("Resume sent — machine resuming")
-        }
-    }
-    
-    /// Send GRBL reset command (clear alarms, return to idle) via MachineSession.
-    private func resetMachine() {
-        Task {
-            await machineSession.reset()
-            connectionManager.addSystemMessage("Reset sent — machine cleared")
-        }
-    }
-    
-    // MARK: - Jog Actions
-    
-    /// Send a jog move command to the specified axis.
-    private func jogAxis(_ axis: String, direction: Int) {
-        let distance = Double(direction) * jogStepSize
-        let cmd = "G91 G0 \(axis)\(String(format: "%.3f", distance))" // Relative rapid move
-        Task {
-            await connectionManager.sendCommand(cmd)
-            connectionManager.addSystemMessage("Jog \(axis) \(direction > 0 ? "+" : "")\(distance)mm")
-        }
-    }
-    
-    /// Send soft home command (G28 — return all axes to machine zero).
-    private func softHomeAll() {
-        Task {
-            await connectionManager.sendCommand("G28")
-            connectionManager.addSystemMessage("Soft home sent — G28")
-        }
-    }
-    
-    // MARK: - Work Zero Actions
-    
-    /// Set work coordinate X to current position (G92 X0).
-    private func zeroXAxis() {
-        Task {
-            await connectionManager.sendCommand("G92 X0")
-            connectionManager.addSystemMessage("Work zero set — X=0")
-        }
-    }
-    
-    /// Set work coordinate Y to current position (G92 Y0).
-    private func zeroYAxis() {
-        Task {
-            await connectionManager.sendCommand("G92 Y0")
-            connectionManager.addSystemMessage("Work zero set — Y=0")
-        }
-    }
-    
-    /// Set work coordinate Z to current position (G92 Z0).
-    private func zeroZAxis() {
-        Task {
-            await connectionManager.sendCommand("G92 Z0")
-            connectionManager.addSystemMessage("Work zero set — Z=0")
-        }
-    }
-    
-    // MARK: - Stream Job Actions
-    
-    /// Run the job (preflight CTA). Uses MachineSession buffer when available,
-    /// otherwise falls back to file-based streaming.
-    private func runJob() {
-        if !machineSession.gcodeBuffer.isEmpty {
-            jobTask = Task { await runJobFromSession() }
-        } else {
-            jobTask = Task { await streamJobFromFile() }
-        }
-    }
-    
-    /// Stream G-code from the MachineSession buffer via the connected transport.
-    private func runJobFromSession() async {
-        guard let transport = connectionManager.transport else {
-            connectionManager.addSystemMessage("Error: Not connected")
-            return
-        }
-        
-        isStreamingJob = true
-        await streamer.reset()
-        machineSession.attachStreamer(streamer)
-        
-        do {
-            connectionManager.addSystemMessage("Streaming \(machineSession.gcodeBuffer.count) lines from session buffer")
-            try await streamer.stream(lines: machineSession.gcodeBuffer, to: transport)
-            await MainActor.run {
-                isStreamingJob = false
-                preflightPassed = false
-            }
-            if !Task.isCancelled {
-                connectionManager.addSystemMessage("Stream complete — \(streamer.currentLine) lines")
-            }
-        } catch {
-            await MainActor.run {
-                isStreamingJob = false
-                preflightPassed = false
-            }
-            connectionManager.addSystemMessage("Stream error: \(error.localizedDescription)")
-        }
-    }
-    
-    /// Open file picker and stream selected G-code job.
-    private func streamJobFromFile() async {
-        isStreamingJob = true
-        
-        // Check for recent export files from CutToMachineBridge first,
-        // then fall back to user-saved jobs in Documents, then demo G-code.
-        let bridgeExportURLs = findRecentBridgeExports()
-        let sessionLines = pendingGCode
-        
-        do {
-                var lines: [String]
-                
-                if !sessionLines.isEmpty {
-                    connectionManager.addSystemMessage("Using session toolpath (\(sessionLines.count) lines)")
-                    lines = sessionLines
-                } else if !bridgeExportURLs.isEmpty {
-                    // Use the most recent bridge export (Cut stage output)
-                    let latestURL = bridgeExportURLs[0]
-                    connectionManager.addSystemMessage("Using exported toolpath: \(latestURL.lastPathComponent)")
-                    lines = try await streamer.load(from: latestURL)
-                } else {
-                    // Fall back to user-saved job file
-                    let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-                    let gcodeFileURL = documentsURL.appendingPathComponent("job.gcode")
-                    
-                    if FileManager.default.fileExists(atPath: gcodeFileURL.path) {
-                        lines = try await streamer.load(from: gcodeFileURL)
-                    } else {
-                        // Create demo G-code for testing
-                        let demoGcode = """
-                        ; Demo G-code file
-                        G21 ; Set units to mm
-                        G90 ; Absolute positioning
-                        G0 Z5 ; Safe Z height
-                        G0 X0 Y0 ; Move to origin
-                        G1 Z-1 F100 ; Plunge
-                        G1 X50 F500 ; Cut line 1
-                        G1 X50 Y50 ; Cut line 2
-                        G1 X0 Y50 ; Cut line 3
-                        G1 X0 Y0 ; Cut line 4
-                        G0 Z5 ; Retract
-                        M2 ; Program end
-                        """
-                        try demoGcode.write(to: gcodeFileURL, atomically: true, encoding: .utf8)
-                        lines = try await streamer.load(from: gcodeFileURL)
-                    }
-                }
-                
-                guard let transport = connectionManager.transport else {
-                    await MainActor.run {
-                        isStreamingJob = false
-                        preflightPassed = false
-                    }
-                    return
-                }
-                
-                // Stream the G-code lines to the machine via the active transport.
-                // In production, this path receives output from CutToMachineBridge.export()
-                // which post-processes toolpath results using the machine profile's auto-selected
-                // post processor type (GRBL vs universal) before writing to file.
-                try await streamer.stream(lines: lines, to: transport)
-                await MainActor.run {
-                    isStreamingJob = false
-                    preflightPassed = false
-                }
-                if !Task.isCancelled {
-                    connectionManager.addSystemMessage("Stream complete — \(streamer.currentLine) lines")
-                }
-            } catch {
-                await MainActor.run {
-                    isStreamingJob = false
-                    preflightPassed = false
-                }
-                connectionManager.addSystemMessage("Stream error: \(error.localizedDescription)")
-            }
-    }
-    
-    /// Stream G-code from the MachineSession buffer (called from the "Run Job" button).
-    private func streamJob() async {
-        if !machineSession.gcodeBuffer.isEmpty {
-            await runJobFromSession()
-        } else {
-            await streamJobFromFile()
-        }
-    }
-    
-    /// Find recent export files from CutToMachineBridge (sorted newest first).
-    private func findRecentBridgeExports() -> [URL] {
-        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("ShopPilotExports")
-        guard FileManager.default.fileExists(atPath: tempDir.path) else { return [] }
-        
-        do {
-            let files = try FileManager.default.contentsOfDirectory(
-                at: tempDir,
-                includingPropertiesForKeys: [.contentModificationDateKey]
-            )
-            
-            // Filter for .gcode and .nc files, sort by modification date (newest first)
-            return files
-                .filter { $0.pathExtension == "gcode" || $0.pathExtension == "nc" }
-                .sorted { urlA, urlB in
-                    let dateA = (try? urlA.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? Date.distantPast
-                    let dateB = (try? urlB.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? Date.distantPast
-                    return dateA > dateB
-                }
-        } catch {
-            connectionManager.addSystemMessage("Warning: Could not scan for bridge exports")
-            return []
-        }
-    }
-    
-    /// Export toolpath results via CutToMachineBridge and stream to the connected machine.
-    /// This is the primary handoff path from Cut stage → Machine stage.
-    public func exportAndStream(
-        gcodeLines: [String],
-        toolInfo: String?,
-        machineProfile: MachineProfile,
-        fileName: String = "job"
-    ) async {
-        isStreamingJob = true
-        
-        do {
-            // Step 1: Post-process and export via the bridge
-            let result = try await CutToMachineBridge.export(
-                gcodeLines: gcodeLines,
-                toolInfo: toolInfo,
-                machineProfile: machineProfile,
-                fileName: fileName
-            )
-            
-            connectionManager.addSystemMessage("Exported \(result.postProcessorType.displayName) G-code → \(result.outputFileURL?.lastPathComponent ?? "unknown")")
-            
-            // Step 2: Load into MachineSession buffer (primary handoff path)
-            guard let outputFileURL = result.outputFileURL,
-                  FileManager.default.fileExists(atPath: outputFileURL.path) else {
-                await MainActor.run {
-                    isStreamingJob = false
-                    preflightPassed = false
-                }
-                connectionManager.addSystemMessage("Error: Exported file not found")
-                return
-            }
-            
-            let lines = try await streamer.load(from: outputFileURL)
-            machineSession.loadGCode(lines)
-            connectionManager.addSystemMessage("Loaded \(lines.count) lines into MachineSession buffer")
-            
-            // Step 3: Stream if connected
-            guard let transport = connectionManager.transport else {
-                await MainActor.run {
-                    isStreamingJob = false
-                    preflightPassed = false
-                }
-                connectionManager.addSystemMessage("Not connected — G-code loaded into buffer for later use")
-                return
-            }
-            
-            machineSession.attachStreamer(streamer)
-            try await streamer.stream(lines: lines, to: transport)
-            await MainActor.run {
-                isStreamingJob = false
-                preflightPassed = false
-            }
-            
-            // Step 4: Update result with actual streamed line count
-            connectionManager.addSystemMessage("Stream complete — \(streamer.currentLine) lines")
-            
-        } catch {
-            await MainActor.run {
-                isStreamingJob = false
-                preflightPassed = false
-            }
-            connectionManager.addSystemMessage("Export/stream error: \(error.localizedDescription)")
-        }
-    }
-    
-    /// Pause the current stream.
-    private func pauseStreaming() {
-        Task {
-            await streamer.pause()
-            connectionManager.addSystemMessage("Stream paused")
-        }
-    }
-    
-    /// Resume a paused stream.
-    private func resumeStreaming() {
-        Task {
-            await streamer.resume()
-            connectionManager.addSystemMessage("Stream resumed")
-        }
-    }
-    
-    /// Stop and reset the current stream.
-    private func stopStreaming() {
-        // SPK-UI601: cancel the stream task FIRST — the stream loop only
-        // stops on cancellation; without it, streamer.reset()'s "ok" unblocks
-        // the alarm-stalled ok-wait and the loop writes the next buffered
-        // move, re-tripping the soft-limit alarm.
-        jobTask?.cancel()
-        jobTask = nil
-        Task {
-            await streamer.reset()
-            await MainActor.run {
-                isStreamingJob = false
-                preflightPassed = false
-            }
-            connectionManager.addSystemMessage("Stream stopped")
-        }
-    }
-    
+
+    // Everything that talks to the machine lives on `MachineController` so it
+    // outlives this view. These are thin forwarders for readability.
+
+    private func holdMachine() { controller.hold() }
+    private func resumeMachine() { controller.resume() }
+    private func resetMachine() { controller.reset() }
+    private func jogAxis(_ axis: String, direction: Int) { controller.jog(axis: axis, direction: direction) }
+    private func softHomeAll() { controller.softHomeAll() }
+    private func zeroXAxis() { controller.zeroAxis("X") }
+    private func zeroYAxis() { controller.zeroAxis("Y") }
+    private func zeroZAxis() { controller.zeroAxis("Z") }
+    private func runJob() { controller.runJob(fallbackLines: pendingGCode) }
+    private func stopStreaming() { controller.stopStreaming() }
+    private func resumeStreaming() { controller.resumeStreaming() }
+    private func clearConsole() { controller.clearConsole() }
+
     private func sendCommand() {
-        let trimmed = commandInput.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        
-        Task {
-            await connectionManager.sendCommand(trimmed)
-            commandInput = ""
-        }
-    }
-    
-    private func clearConsole() {
-        connectionManager.clearConsole()
+        controller.sendConsoleCommand(commandInput)
+        commandInput = ""
     }
 }
 
@@ -1352,7 +951,7 @@ import SwiftUI
 
 struct MachineConnectionView_Previews: PreviewProvider {
     static var previews: some View {
-        MachineConnectionView()
+        MachineConnectionView(controller: MachineController())
             .previewDisplayName("Machine Connection")
     }
 }

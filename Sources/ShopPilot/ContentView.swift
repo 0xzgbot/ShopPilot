@@ -11,11 +11,11 @@ struct ContentView: View {
     var body: some View {
         ZStack {
             VStack(spacing: 0) {
-                TopChromeBar(session: session, link: session.machineChrome)
+                TopChromeBar(session: session, controller: session.machine)
 
                 Divider()
 
-                MachineAlarmBanner(link: session.machineChrome) {
+                MachineAlarmBanner(controller: session.machine) {
                     session.selectedStage = .machine
                 }
 
@@ -92,7 +92,7 @@ struct ContentView: View {
             // order), not the last single-op gcodeLines overwrite.
             MachineConnectionView(
                 pendingGCode: session.allToolpathGCode,
-                chrome: session.machineChrome
+                controller: session.machine
             )
         }
     }
@@ -130,23 +130,27 @@ struct ContentView: View {
 /// centred as the job name and machine state change.
 private struct TopChromeBar: View {
     @ObservedObject var session: AppSession
-    @ObservedObject var link: MachineChromeLink
-
-    private let flankWidth: CGFloat = 210
+    @ObservedObject var controller: MachineController
 
     var body: some View {
         HStack(spacing: SP.Space.m) {
+            // The document title is the only thing here allowed to shrink.
+            // Safety controls never truncate, so the flanks flex rather than
+            // sharing one fixed width.
             documentIdentity
-                .frame(width: flankWidth, alignment: .leading)
+                .frame(minWidth: 90, idealWidth: 210, maxWidth: 260, alignment: .leading)
+                .layoutPriority(0)
 
             Spacer(minLength: SP.Space.s)
 
             StageRailView(selectedStage: $session.selectedStage) { _ in }
+                .layoutPriority(2)
 
             Spacer(minLength: SP.Space.s)
 
             machineChrome
-                .frame(width: flankWidth, alignment: .trailing)
+                .fixedSize()
+                .layoutPriority(1)
         }
         .padding(.horizontal, SP.Space.m)
         .frame(height: 46)
@@ -167,19 +171,25 @@ private struct TopChromeBar: View {
         }
     }
 
+    /// Safety Req #1: while the machine is live, Hold (or Resume) and Reset
+    /// stay in the window chrome even when the Machine stage is not on screen.
+    private var showsCompactSafety: Bool {
+        controller.chromeState.isLive && session.selectedStage != .machine
+    }
+
     private var machineChrome: some View {
         HStack(spacing: SP.Space.s) {
-            // Safety Req #1: while the machine is live, Hold and Reset stay in
-            // the window chrome even when the Machine stage is not on screen.
-            if link.state.isLive && session.selectedStage != .machine {
-                CompactSafetyControls(link: link)
+            if showsCompactSafety {
+                CompactSafetyControls(controller: controller)
             }
 
-            MachineStatePill(state: link.state) {
+            // With safety controls alongside it, the pill drops to its glyph so
+            // the row can never squeeze Hold or Reset.
+            MachineStatePill(state: controller.chromeState, compact: showsCompactSafety) {
                 withAnimation(SP.Motion.stage) { session.selectedStage = .machine }
             }
         }
-        .animation(SP.Motion.state, value: link.state)
+        .animation(SP.Motion.state, value: controller.chromeState)
     }
 }
 
@@ -187,12 +197,12 @@ private struct TopChromeBar: View {
 
 /// Loud but calm: full-width, red, one plain-English line, one way out.
 private struct MachineAlarmBanner: View {
-    @ObservedObject var link: MachineChromeLink
+    @ObservedObject var controller: MachineController
     let openMachine: () -> Void
 
     var body: some View {
         Group {
-            if case .alarm(let message) = link.state {
+            if case .alarm(let message) = controller.chromeState {
                 HStack(spacing: SP.Space.s) {
                     Image(systemName: "exclamationmark.octagon.fill")
                         .foregroundStyle(.white)
@@ -216,7 +226,7 @@ private struct MachineAlarmBanner: View {
                 .accessibilityLabel("Machine alarm. \(message)")
             }
         }
-        .animation(SP.Motion.alarm, value: link.state)
+        .animation(SP.Motion.alarm, value: controller.chromeState)
     }
 }
 
@@ -286,18 +296,35 @@ private struct DesignStageView: View {
             Divider()
             HSplitView {
                 DesignCanvasView(session: session)
-                    .overlay {
+                    .overlay(alignment: .center) {
                         // Empty canvas: one calm sentence and one way in,
-                        // rather than a permanent import rail.
+                        // rather than a permanent import rail. The prompt is
+                        // decorative — it must not intercept the drags the
+                        // canvas needs, or the message ("draw straight onto the
+                        // sheet") would be a lie. Only the button takes hits.
                         if session.vectors.isEmpty {
-                            EmptyStage(
-                                symbol: Stage.design.icon,
-                                title: "Nothing drawn yet",
-                                message: "Bring in an SVG or DXF, or draw straight onto the sheet with the tools above.",
-                                actionTitle: "Import Artwork…",
-                                action: { showImportHub = true }
-                            )
-                            .background(.background.opacity(0.85))
+                            VStack(spacing: SP.Space.m) {
+                                VStack(spacing: SP.Space.xs) {
+                                    Image(systemName: Stage.design.icon)
+                                        .font(.system(size: 30, weight: .light))
+                                        .foregroundStyle(.tertiary)
+
+                                    Text("Nothing drawn yet")
+                                        .font(SP.Typography.stageTitle)
+
+                                    Text("Pick a tool above and draw straight onto the sheet, or bring in an SVG or DXF.")
+                                        .font(.callout)
+                                        .foregroundStyle(.secondary)
+                                        .multilineTextAlignment(.center)
+                                        .frame(maxWidth: 340)
+                                }
+                                .allowsHitTesting(false)
+
+                                Button("Import Artwork…") { showImportHub = true }
+                                    .buttonStyle(.borderedProminent)
+                                    .controlSize(.large)
+                            }
+                            .padding(SP.Space.xl)
                         }
                     }
 
