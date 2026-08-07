@@ -522,18 +522,13 @@ let package = Package(
         ),
         .executableTarget(
             name: "ShopPilotVerifyDWGImport",
-            dependencies: ["ShopPilotCore"],
+            dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
             path: "Sources/ShopPilotVerifyDWGImport"
         ),
         .executableTarget(
             name: "ShopPilotVerifyEPSImport",
             dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
             path: "Sources/ShopPilotVerifyEPSImport"
-        ),
-        .executableTarget(
-            name: "ShopPilotVerifyPDFImport",
-            dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
-            path: "Sources/ShopPilotVerifyPDFImport"
         ),
         .executableTarget(
             name: "ShopPilotVerify3MFImport",
@@ -570,6 +565,18 @@ let package = Package(
             path: "Sources/ShopPilotVerifySweep"
         ),
 
+        .executableTarget(
+            name: "ShopPilotVerifyPDFImport",
+            dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
+            path: "Sources/ShopPilotVerifyPDFImport"
+        ),
+
+        .executableTarget(
+            name: "ShopPilotVerifyAIImport",
+            dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
+            path: "Sources/ShopPilotVerifyAIImport"
+        ),
+
         .target(
             name: "ShopPilotCore",
             path: "Sources/ShopPilotCore"
@@ -582,7 +589,10 @@ let package = Package(
         .target(
             name: "ShopPilotGeometry",
             dependencies: ["ShopPilotCore"],
-            path: "Sources/ShopPilotGeometry"
+            path: "Sources/ShopPilotGeometry",
+            linkerSettings: [
+                .linkedLibrary("z")
+            ]
         ),
         .testTarget(
             name: "ShopPilotTests",

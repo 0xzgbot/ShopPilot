@@ -1320,6 +1320,49 @@ final class AppSession: ObservableObject {
         return result
     }
 
+    /// Import a PDF's vector content streams as design vectors. Undoable.
+    @discardableResult
+    func importPDFVectors(from url: URL) -> PDFImportResult {
+        let result = PDFImporter.importPDF(at: url.path, scale: 1.0)
+        guard result.success, !result.shapes.isEmpty else {
+            statusMessage = "PDF import failed: \(result.errorMessage ?? "no vector paths found")"
+            return result
+        }
+        registerUndoPoint()
+        addShapes(result.shapes)
+        statusMessage = "PDF imported: \(result.pathCount) path(s) → \(result.shapes.count) vector(s)"
+        return result
+    }
+
+    /// Import an AI file (EPS- or PDF-flavored) as design vectors. Undoable.
+    @discardableResult
+    func importAIVectors(from url: URL) -> AIImportResult {
+        let result = AIImporter.importAI(at: url.path, scale: 1.0)
+        guard result.success, !result.shapes.isEmpty else {
+            statusMessage = "AI import failed: \(result.errorMessage ?? "no vector paths found")"
+            return result
+        }
+        registerUndoPoint()
+        addShapes(result.shapes)
+        statusMessage = "AI imported: \(result.pathCount) path(s) (\(result.flavor)) → \(result.shapes.count) vector(s)"
+        return result
+    }
+
+    /// Import an R12 DWG's LINE/CIRCLE/ARC/POINT entities as design vectors.
+    /// Undoable + dirty.
+    @discardableResult
+    func importDWGShapes(from url: URL) -> DWGImportResult {
+        let result = DWGImporter.importDWG(at: url.path, scale: 1.0)
+        guard result.success, !result.shapes.isEmpty else {
+            statusMessage = "DWG import failed: \(result.errorMessage ?? "no drawable entities found")"
+            return result
+        }
+        registerUndoPoint()
+        addShapes(result.shapes)
+        statusMessage = "DWG imported: \(result.entityCount) entit(y/ies) → \(result.shapes.count) vector(s)"
+        return result
+    }
+
     // MARK: - Relief components (SPK-0700/0701 lean slice)
     /// The document's relief component stack (nil = single-relief doc).
     var reliefComponents: [ReliefComponent] {
@@ -3169,10 +3212,64 @@ final class AppSession: ObservableObject {
             import3MFHeightfieldFromPanel()
         case .importEPS:
             importEPSFromPanel()
+        case .importPDF:
+            importPDFFromPanel()
+        case .importAI:
+            importAIFromPanel()
+        case .importDWG:
+            importDWGFromPanel()
         default:
             statusMessage = "Command: \(id.name)"
         }
         showCommandPalette = false
+    }
+
+    /// ⌘K "Import PDF Vectors…": open panel → PDF content streams → vectors.
+    func importPDFFromPanel() {
+        let panel = NSOpenPanel()
+        if let pdfType = UTType(filenameExtension: "pdf") {
+            panel.allowedContentTypes = [pdfType]
+        } else {
+            panel.allowedFileTypes = ["pdf"]
+        }
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.title = "Import PDF Vectors"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        _ = importPDFVectors(from: url)
+        selectedStage = .design
+    }
+
+    /// ⌘K "Import AI…": open panel → AI (EPS or PDF flavor) → vectors.
+    func importAIFromPanel() {
+        let panel = NSOpenPanel()
+        if let aiType = UTType(filenameExtension: "ai") {
+            panel.allowedContentTypes = [aiType]
+        } else {
+            panel.allowedFileTypes = ["ai"]
+        }
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.title = "Import AI"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        _ = importAIVectors(from: url)
+        selectedStage = .design
+    }
+
+    /// ⌘K "Import DWG…": open panel → R12 DWG → vectors.
+    func importDWGFromPanel() {
+        let panel = NSOpenPanel()
+        if let dwgType = UTType(filenameExtension: "dwg") {
+            panel.allowedContentTypes = [dwgType]
+        } else {
+            panel.allowedFileTypes = ["dwg"]
+        }
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.title = "Import DWG"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        _ = importDWGShapes(from: url)
+        selectedStage = .design
     }
 
     /// ⌘K "Import OBJ Relief…": open panel → OBJ → heightfield (Tier-2).

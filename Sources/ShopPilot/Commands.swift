@@ -14,6 +14,9 @@ public enum CommandID: String, CaseIterable {
     case importOBJRelief = "import_obj_relief"
     case import3MFRelief = "import_3mf_relief"
     case importEPS = "import_eps"
+    case importPDF = "import_pdf"
+    case importAI = "import_ai"
+    case importDWG = "import_dwg"
     
     case undo = "undo"
     case redo = "redo"
@@ -55,6 +58,9 @@ public enum CommandID: String, CaseIterable {
         case .importOBJRelief: return "Import OBJ Relief…"
         case .import3MFRelief: return "Import 3MF Relief…"
         case .importEPS: return "Import EPS…"
+        case .importPDF: return "Import PDF Vectors…"
+        case .importAI: return "Import AI…"
+        case .importDWG: return "Import DWG…"
         case .undo: return "Undo"
         case .redo: return "Redo"
         case .cut: return "Cut"
@@ -85,7 +91,7 @@ public enum CommandID: String, CaseIterable {
     var category: CommandCategory {
         switch self {
         case .newJob, .openJob, .saveJob, .exportGcode, .importSVG, .importSTLRelief, .importImageRelief,
-             .importOBJRelief, .import3MFRelief, .importEPS:
+             .importOBJRelief, .import3MFRelief, .importEPS, .importPDF, .importAI, .importDWG:
             return .file
         case .undo, .redo, .cut, .copy, .paste, .deleteVector, .group, .ungroup, .setSize:
             return .edit
@@ -110,6 +116,9 @@ public enum CommandID: String, CaseIterable {
         case .importOBJRelief: return nil
         case .import3MFRelief: return nil
         case .importEPS: return nil
+        case .importPDF: return nil
+        case .importAI: return nil
+        case .importDWG: return nil
         case .undo: return "z"
         case .redo: return "shift+z"
         case .cut: return "x"
@@ -160,7 +169,7 @@ public enum CommandID: String, CaseIterable {
     var isComingSoon: Bool {
         switch self {
         case .newJob, .openJob, .saveJob, .exportGcode, .importSVG, .importSTLRelief, .importImageRelief,
-             .importOBJRelief, .import3MFRelief, .importEPS,
+             .importOBJRelief, .import3MFRelief, .importEPS, .importPDF, .importAI, .importDWG,
              .undo, .redo,
              .group, .ungroup, .setSize,
              .profileTP,

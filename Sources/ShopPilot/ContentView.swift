@@ -520,6 +520,12 @@ private struct DesignStageView: View {
                 .help("Import a 3MF model as a heightfield relief")
             Button("EPS…") { session.importEPSFromPanel() }
                 .help("Import an EPS drawing as vectors")
+            Button("PDF…") { session.importPDFFromPanel() }
+                .help("Import a PDF's vector content streams as vectors")
+            Button("AI…") { session.importAIFromPanel() }
+                .help("Import an Illustrator file (EPS or PDF flavor) as vectors")
+            Button("DWG…") { session.importDWGFromPanel() }
+                .help("Import an R12 (AC1009) DWG as vectors (LINE/CIRCLE/ARC/POINT)")
             Spacer()
             Text("\(session.selectedShapeIndices.count) selected")
                 .font(.caption)
