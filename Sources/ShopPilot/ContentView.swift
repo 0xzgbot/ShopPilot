@@ -630,6 +630,8 @@ private struct CutStageView: View {
     /// Blocker instance whose expert override is confirmed via the dirty-toolpath alert.
     @State private var exportBlocker: ExportBlocker?
     @State private var showExportBlockAlert = false
+    /// SPK-1134 — post template applied on Save Toolpaths (nil = legacy post).
+    @State private var selectedPostTemplateID: String = "grbl-mm"
     @State private var exportBlockMessage = ""
 
     /// Toolpath preflight gate (SPK-FM-R013): error issues block save with a
@@ -855,7 +857,8 @@ private struct CutStageView: View {
     }
 
     /// Present the save panel, post-process the session G-code through
-    /// CutToMachineBridge, and write the GRBL file to the chosen URL.
+    /// CutToMachineBridge (optionally through the SPK-1134 post template
+    /// selected in the post picker), and write the GRBL file to the URL.
     private func saveToolpaths() {
         let gcode = session.allToolpathGCode
         guard !gcode.isEmpty else {
@@ -869,16 +872,30 @@ private struct CutStageView: View {
         panel.canCreateDirectories = true
         panel.title = "Save Toolpaths"
 
+        // SPK-1134: post picker accessory — choose the post template applied
+        // on export. The accessory also carries a summary of each template.
+        let postPicker = PostTemplatePickerView(
+            templates: PostTemplate.shipped,
+            selectedID: selectedPostTemplateID
+        ) { id in
+            selectedPostTemplateID = id
+        }
+        let accessory = NSHostingView(rootView: postPicker)
+        accessory.frame = NSRect(x: 0, y: 0, width: 420, height: 240)
+        panel.accessoryView = accessory
+
         guard panel.runModal() == .OK, let destinationURL = panel.url else {
             return // User cancelled
         }
 
         do {
+            let postTemplate = PostTemplate.shipped(byID: selectedPostTemplateID)
             let result = try CutToMachineBridge.export(
                 gcodeLines: gcode,
                 toolInfo: nil,
                 machineProfile: activeMachineProfile,
-                fileName: destinationURL.deletingPathExtension().lastPathComponent
+                fileName: destinationURL.deletingPathExtension().lastPathComponent,
+                postTemplate: postTemplate
             )
 
             if let errorMessage = result.errorMessage {
@@ -1606,3 +1623,48 @@ private struct VCarveParamsForm: View {
     }
 }
 
+
+// MARK: - Post Template Picker (SPK-1134)
+
+/// Save-panel accessory: pick which post template the export runs through
+/// (GRBL mm / GRBL inch / GRBL rotary wrap Y2A) or the legacy post. Shows a
+/// summary line per template.
+struct PostTemplatePickerView: View {
+    let templates: [PostTemplate]
+    @Binding var selectedID: String
+    let onSelect: (String) -> Void
+
+    init(templates: [PostTemplate], selectedID: String, onSelect: @escaping (String) -> Void) {
+        self.templates = templates
+        self._selectedID = Binding(get: { selectedID }, set: { onSelect($0) })
+        self.onSelect = onSelect
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Post Processor")
+                .font(.headline)
+            Picker("Post", selection: $selectedID) {
+                Text("Legacy (GRBL wrapper)").tag("")
+                ForEach(templates) { template in
+                    Text(template.name).tag(template.id)
+                }
+            }
+            .pickerStyle(.radioGroup)
+            .labelsHidden()
+            if let template = templates.first(where: { $0.id == selectedID }) {
+                Text(template.summary)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Text("Legacy GRBL post — header, G21/G20 from the machine profile, moves, M2.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(12)
+        .frame(width: 400, alignment: .leading)
+    }
+}

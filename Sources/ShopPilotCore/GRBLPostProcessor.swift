@@ -119,7 +119,7 @@ public struct PostProcessedOutput {
     
     /// The processed G-code as a string.
     public let gcodeString: String
-    
+
     /// File name with appropriate extension.
     public var fileName: String {
         "toolpath.\(configuration.postType.fileExtension)"
@@ -127,6 +127,11 @@ public struct PostProcessedOutput {
     
     /// The configuration used for processing.
     public let configuration: PostProcessorConfiguration
+
+    public init(gcodeString: String, configuration: PostProcessorConfiguration) {
+        self.gcodeString = gcodeString
+        self.configuration = configuration
+    }
     
     /// Number of lines in the output.
     public var lineCount: Int { gcodeString.components(separatedBy: "\n").count }
@@ -141,6 +146,10 @@ public struct PostProcessedOutput {
 public struct GRBLPostProcessor {
     
     private let configuration: PostProcessorConfiguration
+
+    /// The configuration backing this post (exposed for callers that build
+    /// their own output, e.g. the SPK-1134 template engine).
+    public var currentConfiguration: PostProcessorConfiguration { configuration }
     
     init(configuration: PostProcessorConfiguration) {
         self.configuration = configuration

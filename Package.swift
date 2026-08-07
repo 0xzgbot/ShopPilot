@@ -525,6 +525,12 @@ let package = Package(
             dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
             path: "Sources/ShopPilotVerifyDWGImport"
         ),
+
+        .executableTarget(
+            name: "ShopPilotVerify1134",
+            dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
+            path: "Sources/ShopPilotVerify1134"
+        ),
         .executableTarget(
             name: "ShopPilotVerifyEPSImport",
             dependencies: ["ShopPilotCore", "ShopPilotGeometry"],

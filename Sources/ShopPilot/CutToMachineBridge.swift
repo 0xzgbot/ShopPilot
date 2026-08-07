@@ -11,6 +11,10 @@ public struct CutToMachineBridgeResult {
     /// The post-processor type used.
     public let postProcessorType: PostProcessorType
     
+    /// The post template used (SPK-1134) when the export ran through the
+    /// template engine; nil when the legacy post was used.
+    public let postTemplateID: String?
+    
     /// The exported G-code file URL.
     public let outputFileURL: URL?
     
@@ -47,13 +51,15 @@ public final class CutToMachineBridge {
         gcodeLines: [String],
         toolInfo: String?,
         machineProfile: MachineProfile,
-        fileName: String = "job"
+        fileName: String = "job",
+        postTemplate: PostTemplate? = nil
     ) throws -> CutToMachineBridgeResult {
         
         // Validate input
         guard !gcodeLines.isEmpty else {
             return CutToMachineBridgeResult(
                 postProcessorType: .grbl,
+                postTemplateID: nil,
                 outputFileURL: nil,
                 lineCount: 0,
                 errorMessage: "No G-code lines to export"
@@ -75,8 +81,23 @@ public final class CutToMachineBridge {
             postType = .universal
         }
         
-        // Post-process the G-code
-        let output = postProcessor.process(gcodeLines: gcodeLines, toolInfo: toolInfo)
+        // SPK-1134: when a post template is selected, run the G-code through
+        // the template engine instead of the legacy wrapper.
+        let output: PostProcessedOutput
+        let postTemplateID: String?
+        if let postTemplate {
+            let result = PostTemplateEngine.emit(gcodeLines: gcodeLines, template: postTemplate)
+            let processed = result.lines.joined(separator: "\n")
+            output = PostProcessedOutput(
+                gcodeString: processed,
+                configuration: postProcessor.currentConfiguration
+            )
+            postTemplateID = postTemplate.id
+        } else {
+            // Post-process the G-code through the legacy wrapper.
+            output = postProcessor.process(gcodeLines: gcodeLines, toolInfo: toolInfo)
+            postTemplateID = nil
+        }
         
         // Write to temp directory
         let exportDir = FileManager.default.temporaryDirectory
@@ -100,6 +121,7 @@ public final class CutToMachineBridge {
         } catch {
             return CutToMachineBridgeResult(
                 postProcessorType: postType,
+                postTemplateID: postTemplateID,
                 outputFileURL: nil,
                 lineCount: 0,
                 errorMessage: "Failed to write G-code file: \(error.localizedDescription)"
@@ -108,6 +130,7 @@ public final class CutToMachineBridge {
         
         return CutToMachineBridgeResult(
             postProcessorType: postType,
+            postTemplateID: postTemplateID,
             outputFileURL: outputFileURL,
             lineCount: output.lineCount,
             errorMessage: nil
