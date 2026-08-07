@@ -1,4 +1,5 @@
 import SwiftUI
+import ShopPilotCore
 
 // MARK: - Command Palette View
 
@@ -181,8 +182,9 @@ struct CommandPaletteView: View {
                 
                 Spacer()
                 
-                // Keyboard shortcut hint
-                if let shortcut = cmd.keyboardShortcut {
+                // Keyboard shortcut hint (UI-polish cluster: honors user
+                // overrides from Preferences → Keyboard Shortcuts).
+                if let shortcut = ShortcutStore.shortcut(for: cmd.rawValue, default: cmd.keyboardShortcut) {
                     Text(shortcut.uppercased())
                         .font(.system(size: 11, weight: .medium, design: .rounded))
                         .foregroundStyle(.secondary)

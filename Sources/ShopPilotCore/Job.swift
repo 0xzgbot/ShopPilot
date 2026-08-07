@@ -55,6 +55,13 @@ public struct Job: Identifiable, Codable, Sendable {
     /// Driven (computed) dimensions whose values are derived from expressions.
     public var drivenDimensions: [DrivenDimension] = []
 
+    /// UI-polish cluster — persisted vector groups as index lists into the
+    /// sheet's vector order (one entry per group). Optional + legacy-safe:
+    /// documents saved before grouping existed decode as nil (no groups).
+    /// Indices are validated against the shape count on load
+    /// (`ShapeGroupEngine.sanitized`), so stale indices never crash.
+    public var shapeGroups: [[Int]]?
+
     public init(
         id: UUID = UUID(),
         name: String = "Untitled Job",

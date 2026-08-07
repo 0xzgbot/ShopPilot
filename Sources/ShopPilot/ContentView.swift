@@ -72,7 +72,21 @@ struct ContentView: View {
                 session.acceptSafety()
             }
         }
+        .sheet(isPresented: $showWelcome) {
+            WelcomeSheetView(session: session) {
+                FirstRunGate.acknowledge()
+                showWelcome = false
+            }
+        }
+        .onAppear {
+            if FirstRunGate.isFirstRun {
+                showWelcome = true
+            }
+        }
     }
+
+    /// UI-polish cluster — first-run onboarding sheet (shown once).
+    @State private var showWelcome = false
 
     @ViewBuilder
     private var stageBody: some View {
@@ -282,6 +296,10 @@ private struct DesignStageView: View {
     @State private var showKeyholeDialog = false
     @State private var keyholeHeadDia = "10.0"
     @State private var keyholeShaftDia = "5.0"
+    @State private var showSetSizeDialog = false
+    @State private var setSizeWidth = "100.0"
+    @State private var setSizeHeight = "100.0"
+    @State private var setSizePreserveAspect = false
     @State private var showTextDialog = false
     @State private var textString = "ShopPilot"
     @State private var textFontSize = "72.0"
@@ -388,6 +406,15 @@ private struct DesignStageView: View {
         } message: {
             Text("Adds a keyhole-slot vector for wall-hanging mounts, ready for a profile cut.")
         }
+        .alert("Set Size", isPresented: $showSetSizeDialog) {
+            TextField("Width (mm)", text: $setSizeWidth)
+            TextField("Height (mm)", text: $setSizeHeight)
+            Toggle("Lock aspect ratio", isOn: $setSizePreserveAspect)
+            Button("Set") { applySetSize() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Scales the selection's bounding box to the exact width/height (center preserved).")
+        }
         .alert("Add Text", isPresented: $showTextDialog) {
             TextField("Text", text: $textString)
             TextField("Font size (pt)", text: $textFontSize)
@@ -463,6 +490,15 @@ private struct DesignStageView: View {
             Button("Scale 1.1×") { _ = session.applyScale110() }
                 .disabled(session.selectedShapeIndices.isEmpty)
                 .help("Scale selected vectors 1.1× about the selection centroid")
+            Button("Set Size…") { showSetSizeDialog = true }
+                .disabled(session.selectedShapeIndices.isEmpty)
+                .help("Scale the selection's bounding box to an exact width/height")
+            Button("Group ⌘G") { _ = session.applyGroup() }
+                .disabled(session.selectedShapeIndices.count < 2)
+                .help("Group selected vectors so they move, scale and rotate together")
+            Button("Ungroup ⇧⌘G") { _ = session.applyUngroup() }
+                .disabled(session.selectedShapeIndices.isEmpty)
+                .help("Dissolve groups touching the selection")
             Divider().frame(height: 14)
             // SPK-0211+0212: Vector Preflight Doctor — run before Cut.
             // SPK-UI605: Import is opt-in once the canvas has geometry.
@@ -512,6 +548,16 @@ private struct DesignStageView: View {
             return
         }
         _ = session.applyExtend(distance: distance)
+    }
+
+    private func applySetSize() {
+        let w = setSizeWidth.replacingOccurrences(of: ",", with: ".")
+        let h = setSizeHeight.replacingOccurrences(of: ",", with: ".")
+        guard let width = Double(w), let height = Double(h), width > 0, height > 0 else {
+            session.statusMessage = "Set Size: enter positive width and height"
+            return
+        }
+        _ = session.applySetSize(width: width, height: height, preserveAspect: setSizePreserveAspect)
     }
 
     private func applyArrayCopy() {

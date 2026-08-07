@@ -12,6 +12,9 @@ struct ModelStageView: View {
     @State private var zoom: Double = 1.0
     @State private var panX: Double = 0
     @State private var panY: Double = 0
+    /// Fit scale reported by the canvas (one grid cell at zoom 1). Used to
+    /// compute the 1:1 preset (one cell = one screen point).
+    @State private var fitBase: Double = 1.0
     @State private var sculptMode: Bool = false
     @State private var sculptTool: SculptTool = .brush
     @State private var brushRadiusMm: Double = 5.0
@@ -35,6 +38,7 @@ struct ModelStageView: View {
                 ReliefCanvasView(
                     hf: hf,
                     zoom: $zoom, panX: $panX, panY: $panY,
+                    fitBase: $fitBase,
                     sculptMode: sculptMode,
                     strokeParams: SculptStrokeParams(
                         tool: sculptTool,
@@ -137,6 +141,19 @@ struct ModelStageView: View {
             }
             .disabled(session.job.stlHeightfield == nil)
             .help("Reset camera to fit")
+            // UI-polish cluster: view presets (reference "view cube / presets").
+            Picker("View", selection: Binding(
+                get: { currentViewPreset },
+                set: { applyViewPreset($0) }
+            )) {
+                Text("Fit").tag(HeightfieldCamera.ViewPreset.fit)
+                Text("1:1").tag(HeightfieldCamera.ViewPreset.oneToOne)
+                Text("Top").tag(HeightfieldCamera.ViewPreset.top)
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 150)
+            .disabled(session.job.stlHeightfield == nil)
+            .help("View presets: Fit the whole relief, 1:1 pixels, or a 2× top view")
             Divider().frame(height: 14)
             Button("Rough 3D") { session.generateRough3DToolpath() }
                 .disabled(session.job.stlHeightfield == nil)
@@ -231,6 +248,30 @@ struct ModelStageView: View {
         .controlSize(.small)
     }
 
+    /// The preset the current camera most closely matches (for the picker).
+    /// Custom zoom/pan falls back to Fit so the segmented control stays sane.
+    private var currentViewPreset: HeightfieldCamera.ViewPreset {
+        if fitBase > 0, abs(zoom * fitBase - 1.0) < 0.05, abs(panX) < 0.01, abs(panY) < 0.01 {
+            return .oneToOne
+        }
+        if abs(zoom - 2.0) < 0.05, abs(panX) < 0.01, abs(panY) < 0.01 {
+            return .top
+        }
+        return .fit
+    }
+
+    private func applyViewPreset(_ preset: HeightfieldCamera.ViewPreset) {
+        switch preset {
+        case .fit:
+            zoom = 1.0; panX = 0; panY = 0
+        case .oneToOne:
+            zoom = fitBase > 0 ? min(8.0, max(0.1, 1.0 / fitBase)) : 1.0
+            panX = 0; panY = 0
+        case .top:
+            zoom = 2.0; panX = 0; panY = 0
+        }
+    }
+
     private func resetRelief() {
         // Undo collapses all sculpt strokes back to the import (single undo
         // chain per stroke); repeated undos walk back stroke by stroke.
@@ -296,6 +337,9 @@ private struct ReliefCanvasView: View {
     @Binding var zoom: Double
     @Binding var panX: Double
     @Binding var panY: Double
+    /// Reports the fit scale (base = min(viewport/grid)) so the Model stage
+    /// can compute the 1:1 view preset.
+    @Binding var fitBase: Double
     var sculptMode: Bool = false
     var strokeParams: SculptStrokeParams = SculptStrokeParams()
     var onStroke: ((CGPoint, Bool) -> Void)? = nil
@@ -331,6 +375,8 @@ private struct ReliefCanvasView: View {
                         .allowsHitTesting(false)
                 }
             }
+            .onAppear { fitBase = Double(base) }
+            .onChange(of: geo.size) { _, _ in fitBase = Double(base) }
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: sculptMode ? 0 : 1)

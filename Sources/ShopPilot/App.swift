@@ -38,6 +38,18 @@ struct ShopPilotApp: App {
                 .keyboardShortcut("k", modifiers: .command)
             }
 
+            CommandGroup(after: .undoRedo) {
+                Button("Group") {
+                    _ = session.applyGroup()
+                }
+                .keyboardShortcut("g", modifiers: .command)
+
+                Button("Ungroup") {
+                    _ = session.applyUngroup()
+                }
+                .keyboardShortcut("g", modifiers: [.command, .shift])
+            }
+
             // Stage navigation belongs on the keyboard as well as the rail.
             CommandMenu("Stage") {
                 ForEach(Stage.allCases) { stage in

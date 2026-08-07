@@ -1,4 +1,5 @@
 import SwiftUI
+import ShopPilotCore
 import ShopPilotGeometry
 
 /// Canvas create tools (SPK-1120): select/move, rect, circle, line, polyline.
@@ -83,7 +84,9 @@ struct DesignCanvasView: View {
                 ZStack {
                     Color(NSColor.textBackgroundColor)
                     gridLayer
+                    keepOutLayer
                     shapesLayer
+                    toolpathOverlayLayer
                     draftLayer
                     nodeEditLayer
                     measureLayer
@@ -170,6 +173,27 @@ struct DesignCanvasView: View {
             .buttonStyle(.borderless)
             .help("Measure: click two points to read the distance")
 
+            // UI-polish cluster: visibility chips (Vec / Keep-outs / Toolpaths).
+            Divider().frame(height: 14)
+            ForEach(0..<CanvasOverlayOptions.chips.count, id: \.self) { i in
+                let chip = CanvasOverlayOptions.chips[i]
+                let on = session.canvasOverlays.contains(chip.option)
+                Button {
+                    if on {
+                        session.canvasOverlays.subtract(chip.option)
+                    } else {
+                        session.canvasOverlays.insert(chip.option)
+                    }
+                    CanvasOverlayStore.save(session.canvasOverlays)
+                } label: {
+                    Label(chip.label, systemImage: on ? chip.symbol : "circle")
+                        .font(.caption)
+                        .foregroundStyle(on ? Color.accentColor : .secondary)
+                }
+                .buttonStyle(.borderless)
+                .help("Show/hide \(chip.label.lowercased()) on the canvas")
+            }
+
             Button("Fit") { fitContent() }
             Text("Zoom \(Int(scale * 50))%")
                 .font(.caption)
@@ -202,6 +226,7 @@ struct DesignCanvasView: View {
 
     private var shapesLayer: some View {
         Canvas { context, _ in
+            guard session.canvasOverlays.contains(.vectors) else { return }
             // SPK-1137: draw only shapes on visible layers — each layer's own
             // visibility flag, not just the active layer's.
             for idx in session.visibleShapeIndices {
@@ -216,6 +241,58 @@ struct DesignCanvasView: View {
                 if selected {
                     context.fill(path, with: .color(Color.accentColor.opacity(0.08)))
                 }
+            }
+        }
+    }
+
+    /// UI-polish cluster — keep-out zones overlay, gated by the Keep-outs chip.
+    private var keepOutLayer: some View {
+        Canvas { context, _ in
+            guard session.canvasOverlays.contains(.keepOuts) else { return }
+            for zone in session.keepOutZones where zone.isActive {
+                var p = Path()
+                if let rectMinX = zone.rectMinX, let rectMinY = zone.rectMinY,
+                   let rectMaxX = zone.rectMaxX, let rectMaxY = zone.rectMaxY {
+                    let a = screen(rectMinX, rectMinY)
+                    let b = screen(rectMaxX, rectMaxY)
+                    p.addRect(CGRect(
+                        x: min(a.x, b.x), y: min(a.y, b.y),
+                        width: abs(b.x - a.x), height: abs(b.y - a.y)
+                    ))
+                } else if let c = zone.circleCenter, let r = zone.circleRadiusMm {
+                    let s = screen(c.x, c.y)
+                    p.addEllipse(in: CGRect(
+                        x: s.x - r * scale, y: s.y - r * scale,
+                        width: 2 * r * scale, height: 2 * r * scale
+                    ))
+                } else if let pts = zone.polygonPoints, pts.count >= 3 {
+                    for (i, pt) in pts.enumerated() {
+                        let s = screen(pt.x, pt.y)
+                        if i == 0 { p.move(to: s) } else { p.addLine(to: s) }
+                    }
+                    p.closeSubpath()
+                }
+                context.fill(p, with: .color(Color.red.opacity(0.10)))
+                context.stroke(p, with: .color(.red.opacity(0.55)), lineWidth: 1.5)
+            }
+        }
+    }
+
+    /// UI-polish cluster — toolpath wireframe overlay, gated by the Toolpaths
+    /// chip. Reuses the same segment parser as the Preview stage.
+    private var toolpathOverlayLayer: some View {
+        Canvas { context, _ in
+            guard session.canvasOverlays.contains(.toolpaths) else { return }
+            let segments = WireframeRenderer.generateSegments(from: session.allToolpathGCode)
+            for seg in segments {
+                var p = Path()
+                p.move(to: screen(seg.start.x, seg.start.y))
+                p.addLine(to: screen(seg.end.x, seg.end.y))
+                context.stroke(
+                    p,
+                    with: .color(seg.isRapid ? Color.blue.opacity(0.5) : Color.green.opacity(0.7)),
+                    lineWidth: seg.isRapid ? 1.0 : 1.5
+                )
             }
         }
     }

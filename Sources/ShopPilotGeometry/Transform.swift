@@ -169,6 +169,48 @@ public final class ShapeTransformer {
             }
         }
     }
+
+    /// Set the exact width/height of the selection's bounding box (reference
+    /// "Set size" dialog): scale about the bounding-box center so the shape
+    /// position is preserved. When `preserveAspect` is true the smaller of the
+    /// two factors is used for both axes so the shape is never distorted
+    /// (width/height then snap to the requested value only on the
+    /// proportionally-matching axis; callers that need exact W×H should pass
+    /// `preserveAspect: false`).
+    public func setSize(
+        shapes: [VectorShape],
+        width: Double,
+        height: Double,
+        preserveAspect: Bool = false
+    ) -> [VectorShape] {
+        guard !shapes.isEmpty else { return shapes }
+        let rect = shapes
+            .map { $0.boundingRect }
+            .reduce(Rect(minX: .greatestFiniteMagnitude, minY: .greatestFiniteMagnitude, maxX: -.greatestFiniteMagnitude, maxY: -.greatestFiniteMagnitude)) { acc, r in
+                Rect(
+                    minX: min(acc.minX, r.minX),
+                    minY: min(acc.minY, r.minY),
+                    maxX: max(acc.maxX, r.maxX),
+                    maxY: max(acc.maxY, r.maxY)
+                )
+            }
+        let currentWidth = max(rect.maxX - rect.minX, 1e-9)
+        let currentHeight = max(rect.maxY - rect.minY, 1e-9)
+        let fx = width / currentWidth
+        let fy = height / currentHeight
+        let factorX: Double
+        let factorY: Double
+        if preserveAspect {
+            let f = min(fx, fy)
+            factorX = f
+            factorY = f
+        } else {
+            factorX = fx
+            factorY = fy
+        }
+        let center = VectorPoint(x: (rect.minX + rect.maxX) / 2.0, y: (rect.minY + rect.maxY) / 2.0)
+        return scale(shapes: shapes, factorX: factorX, factorY: factorY, about: center)
+    }
     
     /// Align multiple shapes based on the specified alignment mode.
     public func align(shapes: [VectorShape], mode: AlignmentMode) -> [VectorShape] {

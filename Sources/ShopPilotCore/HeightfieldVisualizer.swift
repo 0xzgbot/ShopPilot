@@ -111,4 +111,40 @@ public struct HeightfieldCamera: Sendable {
             max(0, min(height - 1, yCell))
         )
     }
+
+    // MARK: - View presets (UI-polish cluster: view cube / presets)
+
+    /// Named camera presets for the relief canvas. Mirrors the reference
+    /// "view presets" concept: Fit (whole grid visible), 1:1 (one grid cell =
+    /// one pixel at the given viewport scale), Top (2× zoom from fit).
+    public enum ViewPreset: String, CaseIterable, Sendable {
+        case fit
+        case oneToOne
+        case top
+    }
+
+    /// Apply a named preset. `viewport` is the canvas size in points;
+    /// `gridWidth/gridHeight` are the heightfield dimensions in cells.
+    public mutating func apply(_ preset: ViewPreset, viewport: (w: Double, h: Double), gridWidth: Int, gridHeight: Int) {
+        let gridW = Double(max(gridWidth, 1)) * cellSizeMm
+        let gridH = Double(max(gridHeight, 1)) * cellSizeMm
+        let viewW = max(viewport.w, 1)
+        let viewH = max(viewport.h, 1)
+        switch preset {
+        case .fit:
+            zoom = min(8.0, max(0.1, min(viewW / gridW, viewH / gridH)))
+            panX = 0
+            panY = 0
+        case .oneToOne:
+            zoom = min(8.0, max(0.1, 1.0))
+            panX = 0
+            panY = 0
+        case .top:
+            // 2× fit — a close-up top view, still fully within the zoom clamp.
+            let fit = min(viewW / gridW, viewH / gridH)
+            zoom = min(8.0, max(0.1, fit * 2.0))
+            panX = 0
+            panY = 0
+        }
+    }
 }

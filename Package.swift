@@ -509,6 +509,12 @@ let package = Package(
             path: "Sources/ShopPilotVerify1104c"
         ),
 
+        .executableTarget(
+            name: "ShopPilotVerifyUXPolish",
+            dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
+            path: "Sources/ShopPilotVerifyUXPolish"
+        ),
+
         .target(
             name: "ShopPilotCore",
             path: "Sources/ShopPilotCore"

@@ -18,6 +18,9 @@ public enum CommandID: String, CaseIterable {
     case copy = "copy"
     case paste = "paste"
     case deleteVector = "delete_vector"
+    case group = "group"
+    case ungroup = "ungroup"
+    case setSize = "set_size"
     
     case zoomFit = "zoom_fit"
     case zoomIn = "zoom_in"
@@ -52,6 +55,9 @@ public enum CommandID: String, CaseIterable {
         case .copy: return "Copy"
         case .paste: return "Paste"
         case .deleteVector: return "Delete Vector"
+        case .group: return "Group"
+        case .ungroup: return "Ungroup"
+        case .setSize: return "Set Size…"
         case .zoomFit: return "Zoom to Fit"
         case .zoomIn: return "Zoom In"
         case .zoomOut: return "Zoom Out"
@@ -74,7 +80,7 @@ public enum CommandID: String, CaseIterable {
         switch self {
         case .newJob, .openJob, .saveJob, .exportGcode, .importSVG, .importSTLRelief, .importImageRelief:
             return .file
-        case .undo, .redo, .cut, .copy, .paste, .deleteVector:
+        case .undo, .redo, .cut, .copy, .paste, .deleteVector, .group, .ungroup, .setSize:
             return .edit
         case .zoomFit, .zoomIn, .zoomOut, .resetView:
             return .view
@@ -100,6 +106,9 @@ public enum CommandID: String, CaseIterable {
         case .copy: return "c"
         case .paste: return "v"
         case .deleteVector: return "delete"
+        case .group: return "g"
+        case .ungroup: return "shift+g"
+        case .setSize: return nil
         case .zoomFit: return "f"
         case .zoomIn: return "="
         case .zoomOut: return "-"
@@ -142,6 +151,7 @@ public enum CommandID: String, CaseIterable {
         switch self {
         case .newJob, .openJob, .saveJob, .exportGcode, .importSVG, .importSTLRelief, .importImageRelief,
              .undo, .redo,
+             .group, .ungroup, .setSize,
              .profileTP,
              .connectMachine, .airCut:
             return false

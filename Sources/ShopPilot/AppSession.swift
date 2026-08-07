@@ -67,6 +67,24 @@ final class AppSession: ObservableObject {
     /// canvas and the ops toolbar share one selection state).
     @Published var selectedShapeIndices: Set<Int> = []
 
+    /// UI-polish cluster — vector groups as index lists into `shapes`
+    /// (mirrors `Job.shapeGroups` for the live document). Transforms expand
+    /// the selection to group members so grouped vectors move together.
+    @Published var shapeGroups: [[Int]] = []
+
+    /// UI-polish cluster — canvas visibility chips (Vec / Keep-outs /
+    /// Toolpaths / Bitmaps). Persisted in UserDefaults, not the document.
+    @Published var canvasOverlays: CanvasOverlayOptions = .all
+
+    /// Selection expanded to whole groups: when any member of a group is
+    /// selected, every member is included in transforms (UI-polish cluster).
+    var expandedSelectionIndices: Set<Int> {
+        ShapeGroupEngine.expandedSelection(
+            selected: selectedShapeIndices,
+            groups: shapeGroups
+        )
+    }
+
     /// SPK-0211+0212 — last vector preflight report (nil until first run).
     @Published var lastPreflightReport: PreflightReport?
 
@@ -119,6 +137,7 @@ final class AppSession: ObservableObject {
         self.job = job
         self.safetyAccepted = UserDefaults.standard.bool(forKey: "shop_pilot_safety_accepted")
         self.showSafetyDisclaimer = !self.safetyAccepted
+        self.canvasOverlays = CanvasOverlayStore.load()
     }
 
     // MARK: - Derived document access
@@ -187,6 +206,7 @@ final class AppSession: ObservableObject {
         let job: Job
         let shapes: [VectorShape]
         let shapeLayerIDs: [UUID]
+        let shapeGroups: [[Int]]
         let gcodeLines: [String]
         let selectedVectorIDs: Set<UUID>
     }
@@ -196,6 +216,7 @@ final class AppSession: ObservableObject {
             job: job,
             shapes: shapes,
             shapeLayerIDs: shapeLayerIDs,
+            shapeGroups: shapeGroups,
             gcodeLines: gcodeLines,
             selectedVectorIDs: selectedVectorIDs
         )
@@ -216,6 +237,7 @@ final class AppSession: ObservableObject {
         job = snapshot.job
         shapes = snapshot.shapes
         shapeLayerIDs = snapshot.shapeLayerIDs
+        shapeGroups = snapshot.shapeGroups
         gcodeLines = snapshot.gcodeLines
         selectedVectorIDs = snapshot.selectedVectorIDs
         markDirty()
@@ -227,6 +249,7 @@ final class AppSession: ObservableObject {
     func makePackagePayload() -> ShopPilotPackagePayload {
         var payloadJob = job
         payloadJob.documentVariables = docVars.variables
+        payloadJob.shapeGroups = shapeGroups
         syncLayerVectors(into: &payloadJob)
         let toolpaths = ShopPilotPackagePayload.toolpaths(from: toolpathTree)
         return ShopPilotPackagePayload(job: payloadJob, toolpaths: toolpaths)
@@ -258,6 +281,7 @@ final class AppSession: ObservableObject {
         let restored = Self.shapesFromLayerVectors(payload.job)
         shapes = restored.shapes
         shapeLayerIDs = restored.layerIDs
+        shapeGroups = ShapeGroupEngine.sanitized(payload.job.shapeGroups ?? [], shapeCount: shapes.count)
         gcodeLines = []
         selectedVectorIDs = []
         selection = .job
@@ -601,8 +625,15 @@ final class AppSession: ObservableObject {
 
     func moveShape(at index: Int, by dx: Double, dy: Double) {
         guard shapes.indices.contains(index) else { return }
+        // Group-aware: moving one member moves the whole group (UI-polish cluster).
+        let targets = ShapeGroupEngine.expandedSelection(
+            selected: [index],
+            groups: shapeGroups
+        ).sorted()
         registerUndoPoint()
-        shapes[index] = shapes[index].translated(by: dx, dy)
+        for target in targets where shapes.indices.contains(target) {
+            shapes[target] = shapes[target].translated(by: dx, dy)
+        }
         syncLayerVectors()
         markDirty()
     }
@@ -628,9 +659,85 @@ final class AppSession: ObservableObject {
             shapes.remove(at: index)
             shapeLayerIDs.remove(at: index)
         }
+        shapeGroups = ShapeGroupEngine.removing(indices: Set(unique), from: shapeGroups)
         selectedShapeIndices = []
         syncLayerVectors()
         markDirty()
+    }
+
+    // MARK: - Group / Ungroup / Set Size (UI-polish cluster)
+
+    /// Group the selected shapes: any group touching the selection folds in,
+    /// and the selection itself forms (or joins) one group. Selection becomes
+    /// the whole group so subsequent transforms act on every member.
+    @discardableResult
+    func applyGroup() -> Bool {
+        let selected = selectedShapeIndices.filter { shapes.indices.contains($0) }
+        guard selected.count >= 2 else {
+            statusMessage = "Group needs ≥2 selected shapes"
+            return false
+        }
+        registerUndoPoint()
+        shapeGroups = ShapeGroupEngine.grouping(
+            selected: Set(selected),
+            existing: shapeGroups,
+            shapeCount: shapes.count
+        )
+        selectedShapeIndices = Set(ShapeGroupEngine.expandedSelection(
+            selected: Set(selected),
+            groups: shapeGroups
+        ))
+        statusMessage = "Grouped \(selected.count) shapes — transforms now move them together"
+        syncLayerVectors()
+        markDirty()
+        return true
+    }
+
+    /// Ungroup: dissolve every group that touches the selection. Members
+    /// become independent shapes again.
+    @discardableResult
+    func applyUngroup() -> Bool {
+        let selected = selectedShapeIndices.filter { shapes.indices.contains($0) }
+        guard !selected.isEmpty else {
+            statusMessage = "Ungroup needs a selected shape"
+            return false
+        }
+        registerUndoPoint()
+        shapeGroups = ShapeGroupEngine.ungrouping(selected: Set(selected), existing: shapeGroups)
+        statusMessage = "Ungrouped — shapes are independent again"
+        syncLayerVectors()
+        markDirty()
+        return true
+    }
+
+    /// Set the exact bounding-box width/height of the selection (reference
+    /// "Set size" dialog). Undoable + dirty.
+    @discardableResult
+    func applySetSize(width: Double, height: Double, preserveAspect: Bool = false) -> Bool {
+        let indices = ShapeGroupEngine.expandedSelection(
+            selected: selectedShapeIndices,
+            groups: shapeGroups
+        ).sorted()
+        guard !indices.isEmpty, indices.allSatisfy({ shapes.indices.contains($0) }) else {
+            statusMessage = "Set Size needs a selected shape"
+            return false
+        }
+        let sel = indices.map { shapes[$0] }
+        let output = ShapeTransformer().setSize(
+            shapes: sel,
+            width: max(width, 0.001),
+            height: max(height, 0.001),
+            preserveAspect: preserveAspect
+        )
+        registerUndoPoint()
+        for (offset, index) in indices.enumerated() where shapes.indices.contains(index) {
+            shapes[index] = output[offset]
+        }
+        selectedShapeIndices = Set(indices)
+        syncLayerVectors()
+        markDirty()
+        statusMessage = String(format: "Set size: %.2f × %.2f mm", max(width, 0.001), max(height, 0.001))
+        return true
     }
 
     /// Replace the selected shapes with the op results. The originals are
@@ -653,6 +760,22 @@ final class AppSession: ObservableObject {
             at: min(insertAt, shapeLayerIDs.count)
         )
         selectedShapeIndices = Set(results.indices.map { min(insertAt, shapes.count - results.count) + $0 })
+        syncLayerVectors()
+        markDirty()
+    }
+
+    /// In-place transform variant used by group-aware transforms (nudge /
+    /// flip / rotate / scale): replaces the shape at each of `indices` with
+    /// the parallel result WITHOUT removing/re-inserting, so group indices
+    /// stay valid and member order is preserved (UI-polish cluster).
+    func replaceSelectedShapes(with results: [VectorShape], at indices: [Int]) {
+        guard results.count == indices.count else { return }
+        registerUndoPoint()
+        for (offset, index) in indices.enumerated()
+        where shapes.indices.contains(index) && results.indices.contains(offset) {
+            shapes[index] = results[offset]
+        }
+        selectedShapeIndices = Set(indices)
         syncLayerVectors()
         markDirty()
     }
@@ -901,13 +1024,14 @@ final class AppSession: ObservableObject {
     /// Nudge every selected shape by (dx, dy) mm.
     @discardableResult
     func applyNudge(dx: Double, dy: Double) -> Bool {
-        let sel = selectedShapeIndices.compactMap { shapes.indices.contains($0) ? shapes[$0] : nil }
+        let indices = expandedSelectionIndices.sorted()
+        let sel = indices.compactMap { shapes.indices.contains($0) ? shapes[$0] : nil }
         guard !sel.isEmpty else {
             statusMessage = "Nudge needs a selected shape"
             return false
         }
         let output = sel.map { $0.translated(by: dx, dy) }
-        replaceSelectedShapes(with: output)
+        replaceSelectedShapes(with: output, at: indices.sorted())
         statusMessage = String(format: "Nudged %d shape(s) by (%.2f, %.2f) mm", sel.count, dx, dy)
         return true
     }
@@ -919,7 +1043,8 @@ final class AppSession: ObservableObject {
     /// Mirror selected shapes across the vertical centerline of the selection.
     @discardableResult
     func applyFlipHorizontal() -> Bool {
-        let sel = selectedShapeIndices.compactMap { shapes.indices.contains($0) ? shapes[$0] : nil }
+        let indices = expandedSelectionIndices.sorted()
+        let sel = indices.compactMap { shapes.indices.contains($0) ? shapes[$0] : nil }
         guard !sel.isEmpty else {
             statusMessage = "Flip needs a selected shape"
             return false
@@ -929,7 +1054,7 @@ final class AppSession: ObservableObject {
             return false
         }
         let output = ShapeTransformer().flipHorizontal(shapes: sel, about: centroid)
-        replaceSelectedShapes(with: output)
+        replaceSelectedShapes(with: output, at: indices.sorted())
         statusMessage = "Flipped \(sel.count) shape(s) horizontally across the selection centerline"
         return true
     }
@@ -937,7 +1062,8 @@ final class AppSession: ObservableObject {
     /// Rotate selected shapes by `degrees` CCW around the selection centroid.
     @discardableResult
     func applyRotate(degrees: Double) -> Bool {
-        let sel = selectedShapeIndices.compactMap { shapes.indices.contains($0) ? shapes[$0] : nil }
+        let indices = expandedSelectionIndices.sorted()
+        let sel = indices.compactMap { shapes.indices.contains($0) ? shapes[$0] : nil }
         guard !sel.isEmpty else {
             statusMessage = "Rotate needs a selected shape"
             return false
@@ -947,7 +1073,7 @@ final class AppSession: ObservableObject {
             return false
         }
         let output = ShapeTransformer().rotate(shapes: sel, angle: degrees, about: centroid)
-        replaceSelectedShapes(with: output)
+        replaceSelectedShapes(with: output, at: indices.sorted())
         statusMessage = "Rotated \(sel.count) shape(s) \(Int(degrees))° around selection centroid"
         return true
     }
@@ -958,7 +1084,8 @@ final class AppSession: ObservableObject {
     /// Scale selected shapes uniformly about the selection centroid.
     @discardableResult
     func applyScale(factor: Double) -> Bool {
-        let sel = selectedShapeIndices.compactMap { shapes.indices.contains($0) ? shapes[$0] : nil }
+        let indices = expandedSelectionIndices.sorted()
+        let sel = indices.compactMap { shapes.indices.contains($0) ? shapes[$0] : nil }
         guard !sel.isEmpty else {
             statusMessage = "Scale needs a selected shape"
             return false
@@ -968,7 +1095,7 @@ final class AppSession: ObservableObject {
             return false
         }
         let output = ShapeTransformer().scale(shapes: sel, factor: factor, about: centroid)
-        replaceSelectedShapes(with: output)
+        replaceSelectedShapes(with: output, at: indices.sorted())
         statusMessage = String(
             format: "Scaled %d shape(s) by %.2f× around selection centroid",
             sel.count, factor
@@ -2735,6 +2862,13 @@ final class AppSession: ObservableObject {
             if redo() {
                 statusMessage = "Redo"
             }
+        case .group:
+            if applyGroup() { selectedStage = .design }
+        case .ungroup:
+            if applyUngroup() { selectedStage = .design }
+        case .setSize:
+            statusMessage = "Set Size: use the Design ops bar (Set Size…)"
+            selectedStage = .design
         case .profileTP:
             generateProfileToolpath()
         case .vcCarveTP:
