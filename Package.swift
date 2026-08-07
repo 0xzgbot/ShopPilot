@@ -515,6 +515,61 @@ let package = Package(
             path: "Sources/ShopPilotVerifyUXPolish"
         ),
 
+        .executableTarget(
+            name: "ShopPilotVerifyOBJImport",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerifyOBJImport"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerifyDWGImport",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerifyDWGImport"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerifyEPSImport",
+            dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
+            path: "Sources/ShopPilotVerifyEPSImport"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerifyPDFImport",
+            dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
+            path: "Sources/ShopPilotVerifyPDFImport"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify3MFImport",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify3MFImport"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerifyDrillBank",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerifyDrillBank"
+        ),
+
+        .executableTarget(
+            name: "ShopPilotVerifyDynamicProps",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerifyDynamicProps"
+        ),
+
+        .executableTarget(
+            name: "ShopPilotVerifyShapeTools",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerifyShapeTools"
+        ),
+
+        .executableTarget(
+            name: "ShopPilotVerifyComponentOps",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerifyComponentOps"
+        ),
+
+        .executableTarget(
+            name: "ShopPilotVerifySweep",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerifySweep"
+        ),
+
         .target(
             name: "ShopPilotCore",
             path: "Sources/ShopPilotCore"

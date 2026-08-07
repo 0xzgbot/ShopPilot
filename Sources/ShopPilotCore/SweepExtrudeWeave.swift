@@ -9,6 +9,16 @@ public enum SweepProfile: String, Codable, Sendable {
     case ellipse
     case custom
     case path
+
+    public var displayName: String {
+        switch self {
+        case .rectangle: return "Rectangle"
+        case .circle: return "Circle"
+        case .ellipse: return "Ellipse"
+        case .custom: return "Custom"
+        case .path: return "Path"
+        }
+    }
 }
 
 // Extrude type.

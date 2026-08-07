@@ -40,6 +40,16 @@ public enum ShapeType: String, Codable, Sendable {
     case smooth
     case flat
     case custom
+
+    public var displayName: String {
+        switch self {
+        case .angled: return "Angled"
+        case .round: return "Round"
+        case .smooth: return "Smooth"
+        case .flat: return "Flat"
+        case .custom: return "Custom"
+        }
+    }
 }
 
 /// Parameters for shape transformations

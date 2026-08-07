@@ -513,6 +513,13 @@ private struct DesignStageView: View {
             // SPK-3D-spine-a: import an STL relief as a heightfield.
             Button("STL Relief…") { session.importSTLHeightfieldFromPanel() }
                 .help("Import an ASCII STL model as a heightfield relief")
+            // Tier-2 import breadth: OBJ / 3MF reliefs + EPS vectors.
+            Button("OBJ Relief…") { session.importOBJHeightfieldFromPanel() }
+                .help("Import an OBJ mesh as a heightfield relief")
+            Button("3MF Relief…") { session.import3MFHeightfieldFromPanel() }
+                .help("Import a 3MF model as a heightfield relief")
+            Button("EPS…") { session.importEPSFromPanel() }
+                .help("Import an EPS drawing as vectors")
             Spacer()
             Text("\(session.selectedShapeIndices.count) selected")
                 .font(.caption)
@@ -646,6 +653,8 @@ private struct CutStageView: View {
                         .help("Clear the inside of closed vectors")
                     Button("Drill") { session.generateDrillToolpath() }
                         .help("Peck-drill holes at the centers of closed vectors")
+                    Button("Drill Bank") { session.generateDrillBankToolpath() }
+                        .help("A W×H grid of uniquely-numbered holes (through or brad-point)")
                     Button("V-Carve") { session.generateVCarveToolpath() }
                         .help("Engrave vectors with a V-bit")
                     Divider()

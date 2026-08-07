@@ -150,6 +150,7 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
         case profile
         case pocket
         case drill
+        case drillBank
         case vcarve
         case rough3D
         case finish3D
@@ -183,6 +184,7 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
         guard case .operation(let label) = type else { return .unknown }
         if label.hasPrefix("Profile") { return .profile }
         if label.hasPrefix("Pocket") { return .pocket }
+        if label.hasPrefix("Drill Bank") { return .drillBank }
         if label.hasPrefix("Drill") { return .drill }
         if label.hasPrefix("V-Carve") { return .vcarve }
         if label.hasPrefix("Rough 3D") { return .rough3D }
@@ -241,6 +243,18 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
               let params = try? JSONDecoder().decode(DrillToolpathParams.self, from: data)
         else {
             return DrillToolpathParams()
+        }
+        return params
+    }
+
+    /// The Drill Bank params stored on this node (decoded from `paramsJSON`),
+    /// or defaults when none are stored.
+    public func drillBankParams() -> DrillBankToolpathParams {
+        guard let json = paramsJSON,
+              let data = json.data(using: .utf8),
+              let params = try? JSONDecoder().decode(DrillBankToolpathParams.self, from: data)
+        else {
+            return DrillBankToolpathParams()
         }
         return params
     }
@@ -599,6 +613,33 @@ public final class ToolpathTreeManager: ObservableObject {
                 node.clearDirty()
                 regenerated.append(node)
 
+            case .drillBank:
+                let params = withToolFeeds(node.drillBankParams(), node: node, tools: tools, materialName: materialName, machineName: machineName)
+                // A drill bank is a GRID of holes (params generate the points);
+                // selected closed vectors, when present, pin the grid's origin
+                // to the selection centroid so the bank sits on the part.
+                let points: [DrillPoint]? = {
+                    let closed = vectors.filter { $0.isClosed && !$0.points.isEmpty }
+                    guard !closed.isEmpty else { return nil }
+                    let xs = closed.flatMap { $0.points.map(\.x) }
+                    let ys = closed.flatMap { $0.points.map(\.y) }
+                    guard let minX = xs.min(), let maxX = xs.max(),
+                          let minY = ys.min(), let maxY = ys.max() else { return nil }
+                    var centered = params
+                    centered.originX += (minX + maxX) / 2
+                    centered.originY += (minY + maxY) / 2
+                    return centered.gridPoints()
+                }()
+                let result = DrillBankToolpathEngine.compute(
+                    points: points,
+                    params: params,
+                    stockHeightMm: stockHeightMm
+                )
+                node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+                node.estimatedTimeSeconds = result.estimatedTimeSeconds
+                node.clearDirty()
+                regenerated.append(node)
+
             case .vcarve:
                 let result = VCarveEngine.compute(
                     vectors: vectors,
@@ -826,6 +867,7 @@ public protocol ToolPassDepthApplicable {
 extension ProfileToolpathParams: ToolFeedApplicable, ToolPassDepthApplicable {}
 extension PocketToolpathParams: ToolFeedApplicable, ToolPassDepthApplicable {}
 extension DrillToolpathParams: ToolFeedApplicable {}
+extension DrillBankToolpathParams: ToolFeedApplicable {}
 extension VCarveParams: ToolFeedApplicable, ToolPassDepthApplicable {}
 
 // MARK: - Preview (Xcode only — not available in CLI builds)

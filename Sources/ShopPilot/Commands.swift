@@ -11,6 +11,9 @@ public enum CommandID: String, CaseIterable {
     case importSVG = "import_svg"
     case importSTLRelief = "import_stl_relief"
     case importImageRelief = "import_image_relief"
+    case importOBJRelief = "import_obj_relief"
+    case import3MFRelief = "import_3mf_relief"
+    case importEPS = "import_eps"
     
     case undo = "undo"
     case redo = "redo"
@@ -49,6 +52,9 @@ public enum CommandID: String, CaseIterable {
         case .importSVG: return "Import SVG…"
         case .importSTLRelief: return "Import STL Relief…"
         case .importImageRelief: return "Import Image Relief…"
+        case .importOBJRelief: return "Import OBJ Relief…"
+        case .import3MFRelief: return "Import 3MF Relief…"
+        case .importEPS: return "Import EPS…"
         case .undo: return "Undo"
         case .redo: return "Redo"
         case .cut: return "Cut"
@@ -78,7 +84,8 @@ public enum CommandID: String, CaseIterable {
     
     var category: CommandCategory {
         switch self {
-        case .newJob, .openJob, .saveJob, .exportGcode, .importSVG, .importSTLRelief, .importImageRelief:
+        case .newJob, .openJob, .saveJob, .exportGcode, .importSVG, .importSTLRelief, .importImageRelief,
+             .importOBJRelief, .import3MFRelief, .importEPS:
             return .file
         case .undo, .redo, .cut, .copy, .paste, .deleteVector, .group, .ungroup, .setSize:
             return .edit
@@ -100,6 +107,9 @@ public enum CommandID: String, CaseIterable {
         case .importSVG: return nil
         case .importSTLRelief: return nil
         case .importImageRelief: return nil
+        case .importOBJRelief: return nil
+        case .import3MFRelief: return nil
+        case .importEPS: return nil
         case .undo: return "z"
         case .redo: return "shift+z"
         case .cut: return "x"
@@ -150,6 +160,7 @@ public enum CommandID: String, CaseIterable {
     var isComingSoon: Bool {
         switch self {
         case .newJob, .openJob, .saveJob, .exportGcode, .importSVG, .importSTLRelief, .importImageRelief,
+             .importOBJRelief, .import3MFRelief, .importEPS,
              .undo, .redo,
              .group, .ungroup, .setSize,
              .profileTP,

@@ -1273,8 +1273,54 @@ final class AppSession: ObservableObject {
         return result
     }
 
-    // MARK: - Relief components (SPK-0700/0701 lean slice)
+    // MARK: - OBJ / 3MF relief import (Tier-2 import breadth)
 
+    /// Import an OBJ mesh as a heightfield relief into the SAME document
+    /// relief slot as STL (mirrors `importSTLHeightfield`).
+    @discardableResult
+    func importOBJHeightfield(from url: URL) -> OBJHeightfieldResult {
+        let result = OBJHeightfieldImporter.importOBJ(at: url.path, cellSizeMm: 1.0, scale: 1.0)
+        guard result.success, let hf = result.heightfield else {
+            statusMessage = "OBJ import failed: \(result.errorMessage ?? "unknown error")"
+            return result
+        }
+        registerUndoPoint()
+        job.stlHeightfield = hf
+        markDirty()
+        statusMessage = "OBJ relief imported: \(result.triangleCount) triangles → \(hf.width)×\(hf.height) grid, max \(String(format: "%.1f", hf.maxHeight))mm"
+        return result
+    }
+
+    /// Import a 3MF model as a heightfield relief into the same slot.
+    @discardableResult
+    func import3MFHeightfield(from url: URL) -> ThreeMFImportResult {
+        let result = ThreeMFImporter.import3MF(at: url.path, cellSizeMm: 1.0, scale: 1.0)
+        guard result.success, let hf = result.heightfield else {
+            statusMessage = "3MF import failed: \(result.errorMessage ?? "unknown error")"
+            return result
+        }
+        registerUndoPoint()
+        job.stlHeightfield = hf
+        markDirty()
+        statusMessage = "3MF relief imported: \(result.triangleCount) triangles → \(hf.width)×\(hf.height) grid, max \(String(format: "%.1f", hf.maxHeight))mm"
+        return result
+    }
+
+    /// Import an EPS drawing as design vectors (addShapes). Undoable + dirty.
+    @discardableResult
+    func importEPSVectors(from url: URL) -> EPSImportResult {
+        let result = EPSImporter.importEPS(at: url.path, scale: 1.0)
+        guard result.success, !result.shapes.isEmpty else {
+            statusMessage = "EPS import failed: \(result.errorMessage ?? "no vector paths found")"
+            return result
+        }
+        registerUndoPoint()
+        addShapes(result.shapes)
+        statusMessage = "EPS imported: \(result.pathCount) path(s) → \(result.shapes.count) vector(s)"
+        return result
+    }
+
+    // MARK: - Relief components (SPK-0700/0701 lean slice)
     /// The document's relief component stack (nil = single-relief doc).
     var reliefComponents: [ReliefComponent] {
         job.reliefComponents ?? []
@@ -1351,6 +1397,165 @@ final class AppSession: ObservableObject {
         stack[index].visible.toggle()
         job.reliefComponents = stack
         markDirty()
+        return recompositeRelief()
+    }
+
+    /// SPK-0702 — set a component's dynamic props (height scale / tilt /
+    /// fade). Undoable + dirty + recomposites so the Model view and the 3D
+    /// toolpaths pick up the modified surface. Pass nil to leave a prop
+    /// untouched; pass the identity value to clear it.
+    @discardableResult
+    func updateComponentModifiers(
+        _ id: UUID,
+        heightScale: Double? = nil,
+        tiltAngleDegrees: Double? = nil,
+        fadeAmount: Double? = nil,
+        fadeDirection: FadeDirection? = nil
+    ) -> Bool {
+        guard var stack = job.reliefComponents,
+              let index = stack.firstIndex(where: { $0.id == id }) else {
+            statusMessage = "Component not found"
+            return false
+        }
+        registerUndoPoint()
+        if let heightScale { stack[index].heightScale = heightScale }
+        if let tiltAngleDegrees { stack[index].tiltAngleDegrees = tiltAngleDegrees }
+        if let fadeAmount { stack[index].fadeAmount = fadeAmount }
+        if let fadeDirection { stack[index].fadeDirection = fadeDirection }
+        job.reliefComponents = stack
+        markDirty()
+        return recompositeRelief()
+    }
+
+    /// SPK-0703 — generate a parametric shape relief (angled/round/smooth/
+    /// flat) into the component stack, aligned to the sheet footprint. The
+    /// shape becomes a component so it composites with imported reliefs.
+    @discardableResult
+    func addShapeComponent(shapeType: ShapeType, params: ShapeParameters) -> Bool {
+        guard let sheet = job.sheets.first else {
+            statusMessage = "Add Shape needs a sheet — set up the job first"
+            return false
+        }
+        let hf = ShapeReliefGenerator.generate(
+            shapeType: shapeType,
+            params: params,
+            width: sheet.width,
+            height: sheet.height,
+            cellSizeMm: 1.0,
+            maxHeight: min(sheet.height, 10.0)
+        )
+        registerUndoPoint()
+        var stack = job.reliefComponents ?? []
+        stack.append(ReliefComponent(
+            name: "Shape — \(shapeType.displayName)",
+            heightfield: hf,
+            combineMode: .combineAdd
+        ))
+        job.reliefComponents = stack
+        markDirty()
+        statusMessage = "Added \(shapeType.displayName.lowercased()) shape component (\(hf.width)×\(hf.height) grid)"
+        return recompositeRelief()
+    }
+
+    /// SPK-0712 — smooth a component's relief (Laplacian). Undoable + dirty.
+    @discardableResult
+    func smoothComponent(_ id: UUID, params: SmoothParams) -> Bool {
+        guard var stack = job.reliefComponents,
+              let index = stack.firstIndex(where: { $0.id == id }) else {
+            statusMessage = "Component not found"
+            return false
+        }
+        registerUndoPoint()
+        stack[index].heightfield = ComponentOperationEngine.smooth(stack[index].heightfield, params: params)
+        job.reliefComponents = stack
+        markDirty()
+        return recompositeRelief()
+    }
+
+    /// SPK-0712 — emboss a component's relief (raised/recessed stamp).
+    @discardableResult
+    func embossComponent(_ id: UUID, params: EmbossParams) -> Bool {
+        guard var stack = job.reliefComponents,
+              let index = stack.firstIndex(where: { $0.id == id }) else {
+            statusMessage = "Component not found"
+            return false
+        }
+        registerUndoPoint()
+        stack[index].heightfield = ComponentOperationEngine.emboss(stack[index].heightfield, params: params)
+        job.reliefComponents = stack
+        markDirty()
+        return recompositeRelief()
+    }
+
+    /// SPK-0712 — bake the visible component stack into the ACTIVE relief and
+    /// clear the stack (the reference "Bake visible"): the composited surface
+    /// becomes the document relief that 3D toolpaths cut.
+    @discardableResult
+    func bakeComponents() -> Bool {
+        let stack = reliefComponents
+        guard !stack.isEmpty else {
+            statusMessage = "Bake needs components — add reliefs or shapes first"
+            return false
+        }
+        guard let baked = ComponentOperationEngine.bake(stack) else {
+            statusMessage = "Bake failed — component grids are misaligned"
+            return false
+        }
+        registerUndoPoint()
+        job.stlHeightfield = baked
+        job.reliefComponents = nil
+        markDirty()
+        statusMessage = "Baked \(stack.count) component(s) into the active relief"
+        return true
+    }
+
+    /// SPK-0712 — split the active relief at a horizontal plane; the part
+    /// above the plane becomes the new relief (re-based to 0).
+    @discardableResult
+    func splitRelief(planeHeight: Double) -> Bool {
+        guard let hf = job.stlHeightfield else {
+            statusMessage = "Split needs a relief — import STL/OBJ/3MF or an image first"
+            return false
+        }
+        registerUndoPoint()
+        job.stlHeightfield = ComponentOperationEngine.split(hf, planeHeight: planeHeight)
+        markDirty()
+        statusMessage = String(format: "Split relief at %.1fmm — upper part kept (re-based to 0)", planeHeight)
+        return true
+    }
+
+    /// SPK-0714 — two-rail sweep: sweep a profile between the FIRST TWO
+    /// selected vectors (as rails) into a component. The swept strip becomes
+    /// a ReliefComponent aligned to its own bounding box.
+    @discardableResult
+    func addSweepComponent(profile: SweepProfile, height: Double) -> Bool {
+        let railVectors = vectors.filter { !$0.points.isEmpty }
+        guard railVectors.count >= 2 else {
+            statusMessage = "Sweep needs ≥2 vectors as rails — draw two polylines and select them"
+            return false
+        }
+        let rail1 = railVectors[0].points.map { VectorPoint(x: $0.x, y: $0.y) }
+        let rail2 = railVectors[1].points.map { VectorPoint(x: $0.x, y: $0.y) }
+        guard let hf = SweepReliefEngine.sweep(
+            rail1: rail1,
+            rail2: rail2,
+            profile: profile,
+            height: height,
+            cellSizeMm: 1.0
+        ) else {
+            statusMessage = "Sweep failed — rails need 2+ points each"
+            return false
+        }
+        registerUndoPoint()
+        var stack = job.reliefComponents ?? []
+        stack.append(ReliefComponent(
+            name: "Sweep — \(profile.displayName.lowercased())",
+            heightfield: hf,
+            combineMode: .combineAdd
+        ))
+        job.reliefComponents = stack
+        markDirty()
+        statusMessage = "Added sweep component (\(hf.width)×\(hf.height) grid, peak \(String(format: "%.1f", hf.maxHeight))mm)"
         return recompositeRelief()
     }
 
@@ -2072,6 +2277,79 @@ final class AppSession: ObservableObject {
         statusMessage = lastToolpathSummary
         markDirty()
         return true
+    }
+
+    // MARK: - Drill Bank (parity F34)
+
+    /// Generate a Drill Bank toolpath: a W×H grid of uniquely-numbered holes
+    /// from default params, added to the tree. When closed vectors are
+    /// selected the grid's origin is pinned to the selection centroid so the
+    /// bank lands on the part.
+    func generateDrillBankToolpath() {
+        let params = DrillBankToolpathParams()
+        registerUndoPoint()
+        let points = drillBankPoints(centeredOn: params)
+        let result = DrillBankToolpathEngine.compute(
+            points: points,
+            params: params,
+            stockHeightMm: job.sheets.first?.height ?? 25.0
+        )
+        let node = addToolpathNode(
+            named: "Drill Bank \(toolpathTree.allNodes.count)",
+            gcode: result.gcodeLines,
+            estimatedTime: result.estimatedTimeSeconds
+        )
+        node.paramsJSON = encodeParams(params)
+        lastToolpathSummary =
+            "Drill Bank: \(result.pointCount) hole(s) (\(params.gridCols)×\(params.gridRows) grid), \(result.gcodeLines.count) lines"
+        statusMessage = lastToolpathSummary
+    }
+
+    /// Apply Drill Bank params to an operation: store them on the node and
+    /// immediately regenerate its G-code with the real engine.
+    @discardableResult
+    func applyDrillBankParams(_ params: DrillBankToolpathParams, to nodeID: UUID) -> Bool {
+        guard let node = toolpathTree.findNode(id: nodeID),
+              node.strategyKind == .drillBank else {
+            statusMessage = "Apply params: select a Drill Bank operation"
+            return false
+        }
+        registerUndoPoint()
+        node.paramsJSON = encodeParams(params)
+        let points = drillBankPoints(centeredOn: params)
+        let result = DrillBankToolpathEngine.compute(
+            points: points,
+            params: params,
+            stockHeightMm: job.sheets.first?.height ?? 25.0
+        )
+        node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+        node.estimatedTimeSeconds = result.estimatedTimeSeconds
+        node.clearDirty()
+        let all = allToolpathGCode
+        if !all.isEmpty {
+            gcodeLines = all
+        }
+        lastToolpathSummary =
+            "Drill Bank: \(result.pointCount) hole(s) (\(params.gridCols)×\(params.gridRows) grid), " +
+            "\(params.style.displayName)"
+        statusMessage = lastToolpathSummary
+        markDirty()
+        return true
+    }
+
+    /// Grid points for a drill bank, pinned to the selection centroid when
+    /// closed vectors are selected (nil otherwise = grid at its params origin).
+    private func drillBankPoints(centeredOn params: DrillBankToolpathParams) -> [DrillPoint]? {
+        let closed = vectors.filter { $0.isClosed && !$0.points.isEmpty }
+        guard !closed.isEmpty else { return nil }
+        let xs = closed.flatMap { $0.points.map(\.x) }
+        let ys = closed.flatMap { $0.points.map(\.y) }
+        guard let minX = xs.min(), let maxX = xs.max(),
+              let minY = ys.min(), let maxY = ys.max() else { return nil }
+        var centered = params
+        centered.originX += (minX + maxX) / 2
+        centered.originY += (minY + maxY) / 2
+        return centered.gridPoints()
     }
 
     /// Generate a V-Carve toolpath from the session vectors (V-bit, default
@@ -2885,10 +3163,64 @@ final class AppSession: ObservableObject {
             importSTLHeightfieldFromPanel()
         case .importImageRelief:
             importBitmapHeightfieldFromPanel()
+        case .importOBJRelief:
+            importOBJHeightfieldFromPanel()
+        case .import3MFRelief:
+            import3MFHeightfieldFromPanel()
+        case .importEPS:
+            importEPSFromPanel()
         default:
             statusMessage = "Command: \(id.name)"
         }
         showCommandPalette = false
+    }
+
+    /// ⌘K "Import OBJ Relief…": open panel → OBJ → heightfield (Tier-2).
+    func importOBJHeightfieldFromPanel() {
+        let panel = NSOpenPanel()
+        if let objType = UTType(filenameExtension: "obj") {
+            panel.allowedContentTypes = [objType]
+        } else {
+            panel.allowedFileTypes = ["obj"]
+        }
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.title = "Import OBJ Relief"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        _ = importOBJHeightfield(from: url)
+        selectedStage = .model
+    }
+
+    /// ⌘K "Import 3MF Relief…": open panel → 3MF → heightfield (Tier-2).
+    func import3MFHeightfieldFromPanel() {
+        let panel = NSOpenPanel()
+        if let threeMFType = UTType(filenameExtension: "3mf") {
+            panel.allowedContentTypes = [threeMFType]
+        } else {
+            panel.allowedFileTypes = ["3mf"]
+        }
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.title = "Import 3MF Relief"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        _ = import3MFHeightfield(from: url)
+        selectedStage = .model
+    }
+
+    /// ⌘K "Import EPS…": open panel → EPS → design vectors (Tier-2).
+    func importEPSFromPanel() {
+        let panel = NSOpenPanel()
+        if let epsType = UTType(filenameExtension: "eps") {
+            panel.allowedContentTypes = [epsType]
+        } else {
+            panel.allowedFileTypes = ["eps"]
+        }
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.title = "Import EPS"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        _ = importEPSVectors(from: url)
+        selectedStage = .design
     }
 
     /// ⌘K "Import STL Relief…": present an open panel and import the chosen

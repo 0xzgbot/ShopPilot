@@ -21,6 +21,11 @@ struct ModelStageView: View {
     @State private var brushStrength: Double = 0.5
     @State private var brushShape: BrushShape = .sphere
     @State private var brushFalloff: BrushFalloff = .smooth
+    /// SPK-0702 — id of the component whose dynamic-props popover is open.
+    @State private var propsTarget: UUID?
+    /// SPK-0712 — split-plane height dialog.
+    @State private var showSplitDialog = false
+    @State private var splitPlaneText = "5.0"
 
     var body: some View {
         VStack(spacing: 0) {
@@ -66,6 +71,20 @@ struct ModelStageView: View {
                 emptyState
             }
         }
+        .alert("Split Relief", isPresented: $showSplitDialog) {
+            TextField("Plane height (mm)", text: $splitPlaneText)
+            Button("Split") {
+                let normalized = splitPlaneText.replacingOccurrences(of: ",", with: ".")
+                if let plane = Double(normalized) {
+                    _ = session.splitRelief(planeHeight: plane)
+                } else {
+                    session.statusMessage = "Split: enter a number"
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Cuts the relief at a horizontal plane — the part above the plane becomes the new relief (re-based to 0).")
+        }
     }
 
     /// SPK-0700/0701 — component stack browser: each captured relief with its
@@ -107,6 +126,56 @@ struct ModelStageView: View {
                     Text("\(component.heightfield.width)×\(component.heightfield.height) · \(String(format: "%.1f", component.heightfield.maxHeight))mm")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
+                    // SPK-0702 — dynamic props (height/tilt/fade) popover.
+                    Button {
+                        propsTarget = component.id
+                    } label: {
+                        Image(systemName: "slider.horizontal.3")
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Dynamic props: height scale, tilt, fade")
+                    .popover(isPresented: Binding(
+                        get: { propsTarget == component.id },
+                        set: { if !$0 { propsTarget = nil } }
+                    )) {
+                        ComponentPropsPopover(
+                            component: component,
+                            onUpdate: { heightScale, tilt, fadeAmount, fadeDirection in
+                                _ = session.updateComponentModifiers(
+                                    component.id,
+                                    heightScale: heightScale,
+                                    tiltAngleDegrees: tilt,
+                                    fadeAmount: fadeAmount,
+                                    fadeDirection: fadeDirection
+                                )
+                            }
+                        )
+                    }
+                    // SPK-0712 — per-component operations (smooth / emboss).
+                    Menu {
+                        Button("Smooth…") {
+                            _ = session.smoothComponent(
+                                component.id,
+                                params: SmoothParams(iterations: 5, smoothingFactor: 0.5)
+                            )
+                        }
+                        Button("Emboss Raised…") {
+                            _ = session.embossComponent(
+                                component.id,
+                                params: EmbossParams(embossType: .raised, depth: 2.0)
+                            )
+                        }
+                        Button("Emboss Recessed…") {
+                            _ = session.embossComponent(
+                                component.id,
+                                params: EmbossParams(embossType: .recessed, depth: 2.0)
+                            )
+                        }
+                    } label: {
+                        Image(systemName: "wand.and.stars")
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Component operations: smooth the relief, or emboss raised/recessed")
                     Button {
                         _ = session.removeComponent(component.id)
                     } label: {
@@ -170,10 +239,34 @@ struct ModelStageView: View {
             Button("Add as Component") { session.addComponentFromActiveRelief(named: "Relief") }
                 .disabled(session.job.stlHeightfield == nil)
                 .help("Capture the current relief into the component stack (combine modes compose them)")
+            // SPK-0703 — parametric shape tools: generate a shape relief
+            // directly into the component stack (no import needed).
+            Menu {
+                Button("Angled") { session.addShapeComponent(shapeType: .angled, params: ShapeParameters()) }
+                Button("Round") { session.addShapeComponent(shapeType: .round, params: ShapeParameters(radius: 4.0)) }
+                Button("Smooth") { session.addShapeComponent(shapeType: .smooth, params: ShapeParameters(smoothness: 0.6)) }
+                Button("Flat") { session.addShapeComponent(shapeType: .flat, params: ShapeParameters(flatHeight: 2.0)) }
+            } label: {
+                Label("Add Shape", systemImage: "square.stack.3d.up")
+            }
+            .help("Generate a parametric shape relief into the component stack (angled ramp / round dome / smooth bell / flat plane)")
             if !session.reliefComponents.isEmpty {
                 Button("Recomposite") { session.recompositeRelief() }
                     .help("Re-run the combine modes over the component stack")
+                Button("Bake") { session.bakeComponents() }
+                    .help("Fold the visible component stack into the ACTIVE relief and clear the stack")
             }
+            // SPK-0714 — two-rail sweep from the first two selected vectors.
+            Menu {
+                Button("Rectangle Profile") { _ = session.addSweepComponent(profile: .rectangle, height: 5.0) }
+                Button("Circle Profile") { _ = session.addSweepComponent(profile: .circle, height: 5.0) }
+            } label: {
+                Label("Sweep from Vectors", systemImage: "point.topleft.down.curvedto.point.bottomright.up")
+            }
+            .help("Sweep a profile between the first two vectors (rails) into a component")
+            Button("Split…") { showSplitDialog = true }
+                .disabled(session.job.stlHeightfield == nil)
+                .help("Split the active relief at a horizontal plane — keep the upper part")
             Divider().frame(height: 14)
             Toggle(isOn: $sculptMode) {
                 Label("Sculpt", systemImage: "paintbrush.pointed.fill")
@@ -434,5 +527,103 @@ private struct ReliefCanvasView: View {
         let image = NSImage(size: NSSize(width: w, height: h))
         image.addRepresentation(rep)
         return image
+    }
+}
+
+// MARK: - Component Props Popover (SPK-0702)
+
+/// Dynamic-props editor for one relief component: height scale, tilt angle,
+/// and directional fade. Every change calls back to the session
+/// (`updateComponentModifiers`) which recomposites live — the Model view and
+/// the 3D toolpaths reflect the modified surface immediately.
+private struct ComponentPropsPopover: View {
+    let component: ReliefComponent
+    var onUpdate: (Double?, Double?, Double?, FadeDirection?) -> Void
+
+    @State private var heightScale: Double
+    @State private var tilt: Double
+    @State private var fadeAmount: Double
+    @State private var fadeDirection: FadeDirection
+
+    init(component: ReliefComponent, onUpdate: @escaping (Double?, Double?, Double?, FadeDirection?) -> Void) {
+        self.component = component
+        self.onUpdate = onUpdate
+        _heightScale = State(initialValue: component.heightScale ?? 1.0)
+        _tilt = State(initialValue: component.tiltAngleDegrees ?? 0.0)
+        _fadeAmount = State(initialValue: component.fadeAmount ?? 0.0)
+        _fadeDirection = State(initialValue: component.fadeDirection ?? .none)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Dynamic Props — \(component.name)")
+                .font(.headline)
+
+            // Height scale
+            HStack {
+                Text("Height")
+                    .font(.caption)
+                    .frame(width: 52, alignment: .leading)
+                Slider(value: $heightScale, in: 0.1...3.0)
+                    .frame(width: 140)
+                Text(String(format: "%.2f×", heightScale))
+                    .font(.caption2)
+                    .frame(width: 44, alignment: .trailing)
+            }
+            .onChange(of: heightScale) { _, v in
+                onUpdate(v, nil, nil, nil)
+            }
+
+            // Tilt
+            HStack {
+                Text("Tilt")
+                    .font(.caption)
+                    .frame(width: 52, alignment: .leading)
+                Slider(value: $tilt, in: -45...45)
+                    .frame(width: 140)
+                Text(String(format: "%.0f°", tilt))
+                    .font(.caption2)
+                    .frame(width: 44, alignment: .trailing)
+            }
+            .onChange(of: tilt) { _, v in
+                onUpdate(nil, v, nil, nil)
+            }
+
+            // Fade
+            HStack {
+                Text("Fade")
+                    .font(.caption)
+                    .frame(width: 52, alignment: .leading)
+                Slider(value: $fadeAmount, in: 0...1)
+                    .frame(width: 140)
+                Text(String(format: "%.0f%%", fadeAmount * 100))
+                    .font(.caption2)
+                    .frame(width: 44, alignment: .trailing)
+            }
+            .onChange(of: fadeAmount) { _, v in
+                onUpdate(nil, nil, v, nil)
+            }
+
+            Picker("Direction", selection: $fadeDirection) {
+                Text("None").tag(FadeDirection.none)
+                Text("Left → Right").tag(FadeDirection.leftToRight)
+                Text("Right → Left").tag(FadeDirection.rightToLeft)
+                Text("Top → Bottom").tag(FadeDirection.topToBottom)
+                Text("Bottom → Top").tag(FadeDirection.bottomToTop)
+                Text("Center Out").tag(FadeDirection.centerOut)
+                Text("Radial").tag(FadeDirection.radial)
+            }
+            .pickerStyle(.menu)
+            .frame(width: 180)
+            .onChange(of: fadeDirection) { _, v in
+                onUpdate(nil, nil, nil, v)
+            }
+
+            Text("Applied live — the Model view and 3D toolpaths use the modified surface. The stored grid is untouched (props are reversible).")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .padding(14)
+        .frame(width: 300)
     }
 }

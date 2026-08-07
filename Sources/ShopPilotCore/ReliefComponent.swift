@@ -15,18 +15,47 @@ public struct ReliefComponent: Identifiable, Codable, Sendable {
     public var combineMode: OperationMode
     public var visible: Bool
 
+    /// SPK-0702 — dynamic component props, applied by `ComponentModifierEngine`
+    /// before compositing. Optionals → legacy documents decode unchanged
+    /// (synthesized Codable: missing keys decode as nil = no modification).
+    public var heightScale: Double?
+    public var tiltAngleDegrees: Double?
+    public var fadeAmount: Double?
+    public var fadeDirection: FadeDirection?
+
+    /// The heightfield with this component's dynamic props applied
+    /// (scale → tilt → fade). Used by the compositor; the stored grid stays
+    /// pristine so toggling props is always reversible.
+    public var modifiedHeightfield: HeightfieldData {
+        ComponentModifierEngine.apply(
+            heightfield,
+            heightScale: heightScale,
+            tiltAngleDegrees: tiltAngleDegrees,
+            fadeAmount: fadeAmount,
+            fadeDirection: fadeDirection
+        )
+    }
+
     public init(
         id: UUID = UUID(),
         name: String = "Relief",
         heightfield: HeightfieldData,
         combineMode: OperationMode = .combineAdd,
-        visible: Bool = true
+        visible: Bool = true,
+        heightScale: Double? = nil,
+        tiltAngleDegrees: Double? = nil,
+        fadeAmount: Double? = nil,
+        fadeDirection: FadeDirection? = nil
     ) {
         self.id = id
         self.name = name
         self.heightfield = heightfield
         self.combineMode = combineMode
         self.visible = visible
+        self.heightScale = heightScale
+        self.tiltAngleDegrees = tiltAngleDegrees
+        self.fadeAmount = fadeAmount
+        self.fadeDirection = fadeDirection
     }
 }
 
@@ -39,17 +68,20 @@ public struct ReliefComponent: Identifiable, Codable, Sendable {
 public enum ComponentCompositor {
 
     /// Compose the visible components into the active relief, in list order.
-    /// Returns nil when no component is visible or the grids are not aligned
-    /// (same width/height/cell size/minX/minY — a lean constraint; mixed
-    /// grids need resampling which is Phase H).
+    /// Each component's dynamic props (SPK-0702 height/tilt/fade) are applied
+    /// first via `modifiedHeightfield`, so modified components composite like
+    /// any other grid. Returns nil when no component is visible or the grids
+    /// are not aligned (same width/height/cell size/minX/minY — a lean
+    /// constraint; mixed grids need resampling which is Phase H).
     public static func composite(_ components: [ReliefComponent]) -> HeightfieldData? {
         var accumulator: HeightfieldData? = nil
         for component in components where component.visible {
+            let grid = component.modifiedHeightfield
             guard let acc = accumulator else {
-                accumulator = component.heightfield
+                accumulator = grid
                 continue
             }
-            guard let merged = combine(acc, component.heightfield, mode: component.combineMode) else {
+            guard let merged = combine(acc, grid, mode: component.combineMode) else {
                 return nil
             }
             accumulator = merged
