@@ -3,6 +3,7 @@ import ShopPilotCore
 import AppKit
 import ShopPilotSerial
 import UniformTypeIdentifiers
+import WebKit
 
 struct ContentView: View {
     @EnvironmentObject private var session: AppSession
@@ -747,6 +748,12 @@ private struct CutStageView: View {
                     Label("Save Toolpaths…", systemImage: "square.and.arrow.up")
                 }
                 .help("Export GRBL G-code to a file")
+                Button {
+                    exportJobSheet()
+                } label: {
+                    Label("Job Sheet…", systemImage: "doc.text")
+                }
+                .help("Export an A4 HTML job sheet (rendered to PDF) with job, tool and toolpath details")
             }
 
             HSplitView {
@@ -929,6 +936,52 @@ private struct CutStageView: View {
                 "\(result.postProcessorType.displayName) — \(writtenLineCount) lines"
         } catch {
             session.statusMessage = "Save failed: \(error.localizedDescription)"
+        }
+    }
+
+    /// SPK-1135 — export the job sheet: fill the bundled A4 HTML template
+    /// from the live document, render it to PDF via WebKit's `createPDF`,
+    /// and write it where the user chose. Falls back to writing the HTML
+    /// file itself if the PDF render fails.
+    @MainActor
+    private func exportJobSheet() {
+        let html = session.jobSheetHTML()
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.pdf]
+        panel.nameFieldStringValue = "\(sanitizedFileName(session.job.name))-job-sheet.pdf"
+        panel.canCreateDirectories = true
+        panel.title = "Export Job Sheet"
+
+        guard panel.runModal() == .OK, let destinationURL = panel.url else { return }
+
+        let webView = WKWebView(frame: NSRect(x: 0, y: 0, width: 595, height: 842))
+        webView.loadHTMLString(html, baseURL: nil)
+
+        // createPDF(configuration:) is async; give the page a moment to lay
+        // out, then render. Use a small poll for the document to finish
+        // loading so the table/CSS is present in the render.
+        Task {
+            do {
+                try await Task.sleep(nanoseconds: 350_000_000)
+                let pdfData = try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Data, Error>) in
+                    webView.createPDF(configuration: WKPDFConfiguration()) { result in
+                        switch result {
+                        case .success(let data): cont.resume(returning: data)
+                        case .failure(let error): cont.resume(throwing: error)
+                        }
+                    }
+                }
+                try pdfData.write(to: destinationURL, options: .atomic)
+                session.statusMessage = "Job sheet saved to \(destinationURL.lastPathComponent)"
+            } catch {
+                // Honest fallback: write the HTML so the sheet is never lost.
+                do {
+                    try html.write(to: destinationURL.deletingPathExtension().appendingPathExtension("html"), atomically: true, encoding: .utf8)
+                    session.statusMessage = "PDF render failed — saved \(destinationURL.deletingPathExtension().lastPathComponent).html instead"
+                } catch {
+                    session.statusMessage = "Job sheet export failed: \(error.localizedDescription)"
+                }
+            }
         }
     }
 

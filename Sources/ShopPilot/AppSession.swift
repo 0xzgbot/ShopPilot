@@ -1915,6 +1915,46 @@ final class AppSession: ObservableObject {
         return order.map { ($0, buckets[$0] ?? []) }
     }
 
+    /// SPK-1135 — build the printable job-sheet data from the live document:
+    /// job name, first sheet's material + dimensions, and one row per
+    /// operation node (name, strategy label, assigned tool, feed/depth from
+    /// the node's stored params, estimated time).
+    func buildJobSheetData() -> JobSheetData {
+        let sheet = job.sheets.first
+        let info: [ToolpathInfo] = toolpathTree.allNodes.filter(\.isOperation).map { node in
+            let toolName: String
+            if let toolID = node.toolID, let tool = toolDatabase.tool(withID: toolID) {
+                toolName = tool.name
+            } else {
+                toolName = "—"
+            }
+            return ToolpathInfo(
+                name: node.name,
+                type: .fromStrategyLabel(node.typeLabel),
+                tool: toolName,
+                feedRate: node.paramFeedRate ?? 0,
+                depth: node.paramCutDepth ?? 0,
+                estimatedTime: node.estimatedTimeSeconds
+            )
+        }
+        return JobSheetData(
+            jobName: job.name,
+            material: sheet?.material?.name ?? "—",
+            sheetWidth: sheet?.width ?? 0,
+            sheetHeight: sheet?.depth ?? 0,
+            toolpaths: info,
+            createdAt: .now,
+            notes: ""
+        )
+    }
+
+    /// SPK-1135 — fill the bundled HTML template from the live document.
+    /// The app renders the returned HTML to PDF (WebKit createPDF) and
+    /// writes it where the user chose.
+    func jobSheetHTML() -> String {
+        JobSheetHTMLTemplateEngine.fill(data: buildJobSheetData())
+    }
+
     /// R017 fix CTA: adopt the machine profile's measured material thickness
     /// into the job sheet (the honest "update job thickness" action).
     func applyMeasuredThickness() {

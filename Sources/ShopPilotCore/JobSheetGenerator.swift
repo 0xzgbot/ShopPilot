@@ -61,6 +61,17 @@ public struct ToolpathInfo: Codable, Sendable, Identifiable {
             case .quickengrave: return "Quick Engrave"
             }
         }
+
+        /// SPK-1135 — map a toolpath-tree strategy label to the sheet type.
+        /// Unknown/3D/specialty labels map to `.profile` as a safe generic
+        /// bucket (the display table keeps the node's own name).
+        public static func fromStrategyLabel(_ label: String) -> ToolpathType {
+            if label.hasPrefix("Pocket") { return .pocket }
+            if label.hasPrefix("Drill") { return .drill }
+            if label.hasPrefix("V-Carve") || label.hasPrefix("Photo") || label.hasPrefix("Sketch") { return .vcarve }
+            if label.hasPrefix("Quick Engrave") { return .quickengrave }
+            return .profile
+        }
     }
     
     public init(

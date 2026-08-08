@@ -202,6 +202,41 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
         return .unknown
     }
 
+    /// The raw strategy label for an operation node (e.g. "Profile"),
+    /// or the group label for group nodes.
+    public var typeLabel: String {
+        switch type {
+        case .operation(let label): return label
+        case .group(let label): return label
+        }
+    }
+
+    /// The feed rate (mm/min) from this node's stored params, when the
+    /// strategy carries one (SPK-1135 job sheet). Falls back to nil.
+    public var paramFeedRate: Double? {
+        switch strategyKind {
+        case .profile: return profileParams().feedRateMmPerMin
+        case .pocket: return pocketParams().feedRateMmPerMin
+        case .drill: return drillParams().feedRateMmPerMin
+        case .drillBank: return drillBankParams().feedRateMmPerMin
+        case .vcarve: return vcarveParams().feedRateMmPerMin
+        default: return nil
+        }
+    }
+
+    /// The cut depth (mm) from this node's stored params, when the strategy
+    /// carries one (SPK-1135 job sheet). Falls back to nil.
+    public var paramCutDepth: Double? {
+        switch strategyKind {
+        case .profile: return profileParams().maxDepthOfCutMm
+        case .pocket: return pocketParams().maxDepthOfCutMm
+        case .drill: return drillParams().cutDepthMm
+        case .drillBank: return drillBankParams().cutDepthMm
+        case .vcarve: return vcarveParams().maxDepthOfCutMm
+        default: return nil
+        }
+    }
+
     /// Whether this node is a Pocket operation (label convention, like
     /// `isProfileOperation`).
     public var isPocketOperation: Bool {

@@ -475,38 +475,45 @@ public struct BitmapTracer {
     /// Douglas-Peucker line simplification.
     private static func douglasPeucker(_ points: [ShopPilotCore.VectorPoint], tolerance: Double) -> [ShopPilotCore.VectorPoint] {
         guard points.count > 2 else { return points }
-        
+
         let squaredTolerance = tolerance * tolerance
-        let first = points.first!
-        let last = points.last!
-        
-        return recursiveSimplifyDP(points, first: first, last: last, tolerance: squaredTolerance)
+        var keep = [Bool](repeating: false, count: points.count)
+        keep[0] = true
+        keep[points.count - 1] = true
+        recursiveSimplifyDP(points, firstIndex: 0, lastIndex: points.count - 1, tolerance: squaredTolerance, keep: &keep)
+        return points.enumerated().filter { keep[$0.offset] }.map(\.element)
     }
-    
+
+    /// Index-range Douglas-Peucker: only ever recurses on the subrange
+    /// (firstIndex, lastIndex), so each split strictly shrinks the interval
+    /// and termination is guaranteed — the old value-based version re-scanned
+    /// the WHOLE array on every call, could re-pick a point outside the
+    /// narrowed segment, and recursed forever (stack overflow, SIGSEGV —
+    /// found 2026-08-07 via ShopPilotVerifyStudio crash report).
     private static func recursiveSimplifyDP(
         _ points: [ShopPilotCore.VectorPoint],
-        first: ShopPilotCore.VectorPoint,
-        last: ShopPilotCore.VectorPoint,
-        tolerance: Double
-    ) -> [ShopPilotCore.VectorPoint] {
+        firstIndex: Int,
+        lastIndex: Int,
+        tolerance: Double,
+        keep: inout [Bool]
+    ) {
+        guard lastIndex - firstIndex > 1 else { return }
+
         var maxDist = 0.0
-        var maxIndex = 0
-        
-        for i in 1..<(points.count - 1) {
-            let dist = perpendicularDistance(points[i], lineStart: first, lineEnd: last)
+        var maxIndex = firstIndex
+        for i in (firstIndex + 1)..<lastIndex {
+            let dist = perpendicularDistance(points[i], lineStart: points[firstIndex], lineEnd: points[lastIndex])
             if dist > maxDist {
                 maxDist = dist
                 maxIndex = i
             }
         }
-        
+
         if maxDist > tolerance {
-            let left = recursiveSimplifyDP(points, first: first, last: points[maxIndex], tolerance: tolerance)
-            let right = recursiveSimplifyDP(points, first: points[maxIndex], last: last, tolerance: tolerance)
-            return left + [points[maxIndex]] + right
+            keep[maxIndex] = true
+            recursiveSimplifyDP(points, firstIndex: firstIndex, lastIndex: maxIndex, tolerance: tolerance, keep: &keep)
+            recursiveSimplifyDP(points, firstIndex: maxIndex, lastIndex: lastIndex, tolerance: tolerance, keep: &keep)
         }
-        
-        return [first, last]
     }
     
     /// Calculate perpendicular distance from point to line.

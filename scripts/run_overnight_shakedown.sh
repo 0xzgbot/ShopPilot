@@ -112,6 +112,29 @@ run_one() {
     fi
   fi
 
+  # SPK-SHAKE-BUG-0214 (2026-08-07): lock-contention false FAIL. When a
+  # concurrent build holds the swift_locked lock, verify_locked.sh can be
+  # SIGTERMed mid-build (rc=143) and the log holds ONLY wrapper lines
+  # ("waiting for lock … released") with no CLT output. Re-run such targets
+  # once, sequentially, and accept the retry's verdict — a real product bug
+  # (e.g. the Studio segfault) still fails the retry.
+  if [[ "$verdict" == "FAIL" ]] && grep -q "swift_locked:" "$logfile" \
+     && ! grep -qiE ": PASS|verification: PASS|PASS —|: FAIL|FAIL —|verification: FAIL" "$logfile"; then
+    log "  $t: rc=$rc with wrapper-only log (lock contention signature) — retrying once sequentially"
+    ./scripts/verify_locked.sh "$t" > "$logfile" 2>&1
+    rc=$?
+    verdict="FAIL"
+    if [[ $rc -eq 0 ]]; then
+      if grep -qiE ": PASS|verification: PASS|PASS —" "$logfile"; then
+        verdict="PASS"
+      else
+        verdict="WARN"
+      fi
+    fi
+    log "  $t: retry verdict=$verdict (rc=$rc)"
+    echo "$rc" > "$logfile.exit"
+  fi
+
   printf '| %s | %s | %ss | %s |\n' "$t" "$verdict" "$elapsed" "$logfile" >> "$RESULTS_DIR/CLTS.md"
   log "  $t: $verdict (${elapsed}s, rc=$rc)"
 
