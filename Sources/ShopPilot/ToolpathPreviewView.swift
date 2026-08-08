@@ -43,12 +43,36 @@ struct ToolpathPreviewView: View {
         return WireframeRenderer.generateSegments(from: lines)
     }
 
+    /// SPK-0316 — ghost diff: when the selected node was regenerated, diff its
+    /// previous G-code against the current one. The removed/moved geometry is
+    /// rendered as a dashed cyan ghost overlay so the user sees what changed.
+    private var ghostSegments: [(start: (x: Double, y: Double), end: (x: Double, y: Double))]? {
+        guard let node = selectedToolpathNode,
+              let old = node.previousResult,
+              let new = node.toolpathResult else { return nil }
+        let diff = PathDiffEngine.compareGCode(old, new)
+        let ghost = PathDiffEngine.generateGhostData(from: diff)
+        guard !ghost.movedLines.isEmpty || !ghost.removedPoints.isEmpty else { return nil }
+        // Ghost lines: every moved pair becomes a line from old → new position.
+        var lines = ghost.movedLines
+        // Removed points get a short marker line from the point to itself+1mm
+        // so they are visible as dots in the overlay.
+        for pt in ghost.removedPoints {
+            lines.append((pt, (pt.x + 1, pt.y)))
+        }
+        return lines
+    }
+
     /// SPK-1103c — legend/status line for the preview toolbar.
     private var selectionLegend: String {
         guard let node = selectedToolpathNode else { return "No toolpath selected" }
         guard let result = node.toolpathResult else { return "Selected: \(node.name) (no result)" }
         let lineCount = result.split(separator: "\n", omittingEmptySubsequences: true).count
-        return "Selected: \(node.name) (\(lineCount) lines)"
+        var legend = "Selected: \(node.name) (\(lineCount) lines)"
+        if node.previousResult != nil, ghostSegments != nil {
+            legend += " · cyan dashed = changed since last regen"
+        }
+        return legend
     }
 
     var body: some View {
@@ -207,6 +231,18 @@ struct ToolpathPreviewView: View {
                 p.move(to: worldToView(seg.start.x, seg.start.y, size: size))
                 p.addLine(to: worldToView(seg.end.x, seg.end.y, size: size))
                 context.stroke(p, with: .color(Color.accentColor), lineWidth: 3)
+            }
+        }
+
+        // SPK-0316 — ghost diff overlay: dashed cyan lines mark what changed
+        // since the selected node was last regenerated.
+        if (mode == .wireframe || mode == .combined), let ghost = ghostSegments {
+            let dash = StrokeStyle(lineWidth: 2, dash: [5, 4])
+            for seg in ghost {
+                var p = Path()
+                p.move(to: worldToView(seg.start.x, seg.start.y, size: size))
+                p.addLine(to: worldToView(seg.end.x, seg.end.y, size: size))
+                context.stroke(p, with: .color(.cyan.opacity(0.9)), style: dash)
             }
         }
 

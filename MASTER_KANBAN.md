@@ -604,9 +604,8 @@ A (parallel from day 0)
   - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
   - worklog: 2026-07-29 — Direct write. DirtyRegion.swift (4.2KB) with DirtyRegionType enum (vectorModified/batchChange/fullTree/keepOutZoneChanged), DirtyRegionManager ObservableObject tracking dirty regions with needsResimulation flag, markVectorModified/markBatchChange/markFullTreeDirty methods, isVectorAffected() query, clearDirtyRegions(), and async performResimulation()/performFullResimulation() for selective re-simulation. swift build passes cleanly.
   - deps: SPK-0310  
-- [ ] **SPK-0316** **TP** Ghost diff old vs new path 
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
-  - worklog: 2026-07-29 — Direct write. PathDiff.swift (7KB) with PathDiffResult struct containing added/removed/moved points and summary string, GhostPathStyle struct for visual styling, PathDiffEngine static methods comparing paths point-by-point with tolerance detection, G-code coordinate parsing, and ghost data generation for UI rendering. swift build passes cleanly.
+- [x] **SPK-0316** **TP** Ghost diff old vs new path — **SHIPPED 2026-08-07 (Hermes coder)** (SPK-0316 worklog below)
+  - AC: Engine: `PathDiffEngine` (Core) verified — `comparePaths` (added/removed/moved within tolerance), `compareGCode` (parses X/Y from G0/G1), `generateGhostData` (moved lines + removed markers). UI: `ToolpathTreeNode` gains `previousResult` + `setResult(_:)` (snapshots the outgoing G-code on every regen — 19 recalc sites converted); Preview stage renders a dashed-cyan ghost overlay diffing the selected node's previous vs current G-code, with a legend hint. Persist: `previousResult` is in-memory only (not persisted — legacy-safe, no schema change). Verify: `ShopPilotVerify0316` PASS — identical/add/remove/move detection, G-code parse+diff, ghost data, DirtyRegionManager trigger (also exposes `public init()` for 0315).
   - deps: SPK-0306  
 - [-] **SPK-0317** **QA** Golden G-code fixtures Profile/Pocket/Drill
   - **SUPERSEDED 2026-08-04:** real AC delivered by **SPK-Golden-2.5D** (hand-checked byte-exact goldens for Profile/Pocket/V-Carve+clearance with a regression-failing CLT). GoldenFixtures.swift remains reference-only; do not rebuild.
@@ -1217,6 +1216,9 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 ---
 
 ## 12. Work log
+
+### 2026-08-07 — SPK-0316 ghost diff old vs new path (Hermes coder)
+- **SPK-0316 [x]** — verified `PathDiffEngine` (identical/add/remove/move within 0.1mm tolerance, G-code coordinate parsing, ghost data). `ToolpathTreeNode.previousResult` + `setResult(_:)` snapshot the outgoing G-code at every regen (19 recalc sites converted); Preview stage draws a dashed-cyan ghost overlay diffing previous vs current selected-node G-code, with legend hint. Also made `DirtyRegionManager`'s no-arg init public (the SPK-0315 resim trigger). **`ShopPilotVerify0316` PASS**; app debug build green.
 
 ### 2026-08-07 — SPK-0216 unified import hub (Hermes coder)
 - **SPK-0216 [x]** — `UnifiedImportRouter` (Geometry): extension/format dispatch to all 6 vector importers (SVG/DXF/EPS/PDF/AI/DWG), uniform `Result(format:shapes:warnings:)`, unknown ext → empty + warning. Hub UI ("Import Artwork…" in Design) extended from SVG/DXF-only to all 6: `ImportFormat` cases + metadata, per-format `allowedTypes`, `performImport` routes through the router. **`ShopPilotVerify0216` PASS** (routing incl. uppercase/unknown; fixtures for SVG/DXF/EPS/PDF/AI; real DWG R12 LINE1 fixture). App debug build green.

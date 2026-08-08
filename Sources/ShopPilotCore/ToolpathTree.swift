@@ -27,6 +27,22 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
     
     /// The computed toolpath result (if any).
     @Published public var toolpathResult: String? = nil
+
+    /// SPK-0316 — the previous computed G-code, kept when a new result is
+    /// written so the Preview stage can render an old-vs-new "ghost diff".
+    /// Set by `setResult`; nil when the node has never been generated.
+    @Published public private(set) var previousResult: String? = nil
+
+    /// SPK-0316 — write a computed result, snapshotting the outgoing value as
+    /// `previousResult` (only when it differs, so a no-op regen doesn't
+    /// clobber a meaningful old path).
+    public func setResult(_ gcode: String?) {
+        if let gcode, gcode != toolpathResult {
+            previousResult = toolpathResult
+        }
+        toolpathResult = gcode
+        isDirty = false
+    }
     
     /// Estimated time for this operation in seconds.
     @Published public var estimatedTimeSeconds: Double = 0.0
@@ -538,7 +554,7 @@ public final class ToolpathTreeManager: ObservableObject {
         
         for node in dirtyNodes {
             // Simulate toolpath recalculation
-            node.toolpathResult = "// Toolpath generated for \(node.name)"
+            node.setResult("// Toolpath generated for \(node.name)")
             node.isDirty = false
             node.estimatedTimeSeconds = Double.random(in: 10...300)
         }
@@ -566,7 +582,7 @@ public final class ToolpathTreeManager: ObservableObject {
                 material: material,
                 stockHeightMm: stockHeightMm
             )
-            node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+            node.setResult(result.gcodeLines.joined(separator: "\n"))
             node.estimatedTimeSeconds = result.estimatedTimeSeconds
             node.clearDirty()
         }
@@ -606,7 +622,7 @@ public final class ToolpathTreeManager: ObservableObject {
                     material: material,
                     stockHeightMm: stockHeightMm
                 )
-                node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+                node.setResult(result.gcodeLines.joined(separator: "\n"))
                 node.estimatedTimeSeconds = result.estimatedTimeSeconds
                 node.clearDirty()
                 regenerated.append(node)
@@ -618,7 +634,7 @@ public final class ToolpathTreeManager: ObservableObject {
                     material: material,
                     stockHeightMm: stockHeightMm
                 )
-                node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+                node.setResult(result.gcodeLines.joined(separator: "\n"))
                 node.estimatedTimeSeconds = result.estimatedTimeSeconds
                 node.clearDirty()
                 regenerated.append(node)
@@ -643,7 +659,7 @@ public final class ToolpathTreeManager: ObservableObject {
                     material: material,
                     stockHeightMm: stockHeightMm
                 )
-                node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+                node.setResult(result.gcodeLines.joined(separator: "\n"))
                 node.estimatedTimeSeconds = result.estimatedTimeSeconds
                 node.clearDirty()
                 regenerated.append(node)
@@ -670,7 +686,7 @@ public final class ToolpathTreeManager: ObservableObject {
                     params: params,
                     stockHeightMm: stockHeightMm
                 )
-                node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+                node.setResult(result.gcodeLines.joined(separator: "\n"))
                 node.estimatedTimeSeconds = result.estimatedTimeSeconds
                 node.clearDirty()
                 regenerated.append(node)
@@ -681,7 +697,7 @@ public final class ToolpathTreeManager: ObservableObject {
                     params: withToolFeeds(node.vcarveParams(), node: node, tools: tools, materialName: materialName, machineName: machineName),
                     stockHeightMm: stockHeightMm
                 )
-                node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+                node.setResult(result.gcodeLines.joined(separator: "\n"))
                 node.estimatedTimeSeconds = result.estimatedTimeSeconds
                 node.clearDirty()
                 regenerated.append(node)
@@ -693,7 +709,7 @@ public final class ToolpathTreeManager: ObservableObject {
                     heightfield: hf,
                     params: withToolFeeds(node.rough3DParams(), node: node, tools: tools, materialName: materialName, machineName: machineName)
                 )
-                node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+                node.setResult(result.gcodeLines.joined(separator: "\n"))
                 node.estimatedTimeSeconds = result.estimatedTimeSeconds
                 node.clearDirty()
                 regenerated.append(node)
@@ -704,7 +720,7 @@ public final class ToolpathTreeManager: ObservableObject {
                     heightfield: hf,
                     params: withToolFeeds(node.finish3DParams(), node: node, tools: tools, materialName: materialName, machineName: machineName)
                 )
-                node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+                node.setResult(result.gcodeLines.joined(separator: "\n"))
                 node.estimatedTimeSeconds = result.estimatedTimeSeconds
                 node.clearDirty()
                 regenerated.append(node)
@@ -715,7 +731,7 @@ public final class ToolpathTreeManager: ObservableObject {
                     params: node.prismParams(),
                     stockHeightMm: stockHeightMm
                 )
-                node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+                node.setResult(result.gcodeLines.joined(separator: "\n"))
                 node.estimatedTimeSeconds = result.estimatedTimeSeconds
                 node.clearDirty()
                 regenerated.append(node)
@@ -726,7 +742,7 @@ public final class ToolpathTreeManager: ObservableObject {
                     params: node.flutingParams(),
                     stockHeightMm: stockHeightMm
                 )
-                node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+                node.setResult(result.gcodeLines.joined(separator: "\n"))
                 node.estimatedTimeSeconds = result.estimatedTimeSeconds
                 node.clearDirty()
                 regenerated.append(node)
@@ -737,7 +753,7 @@ public final class ToolpathTreeManager: ObservableObject {
                     params: node.chamferParams(),
                     stockHeightMm: stockHeightMm
                 )
-                node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+                node.setResult(result.gcodeLines.joined(separator: "\n"))
                 node.estimatedTimeSeconds = result.estimatedTimeSeconds
                 node.clearDirty()
                 regenerated.append(node)
@@ -747,7 +763,7 @@ public final class ToolpathTreeManager: ObservableObject {
                 let result = params.variant == .pocket
                     ? InlayToolpathEngine.computePocket(paths: vectors, params: params, stockHeightMm: stockHeightMm)
                     : InlayToolpathEngine.computePlug(paths: vectors, params: params, stockHeightMm: stockHeightMm)
-                node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+                node.setResult(result.gcodeLines.joined(separator: "\n"))
                 node.estimatedTimeSeconds = result.estimatedTimeSeconds
                 node.clearDirty()
                 regenerated.append(node)
@@ -758,7 +774,7 @@ public final class ToolpathTreeManager: ObservableObject {
                     params: node.quickEngraveParams(),
                     stockHeightMm: stockHeightMm
                 )
-                node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+                node.setResult(result.gcodeLines.joined(separator: "\n"))
                 node.estimatedTimeSeconds = result.estimatedTimeSeconds
                 node.clearDirty()
                 regenerated.append(node)
@@ -771,7 +787,7 @@ public final class ToolpathTreeManager: ObservableObject {
                     heightfield: hf,
                     params: node.photoVCarveParams()
                 )
-                node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+                node.setResult(result.gcodeLines.joined(separator: "\n"))
                 node.estimatedTimeSeconds = result.estimatedTimeSeconds
                 node.clearDirty()
                 regenerated.append(node)
@@ -782,7 +798,7 @@ public final class ToolpathTreeManager: ObservableObject {
                     params: node.dragKnifeParams(),
                     stockHeightMm: stockHeightMm
                 )
-                node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+                node.setResult(result.gcodeLines.joined(separator: "\n"))
                 node.estimatedTimeSeconds = result.estimatedTimeSeconds
                 node.clearDirty()
                 regenerated.append(node)
@@ -793,7 +809,7 @@ public final class ToolpathTreeManager: ObservableObject {
                     params: node.textureParams(),
                     stockHeightMm: stockHeightMm
                 )
-                node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+                node.setResult(result.gcodeLines.joined(separator: "\n"))
                 node.estimatedTimeSeconds = result.estimatedTimeSeconds
                 node.clearDirty()
                 regenerated.append(node)
@@ -806,7 +822,7 @@ public final class ToolpathTreeManager: ObservableObject {
                     heightfield: hf,
                     params: node.sketchCarveParams()
                 )
-                node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+                node.setResult(result.gcodeLines.joined(separator: "\n"))
                 node.estimatedTimeSeconds = result.estimatedTimeSeconds
                 node.clearDirty()
                 regenerated.append(node)
@@ -817,7 +833,7 @@ public final class ToolpathTreeManager: ObservableObject {
                     params: node.rotaryWrapParams(),
                     stockHeightMm: stockHeightMm
                 )
-                node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+                node.setResult(result.gcodeLines.joined(separator: "\n"))
                 node.estimatedTimeSeconds = result.estimatedTimeSeconds
                 node.clearDirty()
                 regenerated.append(node)

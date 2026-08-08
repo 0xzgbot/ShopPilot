@@ -41,6 +41,14 @@ public final class DirtyRegionManager: ObservableObject {
         self.simulator = simulator
         self.previewManager = previewManager
     }
+
+    /// Public convenience init (SPK-0316): a manager with no simulator or
+    /// preview attached is still a valid dirty-region tracker — callers that
+    /// resimulate wire their own simulator/preview in later.
+    public init() {
+        self.simulator = nil
+        self.previewManager = nil
+    }
     
     /// Mark a vector as modified and add to dirty regions.
     public func markVectorModified(_ vectorId: UUID) {
