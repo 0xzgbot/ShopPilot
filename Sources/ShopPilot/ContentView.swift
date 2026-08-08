@@ -1092,7 +1092,7 @@ private struct CutStageView: View {
                 // SPK-1136a: Profile strategy form — installer-verified §R2 fields.
                 if node.isProfileOperation {
                     ScrollView {
-                        ProfileParamsForm(node: node) { newParams in
+                        ProfileParamsForm(node: node, variables: session.docVars.variables) { newParams in
                             _ = session.applyProfileParams(newParams, to: node.id)
                         }
                     }
@@ -1291,9 +1291,14 @@ private struct ProfileParamsForm: View {
     let onApply: (ProfileToolpathParams) -> Void
 
     @State private var params: ProfileToolpathParams
+    /// SPK-0209 — document variables available to calculation edit boxes.
+    let variables: [DocumentVariable]
+    /// SPK-0209 — last expression error (shown under the form).
+    @State private var calcMessage = ""
 
-    init(node: ToolpathTreeNode, onApply: @escaping (ProfileToolpathParams) -> Void) {
+    init(node: ToolpathTreeNode, variables: [DocumentVariable], onApply: @escaping (ProfileToolpathParams) -> Void) {
         self.node = node
+        self.variables = variables
         self.onApply = onApply
         _params = State(initialValue: node.profileParams())
     }
@@ -1328,8 +1333,14 @@ private struct ProfileParamsForm: View {
                 Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
                     numRow("Feed (mm/min)", $params.feedRateMmPerMin)
                     numRow("Plunge (mm/min)", $params.plungeFeedRateMmPerMin)
-                    numRow("Depth/pass (mm)", $params.maxDepthOfCutMm)
-                    numRow("Tool Ø (mm)", $params.toolDiameterMm)
+                    calcRow("Depth/pass (mm)", $params.maxDepthOfCutMm, variables: variables, $calcMessage)
+                    calcRow("Tool Ø (mm)", $params.toolDiameterMm, variables: variables, $calcMessage)
+                }
+                if !calcMessage.isEmpty {
+                    Text(calcMessage)
+                        .font(.caption2)
+                        .foregroundStyle(.red)
+                        .padding(.top, 2)
                 }
             }
 
@@ -1399,6 +1410,44 @@ private struct ProfileParamsForm: View {
             TextField("", value: value, format: .number)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 80)
+        }
+    }
+
+    /// SPK-0209 — calculation edit box: the user may type a plain number OR
+    /// an expression (`2*pi*r`, `$width/2`, `sheetWidth*0.75`). On commit the
+    /// expression resolves against the document variables; invalid input
+    /// leaves the binding untouched and flags a message.
+    private func calcRow(
+        _ label: String,
+        _ value: Binding<Double>,
+        variables: [DocumentVariable],
+        _ message: Binding<String>
+    ) -> some View {
+        GridRow {
+            Text(label).font(.caption).foregroundStyle(.secondary)
+            TextField(
+                "",
+                text: Binding(
+                    get: { String(format: "%.3f", value.wrappedValue) },
+                    set: { newText in
+                        let trimmed = newText.trimmingCharacters(in: .whitespaces)
+                        guard !trimmed.isEmpty else { return }
+                        // Plain number → commit directly.
+                        if let plain = Double(trimmed) {
+                            value.wrappedValue = plain
+                            return
+                        }
+                        // Expression → resolve; only commit when valid.
+                        if let resolved = ExpressionCalculator.evaluate(trimmed, variables: variables) {
+                            value.wrappedValue = resolved
+                        } else {
+                            message.wrappedValue = "Invalid expression: \(trimmed)"
+                        }
+                    }
+                )
+            )
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 110)
         }
     }
 }
