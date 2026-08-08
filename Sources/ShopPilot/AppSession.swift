@@ -940,6 +940,26 @@ final class AppSession: ObservableObject {
         return true
     }
 
+    /// SPK-D13 — fit smooth curves through the selected shapes (replaces each
+    /// shape with its smoothed control-point polyline; corners sharper than
+    /// the threshold survive). Undoable + dirty.
+    @discardableResult
+    func applyFitCurves(smoothing: Double = 0.5) -> Bool {
+        let sel = selectedShapeIndices.compactMap { shapes.indices.contains($0) ? shapes[$0] : nil }
+        guard !sel.isEmpty else {
+            statusMessage = "Fit Curves needs a selected shape"
+            return false
+        }
+        let params = FitCurvesParams(smoothing: smoothing, cornerAngleDegrees: 60, maxSegmentLengthMm: 0)
+        let output = sel.map { shape in
+            let result = FitCurvesEngine.fit(shape: shape, params: params)
+            return VectorShape.freehand(points: result.fitted.first ?? [])
+        }
+        replaceSelectedShapes(with: output)
+        statusMessage = "Fitted \(sel.count) shape(s) with smoothing \(String(format: "%.1f", smoothing))"
+        return true
+    }
+
     /// Extend selected open shapes by a distance at both open ends (SPK-0215).
     @discardableResult
     func applyExtend(distance: Double) -> Bool {
@@ -1525,6 +1545,29 @@ final class AppSession: ObservableObject {
         }
         registerUndoPoint()
         stack[index].heightfield = ComponentOperationEngine.emboss(stack[index].heightfield, params: params)
+        job.reliefComponents = stack
+        markDirty()
+        return recompositeRelief()
+    }
+
+    /// SPK-E22 — offset a component's relief (dilate/erode the solid form).
+    /// Positive offsetMm grows the shell outward, negative insets it.
+    @discardableResult
+    func offsetComponent(_ id: UUID, offsetMm: Double) -> Bool {
+        guard var stack = job.reliefComponents,
+              let index = stack.firstIndex(where: { $0.id == id }) else {
+            statusMessage = "Component not found"
+            return false
+        }
+        guard let result = ModelOffsetEngine.offset(
+            heightfield: stack[index].heightfield,
+            params: .init(offsetMm: offsetMm)
+        ) else {
+            statusMessage = "Offset failed — invalid grid"
+            return false
+        }
+        registerUndoPoint()
+        stack[index].heightfield = result.heightfield
         job.reliefComponents = stack
         markDirty()
         return recompositeRelief()
@@ -2345,6 +2388,35 @@ final class AppSession: ObservableObject {
         node.paramsJSON = encodeParams(params)
         lastToolpathSummary =
             "Drill Bank: \(result.pointCount) hole(s) (\(params.gridCols)×\(params.gridRows) grid), \(result.gcodeLines.count) lines"
+        statusMessage = lastToolpathSummary
+    }
+
+    /// SPK-H04 — wrapped fluting: flute straight lines around the rotary axis
+    /// (flat X stays axial, flat Y wraps to A degrees). Uses the selected
+    /// open vectors' endpoints as flute lines; falls back to a single
+    /// center-line flute when no vectors are selected.
+    func generateWrappedFluting() {
+        let params = WrappedFlutingParams()
+        registerUndoPoint()
+        // Flute lines: use selected open polylines' segments; else a single
+        // default flute along the job width.
+        let selected = selectedShapeIndices.compactMap { shapes.indices.contains($0) ? shapes[$0] : nil }
+        var flutePoints: [VectorPoint] = []
+        if let first = selected.first, case .freehand(let pts) = first, pts.count >= 2 {
+            flutePoints = pts
+        } else {
+            let w = job.sheets.first?.width ?? 100.0
+            flutePoints = [VectorPoint(x: 0, y: 0), VectorPoint(x: w, y: 0)]
+        }
+        let result = WrappedFlutingToolpathEngine.compute(points: flutePoints, params: params)
+        let node = addToolpathNode(
+            named: "Wrapped Fluting \(toolpathTree.allNodes.count)",
+            gcode: result.gcode,
+            estimatedTime: TimeInterval(result.moveCount) * 0.02
+        )
+        node.paramsJSON = encodeParams(params)
+        lastToolpathSummary =
+            "Wrapped Fluting: \(result.moveCount) move(s) around Ø\(String(format: "%.1f", params.wrapDiameterMm))mm, \(result.gcode.count) lines"
         statusMessage = lastToolpathSummary
     }
 

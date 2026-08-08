@@ -171,11 +171,27 @@ struct ModelStageView: View {
                                 params: EmbossParams(embossType: .recessed, depth: 2.0)
                             )
                         }
+                        // SPK-E22 — offset model: grow (dilate) or shrink (erode)
+                        // the component's solid form.
+                        Menu("Offset Model…") {
+                            Button("Expand +1 mm") {
+                                _ = session.offsetComponent(component.id, offsetMm: 1.0)
+                            }
+                            Button("Expand +2 mm") {
+                                _ = session.offsetComponent(component.id, offsetMm: 2.0)
+                            }
+                            Button("Inset −1 mm") {
+                                _ = session.offsetComponent(component.id, offsetMm: -1.0)
+                            }
+                            Button("Inset −2 mm") {
+                                _ = session.offsetComponent(component.id, offsetMm: -2.0)
+                            }
+                        }
                     } label: {
                         Image(systemName: "wand.and.stars")
                     }
                     .buttonStyle(.borderless)
-                    .help("Component operations: smooth the relief, or emboss raised/recessed")
+                    .help("Component operations: smooth, emboss, or offset the relief")
                     Button {
                         _ = session.removeComponent(component.id)
                     } label: {

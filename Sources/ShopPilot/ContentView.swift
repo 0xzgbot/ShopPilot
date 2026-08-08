@@ -461,6 +461,9 @@ private struct DesignStageView: View {
             Button("Extend…") { showExtendDialog = true }
                 .disabled(session.selectedShapeIndices.isEmpty)
                 .help("Extend the open ends of selected vectors")
+            Button("Fit Curves") { _ = session.applyFitCurves() }
+                .disabled(session.selectedShapeIndices.isEmpty)
+                .help("Smooth selected vectors into curves — corners sharper than 60° survive")
             Button("Array…") { showArrayDialog = true }
                 .disabled(session.selectedShapeIndices.isEmpty)
                 .help("Copy the selection into a columns × rows grid")
@@ -666,6 +669,8 @@ private struct CutStageView: View {
                     Button("V-Carve") { session.generateVCarveToolpath() }
                         .help("Engrave vectors with a V-bit")
                     Divider()
+                    Button("Wrapped Fluting") { session.generateWrappedFluting() }
+                        .help("Flute lines around the rotary axis (X axial, Y wraps to A degrees)")
                     // SPK-0900/0802 lean slices: specialty strategies.
                     Button("Prism") { session.generatePrismToolpath() }
                         .help("Parallel V-grooves across closed vectors (prismatic sign effect)")

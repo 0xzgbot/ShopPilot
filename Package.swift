@@ -532,6 +532,21 @@ let package = Package(
             path: "Sources/ShopPilotVerify1134"
         ),
         .executableTarget(
+            name: "ShopPilotVerifyFitCurves",
+            dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
+            path: "Sources/ShopPilotVerifyFitCurves"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerifyModelOffset",
+            dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
+            path: "Sources/ShopPilotVerifyModelOffset"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerifyWrappedFluting",
+            dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
+            path: "Sources/ShopPilotVerifyWrappedFluting"
+        ),
+        .executableTarget(
             name: "ShopPilotVerifyEPSImport",
             dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
             path: "Sources/ShopPilotVerifyEPSImport"
