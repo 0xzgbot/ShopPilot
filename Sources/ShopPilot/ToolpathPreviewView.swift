@@ -321,35 +321,39 @@ struct ToolpathPreviewView: View {
         dragStart = .zero
     }
 
-    /// SPK-1103e: sheet-aware material sim of the FULL toolpath tree on a
-    /// background task — cancellable (Cancel button → per-line poll) and
-    /// non-blocking (detached task; UI updates only on completion/cancel).
+    /// SPK-1103e / SPK-0315: sheet-aware material sim on a background task —
+    /// cancellable (Cancel button → per-line poll) and non-blocking. When the
+    /// dirty-region tracker has a PARTIAL change (only some tree nodes dirty),
+    /// only the dirty nodes' G-code is re-simulated and the status reports the
+    /// delta; a full-tree change (or no dirty state) simulates everything.
     private func runMaterialSimulation() {
-        let lines = session.allToolpathGCode
-        guard !lines.isEmpty else { return }
+        let fullLines = session.allToolpathGCode
+        guard !fullLines.isEmpty else { return }
         guard let sheet = session.job.sheets.first else { return }
         cancelFlag.cancelled = false
         isSimulating = true
         simStatus = "Simulating material…"
+        let manager = session.dirtyRegionManager
         simTask = Task {
             let flag = cancelFlag
-            let outcome = await Task.detached(priority: .userInitiated) {
-                ToolpathSimulator.materialSimulation(
-                    from: lines,
-                    sheetWidthMm: sheet.width,
-                    sheetDepthMm: sheet.depth,
-                    stockTopMm: sheet.height,
-                    cellSizeMm: 1.0,
-                    shouldCancel: { flag.cancelled }
-                )
-            }.value
-            heightSamples = outcome.samples
+            let (samples, isPartial) = await manager.performResimulation(
+                partialLines: session.dirtyToolpathGCode,
+                fullLines: fullLines,
+                sheetWidthMm: sheet.width,
+                sheetDepthMm: sheet.depth,
+                stockTopMm: sheet.height,
+                cellSizeMm: 1.0,
+                shouldCancel: { flag.cancelled }
+            )
+            heightSamples = samples
             isSimulating = false
             simTask = nil
-            if outcome.isCancelled {
-                simStatus = "Sim cancelled (\(outcome.samples.count) samples kept)"
+            if flag.cancelled {
+                simStatus = "Sim cancelled (\(samples.count) samples kept)"
+            } else if isPartial {
+                simStatus = "Dirty-region resim (\(samples.count) samples, changed nodes only)"
             } else {
-                simStatus = "Material sim ready (\(outcome.samples.count) samples, \(String(format: "%.2f", outcome.seconds))s)"
+                simStatus = "Material sim ready (\(samples.count) samples)"
             }
             if mode == .wireframe { mode = .combined }
         }

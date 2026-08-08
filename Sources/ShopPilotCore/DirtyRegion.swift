@@ -110,25 +110,65 @@ public final class DirtyRegionManager: ObservableObject {
         return false
     }
     
-    /// Perform selective resimulation for dirty regions.
-    public func performResimulation() async {
-        guard needsResimulation else { return }
-        
-        // In a real implementation, this would:
-        // 1. Identify which vectors need resimulation based on dirtyRegions
-        // 2. Run simulation only for affected areas
-        // 3. Update the preview with new results
-        
-        // For now, simulate async work
-        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1s delay
-        
+    /// Perform selective resimulation for dirty regions (SPK-0315).
+    ///
+    /// When the dirty set is a PROPER subset of the tree, only the affected
+    /// nodes' G-code is re-simulated (`partialLines`) — the caller (Preview)
+    /// renders just the delta carving; a full-tree change falls back to the
+    /// complete line set. Returns the simulated height samples.
+    public func performResimulation(
+        partialLines: [String],
+        fullLines: [String],
+        sheetWidthMm: Double,
+        sheetDepthMm: Double,
+        stockTopMm: Double,
+        cellSizeMm: Double,
+        shouldCancel: (() -> Bool)? = nil
+    ) async -> ([(x: Double, y: Double, z: Double)], isPartial: Bool) {
+        guard needsResimulation else {
+            return ([], isPartial: false)
+        }
+
+        let isFullTree = dirtyRegions.contains { region in
+            if case .fullTree = region { return true }
+            if case .keepOutZoneChanged = region { return true }
+            return false
+        }
+
+        let lines: [String]
+        let partial: Bool
+        if isFullTree || partialLines.isEmpty {
+            lines = fullLines
+            partial = false
+        } else {
+            lines = partialLines
+            partial = true
+        }
+        guard !lines.isEmpty else {
+            clearDirtyRegions()
+            return ([], isPartial: partial)
+        }
+
+        let outcome = await ToolpathSimulator.materialSimulation(
+            from: lines,
+            sheetWidthMm: sheetWidthMm,
+            sheetDepthMm: sheetDepthMm,
+            stockTopMm: stockTopMm,
+            cellSizeMm: cellSizeMm,
+            shouldCancel: shouldCancel ?? { false }
+        )
         clearDirtyRegions()
+        return (outcome.samples, isPartial: partial)
     }
-    
+
     /// Perform full resimulation regardless of dirty state.
     public func performFullResimulation() async {
         markFullTreeDirty()
-        await performResimulation()
+        let result = await performResimulation(
+            partialLines: [], fullLines: [],
+            sheetWidthMm: 0, sheetDepthMm: 0, stockTopMm: 0, cellSizeMm: 1
+        )
+        _ = result
     }
 }
 

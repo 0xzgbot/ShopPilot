@@ -52,6 +52,24 @@ final class AppSession: ObservableObject {
         return nodeLines.isEmpty ? gcodeLines : nodeLines
     }
 
+    /// SPK-0315 — G-code of the DIRTY operation nodes only (the partial-resim
+    /// line set). Empty when nothing is dirty.
+    var dirtyToolpathGCode: [String] {
+        toolpathTree.root.allDirtyNodes
+            .filter { $0.toolpathResult != nil }
+            .flatMap { node -> [String] in
+                (node.toolpathResult ?? "")
+                    .components(separatedBy: .newlines)
+                    .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+            }
+    }
+
+    /// SPK-0315 — dirty-region tracker for selective resimulation. Views mark
+    /// regions via `markVectorModified`/`markFullTreeDirty`; the Preview stage
+    /// runs `performResimulation(partialLines:fullLines:…)` and renders the
+    /// delta when the change was partial.
+    let dirtyRegionManager = DirtyRegionManager()
+
     /// Session tool database — the tool picker reads and assigns from here.
     @Published var toolDatabase = ToolDatabase()
 
