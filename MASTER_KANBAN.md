@@ -529,10 +529,9 @@ A (parallel from day 0)
   - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
   - worklog: 2026-07-29 — FilletExtend.swift: rectangle corner fillet, line extend-to-point, extend-to-intersection. Build passes cleanly.
   - deps: SPK-0201  
-- [ ] **SPK-0216** **GEO** Unified Import hub UI
-  - **REOPENED 2026-08-01 (finish plan):** product AC unmet (need Engine+UI+Persist+Verify). See `docs/planning/FINISH_ROADMAP.md`.
-  - worklog: 2026-07-30 — Direct write. Created ImportHubView.swift (13.9KB) with unified import hub for Design stage. Features: format picker (SVG/DXF), NSOpenPanel file picker via NSViewRepresentable, SVG parsing through existing SVGImporter, result display with shape count/errors/warnings, "Add to Document" / "Discard" actions. DXF marked as Draft status (not yet passing build). ImportFormat enum with status badges. swift build passes cleanly.
-  - deps: SPK-0206
+- [x] **SPK-0216** **GEO** Unified Import hub UI — **SHIPPED 2026-08-07 (Hermes coder)** (SPK-0216 worklog below)
+  - AC: Engine: `UnifiedImportRouter` (Geometry) — one dispatch entry for every vector format (SVG/DXF/EPS/PDF/AI/DWG) by extension or forced format, uniform Result (format/shapes/warnings); unknown extensions → empty + warning (never crash). UI: the existing Import Hub ("Import Artwork…" in Design) now covers all 6 formats — `ImportFormat` enum extended (names/descriptions/icons/status), file picker `allowedTypes` per format, and `performImport` routes through the router (warnings surfaced as errors, partial imports still preview). Persist: unchanged (shapes land via `addShapes`). Verify: `ShopPilotVerify0216` PASS — extension routing (incl. uppercase + unknown), SVG/DXF/EPS/PDF/AI fixtures parse through the router, real DWG R12 fixture (LINE1) parses, unknown ext → warning.
+  - deps: SPK-0206  
 
 **Phase C exit:** Draw/import closed shapes; preflight clean; tests green.
 
@@ -1218,6 +1217,9 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 ---
 
 ## 12. Work log
+
+### 2026-08-07 — SPK-0216 unified import hub (Hermes coder)
+- **SPK-0216 [x]** — `UnifiedImportRouter` (Geometry): extension/format dispatch to all 6 vector importers (SVG/DXF/EPS/PDF/AI/DWG), uniform `Result(format:shapes:warnings:)`, unknown ext → empty + warning. Hub UI ("Import Artwork…" in Design) extended from SVG/DXF-only to all 6: `ImportFormat` cases + metadata, per-format `allowedTypes`, `performImport` routes through the router. **`ShopPilotVerify0216` PASS** (routing incl. uppercase/unknown; fixtures for SVG/DXF/EPS/PDF/AI; real DWG R12 LINE1 fixture). App debug build green.
 
 ### 2026-08-07 — SPK-0209 calculation numeric fields (Hermes coder)
 - **SPK-0209 [x]** — `ExpressionCalculator` (Core, public): recursive-descent evaluator (+ − × ÷, parens, decimals, π/pi, `$name`/bare vars, longest-key-first). Found + fixed TWO real bugs the CLT exposed: (1) the shared evaluator silently SKIPS unknown characters ("stockWidth / 2" parsed as "2") — hardened `ExpressionCalculator` to return nil on leftover letters; (2) spaces around operators broke parsing (`2440 / 2` → nil because the parse loops checked `peek()` before `skipWhitespace`) — fixed in the shared `ExpressionEvaluator` (additive; DrivenDimensionResolver unaffected). UI: `calcRow` on the Profile form (Depth/pass + Tool Ø), resolving against `session.docVars.variables` on commit with a red error message on invalid input. **`ShopPilotVerify0209` PASS.** App debug build green.

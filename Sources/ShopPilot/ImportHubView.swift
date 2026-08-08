@@ -131,44 +131,27 @@ public struct ImportHubView: View {
     }
 
     private func performImport(url: URL, format: ImportFormat) async throws -> ImportResult {
-        let content = try String(contentsOf: url, encoding: .utf8)
-        
+        // SPK-0216: all formats route through UnifiedImportRouter — one
+        // dispatch, uniform result shape.
+        let routerFormat: UnifiedImportRouter.Format
         switch format {
-        case .svg:
-            return try importSVG(content: content, fileName: url.lastPathComponent)
-        case .dxf:
-            return importDXF(content: content, fileName: url.lastPathComponent)
+        case .svg: routerFormat = .svg
+        case .dxf: routerFormat = .dxf
+        case .eps: routerFormat = .eps
+        case .pdf: routerFormat = .pdf
+        case .ai: routerFormat = .ai
+        case .dwg: routerFormat = .dwg
         }
-    }
-
-    /// SPK-1101g: ASCII DXF (LINE / LWPOLYLINE / CIRCLE / ARC).
-    private func importDXF(content: String, fileName: String) -> ImportResult {
-        let parseResult = DXFParser.parse(content)
+        let result = UnifiedImportRouter.importFile(at: url, format: routerFormat)
+        // The router emits warnings ONLY on failure (unsupported ext, read or
+        // parse errors) — surface them as errors; the shape list stays intact
+        // so partial imports still show a preview.
         return ImportResult(
-            fileName: fileName,
-            format: .dxf,
-            shapes: parseResult.shapes,
-            errors: parseResult.errors,
-            warnings: parseResult.errors.isEmpty ? [] : ["Some entities were skipped or malformed"]
-        )
-    }
-
-    private func importSVG(content: String, fileName: String) throws -> ImportResult {
-        let parseResult = SVGImporter.parse(content)
-        
-        var warnings: [String] = []
-        
-        // Warn about unclosed paths (common in SVG exports from vector tools)
-        if !parseResult.errors.isEmpty && parseResult.success {
-            warnings.append("Some path elements had issues but import succeeded")
-        }
-        
-        return ImportResult(
-            fileName: fileName,
-            format: .svg,
-            shapes: parseResult.shapes,
-            errors: parseResult.errors,
-            warnings: warnings
+            fileName: url.lastPathComponent,
+            format: format,
+            shapes: result.shapes,
+            errors: result.warnings.isEmpty ? [] : result.warnings.map { "FATAL: \($0)" },
+            warnings: []
         )
     }
 }
@@ -368,6 +351,14 @@ private struct FilePickerView: NSViewRepresentable {
                 return [.svg, .image, .plainText]
             case .dxf:
                 return [.plainText] // DXF not in UTType registry; accept as plain text
+            case .eps:
+                return [.plainText, .data] // EPS is text but may carry binary previews
+            case .pdf:
+                return [.pdf]
+            case .ai:
+                return [.plainText, .pdf, .data] // AI is EPS or PDF flavor
+            case .dwg:
+                return [.data] // DWG is binary; no UTType registry entry
             }
         }
     }
@@ -375,45 +366,66 @@ private struct FilePickerView: NSViewRepresentable {
 
 // MARK: - Import Format
 
-/// Supported import file formats for the design hub.
+/// Supported import file formats for the design hub (SPK-0216: one picker
+/// covering every vector format the router dispatches).
 public enum ImportFormat: String, Codable, Sendable, CaseIterable, Identifiable {
     case svg
     case dxf
-    
+    case eps
+    case pdf
+    case ai
+    case dwg
+
     public var id: String { rawValue }
-    
+
     public var displayName: String {
         switch self {
         case .svg: return "SVG"
         case .dxf: return "DXF"
+        case .eps: return "EPS"
+        case .pdf: return "PDF"
+        case .ai: return "AI"
+        case .dwg: return "DWG"
         }
     }
-    
+
     public var description: String {
         switch self {
         case .svg: return "Scalable Vector Graphics — paths, shapes, curves"
         case .dxf: return "Drawing Exchange Format — CAD vector data"
+        case .eps: return "Encapsulated PostScript — vector drawings"
+        case .pdf: return "PDF — vector content streams"
+        case .ai: return "Adobe Illustrator — EPS or PDF flavor"
+        case .dwg: return "AutoCAD DWG — R12 (AC1009) LINE/CIRCLE/ARC/POINT"
         }
     }
-    
+
     public var iconName: String {
         switch self {
         case .svg: return "photo"
         case .dxf: return "square.grid.2x2"
+        case .eps: return "doc.richtext"
+        case .pdf: return "doc.plaintext"
+        case .ai: return "paintbrush.pointed"
+        case .dwg: return "square.stack.3d.up"
         }
     }
-    
+
     public var statusText: String {
         switch self {
         case .svg: return "Ready"
         case .dxf: return "Ready (ASCII)"
+        case .eps: return "Ready"
+        case .pdf: return "Ready"
+        case .ai: return "Ready"
+        case .dwg: return "Ready (R12)"
         }
     }
-    
+
     public var statusColor: Color {
         switch self {
-        case .svg: return .green
-        case .dxf: return .green
+        case .svg, .dxf, .eps, .pdf, .ai: return .green
+        case .dwg: return .green
         }
     }
 }
