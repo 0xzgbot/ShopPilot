@@ -86,8 +86,8 @@ CLT are in place (the same DoD as v1). Human `[!]` items stay unchecked.
 
 ## 4. Human / deferred items (remain open)
 
-- [ ] **SPK-0010** interviews (optional for v1; required before v2 pricing).
 - [ ] **SPK-0419** live hardware air-cut on a real router (needs hardware).
+- [ ] ~~**SPK-0010** interviews~~ — permanently deferred: personal-use only, never for sale (no pricing/commercialization).
 - [ ] **SPK-1009** App Store submission — deferred (personal use).
 
 ## 5. Verification gate

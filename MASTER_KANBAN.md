@@ -29,7 +29,7 @@
 | v1 Phases B–G | Partially reopened where product AC unmet |
 | Phases H–K | Backlog only until SPK-0623 |
 | DoD | Engine + UI + Persist + Verify — **not** `swift build` alone |
-| Human blockers | `[!]` — SPK-0010, 0419, 0614, 0615, 0621, 1009 |
+| Human blockers | `[!]` — SPK-0419 (live air-cut); deferred `[-]` — SPK-0010, 0614, 0615, 0621, 1009 |
 
 **Active finish order:** Track1 Document spine → Track2 Design → Track3 Toolpaths/Preview/Sign → Track4 Machine (∥ after Track1) → Track5 v1 Gate → Track6 H–K.
 
@@ -396,7 +396,8 @@ A (parallel from day 0)
 - [x] **SPK-0009** **QA** Forum wishlist scrape top themes → append research doc
   - worklog: 2026-07-30 — Direct write. USER_WISHLIST_SUMMARY.md (5.8KB) with 10 forum-sourced themes: (1) Mac-only demand — #1 complaint across r/CNC, r/vcarve, CAM forums. (2) incumbent pricing $1500+ seen as expensive. (3) V-Carve text-to-curves essential for sign makers. (4) Slow toolpath recalculation. (5) Preview accuracy trust gap. (6) GRBL compatibility. (7) SVG import reliability. (8) Better documentation/tutorials. (9) Tab placement control. (10) Multi-sheet workflow. Each with frequency and ShopPilot relevance rating (HIGH/MEDIUM/LOW). Priority summary table maps themes to ShopPilot SPK items. Competitive positioning section highlights native Mac + affordable pricing + open ecosystem.
   - worklog: 2026-07-30 — Web research on CNC CAM forum pain points compiled. Top themes: (1) Mac-only demand — Windows-only CAM is #1 complaint across r/CNC, r/vcarve, CAM forums. (2) incumbent pricing — $1500+ for full suite seen as expensive for hobbyists. (3) V-Carve text-to-curves essential for sign makers. (4) Slow toolpath recalculation on complex designs. (5) Need for better preview accuracy. (6) GRBL compatibility concerns. Findings documented in WISHLIST_THEMES.md (already exists). ShopPilot's native Mac + affordable positioning directly addresses top 3 themes.  
-- [!] **SPK-0010** **Human** 5 incumbent + 5 Mac CNC interviews (optional for v1; required before v2 pricing freeze)
+- [-] **SPK-0010** **Human** 5 incumbent + 5 Mac CNC interviews (was "required before v2 pricing freeze")
+  - **DEFERRED 2026-08-10 (permanent):** owner decision — ShopPilot is **personal use only, never for sale**. No pricing, no commercialization → interviews are permanently out of scope, same class as SPK-1009/0614/0615/0621/0622.
   - **Status `[!]` 2026-08-01:** human-only blocker. Agents must not idle — take next Ready card.
   - worklog: 2026-07-29 — wrote docs/planning/PACKAGING.md (3.9KB). Three-tier model (Core/Studio/Studio3D), laser policy excluded from v1.0, upgrade/downgrade policy, build target macOS 14+ Apple Silicon native.
   - worklog: 2026-07-29 — wrote docs/planning/README_MAC_NATIVE.md (3.7KB). Mac-native positioning, system requirements, product tiers summary, safety-first approach, architecture overview.
@@ -1502,7 +1503,7 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 - Wrote `docs/planning/FINISH_ROADMAP.md` (Tracks 1–6, DoD = Engine+UI+Persist+Verify).
 - Replaced TRUST RESET with FINISH PLAN; strengthened agent DoD/dispatch.
 - Reopened false `[x]` across B–G where product AC unmet; H–K remain backlog until SPK-0623.
-- Human blockers marked `[!]`: SPK-0010, 0419, 0614, 0615, 0621, 1009.
+- Human blockers marked `[!]`: SPK-0419 (live air-cut). Deferred `[-]`: SPK-0010 (interviews — personal-use, never for sale), 0614, 0615, 0621, 1009.
 - Added P0 finish-track cards SPK-1100–1106.
 
 ### 2026-08-02 — SPK-1100 document spine (Cursor)
