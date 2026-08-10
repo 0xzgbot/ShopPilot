@@ -1161,6 +1161,23 @@ A (parallel from day 0)
 
 ---
 
+# PHASE L — UX overhaul (v2.1)
+
+Plan: `docs/planning/UI_OVERHAUL_PLAN.md`. DoD = Engine + UI + Persist + Verify CLT (`ShopPilotVerify120x` PASS, whole-package build green, board `[x]` + worklog). Wave order: W1 = 1207/1209/1206/1204 (parallel), W2 = 1201/1202/1205, W3 = 1203/1208/1210.
+
+- [ ] **SPK-1201** **UX** Cut-Layers table (LightBurn-style) — sortable grid over the toolpath tree: ✓ | status | # | name | tool | feed | depth | time; inline edit commits via applyXParams; drag reorder rewrites tree order. Deps: SPK-1207.
+- [ ] **SPK-1202** **UX** Surface-color material preview — `MaterialSurfacePalette` presets (walnut/acrylic/painted MDF/plywood), depth-shaded heightfield renderer (top skin until the cut passes the layer → base). 
+- [ ] **SPK-1203** **UX** Smart part selection + canvas dimension handles — `PartDetector` (closed shapes sharing an edge point = one part), `DimensionHandle` drag math over SPK-0807 driven dimensions.
+- [ ] **SPK-1204** **UX** Context menus everywhere — `CommandContext` registry (action + enabled predicate, one source of truth with toolbars); right-click on tree rows / layers / canvas / toolpaths.
+- [ ] **SPK-1205** **UX** Inline coach strip — `CoachRuleEngine` (stage + selection + dirty + preflight → tip, priority-ordered) under the stage rail + first-run tooltips.
+- [ ] **SPK-1206** **UX** View control gizmo + orthographic toggle — `ViewOrientation` presets + gizmo hit-test math; nav cube in Preview/Model; ⌘⌥1…4.
+- [ ] **SPK-1207** **UX** Visual toolpath status + Recalc All — `ToolpathStatusEngine` (stale/current/error from dirty marks), status dots in the tree, Recalc-All regenerates only stale nodes.
+- [ ] **SPK-1208** **UX** Sheet duplication + toolpath sheet transfer — `SheetOperations` deep-copy sheet+vectors+toolpaths (new UUIDs), re-parent toolpath across sheets with consistency guards. Deps: SPK-1204.
+- [ ] **SPK-1209** **UX** WebP import + recent-files rail — ImageIO WebP decode, `RecentFilesStore` (UserDefaults, cap 10, dedupe), Recent rail in ImportHub.
+- [ ] **SPK-1210** **UX** Peck-drill viz + toolpath-on-hover — peck retract detection in `WireframeRenderer`, per-node segment tags, hover row → highlight op on Preview canvas. Deps: SPK-1201.
+
+---
+
 ## 3. Kanban column mapping (for Hermes / UI boards)
 
 | Column | Cards |
