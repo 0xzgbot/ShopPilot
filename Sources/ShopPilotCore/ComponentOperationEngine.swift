@@ -107,6 +107,109 @@ public enum ComponentOperationEngine {
         ComponentCompositor.composite(components)
     }
 
+    // MARK: - Shift
+
+    /// Shift the heightfield grid by integer cell offsets. Cells that shift
+    /// outside the grid are filled with 0 (black = floor). The grid geometry
+    /// is preserved.
+    public static func shiftHeightfield(
+        _ hf: HeightfieldData,
+        shiftX: Int,
+        shiftY: Int
+    ) -> HeightfieldData? {
+        guard shiftX != 0 || shiftY != 0 else { return hf }
+        let w = hf.width, h = hf.height
+        var heights = [Double](repeating: 0, count: w * h)
+        for j in 0..<h {
+            for i in 0..<w {
+                let srcI = i - shiftX
+                let srcJ = j - shiftY
+                if srcI >= 0 && srcI < w && srcJ >= 0 && srcJ < h {
+                    heights[j * w + i] = hf.heights[srcJ * w + srcI]
+                }
+            }
+        }
+        return HeightfieldData(
+            width: w, height: h,
+            cellSizeMm: hf.cellSizeMm, minX: hf.minX, minY: hf.minY,
+            heights: heights
+        )
+    }
+
+    // MARK: - Scale
+
+    /// Scale the heightfield grid by a uniform factor using nearest-neighbor.
+    /// Returns nil when the factor is ≤ 0 or the resulting grid would exceed
+    /// 2048 cells per side (a drag-scale handle feeding a huge factor must not
+    /// allocate e.g. 10^10 cells — 80GB OOM).
+    public static func scaleHeightfield(
+        _ hf: HeightfieldData,
+        scaleFactor: Double
+    ) -> HeightfieldData? {
+        guard scaleFactor > 0 else { return nil }
+        let w = hf.width, h = hf.height
+        let newW = max(1, Int(Double(w) * scaleFactor))
+        let newH = max(1, Int(Double(h) * scaleFactor))
+        guard newW <= 2048, newH <= 2048 else { return nil }
+        var heights = [Double](repeating: 0, count: newW * newH)
+        for j in 0..<newH {
+            for i in 0..<newW {
+                let srcI = Int(Double(i) / max(0.001, scaleFactor))
+                let srcJ = Int(Double(j) / max(0.001, scaleFactor))
+                let si = min(srcI, w - 1)
+                let sj = min(srcJ, h - 1)
+                heights[j * newW + i] = hf.heights[sj * w + si]
+            }
+        }
+        return HeightfieldData(
+            width: newW, height: newH,
+            cellSizeMm: hf.cellSizeMm / scaleFactor,
+            minX: hf.minX, minY: hf.minY,
+            heights: heights
+        )
+    }
+
+    // MARK: - Rotate
+
+    /// Rotate the heightfield grid by a multiple of 90 degrees (CW).
+    /// Returns nil when degrees is not a multiple of 90.
+    ///
+    /// 90° rotation SWAPS the grid dimensions (W×H → H×W); the original
+    /// implementation kept w×h fixed and read `src[(w-1-i)*w + j]`, which is
+    /// only valid for square grids — for h > w the index exceeds `w*h` and the
+    /// array read is out of bounds (crash). Each turn now maps
+    /// `dest[j'][i'] = src[(h-1-i')*w + j']` with dims swapped after the turn.
+    public static func rotateHeightfield(
+        _ hf: HeightfieldData,
+        degrees: Int
+    ) -> HeightfieldData? {
+        let norm = ((degrees % 360) + 360) % 360
+        guard norm % 90 == 0 else { return nil }
+        let turns = norm / 90
+        var w = hf.width
+        var h = hf.height
+        var src = hf.heights
+        for _ in 0..<turns {
+            // 90° CW: new grid is h×w. dest row j' ∈ [0, w), dest col i' ∈ [0, h).
+            var rotated = [Double](repeating: 0, count: w * h)
+            for jp in 0..<w {
+                for ip in 0..<h {
+                    rotated[jp * h + ip] = src[(h - 1 - ip) * w + jp]
+                }
+            }
+            src = rotated
+            let newW = h
+            let newH = w
+            w = newW
+            h = newH
+        }
+        return HeightfieldData(
+            width: w, height: h,
+            cellSizeMm: hf.cellSizeMm, minX: hf.minX, minY: hf.minY,
+            heights: src
+        )
+    }
+
     // MARK: - Split
 
     /// Split at a horizontal plane: returns the part ABOVE `planeHeight`

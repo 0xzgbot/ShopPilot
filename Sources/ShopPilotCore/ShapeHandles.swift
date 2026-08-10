@@ -144,6 +144,53 @@ public final class ShapeHandleManager: ObservableObject {
         return ids
     }
     
+    /// Applies a handle manipulation to a ReliefComponent's heightfield.
+    /// Returns the modified heightfield (or nil if the handle type is unsupported).
+    @discardableResult
+    public func applyHandle(
+        to component: ReliefComponent,
+        handle: ShapeHandle,
+        delta: HandlePosition
+    ) -> HeightfieldData? {
+        switch handle.handleType {
+        case .translate:
+            // Translate: offset the heightfield grid by delta.x/delta.y cells
+            guard let shifted = ComponentOperationEngine.shiftHeightfield(
+                component.heightfield,
+                shiftX: Int(delta.x),
+                shiftY: Int(delta.y)
+            ) else { return nil }
+            var modified = component
+            modified.heightfield = shifted
+            return modified.heightfield
+            
+        case .scale:
+            // Scale: resize the heightfield grid by delta.x (uniform scale)
+            guard let scaled = ComponentOperationEngine.scaleHeightfield(
+                component.heightfield,
+                scaleFactor: max(0.1, delta.x)
+            ) else { return nil }
+            var modified = component
+            modified.heightfield = scaled
+            return modified.heightfield
+            
+        case .rotate:
+            // Rotate: rotate the heightfield grid by delta.x * 90 degrees
+            let degrees = Int(delta.x * 90)
+            guard let rotated = ComponentOperationEngine.rotateHeightfield(
+                component.heightfield,
+                degrees: degrees
+            ) else { return nil }
+            var modified = component
+            modified.heightfield = rotated
+            return modified.heightfield
+            
+        case .translate, .rotate, .scaleNonUniform, .tilt, .custom:
+            // Unsupported handle types return nil (no-op)
+            return nil
+        }
+    }
+    
     /// Removes all handles for a component.
     public func removeHandles(for componentID: UUID) {
         handles.removeAll { $0.componentID == componentID }

@@ -26,6 +26,11 @@ struct ModelStageView: View {
     /// SPK-0712 — split-plane height dialog.
     @State private var showSplitDialog = false
     @State private var splitPlaneText = "5.0"
+    /// SPK-0704 — combine-mode teacher sheet.
+    @State private var showTeacher = false
+    /// SPK-0708 — composite render configuration sheet.
+    @State private var showCompositeRender = false
+    @State private var showLaserToolpath = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -63,6 +68,10 @@ struct ModelStageView: View {
                             brushFalloff: brushFalloff
                         )
                         _ = session.applySculptStroke(stroke, recordUndo: recordUndo)
+                    },
+                    handles: session.handleManager.handles,
+                    onHandleDrag: { handleID, dx, dy, dz, recordUndo in
+                        _ = session.applyHandleDrag(handleID: handleID, deltaX: dx, deltaY: dy, deltaZ: dz, recordUndo: recordUndo)
                     }
                 )
                 Divider()
@@ -84,6 +93,37 @@ struct ModelStageView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Cuts the relief at a horizontal plane — the part above the plane becomes the new relief (re-based to 0).")
+        }
+        // SPK-0707 — STL orientation wizard sheet.
+        .sheet(isPresented: Binding(
+            get: { session.showSTLOrientationWizard },
+            set: { session.showSTLOrientationWizard = $0 }
+        )) {
+            if let stlURL = session.stlImportURL {
+                STLOrientationWizardSheet(stlURL: stlURL, config: session.stlConfig) { result in
+                    session.showSTLOrientationWizard = false
+                    if let hf = result.heightfield {
+                        session.job.stlHeightfield = hf
+                        session.markDirty()
+                        session.statusMessage = "STL relief: \(result.triangleCount) triangles → \(hf.width)×\(hf.height) grid, max \(String(format: "%.1f", hf.maxHeight))mm"
+                        session.selectedStage = .model
+                    } else {
+                        session.statusMessage = "STL import failed: \(result.errorMessage ?? "unknown error")"
+                    }
+                }
+            }
+        }
+        // SPK-0708 — composite render configuration sheet.
+        .sheet(isPresented: $showCompositeRender) {
+            CompositeRenderSheet { config in
+                _ = session.renderCompositeComponent(config)
+            }
+        }
+        // SPK-0906 — laser toolpath configuration sheet.
+        .sheet(isPresented: $showLaserToolpath) {
+            LaserToolpathSheet { mode, power, speed in
+                _ = session.generateLaserToolpath(mode: mode, powerPercent: power, speedMmPerMin: speed)
+            }
         }
     }
 
@@ -246,9 +286,20 @@ struct ModelStageView: View {
             Button("Finish 3D") { session.generateFinish3DToolpath() }
                 .disabled(session.job.stlHeightfield == nil)
                 .help("Surface-following finish into the Cut tree")
+            // SPK-0711 — zero plane + boundary from components.
+            Button("Work Area") { _ = session.computeWorkAreaFromComponents() }
+                .disabled(session.job.stlHeightfield == nil && (session.reliefComponents ?? []).isEmpty)
+                .help("Compute the zero plane and boundary from the component stack")
+            // SPK-0906 — laser cut/engrave G-code from the design vectors.
+            Button("Laser…") { showLaserToolpath = true }
+                .help("Generate laser cut or engrave G-code from the design vectors")
             Button("Export STL…") { exportSTL() }
                 .disabled(session.job.stlHeightfield == nil)
                 .help("Export the relief as an ASCII STL mesh")
+            // SPK-0708 — composite render: material/finish/lighting preview.
+            Button("Composite Render…") { showCompositeRender = true }
+                .disabled(session.job.stlHeightfield == nil)
+                .help("Render the relief with a material, surface finish and lighting")
             Divider().frame(height: 14)
             // SPK-0700/0701 lean slice: component stack — capture the active
             // relief as a component, then combine multiple reliefs.
@@ -266,6 +317,14 @@ struct ModelStageView: View {
                 Label("Add Shape", systemImage: "square.stack.3d.up")
             }
             .help("Generate a parametric shape relief into the component stack (angled ramp / round dome / smooth bell / flat plane)")
+            // SPK-0704 — combine-mode teacher.
+            Button { showTeacher = true } label: {
+                Label("Combine Help", systemImage: "lightbulb.fill")
+            }
+            .help("Learn what each combine mode does and when to use it")
+            .sheet(isPresented: $showTeacher) {
+                CombineModeTeacherSheet()
+            }
             if !session.reliefComponents.isEmpty {
                 Button("Recomposite") { session.recompositeRelief() }
                     .help("Re-run the combine modes over the component stack")
@@ -284,6 +343,18 @@ struct ModelStageView: View {
                 .disabled(session.job.stlHeightfield == nil)
                 .help("Split the active relief at a horizontal plane — keep the upper part")
             Divider().frame(height: 14)
+            // SPK-0705 — interactive shape handles toggle.
+            Button {
+                if session.handleManager.handles.isEmpty {
+                    session.createHandlesForComponent(session.reliefComponents.first?.id ?? UUID())
+                } else {
+                    session.clearHandles()
+                }
+            } label: {
+                Label(session.handleManager.handles.isEmpty ? "Show Handles" : "Hide Handles",
+                      systemImage: "circle.dashed")
+            }
+            .help("Toggle interactive handles for manipulating components")
             Toggle(isOn: $sculptMode) {
                 Label("Sculpt", systemImage: "paintbrush.pointed.fill")
             }
@@ -452,8 +523,21 @@ private struct ReliefCanvasView: View {
     var sculptMode: Bool = false
     var strokeParams: SculptStrokeParams = SculptStrokeParams()
     var onStroke: ((CGPoint, Bool) -> Void)? = nil
+    /// SPK-0705 — interactive shape handles.
+    var handles: [ShapeHandle] = []
+    var onHandleDrag: ((UUID, Double, Double, Double, Bool) -> Void)? = nil
     @State private var strokeLocation: CGPoint?
     @State private var dragIsLive: Bool = false
+    /// SPK-0705 — handle drag state. `activeHandleID` is set by tapping a
+    /// handle (previously never set, so the whole drag path was dead code).
+    @State private var activeHandleID: UUID?
+    @State private var handleDragStart: CGPoint?
+    /// Last event's translation — DragGesture's `value.translation` is
+    /// CUMULATIVE from gesture start; adding it every event compounds the
+    /// pan/handle delta (drag 100px → canvas moves hundreds more).
+    @State private var lastDragTranslation: CGSize?
+    /// True after the first handle-drag event (undo snapshot already taken).
+    @State private var handleDragLive: Bool = false
 
     var body: some View {
         GeometryReader { geo in
@@ -483,6 +567,32 @@ private struct ReliefCanvasView: View {
                         .position(strokeLocation)
                         .allowsHitTesting(false)
                 }
+                // SPK-0705 — interactive shape handles rendered as colored dots.
+                // Tap a handle to activate it (the drag path reads activeHandleID).
+                if !handles.isEmpty {
+                    ForEach(handles) { handle in
+                        let cellX = Int(handle.position.x)
+                        let cellY = Int(handle.position.y)
+                        let cellZ = Int(handle.position.z)
+                        // Map handle position (in grid coords) to screen position.
+                        let screenX = offsetX + CGFloat(cellX) * scale + (w * scale) / 2
+                        let screenY = offsetY + CGFloat(cellY) * scale + (h * scale) / 2
+                        Circle()
+                            .fill(handle.handleType == .scale ? Color.green :
+                                  handle.handleType == .rotate ? Color.blue :
+                                  cellX == 1 ? Color.red :
+                                  cellY == 1 ? Color.green :
+                                  cellZ == 1 ? Color.blue : Color.orange)
+                            .frame(width: 8, height: 8)
+                            .position(x: screenX, y: screenY)
+                            .contentShape(Circle())
+                            .onTapGesture {
+                                activeHandleID = handle.id
+                                handleDragLive = false
+                                lastDragTranslation = nil
+                            }
+                    }
+                }
             }
             .onAppear { fitBase = Double(base) }
             .onChange(of: geo.size) { _, _ in fitBase = Double(base) }
@@ -499,16 +609,34 @@ private struct ReliefCanvasView: View {
                             // MB-sized on big reliefs).
                             onStroke?(worldPoint(from: p, offsetX: offsetX, offsetY: offsetY, scale: scale), !dragIsLive)
                             dragIsLive = true
+                        } else if let activeHandleID {
+                            // SPK-0705: handle drag mode. value.translation is
+                            // CUMULATIVE from gesture start — add only the
+                            // per-event delta, and snapshot undo once.
+                            let last = lastDragTranslation ?? value.translation
+                            let dx = (value.translation.width - last.width) / scale
+                            let dy = (value.translation.height - last.height) / scale
+                            lastDragTranslation = value.translation
+                            onHandleDrag?(activeHandleID, dx, dy, 0, !handleDragLive)
+                            handleDragLive = true
                         } else {
-                            panX += value.translation.width / scale
-                            panY += value.translation.height / scale
+                            // Pan: same cumulative-translation trap — delta only.
+                            let last = lastDragTranslation ?? value.translation
+                            panX += (value.translation.width - last.width) / scale
+                            panY += (value.translation.height - last.height) / scale
+                            lastDragTranslation = value.translation
                         }
                     }
                     .onEnded { _ in
                         if sculptMode {
                             strokeLocation = nil
                             dragIsLive = false
+                        } else if activeHandleID != nil {
+                            activeHandleID = nil
+                            handleDragStart = nil
+                            handleDragLive = false
                         }
+                        lastDragTranslation = nil
                     }
             )
             .simultaneousGesture(MagnificationGesture().onChanged { value in

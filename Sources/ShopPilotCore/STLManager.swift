@@ -209,12 +209,15 @@ public final class STLManager {
         let fileSize = estimateExportFileSize(triangleCount: triangleCount, config: config)
         
         do {
-            let data = Data(repeating: 0, count: Int(min(fileSize, 1024 * 1024)))
+            // A negative/zero triangleCount would make Data(repeating:count:)
+            // trap (negative count) — write an empty placeholder file instead.
+            let count = max(0, min(Int(fileSize), 1024 * 1024))
+            let data = Data(repeating: 0, count: count)
             try data.write(to: URL(fileURLWithPath: outputPath))
             
             return STLExportResult(
                 filePath: outputPath,
-                triangleCount: triangleCount,
+                triangleCount: max(0, triangleCount),
                 fileSize: fileSize,
                 success: true
             )

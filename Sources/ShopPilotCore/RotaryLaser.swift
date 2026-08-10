@@ -397,6 +397,82 @@ public final class LaserEngine {
         
         return (errors.isEmpty, errors)
     }
+    
+    // MARK: - G-code emission (SPK-0906)
+    
+    /// Formats a coordinate with 3 decimals for G-code output.
+    private static func fmt(_ value: Double) -> String {
+        String(format: "%.3f", value)
+    }
+    
+    /// Emits real laser CUT G-code for the given 2D path (mm coordinates):
+    /// G0 rapid to the start point, M3 S<power> on, G1 F<speed> through the
+    /// path, M5 off, with a G0 Z lift between passes and after the last pass.
+    /// The pass loop repeats `config.passes` times.
+    public static func gcodeForCut(config: LaserConfig, path: [(Double, Double)]) -> [String] {
+        guard path.count >= 2 else { return [] }
+        let passes = max(1, config.passes)
+        let power = String(format: "%.0f", config.powerPercent)
+        let speed = String(format: "%.0f", config.speedMmPerMin)
+        let first = path[0]
+        let closesLoop = path.last!.0 != first.0 || path.last!.1 != first.1
+        
+        var lines: [String] = []
+        lines.append("; Laser cut — \(passes) pass(es), \(power)% power, \(speed) mm/min")
+        for passNumber in 1...passes {
+            lines.append("; pass \(passNumber)/\(passes)")
+            if passNumber > 1 {
+                // Lift between passes, then re-rapid to the start point.
+                lines.append("G0 Z5.0")
+            }
+            lines.append("G0 X\(fmt(first.0)) Y\(fmt(first.1))")
+            lines.append("M3 S\(power)")
+            lines.append("G1 F\(speed)")
+            for point in path.dropFirst() {
+                lines.append("G1 X\(fmt(point.0)) Y\(fmt(point.1))")
+            }
+            if closesLoop {
+                // Close the contour back to the start point.
+                lines.append("G1 X\(fmt(first.0)) Y\(fmt(first.1))")
+            }
+            lines.append("M5")
+        }
+        lines.append("G0 Z5.0")
+        return lines
+    }
+    
+    /// Emits raster-style laser ENGRAVE G-code: M3 constant power at a
+    /// reduced (half-speed) feed, tracing the path in a single scan pass,
+    /// ending with M5. Engraving stays at Z0 (surface op).
+    public static func gcodeForEngrave(config: LaserConfig, path: [(Double, Double)]) -> [String] {
+        guard path.count >= 2 else { return [] }
+        let power = String(format: "%.0f", config.powerPercent)
+        let feed = String(format: "%.0f", config.speedMmPerMin * 0.5) // engrave runs slower
+        let first = path[0]
+        
+        var lines: [String] = []
+        lines.append("; Laser engrave — \(power)% power, \(feed) mm/min (raster)")
+        lines.append("G0 X\(fmt(first.0)) Y\(fmt(first.1))")
+        lines.append("M3 S\(power)")
+        lines.append("G1 F\(feed)")
+        for point in path.dropFirst() {
+            lines.append("G1 X\(fmt(point.0)) Y\(fmt(point.1))")
+        }
+        lines.append("M5")
+        return lines
+    }
+    
+    /// Dispatches to the right emitter for the config's mode. Cut-like modes
+    /// (.cut/.score/.vector) emit pass-loop cutting G-code; surface modes
+    /// (.engrave/.raster/.fill) emit raster-style engraving G-code.
+    public static func gcodeForMode(config: LaserConfig, path: [(Double, Double)]) -> [String] {
+        switch config.mode {
+        case .engrave, .raster, .fill:
+            return gcodeForEngrave(config: config, path: path)
+        case .cut, .score, .vector:
+            return gcodeForCut(config: config, path: path)
+        }
+    }
 }
 
 // MARK: - SpecialtyToolManager

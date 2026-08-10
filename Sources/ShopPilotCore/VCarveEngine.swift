@@ -283,7 +283,15 @@ public struct VCarveEngine {
             // The V-bit tip width at max depth determines how wide the cut is.
             // We need enough passes (stepovers) to cover that width.
             let tipWidthAtMaxDepth = params.tipWidthAtDepth(maxDepth)
-            let passCount = max(1, Int(ceil(tipWidthAtMaxDepth / params.stepOverMm)))
+            // Zero/negative step-over would make Int(ceil(x/0)) trap (inf→Int
+            // conversion); a zero tip width (maxDepth 0) gives 0/0 = NaN which
+            // also traps. Fall back to 1 pass in both cases.
+            let passCount: Int
+            if params.stepOverMm > 0, tipWidthAtMaxDepth > 0 {
+                passCount = max(1, Int(ceil(tipWidthAtMaxDepth / params.stepOverMm)))
+            } else {
+                passCount = 1
+            }
             maxPassCount = max(maxPassCount, passCount)
             
             // Get bounding box Y-range for shading interpolation

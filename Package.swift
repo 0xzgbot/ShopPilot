@@ -384,6 +384,48 @@ let package = Package(
             path: "Sources/ShopPilotVerifyFMR019"
         ),
         .executableTarget(
+            name: "ShopPilotVerify0705",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify0705"
+        ),
+
+        .executableTarget(
+            name: "ShopPilotVerify0707",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify0707"
+        ),
+
+        .executableTarget(
+            name: "ShopPilotVerify0708",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify0708"
+        ),
+
+        .executableTarget(
+            name: "ShopPilotVerify0711",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify0711"
+        ),
+
+        .executableTarget(
+            name: "ShopPilotVerify0715",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify0715"
+        ),
+
+        .executableTarget(
+            name: "ShopPilotVerify0710",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify0710"
+        ),
+
+        .executableTarget(
+            name: "ShopPilotVerify0906",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify0906"
+        ),
+
+        .executableTarget(
             name: "ShopPilotVerify1101",
             dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
             path: "Sources/ShopPilotVerify1101"
@@ -614,6 +656,12 @@ let package = Package(
             name: "ShopPilotVerifySweep",
             dependencies: ["ShopPilotCore"],
             path: "Sources/ShopPilotVerifySweep"
+        ),
+
+        .executableTarget(
+            name: "ShopPilotVerify0704",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify0704"
         ),
 
         .executableTarget(

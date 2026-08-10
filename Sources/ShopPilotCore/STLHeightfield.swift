@@ -130,8 +130,13 @@ public enum STLHeightfieldImporter {
         }
         let fileSize = (try? FileManager.default.attributesOfItem(atPath: path)[.size] as? Int64) ?? 0
         do {
-            let text = try String(contentsOfFile: path, encoding: .utf8)
-            let triangles = try parseASCII(text: text)
+            let triangles: [Triangle]
+            if isBinarySTL(at: path) {
+                triangles = try parseBinary(path: path)
+            } else {
+                let text = try String(contentsOfFile: path, encoding: .utf8)
+                triangles = try parseASCII(text: text)
+            }
             guard !triangles.isEmpty else {
                 return STLHeightfieldResult(
                     heightfield: nil, triangleCount: 0, fileSizeBytes: fileSize,
@@ -155,6 +160,86 @@ public enum STLHeightfieldImporter {
                 success: false, errorMessage: STLHeightfieldError.unreadable(error.localizedDescription).localizedDescription
             )
         }
+    }
+
+    // MARK: - File type detection
+
+    /// Detect whether a file is binary STL by reading ONLY the first 1KB
+    /// (a full-file Data read here would double the I/O for large binary STLs —
+    /// the parser reads the file again).
+    private static func isBinarySTL(at path: String) -> Bool {
+        guard let handle = try? FileHandle(forReadingFrom: URL(fileURLWithPath: path)),
+              let data = try? handle.read(upToCount: 1024) else { return false }
+        try? handle.close()
+        guard data.count >= 84 else { return false }
+        // Binary STL: first 80 bytes are an arbitrary header, then a 4-byte
+        // uint32 (LE) triangle count. The header often starts with "solid"
+        // too, so we check: if it starts with "solid" but has no "facet"/"vertex"
+        // text within the first 1KB, it's likely binary.
+        let textHint = String(data: data, encoding: .utf8) ?? ""
+        let looksText = textHint.contains("facet") || textHint.contains("vertex")
+        if looksText { return false }
+        // Try to read the triangle count as a uint32 LE. If it's a reasonable
+        // number (< 100M), treat as binary.
+        let tcBytes = data.subdata(in: 80..<84)
+        let tc = tcBytes.withUnsafeBytes { $0.load(as: UInt32.self) }
+        return tc > 0 && tc < 100_000_000
+    }
+
+    // MARK: - Binary parsing
+
+    /// Parse binary STL: reads 80-byte header + uint32 triangle count (LE) +
+    /// 50 bytes per triangle (12 floats + 2-byte attribute).
+    public static func parseBinary(path: String) throws -> [Triangle] {
+        let data = try Data(contentsOf: URL(fileURLWithPath: path))
+        guard data.count >= 84 else {
+            throw STLHeightfieldError.notSTL
+        }
+        let triangleCount = Int(data.subdata(in: 80..<84).withUnsafeBytes { $0.load(as: UInt32.self) })
+        guard triangleCount > 0 && triangleCount < 100_000_000 else {
+            throw STLHeightfieldError.noTriangles("invalid triangle count: \(triangleCount)")
+        }
+        let expectedSize = 84 + triangleCount * 50
+        guard data.count >= expectedSize else {
+            throw STLHeightfieldError.noTriangles("file too small for \(triangleCount) triangles")
+        }
+
+        var verts: [(Double, Double, Double)] = []
+        verts.reserveCapacity(triangleCount * 3)
+        for i in 0..<triangleCount {
+            let base = 84 + i * 50
+            // 12 floats = 48 bytes starting at base
+            let floatData = data.subdata(in: base..<base + 48)
+            let values = floatData.withUnsafeBytes { buf in
+                buf.bindMemory(to: Float32.self).map { Double($0) }
+            }
+            guard values.count == 12 else { break }
+            // Skip normal (indices 0-2), read vertices (indices 3-11)
+            verts.append((values[3], values[4], values[5]))
+            verts.append((values[6], values[7], values[8]))
+            verts.append((values[9], values[10], values[11]))
+        }
+
+        guard verts.count >= 3 else {
+            throw STLHeightfieldError.noTriangles("\(verts.count) vertices parsed")
+        }
+
+        var triangles: [Triangle] = []
+        triangles.reserveCapacity(Int(triangleCount))
+        var i = 0
+        while i + 2 < verts.count {
+            let a = verts[i], b = verts[i + 1], c = verts[i + 2]
+            let ab = (b.0 - a.0, b.1 - a.1, b.2 - a.2)
+            let ac = (c.0 - a.0, c.1 - a.1, c.2 - a.2)
+            let nx = ab.1 * ac.2 - ab.2 * ac.1
+            let ny = ab.2 * ac.0 - ab.0 * ac.2
+            let nz = ab.0 * ac.1 - ab.1 * ac.0
+            if abs(nx) + abs(ny) + abs(nz) > 1e-12 {
+                triangles.append(Triangle(a, b, c))
+            }
+            i += 3
+        }
+        return triangles
     }
 
     // MARK: - ASCII parsing

@@ -43,6 +43,9 @@ public struct TimeEstimateResult {
     public var isRough: Bool { true }
     
     private func formatDuration(_ seconds: Double) -> String {
+        // Guard non-finite/negative inputs: feedRate 0 makes estimate() yield
+        // inf, and Int(inf) traps (crash). Show "—" instead.
+        guard seconds.isFinite, seconds >= 0 else { return "—" }
         let hours = Int(seconds / 3600)
         let minutes = Int((seconds.truncatingRemainder(dividingBy: 3600)) / 60)
         let secs = Int(seconds.truncatingRemainder(dividingBy: 60))

@@ -135,6 +135,30 @@ final class AppSession: ObservableObject {
 
     let docVars = DocumentVariablesModel()
 
+    /// SPK-0705 — interactive shape handles for 3D components.
+    let handleManager = ShapeHandleManager()
+
+    /// SPK-0707 — STL import orientation wizard state.
+    @Published var stlImportURL: URL?
+    @Published var showSTLOrientationWizard = false
+    @Published var stlConfig = STLImportConfig()
+
+    /// SPK-0707 — Import the STL at the wizard URL using the current config.
+    func importSTLWithConfig() {
+        guard let url = stlImportURL else { return }
+        do {
+            let result = try importSTLHeightfield(from: url)
+            selectedStage = .model
+            if result.success, let hf = result.heightfield {
+                statusMessage = "STL relief: \(result.triangleCount) triangles → \(hf.width)×\(hf.height) grid, max \(String(format: "%.1f", hf.maxHeight))mm"
+            } else {
+                statusMessage = "STL import failed: \(result.errorMessage ?? "unknown error")"
+            }
+        } catch {
+            statusMessage = "STL import failed: \(error.localizedDescription)"
+        }
+    }
+
     /// Last saved/opened package URL (if any).
     private(set) var packageURL: URL?
 
@@ -1678,6 +1702,48 @@ final class AppSession: ObservableObject {
         return recompositeRelief()
     }
 
+    // MARK: - SPK-0705 Interactive Shape Handles
+
+    /// Create handles for a component (called when component is selected).
+    func createHandlesForComponent(_ id: UUID) {
+        handleManager.createHandles(for: id)
+        statusMessage = "Handles created for component"
+    }
+
+    /// Clear all handles.
+    func clearHandles() {
+        handleManager.clearAll()
+    }
+
+    /// Apply a handle drag to the selected component.
+    /// `recordUndo` is true only for the FIRST event of a drag gesture —
+    /// per-event undo snapshots flood the undo stack with MB-sized heightfield
+    /// grids (same rule as sculpt strokes).
+    @discardableResult
+    func applyHandleDrag(handleID: UUID, deltaX: Double, deltaY: Double, deltaZ: Double, recordUndo: Bool = true) -> Bool {
+        guard let handle = handleManager.handles.first(where: { $0.id == handleID }) else {
+            statusMessage = "Handle not found"
+            return false
+        }
+        guard let component = job.reliefComponents?.first(where: { $0.id == handle.componentID }) else {
+            statusMessage = "Component not found"
+            return false
+        }
+        let delta = HandlePosition(x: deltaX, y: deltaY, z: deltaZ)
+        guard let newHF = handleManager.applyHandle(to: component, handle: handle, delta: delta) else {
+            statusMessage = "Handle manipulation failed"
+            return false
+        }
+        if recordUndo { registerUndoPoint() }
+        var stack = job.reliefComponents ?? []
+        if let idx = stack.firstIndex(where: { $0.id == handle.componentID }) {
+            stack[idx].heightfield = newHF
+            job.reliefComponents = stack
+        }
+        markDirty()
+        return recompositeRelief()
+    }
+
     /// ⌘K "Import Image Relief…" / Model-stage button: pick an image and
     /// convert it to a heightmap. A small config alert sets max height,
     /// mm-per-pixel scale and invert before import (SPK-0706).
@@ -2601,6 +2667,96 @@ final class AppSession: ObservableObject {
         statusMessage = lastToolpathSummary
     }
 
+    // MARK: - SPK-0711 Zero plane + boundary
+
+    /// Compute the work area (zero plane + boundary) from the component stack
+    /// (or the active relief when no components exist). Reports the result in
+    /// the status bar; returns the WorkArea for programmatic use.
+    @discardableResult
+    func computeWorkAreaFromComponents() -> WorkArea? {
+        var boxes: [BoundingBox3D] = []
+        let components = job.reliefComponents ?? []
+        if !components.isEmpty {
+            for component in components where component.visible {
+                let b = component.heightfield.bounds
+                boxes.append(BoundingBox3D(
+                    minX: b.minX, minY: b.minY, minZ: 0,
+                    maxX: b.maxX, maxY: b.maxY, maxZ: component.heightfield.maxHeight
+                ))
+            }
+        } else if let hf = job.stlHeightfield {
+            let b = hf.bounds
+            boxes.append(BoundingBox3D(
+                minX: b.minX, minY: b.minY, minZ: 0,
+                maxX: b.maxX, maxY: b.maxY, maxZ: hf.maxHeight
+            ))
+        } else {
+            statusMessage = "Work area: no relief or components — import an STL or add a component first"
+            return nil
+        }
+
+        let area = ZeroPlaneAndBoundaryEngine.computeWorkArea(
+            componentBoundingBoxes: boxes,
+            zeroPlaneOffset: 0,
+            boundarySafetyMargin: 5.0
+        )
+        let (valid, errors) = ZeroPlaneAndBoundaryEngine.validate(area)
+        if valid {
+            statusMessage = String(
+                format: "Work area: %.1f×%.1f mm at origin (%.1f, %.1f), zero plane Z=%.2f",
+                area.areaWidth, area.areaHeight, area.originX, area.originY, area.originZ
+            )
+        } else {
+            statusMessage = "Work area invalid: \(errors.joined(separator: "; "))"
+        }
+        return area
+    }
+
+    // MARK: - Laser strategy (SPK-0906)
+
+    /// Generate a LASER toolpath (cut/engrave G-code) from the first
+    /// available design vector and add it to the tree. Falls back to a 10mm
+    /// diamond path when no vectors exist yet.
+    func generateLaserToolpath(mode: LaserMode, powerPercent: Double, speedMmPerMin: Double) -> Bool {
+        let config = LaserEngine.createConfig(mode: mode, powerPercent: powerPercent, speedMmPerMin: speedMmPerMin)
+
+        // Pull a closed path from the first available design vector.
+        var path: [(Double, Double)] = []
+        if let firstPath = vectors.first(where: { $0.points.count >= 2 }) {
+            path = firstPath.points.map { ($0.x, $0.y) }
+            if firstPath.isClosed, let firstPt = path.first,
+               path.last!.0 != firstPt.0 || path.last!.1 != firstPt.1 {
+                path.append(firstPt) // close the loop back to the start
+            }
+        }
+        if path.count < 2 {
+            // Fallback: 10mm square diamond (closed).
+            path = [(0, 0), (5, 5), (0, 10), (-5, 5), (0, 0)]
+        }
+
+        var pathLength = 0.0
+        for i in 1..<path.count {
+            let dx = path[i].0 - path[i - 1].0
+            let dy = path[i].1 - path[i - 1].1
+            pathLength += (dx * dx + dy * dy).squareRoot()
+        }
+
+        registerUndoPoint()
+        let result = LaserEngine.generateToolpath(config: config, pathLengthMm: pathLength)
+        let gcode = LaserEngine.gcodeForMode(config: config, path: path)
+        let node = addToolpathNode(
+            named: "Laser \(mode.rawValue.capitalized) \(toolpathTree.allNodes.count)",
+            gcode: gcode,
+            estimatedTime: result.estimatedTimeMinutes * 60.0
+        )
+        node.paramsJSON = encodeParams(config)
+        lastToolpathSummary = result.success
+            ? "Laser \(mode.rawValue): \(gcode.count) lines, \(String(format: "%.1f", result.estimatedTimeMinutes)) min est, \(String(format: "%.0f", config.powerPercent))% power"
+            : "Laser failed: \(result.errorMessage ?? "unknown error")"
+        statusMessage = lastToolpathSummary
+        return result.success
+    }
+
     // MARK: - Specialty strategies (SPK-0900 + SPK-0802 lean slices)
 
     /// Generate a Prism toolpath: parallel V-grooves across every closed
@@ -3204,6 +3360,46 @@ final class AppSession: ObservableObject {
         }
     }
 
+    // MARK: - SPK-0707 Component STL export
+
+    /// Export a component's heightfield as an ASCII STL mesh.
+    /// Returns the exported triangle count, or nil on failure.
+    @discardableResult
+    func exportComponentSTL(_ componentID: UUID, to url: URL) -> Int? {
+        guard let component = job.reliefComponents?.first(where: { $0.id == componentID }) else {
+            statusMessage = "Component not found"
+            return nil
+        }
+        guard let stl = HeightfieldSTLExporter.stlString(from: component.heightfield) else {
+            statusMessage = "Export STL: no heightfield to export"
+            return nil
+        }
+        do {
+            try stl.write(to: url, atomically: true, encoding: .utf8)
+            let triangles = stl.components(separatedBy: "facet normal").count - 1
+            statusMessage = "Component STL exported: \(component.name) (\(triangles) triangles)"
+            return triangles
+        } catch {
+            statusMessage = "STL export failed: \(error.localizedDescription)"
+            return nil
+        }
+    }
+
+    // MARK: - SPK-0708 Composite render
+
+    /// Render the active relief (or the first component) with a material config.
+    /// Returns the render output on success.
+    @discardableResult
+    func renderCompositeComponent(_ config: MetalCompositeConfig) -> RenderOutput {
+        let output = MetalCompositeRenderEngine.render(config)
+        if output.success {
+            statusMessage = "Composite render: \(config.material.rawValue) / \(config.finish.rawValue) → \(URL(fileURLWithPath: output.imageUrl).lastPathComponent)"
+        } else {
+            statusMessage = "Composite render failed: \(output.errorMessage ?? "unknown error")"
+        }
+        return output
+    }
+
     /// Export the design vectors as ASCII DXF R12 (mm).
     @discardableResult
     func exportDXF(to url: URL) -> Bool {
@@ -3463,17 +3659,10 @@ final class AppSession: ObservableObject {
         panel.canChooseDirectories = false
         panel.title = "Import STL Relief"
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        do {
-            let result = try importSTLHeightfield(from: url)
-            selectedStage = .design
-            if result.success, let hf = result.heightfield {
-                statusMessage = "STL relief: \(result.triangleCount) triangles → \(hf.width)×\(hf.height) grid, max \(String(format: "%.1f", hf.maxHeight))mm"
-            } else {
-                statusMessage = "STL import failed: \(result.errorMessage ?? "unknown error")"
-            }
-        } catch {
-            statusMessage = "STL import failed: \(error.localizedDescription)"
-        }
+
+        // SPK-0707: show orientation wizard before import
+        stlImportURL = url
+        showSTLOrientationWizard = true
     }
 
     /// ⌘K "Import SVG…": present an open panel and import the chosen file

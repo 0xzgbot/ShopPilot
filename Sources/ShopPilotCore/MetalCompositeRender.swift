@@ -1,4 +1,6 @@
 import Foundation
+import CoreGraphics
+import ImageIO
 
 // MARK: - Metal Composite Render
 
@@ -169,21 +171,133 @@ public final class MetalCompositeRenderEngine {
         )
     }
     
-    // Renders a component with the given config.
+    // Renders a component with the given config — generates a real PNG image
+    // using Core Graphics. The image is a 512×512 procedural texture that
+    // simulates the material appearance with finish-based noise/grain.
     public static func render(_ config: MetalCompositeConfig) -> RenderOutput {
-        // Generate render output (simplified)
-        let outputDir = NSTemporaryDirectory()
-        let filename = "render_\(config.componentID.uuidString).png"
-        let filePath = (outputDir as NSString).appendingPathComponent(filename)
-        
-        return RenderOutput(
-            config: config,
-            imageUrl: filePath,
-            width: 1920,
-            height: 1080,
-            fileSize: 0,
-            success: true
-        )
+        do {
+            let width = 512
+            let height = 512
+            let bytesPerRow = width * 4
+            var pixels = [UInt8](repeating: 0, count: width * height * 4)
+            
+            // Base color from material
+            let baseColor = materialColor(for: config.material)
+            let finishMultiplier = finishMultiplier(for: config.finish)
+            let ambient = config.lighting.ambientIntensity
+            let directional = config.lighting.directionalIntensity
+            
+            for y in 0..<height {
+                for x in 0..<width {
+                    let idx = (y * width + x) * 4
+                    
+                    // Procedural finish noise
+                    let noise = finishNoise(x: x, y: y, finish: config.finish)
+                    
+                    // Simple directional lighting (top-left)
+                    let dx = Double(x) / Double(width)
+                    let dy = Double(y) / Double(height)
+                    let light = 1.0 - ((1.0 - dx) * 0.6 + (1.0 - dy) * 0.4)
+                    
+                    let r = baseColor.r * finishMultiplier * (ambient + directional * light) + noise
+                    let g = baseColor.g * finishMultiplier * (ambient + directional * light) + noise
+                    let b = baseColor.b * finishMultiplier * (ambient + directional * light) + noise
+                    
+                    // Clamp to [0,255] as Double BEFORE converting: UInt8(x)
+                    // traps when x is out of range, and the directional slider
+                    // goes up to 3.0 (ambient+directional·light ≈ 3.8) which
+                    // yields ~970 — a plain `min(255, UInt8(r*255))` crashes.
+                    pixels[idx]     = UInt8(max(0, min(255, r * 255)))
+                    pixels[idx + 1] = UInt8(max(0, min(255, g * 255)))
+                    pixels[idx + 2] = UInt8(max(0, min(255, b * 255)))
+                    pixels[idx + 3] = 255 // alpha
+                }
+            }
+            
+            // Write PNG via Core Graphics — bitmap context + image destination.
+            let outputDir = NSTemporaryDirectory()
+            let filename = "render_\(config.componentID.uuidString).png"
+            let filePath = (outputDir as NSString).appendingPathComponent(filename)
+            
+            // Create a bitmap context over our pixel buffer (row-major RGBA).
+            var pixelBuffer = pixels
+            guard let ctx = pixelBuffer.withUnsafeMutableBytes({ bytes -> CGContext? in
+                guard let base = bytes.baseAddress else { return nil }
+                return CGContext(
+                    data: base,
+                    width: width,
+                    height: height,
+                    bitsPerComponent: 8,
+                    bytesPerRow: bytesPerRow,
+                    space: CGColorSpaceCreateDeviceRGB(),
+                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+                )
+            }),
+            let cgImage = ctx.makeImage() else {
+                return RenderOutput(
+                    config: config,
+                    imageUrl: filePath,
+                    width: width,
+                    height: height,
+                    fileSize: 0,
+                    success: false,
+                    errorMessage: "Core Graphics PNG generation failed"
+                )
+            }
+            
+            guard let destination = CGImageDestinationCreateWithURL(
+                URL(fileURLWithPath: filePath) as CFURL,
+                kUTTypePNG,
+                1,
+                nil
+            ) else {
+                return RenderOutput(
+                    config: config,
+                    imageUrl: filePath,
+                    width: width,
+                    height: height,
+                    fileSize: 0,
+                    success: false,
+                    errorMessage: "CGImageDestination creation failed"
+                )
+            }
+            
+            CGImageDestinationAddImage(destination, cgImage, nil as CFDictionary?)
+            
+            guard CGImageDestinationFinalize(destination) else {
+                return RenderOutput(
+                    config: config,
+                    imageUrl: filePath,
+                    width: width,
+                    height: height,
+                    fileSize: 0,
+                    success: false,
+                    errorMessage: "CGImageDestination finalize failed"
+                )
+            }
+            
+            // Get file size
+            let fileSize = (try? FileManager.default.attributesOfItem(atPath: filePath)[.size] as? Int64) ?? 0
+            
+            return RenderOutput(
+                config: config,
+                imageUrl: filePath,
+                width: width,
+                height: height,
+                fileSize: fileSize,
+                success: true
+            )
+        } catch {
+            return RenderOutput(
+                config: config,
+                imageUrl: "",
+                width: 0,
+                height: 0,
+                fileSize: 0,
+                success: false,
+                errorMessage: error.localizedDescription
+            )
+        }
     }
     
     // Validates render config.
@@ -198,5 +312,75 @@ public final class MetalCompositeRenderEngine {
             return (false, "Metalness must be between 0.0 and 1.0")
         }
         return (true, nil)
+    }
+    
+    // MARK: - Private helpers
+    
+    private struct Color3 {
+        let r: Double, g: Double, b: Double
+    }
+    
+    /// Returns the base RGB color for a material (normalized 0-1).
+    private static func materialColor(for material: RenderMaterial) -> Color3 {
+        switch material {
+        case .aluminum:
+            return Color3(r: 0.82, g: 0.84, b: 0.86)
+        case .steel:
+            return Color3(r: 0.55, g: 0.57, b: 0.60)
+        case .copper:
+            return Color3(r: 0.90, g: 0.65, b: 0.45)
+        case .brass:
+            return Color3(r: 0.95, g: 0.85, b: 0.45)
+        case .titanium:
+            return Color3(r: 0.50, g: 0.50, b: 0.55)
+        case .wood:
+            return Color3(r: 0.45, g: 0.30, b: 0.18)
+        case .plastic:
+            return Color3(r: 0.90, g: 0.90, b: 0.90)
+        case .glass:
+            return Color3(r: 0.95, g: 0.97, b: 0.98)
+        case .custom:
+            return Color3(r: 0.50, g: 0.50, b: 0.50)
+        }
+    }
+    
+    /// Returns a finish multiplier (brushed reduces specular, matte diffuses, etc.).
+    private static func finishMultiplier(for finish: SurfaceFinish) -> Double {
+        switch finish {
+        case .matte: return 0.7
+        case .brushed: return 0.8
+        case .polished: return 1.0
+        case .mirrored: return 1.0
+        case .sandblasted: return 0.6
+        case .anodized: return 0.75
+        case .custom: return 0.8
+        }
+    }
+    
+    /// Procedural noise based on position and finish type.
+    private static func finishNoise(x: Int, y: Int, finish: SurfaceFinish) -> Double {
+        switch finish {
+        case .matte:
+            // High noise for diffuse surface
+            return Double((x * 7 + y * 13) % 30) / 255.0 * 0.3
+        case .brushed:
+            // Directional streaks
+            let streak = Double((x * 3) % 20) / 255.0
+            return streak * 0.15
+        case .polished:
+            // Low noise
+            return Double((x * 11 + y * 7) % 10) / 255.0 * 0.05
+        case .mirrored:
+            // Almost zero noise
+            return Double((x * 17 + y * 31) % 5) / 255.0 * 0.02
+        case .sandblasted:
+            // Medium noise
+            return Double((x * 13 + y * 17) % 40) / 255.0 * 0.25
+        case .anodized:
+            // Subtle variation
+            return Double((x * 5 + y * 11) % 20) / 255.0 * 0.15
+        case .custom:
+            return Double((x * 7 + y * 13) % 25) / 255.0 * 0.2
+        }
     }
 }

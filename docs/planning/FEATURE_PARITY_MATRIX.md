@@ -104,39 +104,39 @@ Track ownership in your PM tool; keep this file as the living checklist.
 
 | ID | Capability | Pri | Status |
 | --- | --- | --- | --- |
-| E01 | Components + levels tree | P0 | [ ] |
-| E02 | Combine Add | P0 | [ ] |
-| E03 | Combine Subtract | P0 | [ ] |
-| E04 | Combine Merge high | P0 | [ ] |
-| E05 | Combine Low | P0 | [ ] |
-| E06 | Combine Multiply | P2 | [ ] |
-| E07 | Dynamic height/tilt/fade | P0 | [ ] |
+| E01 | Components + levels tree | P0 | [x] |  # lean: flat component stack (SPK-0700/0701); full levels tree Phase H
+| E02 | Combine Add | P0 | [x] |
+| E03 | Combine Subtract | P0 | [x] |
+| E04 | Combine Merge high | P0 | [x] |
+| E05 | Combine Low | P0 | [x] |
+| E06 | Combine Multiply | P2 | [x] |
+| E07 | Dynamic height/tilt/fade | P0 | [x] |
 | E08 | Level mirror modes (8) | P1 | [ ] |
 | E09 | Level clipping | P2 | [ ] |
-| E10 | Shape angled | P0 | [ ] |
-| E11 | Shape round | P0 | [ ] |
-| E12 | Shape smooth | P0 | [ ] |
-| E13 | Shape flat plane | P0 | [ ] |
+| E10 | Shape angled | P0 | [x] |
+| E11 | Shape round | P0 | [x] |
+| E12 | Shape smooth | P0 | [x] |
+| E13 | Shape flat plane | P0 | [x] |
 | E14 | Shape custom | P1 | [ ] |
-| E15 | Two-rail sweep | P1 | [ ] |
+| E15 | Two-rail sweep | P1 | [x] |
 | E16 | Extrude and weave | P1 | [ ] |
 | E17 | Turn and spin | P1 | [ ] |
-| E18 | Emboss | P1 | [ ] |
-| E19 | Sculpting | P1 | [ ] |
-| E20 | Smooth components | P1 | [ ] |
-| E21 | Scale height | P0 | [ ] |
+| E18 | Emboss | P1 | [x] |
+| E19 | Sculpting | P1 | [x] |
+| E20 | Smooth components | P1 | [x] |
+| E21 | Scale height | P0 | [x] |
 | E22 | Offset model | P1 | [ ] |
 | E23 | Add draft | P2 | [ ] |
 | E24 | Replace below | P2 | [ ] |
-| E25 | Zero plane | P0 | [ ] |
+| E25 | Zero plane | P0 | [x] |
 | E26 | Texture area | P1 | [ ] |
-| E27 | Component from bitmap | P0 | [ ] |
-| E28 | Component from visible | P1 | [ ] |
-| E29 | Bake components | P1 | [ ] |
-| E30 | Clear/split | P1 | [ ] |
-| E31 | Import 3D flat/double | P0 | [ ] |
+| E27 | Component from bitmap | P0 | [x] |
+| E28 | Component from visible | P1 | [x] |
+| E29 | Bake components | P1 | [x] |
+| E30 | Clear/split | P1 | [x] |
+| E31 | Import 3D flat/double | P0 | [x] |  # STL import (SPK-0707); double-sided Phase H
 | E32 | Import 3D rotary | P1 | [ ] |
-| E33 | Position model | P0 | [ ] |
+| E33 | Position model | P0 | [x] |
 | E34 | 3D segment | P2 | [ ] |
 | E35 | Slice model | P2 | [ ] |
 | E36 | Cross-section vector | P1 | [ ] |

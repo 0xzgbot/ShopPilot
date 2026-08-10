@@ -241,7 +241,15 @@ public struct PocketToolpathEngine {
             }
             
             // Calculate depth passes
-            let passCount = Int(ceil(stockHeightMm / params.maxDepthOfCutMm))
+            // Zero/negative depth-per-pass would make Int(ceil(x/0)) trap
+            // (inf→Int conversion) — fall back to a single pass. A zero stock
+            // height (0/x = 0 passes) keeps its original no-op behavior.
+            let passCount: Int
+            if params.maxDepthOfCutMm > 0 {
+                passCount = Int(ceil(stockHeightMm / params.maxDepthOfCutMm))
+            } else {
+                passCount = 1
+            }
             maxPassCount = max(maxPassCount, passCount)
             
             for pass in 1...passCount {
