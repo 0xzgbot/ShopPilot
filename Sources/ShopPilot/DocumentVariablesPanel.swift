@@ -329,3 +329,237 @@ struct DocumentVariablesPanelView_Previews: PreviewProvider {
     }
 }
 #endif
+
+// MARK: - Driven Dimensions Panel (SPK-0807)
+
+/// Parametric-lite: expressions over the document variables, evaluated live
+/// and persisted on the Job. Each row shows key → expression = resolved
+/// value; add/edit/remove route through the session (undo + dirty).
+struct DrivenDimensionsPanelView: View {
+    @ObservedObject var session: AppSession
+    @State private var showAddForm = false
+    @State private var newKey = ""
+    @State private var newExpression = ""
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("DRIVEN DIMENSIONS")
+                    .font(.caption2)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text("(\(session.job.drivenDimensions.count))")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+
+            Divider()
+
+            if session.job.drivenDimensions.isEmpty {
+                VStack(spacing: 6) {
+                    Image(systemName: "function")
+                        .font(.title3)
+                        .foregroundStyle(.secondary.opacity(0.5))
+                    Text("No driven dimensions")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("e.g. halfWidth = stockWidth / 2")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary.opacity(0.7))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+            } else {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 4) {
+                        ForEach(session.job.drivenDimensions) { dim in
+                            HStack(spacing: 6) {
+                                Text(dim.key)
+                                    .font(.callout.weight(.medium))
+                                    .lineLimit(1)
+                                Text("=")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Text(dim.expression)
+                                    .font(.caption.monospaced())
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                                Spacer(minLength: 4)
+                                Text(valueText(dim))
+                                    .font(.callout.monospacedDigit())
+                                    .foregroundStyle(valueColor(dim))
+                                Button {
+                                    session.removeDrivenDimension(id: dim.id)
+                                } label: {
+                                    Image(systemName: "minus.circle")
+                                        .foregroundStyle(.secondary)
+                                }
+                                .buttonStyle(.plain)
+                                .help("Remove this driven dimension")
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 4)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+
+            Divider()
+
+            if showAddForm {
+                VStack(alignment: .leading, spacing: 6) {
+                    TextField("Key (e.g. halfWidth)", text: $newKey)
+                        .textFieldStyle(.roundedBorder)
+                    TextField("Expression (e.g. $width / 2)", text: $newExpression)
+                        .textFieldStyle(.roundedBorder)
+                    HStack {
+                        Button("Add") { addCurrent() }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(newKey.trimmingCharacters(in: .whitespaces).isEmpty
+                                      || newExpression.trimmingCharacters(in: .whitespaces).isEmpty)
+                        Button("Cancel") { showAddForm = false }
+                            .buttonStyle(.bordered)
+                    }
+                }
+                .padding(12)
+            } else {
+                Button {
+                    newKey = ""
+                    newExpression = ""
+                    showAddForm = true
+                } label: {
+                    Label("Add Driven Dimension", systemImage: "plus")
+                        .font(.caption)
+                }
+                .buttonStyle(.borderless)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 6)
+            }
+        }
+        .frame(minHeight: 180)
+    }
+
+    private func addCurrent() {
+        let key = newKey.trimmingCharacters(in: .whitespaces)
+        let expr = newExpression.trimmingCharacters(in: .whitespaces)
+        if session.addDrivenDimension(key: key, expression: expr) != nil {
+            showAddForm = false
+        }
+    }
+
+    private func valueText(_ dim: DrivenDimension) -> String {
+        guard let value = session.drivenDimensionValue(dim) else { return "?" }
+        return String(format: "%.3f", value)
+    }
+
+    private func valueColor(_ dim: DrivenDimension) -> Color {
+        session.drivenDimensionValue(dim) == nil ? .red : .primary
+    }
+}
+
+// MARK: - Golden Jobs Panel (SPK-0808)
+
+/// Runs the seeded production golden jobs against the REAL toolpath engines
+/// and shows pass/fail + measured span per run. One button per job.
+struct GoldenJobsPanelView: View {
+    @ObservedObject var session: AppSession
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("GOLDEN JOBS")
+                    .font(.caption2)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text("\(passedCount)/\(session.goldenJobManager.jobs.count) passed")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+
+            Divider()
+
+            if session.goldenJobManager.jobs.isEmpty {
+                VStack(spacing: 8) {
+                    Text("No golden jobs seeded")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Button("Seed Default Calibration") {
+                        let job = ProductionGoldenJobConfig(
+                            name: "Calibration 50×50",
+                            description: "Golden profile on the 50mm calibration square",
+                            jobType: .calibration,
+                            expectedDimensions: ["width": 50, "depth": 50],
+                            tolerance: 0.5
+                        )
+                        session.goldenJobManager.jobs.append(job)
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+            } else {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 4) {
+                        ForEach(Array(session.goldenJobManager.jobs.enumerated()), id: \.element.name) { _, job in
+                            HStack(spacing: 8) {
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(job.name)
+                                        .font(.callout.weight(.medium))
+                                    Text(job.description)
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
+                                Spacer(minLength: 4)
+                                statusBadge(job.status)
+                                Button("Run") {
+                                    let result = session.goldenJobManager.runJob(job)
+                                    session.statusMessage = result.notes
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 4)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+        }
+        .frame(minHeight: 140)
+    }
+
+    private var passedCount: Int {
+        session.goldenJobManager.jobs.filter { $0.status == .passed }.count
+    }
+
+    @ViewBuilder
+    private func statusBadge(_ status: GoldenJobStatus) -> some View {
+        switch status {
+        case .passed:
+            Text("PASS")
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.green)
+        case .failed:
+            Text("FAIL")
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.red)
+        case .warning:
+            Text("WARN")
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.orange)
+        default:
+            Text(status.rawValue.uppercased())
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+    }
+}

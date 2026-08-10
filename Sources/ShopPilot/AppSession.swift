@@ -106,6 +106,9 @@ final class AppSession: ObservableObject {
     /// SPK-0211+0212 — last vector preflight report (nil until first run).
     @Published var lastPreflightReport: PreflightReport?
 
+    /// SPK-0806 — last expanded vector validation batch (nil until first run).
+    @Published var lastVectorValidation: BatchVectorValidationResult?
+
     /// SPK-0604 — true when the V-Carve preflight gate has blocked a carve and
     /// routed to Design; the Design panel auto-opens to show the fix CTAs.
     @Published var preflightPanelVisible = false
@@ -119,6 +122,35 @@ final class AppSession: ObservableObject {
     /// profile's machine type + units auto-select the post processor
     /// (GRBL vs Universal, G21 vs G20) at export.
     let machineProfiles = MachineProfileStore()
+
+    /// SPK-1000 — Post Studio: shipped + user post templates persisted in
+    /// UserDefaults, with document-variable blocks at export.
+    let postTemplateStore = PostTemplateStore()
+
+    /// SPK-1008 — multi-file job queue + network bridge store.
+    let jobQueue = JobQueue()
+    let networkBridgeStore = NetworkBridgeStore()
+
+    /// Document variables for post-template blocks (SPK-1000): filled from
+    /// the live document so `$jobName` / `$sheetWidth` style tokens in a
+    /// user template resolve at export.
+    var postTemplateVariables: [String: String] {
+        var vars: [String: String] = [:]
+        vars["jobName"] = job.name
+        if let sheet = activeSheet {
+            vars["sheetWidth"] = String(format: "%.1f", sheet.width)
+            vars["sheetDepth"] = String(format: "%.1f", sheet.depth)
+            vars["sheetHeight"] = String(format: "%.1f", sheet.height)
+            vars["materialName"] = sheet.material?.name ?? ""
+        }
+        if let node = selectedOperationNode, let toolID = node.toolID,
+           let tool = toolDatabase.tool(withID: toolID) {
+            vars["toolName"] = tool.name
+            vars["feedRate"] = String(format: "%.0f", node.paramFeedRate ?? 0)
+            vars["spindleRpm"] = String(format: "%.0f", node.paramSpindleRpm ?? 0)
+        }
+        return vars
+    }
 
     /// Inspector/browser selection type (job, sheet, layer, toolpath).
     @Published var selection: SelectionType = .none
@@ -134,6 +166,9 @@ final class AppSession: ObservableObject {
     let undoManager = UndoManager()
 
     let docVars = DocumentVariablesModel()
+
+    /// SPK-0808 — production golden job runs against the real engines.
+    let goldenJobManager = ProductionGoldenJobManager()
 
     /// SPK-0705 — interactive shape handles for 3D components.
     let handleManager = ShapeHandleManager()
@@ -184,9 +219,25 @@ final class AppSession: ObservableObject {
 
     // MARK: - Derived document access
 
-    /// The job's layers, read from the first sheet. Owned by the job, exposed here.
+    /// SPK-0800 — the sheet the session's design surface + toolpaths target.
+    /// Defaults to the first sheet; `selectSheet(id:)` changes it.
+    @Published var activeSheetID: UUID?
+
+    /// Index of the active sheet in `job.sheets` (0 when unset/stale).
+    var activeSheetIndex: Int {
+        guard let id = activeSheetID,
+              let idx = job.sheets.firstIndex(where: { $0.id == id }) else { return 0 }
+        return idx
+    }
+
+    /// The active sheet (falls back to the first sheet).
+    var activeSheet: Sheet? {
+        job.sheets.indices.contains(activeSheetIndex) ? job.sheets[activeSheetIndex] : nil
+    }
+
+    /// The job's layers, read from the active sheet. Owned by the job, exposed here.
     var layers: [Layer] {
-        job.sheets.first?.layers ?? []
+        activeSheet?.layers ?? []
     }
 
     /// Flat list of all vector paths in the document (derived from design
@@ -202,7 +253,7 @@ final class AppSession: ObservableObject {
 
     var sheetCount: Int { job.sheets.count }
     var layerCount: Int {
-        job.sheets.first?.layers.count ?? 0
+        activeSheet?.layers.count ?? 0
     }
 
     /// Whole-job time estimate (SPK-0312): `TimeEstimator` over the full-tree
@@ -319,6 +370,7 @@ final class AppSession: ObservableObject {
     /// Apply a loaded payload to session state (used by open and tests).
     func applyPackagePayload(_ payload: ShopPilotPackagePayload) {
         job = payload.job
+        activeSheetID = payload.job.activeSheetID
         docVars.variables = payload.job.documentVariables
         let restored = Self.shapesFromLayerVectors(payload.job)
         shapes = restored.shapes
@@ -424,6 +476,72 @@ final class AppSession: ObservableObject {
         markDirty()
     }
 
+    // MARK: - Driven dimensions (SPK-0807, parametric-lite)
+
+    /// Add a driven dimension: an expression that resolves against the
+    /// document variables, persisted on the Job (survives save/open).
+    @discardableResult
+    func addDrivenDimension(key: String, expression: String,
+                            category: String = DrivenDimension.defaultCategory) -> DrivenDimension? {
+        let trimmedKey = key.trimmingCharacters(in: .whitespaces)
+        let trimmedExpr = expression.trimmingCharacters(in: .whitespaces)
+        guard !trimmedKey.isEmpty, !trimmedExpr.isEmpty else {
+            statusMessage = "Driven dimension needs a key and an expression"
+            return nil
+        }
+        // Validate the expression against current variables before accepting.
+        guard DrivenDimensionResolver.resolve(expression: trimmedExpr, variables: docVars.variables) != nil else {
+            statusMessage = "Driven dimension: expression doesn't resolve — check variables/operators"
+            return nil
+        }
+        registerUndoPoint()
+        let dim = DrivenDimension(key: trimmedKey, expression: trimmedExpr, category: category)
+        job.drivenDimensions.append(dim)
+        markDirty()
+        statusMessage = "Driven dimension “\(trimmedKey)” = \(resolvedValueText(dim))"
+        return dim
+    }
+
+    /// Remove a driven dimension by id.
+    @discardableResult
+    func removeDrivenDimension(id: UUID) -> Bool {
+        guard job.drivenDimensions.contains(where: { $0.id == id }) else { return false }
+        registerUndoPoint()
+        job.drivenDimensions.removeAll { $0.id == id }
+        markDirty()
+        statusMessage = "Driven dimension removed"
+        return true
+    }
+
+    /// Update a driven dimension's expression (re-validated on commit).
+    @discardableResult
+    func updateDrivenDimension(id: UUID, expression: String) -> Bool {
+        guard let index = job.drivenDimensions.firstIndex(where: { $0.id == id }) else { return false }
+        let trimmed = expression.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty,
+              DrivenDimensionResolver.resolve(expression: trimmed, variables: docVars.variables) != nil else {
+            statusMessage = "Driven dimension: expression doesn't resolve"
+            return false
+        }
+        registerUndoPoint()
+        job.drivenDimensions[index].expression = trimmed
+        markDirty()
+        statusMessage = "Driven dimension updated"
+        return true
+    }
+
+    /// Resolve a driven dimension to its numeric value (nil = doesn't resolve).
+    func drivenDimensionValue(_ dim: DrivenDimension) -> Double? {
+        DrivenDimensionResolver.resolve(expression: dim.expression, variables: docVars.variables)
+    }
+
+    private func resolvedValueText(_ dim: DrivenDimension) -> String {
+        if let value = drivenDimensionValue(dim) {
+            return String(format: "%.3f", value)
+        }
+        return "?"
+    }
+
     /// Reconstruct design shapes + their per-shape layer membership from
     /// persisted layer vectors (freehand polylines), flattening in layer
     /// order. Each shape's layer id is the layer it was saved on (SPK-1137).
@@ -450,6 +568,7 @@ final class AppSession: ObservableObject {
 
     func replaceJob(_ newJob: Job) {
         job = newJob
+        activeSheetID = newJob.activeSheetID
         // SPK-0319 lite: restore the persisted follow-source mode.
         if let raw = newJob.followSourceModeRaw {
             linkManager.setFollowSourceMode(raw == "autoFollow" ? .autoFollow : .manual)
@@ -495,30 +614,30 @@ final class AppSession: ObservableObject {
 
     @discardableResult
     func addLayer(_ layer: Layer = Layer()) -> Layer? {
-        guard var sheet = job.sheets.first else { return nil }
+        guard var sheet = activeSheet else { return nil }
         registerUndoPoint()
         sheet.addLayer(layer)
-        job.sheets[0] = sheet
+        job.sheets[activeSheetIndex] = sheet
         markDirty()
         return layer
     }
 
     func renameLayer(id: UUID, to newName: String) {
-        guard var sheet = job.sheets.first,
+        guard var sheet = activeSheet,
               let index = sheet.layers.firstIndex(where: { $0.id == id }) else { return }
         registerUndoPoint()
         sheet.layers[index].name = newName
-        job.sheets[0] = sheet
+        job.sheets[activeSheetIndex] = sheet
         markDirty()
     }
 
     @discardableResult
     func removeLayer(id: UUID) -> Bool {
-        guard var sheet = job.sheets.first else { return false }
+        guard var sheet = activeSheet else { return false }
         guard sheet.layers.contains(where: { $0.id == id }) else { return false }
         registerUndoPoint()
         sheet.removeLayer(id: id)
-        job.sheets[0] = sheet
+        job.sheets[activeSheetIndex] = sheet
         // Drop the shapes that lived on the removed layer — their vectors are
         // gone, so keeping them would re-home ghosts on the next save (SPK-1137).
         var keptShapes: [VectorShape] = []
@@ -543,24 +662,24 @@ final class AppSession: ObservableObject {
 
     /// Toggle layer visibility (eye icon) through the session sheet.
     func setLayerVisible(id: UUID, isVisible: Bool) {
-        guard var sheet = job.sheets.first,
+        guard var sheet = activeSheet,
               let index = sheet.layers.firstIndex(where: { $0.id == id }) else { return }
         guard sheet.layers[index].isVisible != isVisible else { return }
         registerUndoPoint()
         sheet.layers[index].isVisible = isVisible
-        job.sheets[0] = sheet
+        job.sheets[activeSheetIndex] = sheet
         markDirty()
     }
 
     /// Toggle layer lock (lock icon) through the session sheet. Locking also
     /// drops selection of that layer's shapes (locked shapes are not editable).
     func setLayerLocked(id: UUID, isLocked: Bool) {
-        guard var sheet = job.sheets.first,
+        guard var sheet = activeSheet,
               let index = sheet.layers.firstIndex(where: { $0.id == id }) else { return }
         guard sheet.layers[index].isLocked != isLocked else { return }
         registerUndoPoint()
         sheet.layers[index].isLocked = isLocked
-        job.sheets[0] = sheet
+        job.sheets[activeSheetIndex] = sheet
         if isLocked {
             selectedShapeIndices = Set(selectedShapeIndices.filter { idx in
                 !(shapeLayerIDs.indices.contains(idx) && shapeLayerIDs[idx] == id)
@@ -572,13 +691,13 @@ final class AppSession: ObservableObject {
     /// Move a layer to an absolute index (0-based) within the session sheet.
     @discardableResult
     func moveLayer(id: UUID, toIndex: Int) -> Bool {
-        guard var sheet = job.sheets.first,
+        guard var sheet = activeSheet,
               let from = sheet.layers.firstIndex(where: { $0.id == id }) else { return false }
         let clamped = min(max(toIndex, 0), sheet.layers.count - 1)
         guard from != clamped else { return false }
         registerUndoPoint()
         sheet.moveLayer(from: from, to: clamped)
-        job.sheets[0] = sheet
+        job.sheets[activeSheetIndex] = sheet
         markDirty()
         return true
     }
@@ -586,14 +705,14 @@ final class AppSession: ObservableObject {
     /// Move a layer one position up in the sheet's layer list.
     @discardableResult
     func moveLayerUp(id: UUID) -> Bool {
-        guard let from = job.sheets.first?.layers.firstIndex(where: { $0.id == id }) else { return false }
+        guard let from = activeSheet?.layers.firstIndex(where: { $0.id == id }) else { return false }
         return moveLayer(id: id, toIndex: from - 1)
     }
 
     /// Move a layer one position down in the sheet's layer list.
     @discardableResult
     func moveLayerDown(id: UUID) -> Bool {
-        guard let from = job.sheets.first?.layers.firstIndex(where: { $0.id == id }) else { return false }
+        guard let from = activeSheet?.layers.firstIndex(where: { $0.id == id }) else { return false }
         return moveLayer(id: id, toIndex: from + 1)
     }
 
@@ -607,21 +726,21 @@ final class AppSession: ObservableObject {
 
     /// Update stock W/D/H (mm) of the session's first sheet.
     func updateSheetDimensions(width: Double, depth: Double, height: Double) {
-        guard var sheet = job.sheets.first else { return }
+        guard var sheet = activeSheet else { return }
         registerUndoPoint()
         sheet.width = width
         sheet.depth = depth
         sheet.height = height
-        job.sheets[0] = sheet
+        job.sheets[activeSheetIndex] = sheet
         markDirty()
     }
 
     /// Set the material of the session's first sheet (nil = no material).
     func setSheetMaterial(_ material: ShopPilotCore.Material?) {
-        guard var sheet = job.sheets.first else { return }
+        guard var sheet = activeSheet else { return }
         registerUndoPoint()
         sheet.material = material
-        job.sheets[0] = sheet
+        job.sheets[activeSheetIndex] = sheet
         markDirty()
     }
 
@@ -629,11 +748,197 @@ final class AppSession: ObservableObject {
     /// sets the sheet name + W/D/H and records the preset name so it
     /// survives save/open. Undoable + dirty.
     func applyStockPreset(_ preset: StockSheetPreset) {
-        guard var sheet = job.sheets.first else { return }
+        guard var sheet = activeSheet else { return }
         registerUndoPoint()
         StockSheetPresets.apply(preset, to: &sheet)
-        job.sheets[0] = sheet
-        statusMessage = "Stock: \(preset.name)"
+        job.sheets[activeSheetIndex] = sheet
+        statusMessage = "Stock: \\(preset.name)"
+        markDirty()
+    }
+
+    // MARK: - Sheet CRUD (SPK-0800 multi-sheet management)
+
+    /// Add a new sheet (default 600×400×25 stock) and make it active.
+    @discardableResult
+    func addSheet(named name: String? = nil) -> Sheet? {
+        registerUndoPoint()
+        var sheet = Sheet(name: name ?? "Sheet \(job.sheets.count + 1)")
+        sheet.layers = [Layer(name: "Layer 1")]
+        job.addSheet(sheet)
+        activeSheetID = sheet.id
+        selection = .sheet(sheet.id)
+        statusMessage = "Added sheet “\(name)” — \(job.sheets.count) total"
+        markDirty()
+        return sheet
+    }
+
+    /// Remove a sheet by id. The active sheet is never removed while it holds
+    /// the design surface — switching to another sheet first is the caller's
+    /// job (UI keeps at least one sheet). Returns false when removal is
+    /// impossible (last sheet / id missing).
+    @discardableResult
+    func removeSheet(id: UUID) -> Bool {
+        guard job.sheets.count > 1,
+              job.sheets.contains(where: { $0.id == id }) else { return false }
+        registerUndoPoint()
+        let removed = job.removeSheet(id: id)
+        if activeSheetID == id {
+            activeSheetID = job.sheets.first?.id
+        }
+        // Drop shapes that lived on the removed sheet's layers (SPK-1137
+        // discipline: never keep ghosts that would re-home on save).
+        let removedLayerIDs = Set(removed ? removedSheetLayerIDs(id: id) : [])
+        if !removedLayerIDs.isEmpty {
+            var keptShapes: [VectorShape] = []
+            var keptLayerIDs: [UUID] = []
+            for (index, shape) in shapes.enumerated() {
+                if shapeLayerIDs.indices.contains(index), removedLayerIDs.contains(shapeLayerIDs[index]) { continue }
+                keptShapes.append(shape)
+                keptLayerIDs.append(shapeLayerIDs.indices.contains(index) ? shapeLayerIDs[index] : UUID())
+            }
+            shapes = keptShapes
+            shapeLayerIDs = keptLayerIDs
+            selectedShapeIndices = []
+        }
+        selection = .job
+        statusMessage = "Removed sheet — \(job.sheets.count) remain"
+        markDirty()
+        return true
+    }
+
+    private func removedSheetLayerIDs(id: UUID) -> [UUID] {
+        guard let sheet = job.sheets.first(where: { $0.id == id }) else { return [] }
+        return sheet.layers.map(\.id)
+    }
+
+    /// Switch the design surface + toolpath stock to another sheet.
+    func selectSheet(id: UUID) {
+        guard job.sheets.contains(where: { $0.id == id }) else { return }
+        registerUndoPoint()
+        activeSheetID = id
+        selection = .sheet(id)
+        statusMessage = "Sheet: \(activeSheet?.name ?? "?")"
+        markDirty()
+    }
+
+    // MARK: - Double-sided job (SPK-0801)
+
+    /// The front-side sheet id of the double-sided config, if any.
+    var doubleSidedFrontSheetID: UUID? { job.doubleSidedConfig?.frontSheetID }
+
+    /// The back-side sheet id of the double-sided config, if any.
+    var doubleSidedBackSheetID: UUID? { job.doubleSidedConfig?.backSheetID }
+
+    /// The sheet the OTHER side of a double-sided job designs against: given
+    /// the active sheet, returns its counterpart (nil for single-sided).
+    func counterpartSheet(of sheetID: UUID) -> UUID? {
+        guard let cfg = job.doubleSidedConfig else { return nil }
+        if cfg.frontSheetID == sheetID { return cfg.backSheetID }
+        if cfg.backSheetID == sheetID { return cfg.frontSheetID }
+        return nil
+    }
+
+    /// Establish (or update) the double-sided pairing of two sheets.
+    /// Registers the config on the job (persisted via .shoppilot) and marks
+    /// the job dirty. Undoable.
+    @discardableResult
+    func setDoubleSided(frontSheetID: UUID, backSheetID: UUID,
+                        alignmentMethod: AlignmentMethod = .registrationMarks,
+                        backSideRotation: Double = 0.0,
+                        backSideFlipX: Bool = false,
+                        backSideFlipY: Bool = false) -> Bool {
+        guard job.sheets.contains(where: { $0.id == frontSheetID }),
+              job.sheets.contains(where: { $0.id == backSheetID }),
+              frontSheetID != backSheetID else {
+            statusMessage = "Double-sided: pick two different sheets"
+            return false
+        }
+        registerUndoPoint()
+        let cfg = DoubleSidedJobConfig(
+            frontSheetID: frontSheetID,
+            backSheetID: backSheetID,
+            alignmentMethod: alignmentMethod,
+            backSideZOffset: -(activeSheet(for: backSheetID)?.height ?? 0),
+            backSideRotation: backSideRotation,
+            backSideFlipX: backSideFlipX,
+            backSideFlipY: backSideFlipY
+        )
+        job.doubleSidedConfig = cfg
+        statusMessage = "Double-sided job: front + back paired (\(alignmentMethod.displayName))"
+        markDirty()
+        return true
+    }
+
+    private func activeSheet(for id: UUID) -> Sheet? {
+        job.sheets.first(where: { $0.id == id })
+    }
+
+    /// Remove the double-sided pairing (back to single-sided). The back sheet
+    /// stays in the document — the user can delete it via sheet CRUD.
+    func clearDoubleSided() {
+        guard job.doubleSidedConfig != nil else { return }
+        registerUndoPoint()
+        job.doubleSidedConfig = nil
+        statusMessage = "Double-sided pairing removed — job is single-sided"
+        markDirty()
+    }
+
+    /// Flip the design surface to the counterpart side of a double-sided job
+    /// (front ⇄ back). No-op for single-sided jobs.
+    func flipJobSide() {
+        guard let cfg = job.doubleSidedConfig else { return }
+        let target = activeSheetID == cfg.frontSheetID ? cfg.backSheetID : cfg.frontSheetID
+        selectSheet(id: target)
+        statusMessage = target == cfg.frontSheetID
+            ? "Side: Front"
+            : "Side: Back (Z offset \(String(format: "%.1f", cfg.backSideZOffset))mm)"
+    }
+
+    // MARK: - Rotary job setup (SPK-0903)
+
+    /// The job's rotary stock configuration (nil = no rotary job setup).
+    var rotaryConfig: RotaryConfig? { job.rotaryConfig }
+
+    /// The rotary stock diameter the wrap/fluting strategies default to:
+    /// job-level config when set, else the per-op/engine default.
+    var rotaryStockDiameter: Double {
+        job.rotaryConfig?.diameter ?? 50.0
+    }
+
+    /// Establish (or update) the job-level rotary setup: stock diameter,
+    /// axis length, direction and wrap behavior. Persisted via .shoppilot.
+    @discardableResult
+    func setRotaryConfig(diameter: Double, axisLength: Double,
+                         direction: RotaryDirection = .clockwise,
+                         wrapEnabled: Bool = true, wrapOverlap: Double = 5.0) -> Bool {
+        guard diameter > 0, axisLength > 0 else {
+            statusMessage = "Rotary setup: diameter and axis length must be positive"
+            return false
+        }
+        registerUndoPoint()
+        var config = RotaryConfig(mode: .cylinder, diameter: diameter, axisLength: axisLength,
+                                  direction: direction, wrapEnabled: wrapEnabled,
+                                  wrapOverlap: wrapOverlap)
+        config.zeroAngle = job.rotaryConfig?.zeroAngle ?? 0
+        config.startAngle = job.rotaryConfig?.startAngle ?? 0
+        config.endAngle = job.rotaryConfig?.endAngle ?? 360
+        job.rotaryConfig = config
+        statusMessage = String(
+            format: "Rotary: Ø%.1fmm × %.1fmm (%@, wrap %@)",
+            diameter, axisLength,
+            direction == .clockwise ? "CW" : "CCW",
+            wrapEnabled ? "on" : "off"
+        )
+        markDirty()
+        return true
+    }
+
+    /// Remove the rotary job setup (back to flat machining).
+    func clearRotaryConfig() {
+        guard job.rotaryConfig != nil else { return }
+        registerUndoPoint()
+        job.rotaryConfig = nil
+        statusMessage = "Rotary setup removed — flat machining"
         markDirty()
     }
 
@@ -643,7 +948,7 @@ final class AppSession: ObservableObject {
         registerUndoPoint()
         shapes.append(contentsOf: newShapes)
         let layerID: UUID
-        if var sheet = job.sheets.first {
+        if var sheet = activeSheet {
             if sheet.layers.isEmpty {
                 sheet.layers.append(Layer(name: "Layer 1"))
             }
@@ -655,7 +960,7 @@ final class AppSession: ObservableObject {
             for path in converted {
                 sheet.layers[targetIndex].addVector(path)
             }
-            job.sheets[0] = sheet
+            job.sheets[activeSheetIndex] = sheet
         } else {
             layerID = UUID()
         }
@@ -1537,7 +1842,7 @@ final class AppSession: ObservableObject {
     /// shape becomes a component so it composites with imported reliefs.
     @discardableResult
     func addShapeComponent(shapeType: ShapeType, params: ShapeParameters) -> Bool {
-        guard let sheet = job.sheets.first else {
+        guard let sheet = activeSheet else {
             statusMessage = "Add Shape needs a sheet — set up the job first"
             return false
         }
@@ -1894,6 +2199,32 @@ final class AppSession: ObservableObject {
 
     var hasSelection: Bool { !selectedVectorIDs.isEmpty || !selectedShapeIndices.isEmpty }
 
+    // MARK: - Expanded vector validator (SPK-0806)
+
+    /// Run the EXPANDED batch validator (topology/geometry/precision checks,
+    /// fix actions) over every design path. Mirrors the preflight doctor but
+    /// with the full `VectorValidator` rule set; stashes the result for UI.
+    @discardableResult
+    func runVectorValidation() -> BatchVectorValidationResult? {
+        let paths = vectors
+        guard !paths.isEmpty else {
+            statusMessage = "Vector validation: no vectors to check"
+            return nil
+        }
+        let shapeData = paths.map { path -> VectorShapeData in
+            VectorShapeData(
+                id: path.id,
+                points: path.points,
+                isClosed: path.isClosed,
+                shapeType: path.isClosed ? .freehand : .line
+            )
+        }
+        let result = VectorValidator.validateBatch(shapes: shapeData)
+        lastVectorValidation = result
+        statusMessage = result.summary
+        return result
+    }
+
     // MARK: - Toolpath preflight (SPK-FM-R013/R014/R019, export gate)
 
     /// Expert dismissals for toolpath preflight issues, session-scoped (same
@@ -1906,7 +2237,7 @@ final class AppSession: ObservableObject {
     /// Run the toolpath preflight rules over the tree with the document's
     /// design vectors and sheet material. Blocks export on `.error` issues.
     func exportPreflightIssues() -> [ToolpathPreflightIssue] {
-        let materialThickness = job.sheets.first?.height ?? 25.0
+        let materialThickness = activeSheet?.height ?? 25.0
         // R014: the active machine profile decides whether the table holds the
         // work down (no vacuum → through-cuts need tabs).
         let vacuum = machineProfiles.profiles.first?.vacuumHoldDown ?? false
@@ -2004,7 +2335,7 @@ final class AppSession: ObservableObject {
     /// operation node (name, strategy label, assigned tool, feed/depth from
     /// the node's stored params, estimated time).
     func buildJobSheetData() -> JobSheetData {
-        let sheet = job.sheets.first
+        let sheet = activeSheet
         let info: [ToolpathInfo] = toolpathTree.allNodes.filter(\.isOperation).map { node in
             let toolName: String
             if let toolID = node.toolID, let tool = toolDatabase.tool(withID: toolID) {
@@ -2043,12 +2374,12 @@ final class AppSession: ObservableObject {
     /// into the job sheet (the honest "update job thickness" action).
     func applyMeasuredThickness() {
         guard let measured = machineProfiles.profiles.first?.measuredThicknessMm,
-              var sheet = job.sheets.first else {
+              var sheet = activeSheet else {
             statusMessage = "No measured thickness to apply"
             return
         }
         sheet.height = measured
-        job.sheets[0] = sheet
+        job.sheets[activeSheetIndex] = sheet
         markDirty()
         statusMessage = String(format: "Job thickness updated to the measured %.2fmm — recalculate toolpaths", measured)
     }
@@ -2066,7 +2397,7 @@ final class AppSession: ObservableObject {
             statusMessage = "No V-Carve params to fix"
             return
         }
-        let materialThickness = job.sheets.first?.height ?? 25.0
+        let materialThickness = activeSheet?.height ?? 25.0
         let recommended = max(0.1, materialThickness - ToolpathPreflight.flatDepthSafetyMarginMm)
         params.flatBottomMode = true
         params.maxDepthOfCutMm = min(params.maxDepthOfCutMm, recommended)
@@ -2187,7 +2518,7 @@ final class AppSession: ObservableObject {
         // is assigned (was "No tool" when this path called addOperation bare).
         // Stock height comes from the sheet — matches Pocket/Drill/V-Carve.
         let params = ProfileToolpathParams()
-        let stockHeight = job.sheets.first?.height ?? 6.0
+        let stockHeight = activeSheet?.height ?? 6.0
         let result = ProfileToolpathEngine.compute(
             vectors: vectors,
             params: params,
@@ -2232,7 +2563,7 @@ final class AppSession: ObservableObject {
             vectors: vectors,
             params: params,
             material: nil,
-            stockHeightMm: job.sheets.first?.height ?? 6.0
+            stockHeightMm: activeSheet?.height ?? 6.0
         )
         node.toolpathResult = result.gcodeLines.joined(separator: "\n")
         node.estimatedTimeSeconds = result.estimatedTimeSeconds
@@ -2271,8 +2602,8 @@ final class AppSession: ObservableObject {
         }
         let regenerated = toolpathTree.recalculateDirtyToolpaths(
             vectors: vectors,
-            material: job.sheets.first?.material,
-            stockHeightMm: job.sheets.first?.height ?? 6.0,
+            material: activeSheet?.material,
+            stockHeightMm: activeSheet?.height ?? 6.0,
             tools: toolDatabase.tools,
             heightfield: job.stlHeightfield,
             machineName: activeMachineName
@@ -2349,7 +2680,7 @@ final class AppSession: ObservableObject {
             vectors: vectors,
             params: PocketToolpathParams(),
             material: nil,
-            stockHeightMm: job.sheets.first?.height ?? 25.0
+            stockHeightMm: activeSheet?.height ?? 25.0
         )
         let node = addToolpathNode(
             named: "Pocket \(toolpathTree.allNodes.count)",
@@ -2383,7 +2714,7 @@ final class AppSession: ObservableObject {
             vectors: vectors,
             params: params,
             material: nil,
-            stockHeightMm: job.sheets.first?.height ?? 25.0
+            stockHeightMm: activeSheet?.height ?? 25.0
         )
         node.toolpathResult = result.gcodeLines.joined(separator: "\n")
         node.estimatedTimeSeconds = result.estimatedTimeSeconds
@@ -2405,7 +2736,7 @@ final class AppSession: ObservableObject {
     /// Generate a Drill toolpath at the center of every closed vector
     /// (bounding-box centroid, default peck cycle) and add it to the tree.
     func generateDrillToolpath() {
-        let depth = -min(job.sheets.first?.height ?? 25.0, 10.0)
+        let depth = -min(activeSheet?.height ?? 25.0, 10.0)
         let points: [DrillPoint] = vectors.compactMap { path in
             guard path.isClosed, !path.points.isEmpty else { return nil }
             let xs = path.points.map(\.x)
@@ -2425,7 +2756,7 @@ final class AppSession: ObservableObject {
             points: points,
             params: DrillToolpathParams(),
             material: nil,
-            stockHeightMm: job.sheets.first?.height ?? 25.0
+            stockHeightMm: activeSheet?.height ?? 25.0
         )
         let node = addToolpathNode(
             named: "Drill \(toolpathTree.allNodes.count)",
@@ -2472,7 +2803,7 @@ final class AppSession: ObservableObject {
             points: points,
             params: params,
             material: nil,
-            stockHeightMm: job.sheets.first?.height ?? 25.0
+            stockHeightMm: activeSheet?.height ?? 25.0
         )
         node.toolpathResult = result.gcodeLines.joined(separator: "\n")
         node.estimatedTimeSeconds = result.estimatedTimeSeconds
@@ -2502,7 +2833,7 @@ final class AppSession: ObservableObject {
         let result = DrillBankToolpathEngine.compute(
             points: points,
             params: params,
-            stockHeightMm: job.sheets.first?.height ?? 25.0
+            stockHeightMm: activeSheet?.height ?? 25.0
         )
         let node = addToolpathNode(
             named: "Drill Bank \(toolpathTree.allNodes.count)",
@@ -2520,7 +2851,11 @@ final class AppSession: ObservableObject {
     /// open vectors' endpoints as flute lines; falls back to a single
     /// center-line flute when no vectors are selected.
     func generateWrappedFluting() {
-        let params = WrappedFlutingParams()
+        var params = WrappedFlutingParams()
+        // SPK-0903: job-level rotary setup supplies the stock Ø default.
+        if let cfg = job.rotaryConfig {
+            params.wrapDiameterMm = cfg.diameter
+        }
         registerUndoPoint()
         // Flute lines: use selected open polylines' segments; else a single
         // default flute along the job width.
@@ -2529,7 +2864,7 @@ final class AppSession: ObservableObject {
         if let first = selected.first, case .freehand(let pts) = first, pts.count >= 2 {
             flutePoints = pts
         } else {
-            let w = job.sheets.first?.width ?? 100.0
+            let w = activeSheet?.width ?? 100.0
             flutePoints = [VectorPoint(x: 0, y: 0), VectorPoint(x: w, y: 0)]
         }
         let result = WrappedFlutingToolpathEngine.compute(points: flutePoints, params: params)
@@ -2559,7 +2894,7 @@ final class AppSession: ObservableObject {
         let result = DrillBankToolpathEngine.compute(
             points: points,
             params: params,
-            stockHeightMm: job.sheets.first?.height ?? 25.0
+            stockHeightMm: activeSheet?.height ?? 25.0
         )
         node.toolpathResult = result.gcodeLines.joined(separator: "\n")
         node.estimatedTimeSeconds = result.estimatedTimeSeconds
@@ -2612,7 +2947,7 @@ final class AppSession: ObservableObject {
         let result = VCarveEngine.compute(
             vectors: vectors,
             params: VCarveParams(),
-            stockHeightMm: job.sheets.first?.height ?? 25.0
+            stockHeightMm: activeSheet?.height ?? 25.0
         )
         let node = addToolpathNode(
             named: "V-Carve \(toolpathTree.allNodes.count)",
@@ -2771,7 +3106,7 @@ final class AppSession: ObservableObject {
         let result = PrismToolpathEngine.compute(
             paths: vectors,
             params: params,
-            stockHeightMm: job.sheets.first?.height ?? 25.0
+            stockHeightMm: activeSheet?.height ?? 25.0
         )
         let node = addToolpathNode(
             named: "Prism \(toolpathTree.allNodes.count)",
@@ -2796,7 +3131,7 @@ final class AppSession: ObservableObject {
         let result = FlutingToolpathEngine.compute(
             paths: vectors,
             params: params,
-            stockHeightMm: job.sheets.first?.height ?? 25.0
+            stockHeightMm: activeSheet?.height ?? 25.0
         )
         let node = addToolpathNode(
             named: "Fluting \(toolpathTree.allNodes.count)",
@@ -2820,7 +3155,7 @@ final class AppSession: ObservableObject {
         let result = ChamferToolpathEngine.compute(
             paths: vectors,
             params: params,
-            stockHeightMm: job.sheets.first?.height ?? 25.0
+            stockHeightMm: activeSheet?.height ?? 25.0
         )
         let node = addToolpathNode(
             named: "Chamfer \(toolpathTree.allNodes.count)",
@@ -2843,8 +3178,8 @@ final class AppSession: ObservableObject {
         var params = InlayToolpathParams()
         params.variant = variant
         let result: SpecialtyResult = variant == .pocket
-            ? InlayToolpathEngine.computePocket(paths: vectors, params: params, stockHeightMm: job.sheets.first?.height ?? 25.0)
-            : InlayToolpathEngine.computePlug(paths: vectors, params: params, stockHeightMm: job.sheets.first?.height ?? 25.0)
+            ? InlayToolpathEngine.computePocket(paths: vectors, params: params, stockHeightMm: activeSheet?.height ?? 25.0)
+            : InlayToolpathEngine.computePlug(paths: vectors, params: params, stockHeightMm: activeSheet?.height ?? 25.0)
         let node = addToolpathNode(
             named: "Inlay \(variant == .pocket ? "Pocket" : "Plug") \(toolpathTree.allNodes.count)",
             gcode: result.gcodeLines,
@@ -2869,7 +3204,7 @@ final class AppSession: ObservableObject {
         registerUndoPoint()
         node.paramsJSON = encodeParams(params)
         let result = PrismToolpathEngine.compute(
-            paths: vectors, params: params, stockHeightMm: job.sheets.first?.height ?? 25.0
+            paths: vectors, params: params, stockHeightMm: activeSheet?.height ?? 25.0
         )
         node.toolpathResult = result.gcodeLines.joined(separator: "\n")
         node.estimatedTimeSeconds = result.estimatedTimeSeconds
@@ -2894,7 +3229,7 @@ final class AppSession: ObservableObject {
         registerUndoPoint()
         node.paramsJSON = encodeParams(params)
         let result = FlutingToolpathEngine.compute(
-            paths: vectors, params: params, stockHeightMm: job.sheets.first?.height ?? 25.0
+            paths: vectors, params: params, stockHeightMm: activeSheet?.height ?? 25.0
         )
         node.toolpathResult = result.gcodeLines.joined(separator: "\n")
         node.estimatedTimeSeconds = result.estimatedTimeSeconds
@@ -2919,7 +3254,7 @@ final class AppSession: ObservableObject {
         registerUndoPoint()
         node.paramsJSON = encodeParams(params)
         let result = ChamferToolpathEngine.compute(
-            paths: vectors, params: params, stockHeightMm: job.sheets.first?.height ?? 25.0
+            paths: vectors, params: params, stockHeightMm: activeSheet?.height ?? 25.0
         )
         node.toolpathResult = result.gcodeLines.joined(separator: "\n")
         node.estimatedTimeSeconds = result.estimatedTimeSeconds
@@ -2944,8 +3279,8 @@ final class AppSession: ObservableObject {
         registerUndoPoint()
         node.paramsJSON = encodeParams(params)
         let result: SpecialtyResult = params.variant == .pocket
-            ? InlayToolpathEngine.computePocket(paths: vectors, params: params, stockHeightMm: job.sheets.first?.height ?? 25.0)
-            : InlayToolpathEngine.computePlug(paths: vectors, params: params, stockHeightMm: job.sheets.first?.height ?? 25.0)
+            ? InlayToolpathEngine.computePocket(paths: vectors, params: params, stockHeightMm: activeSheet?.height ?? 25.0)
+            : InlayToolpathEngine.computePlug(paths: vectors, params: params, stockHeightMm: activeSheet?.height ?? 25.0)
         node.toolpathResult = result.gcodeLines.joined(separator: "\n")
         node.estimatedTimeSeconds = result.estimatedTimeSeconds
         node.clearDirty()
@@ -2966,7 +3301,7 @@ final class AppSession: ObservableObject {
         registerUndoPoint()
         let params = QuickEngraveToolpathParams()
         let result = QuickEngraveToolpathEngine.compute(
-            paths: vectors, params: params, stockHeightMm: job.sheets.first?.height ?? 25.0
+            paths: vectors, params: params, stockHeightMm: activeSheet?.height ?? 25.0
         )
         let node = addToolpathNode(
             named: "Quick Engrave \(toolpathTree.allNodes.count)",
@@ -2992,7 +3327,7 @@ final class AppSession: ObservableObject {
         registerUndoPoint()
         node.paramsJSON = encodeParams(params)
         let result = QuickEngraveToolpathEngine.compute(
-            paths: vectors, params: params, stockHeightMm: job.sheets.first?.height ?? 25.0
+            paths: vectors, params: params, stockHeightMm: activeSheet?.height ?? 25.0
         )
         node.toolpathResult = result.gcodeLines.joined(separator: "\n")
         node.estimatedTimeSeconds = result.estimatedTimeSeconds
@@ -3059,7 +3394,7 @@ final class AppSession: ObservableObject {
         registerUndoPoint()
         let params = DragKnifeToolpathParams()
         let result = DragKnifeToolpathEngine.compute(
-            paths: vectors, params: params, stockHeightMm: job.sheets.first?.height ?? 25.0
+            paths: vectors, params: params, stockHeightMm: activeSheet?.height ?? 25.0
         )
         let node = addToolpathNode(
             named: "Drag Knife \(toolpathTree.allNodes.count)",
@@ -3083,7 +3418,7 @@ final class AppSession: ObservableObject {
         registerUndoPoint()
         node.paramsJSON = encodeParams(params)
         let result = DragKnifeToolpathEngine.compute(
-            paths: vectors, params: params, stockHeightMm: job.sheets.first?.height ?? 25.0
+            paths: vectors, params: params, stockHeightMm: activeSheet?.height ?? 25.0
         )
         node.toolpathResult = result.gcodeLines.joined(separator: "\n")
         node.estimatedTimeSeconds = result.estimatedTimeSeconds
@@ -3105,7 +3440,7 @@ final class AppSession: ObservableObject {
         registerUndoPoint()
         let params = TextureToolpathParams()
         let result = TextureToolpathEngine.compute(
-            paths: vectors, params: params, stockHeightMm: job.sheets.first?.height ?? 25.0
+            paths: vectors, params: params, stockHeightMm: activeSheet?.height ?? 25.0
         )
         let node = addToolpathNode(
             named: "Texture \(toolpathTree.allNodes.count)",
@@ -3129,7 +3464,7 @@ final class AppSession: ObservableObject {
         registerUndoPoint()
         node.paramsJSON = encodeParams(params)
         let result = TextureToolpathEngine.compute(
-            paths: vectors, params: params, stockHeightMm: job.sheets.first?.height ?? 25.0
+            paths: vectors, params: params, stockHeightMm: activeSheet?.height ?? 25.0
         )
         node.toolpathResult = result.gcodeLines.joined(separator: "\n")
         node.estimatedTimeSeconds = result.estimatedTimeSeconds
@@ -3194,9 +3529,13 @@ final class AppSession: ObservableObject {
             return
         }
         registerUndoPoint()
-        let params = RotaryWrapToolpathParams()
+        var params = RotaryWrapToolpathParams()
+        // SPK-0903: job-level rotary setup supplies the stock Ø default.
+        if let cfg = job.rotaryConfig {
+            params.diameterMm = cfg.diameter
+        }
         let result = RotaryWrapToolpathEngine.compute(
-            paths: vectors, params: params, stockHeightMm: job.sheets.first?.height ?? 25.0
+            paths: vectors, params: params, stockHeightMm: activeSheet?.height ?? 25.0
         )
         let node = addToolpathNode(
             named: "Rotary Wrap \(toolpathTree.allNodes.count)",
@@ -3220,7 +3559,7 @@ final class AppSession: ObservableObject {
         registerUndoPoint()
         node.paramsJSON = encodeParams(params)
         let result = RotaryWrapToolpathEngine.compute(
-            paths: vectors, params: params, stockHeightMm: job.sheets.first?.height ?? 25.0
+            paths: vectors, params: params, stockHeightMm: activeSheet?.height ?? 25.0
         )
         node.toolpathResult = result.gcodeLines.joined(separator: "\n")
         node.estimatedTimeSeconds = result.estimatedTimeSeconds
@@ -3230,6 +3569,320 @@ final class AppSession: ObservableObject {
         statusMessage = "Rotary Wrap: \(result.featureCount) path(s), ~\(Int(result.estimatedTimeSeconds))s"
         markDirty()
         return true
+    }
+
+    // MARK: - Array copy toolpath + merged toolpath (SPK-0803)
+
+    /// The toolpath node currently selected in the Cut tree (nil = none).
+    var selectedOperationNode: ToolpathTreeNode? {
+        guard let id = selectedToolpathID else { return nil }
+        return toolpathTree.findNode(id: id)
+    }
+
+    /// The selected operation's G-code lines (nil when no selection or the
+    /// selected node has no computed result).
+    private var selectedOperationGCode: [String]? {
+        guard let node = selectedOperationNode, let result = node.toolpathResult else { return nil }
+        return result.components(separatedBy: .newlines).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+    }
+
+    /// SPK-0803 — array-copy the SELECTED operation's G-code (linear or
+    /// circular) into a new tree node via the real transform engine.
+    @discardableResult
+    func generateArrayCopyToolpath(count: Int, spacing: Double = 20.0, angle: Double = 0.0) -> Bool {
+        guard let base = selectedOperationGCode else {
+            statusMessage = "Array Copy: select a toolpath operation with computed G-code first"
+            return false
+        }
+        let params = LinearArrayCopyParams(count: count, spacing: spacing, angle: angle)
+        let result = ToolpathGCodeTransformer.linearArray(base: base, params: params)
+        guard !result.isEmpty, result.copyCount > 0 else {
+            statusMessage = "Array Copy: nothing to copy"
+            return false
+        }
+        registerUndoPoint()
+        let node = addToolpathNode(
+            named: "Array Copy \(toolpathTree.allNodes.count) (×\(result.copyCount))",
+            gcode: result.lines,
+            estimatedTime: Double(result.moveCount) * 0.01
+        )
+        let encoded = encodeParams(ArrayCopyParamsJSON(kind: "linear", count: result.copyCount,
+                                                       spacing: spacing, angle: angle))
+        node.paramsJSON = encoded
+        statusMessage = "Array Copy: \(result.copyCount) copies (\(result.moveCount) move lines)"
+        markDirty()
+        return true
+    }
+
+    /// SPK-0803 — circular array copy of the selected operation around a
+    /// center point. `radius` places copies on the circle; `sweepDegrees`
+    /// distributes them over an arc (360 = full ring).
+    @discardableResult
+    func generateCircularArrayCopyToolpath(count: Int, radius: Double, centerX: Double, centerY: Double,
+                                           sweepDegrees: Double = 360.0) -> Bool {
+        guard let base = selectedOperationGCode else {
+            statusMessage = "Circular Array Copy: select a toolpath operation first"
+            return false
+        }
+        let params = CircularArrayCopyParams(count: count, centerX: centerX, centerY: centerY,
+                                             startAngle: 0, endAngle: sweepDegrees, radius: radius)
+        let result = ToolpathGCodeTransformer.circularArray(base: base, params: params)
+        guard !result.isEmpty else {
+            statusMessage = "Circular Array Copy: nothing to copy"
+            return false
+        }
+        registerUndoPoint()
+        let node = addToolpathNode(
+            named: "Circular Array \(toolpathTree.allNodes.count) (×\(result.copyCount))",
+            gcode: result.lines,
+            estimatedTime: Double(result.moveCount) * 0.01
+        )
+        node.paramsJSON = encodeParams(ArrayCopyParamsJSON(kind: "circular", count: result.copyCount,
+                                                           radius: radius, centerX: centerX, centerY: centerY))
+        statusMessage = "Circular Array: \(result.copyCount) copies around Ø\(String(format: "%.1f", radius * 2))mm"
+        markDirty()
+        return true
+    }
+
+    /// SPK-0803 — merge ALL computed operation nodes' G-code into one new
+    /// node (tree order; markers preserved). Selection-independent: the
+    /// merged op is the union of the whole cut plan, which is what a merge
+    /// node is for (one program to stream).
+    @discardableResult
+    func generateMergedToolpath() -> Bool {
+        let programs = toolpathTree.allNodes
+            .filter { $0.toolpathResult != nil }
+            .compactMap { node -> [String]? in
+                node.toolpathResult?
+                    .components(separatedBy: .newlines)
+                    .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+            }
+        guard programs.count >= 2 else {
+            statusMessage = "Merge Toolpaths: need at least 2 computed operations"
+            return false
+        }
+        registerUndoPoint()
+        let merged = ToolpathGCodeTransformer.merge(programs: programs)
+        let node = addToolpathNode(
+            named: "Merged \(toolpathTree.allNodes.count) (\(programs.count) ops)",
+            gcode: merged,
+            estimatedTime: Double(merged.count) * 0.01
+        )
+        node.paramsJSON = encodeParams(ArrayCopyParamsJSON(kind: "merge", count: programs.count))
+        statusMessage = "Merged: \(programs.count) operations → \(merged.count) lines"
+        markDirty()
+        return true
+    }
+
+    // MARK: - Nest advanced (SPK-0804)
+
+    /// Nest the SELECTED shapes (or all shapes when nothing is selected) onto
+    /// the active sheet using the Geometry guillotine engine. Adds translated
+    /// copies at the engine's placed positions — the nested layout materializes
+    /// as new design vectors on the active layer (undo + dirty).
+    @discardableResult
+    func nestSelectedShapes(margin: Double = 5.0) -> NestResult? {
+        let sourceIndices: [Int]
+        if !selectedShapeIndices.isEmpty {
+            sourceIndices = Array(selectedShapeIndices).sorted()
+        } else {
+            sourceIndices = Array(shapes.indices)
+        }
+        guard !sourceIndices.isEmpty else {
+            statusMessage = "Nest: nothing to nest — draw or select shapes first"
+            return nil
+        }
+        guard let sheet = activeSheet else {
+            statusMessage = "Nest: no sheet — set up the job first"
+            return nil
+        }
+        let parts = sourceIndices.compactMap { shapes.indices.contains($0) ? shapes[$0] : nil }
+        let result = ShopPilotGeometry.NestingEngine.nest(
+            parts: parts,
+            sheetWidth: sheet.width,
+            sheetHeight: sheet.depth,
+            margin: margin
+        )
+        guard !result.parts.isEmpty else {
+            statusMessage = "Nest: nothing placed — parts may exceed the sheet"
+            return result
+        }
+        registerUndoPoint()
+        // Materialize placed copies: translate each source shape so its
+        // bounding box top-left lands on the engine's placed position
+        // (applying the 90° rotation the engine used when it fit rotated).
+        var copies: [VectorShape] = []
+        var usedLayerID = activeSheet?.layers.first?.id ?? UUID()
+        if let layer = activeSheet?.layers.first { usedLayerID = layer.id }
+        for placed in result.parts {
+            let original = placed.shape
+            let localBB = original.boundingRect
+            var placedShape = original
+            if abs(placed.rotation - .pi / 2.0) < 1e-9 {
+                // Rotate about the bbox center, then translate so the rotated
+                // bbox's top-left lands at the placed position.
+                let center = VectorPoint(x: localBB.minX + localBB.width / 2,
+                                         y: localBB.minY + localBB.height / 2)
+                placedShape = ShapeTransformer().rotate(
+                    shapes: [original], angle: 90, about: center
+                )[0]
+            }
+            let newBB = placedShape.boundingRect
+            let dx = placed.position.x - newBB.minX
+            let dy = placed.position.y - newBB.minY
+            copies.append(placedShape.translated(by: dx, dy))
+        }
+        let newLayerIDs = Array(repeating: usedLayerID, count: copies.count)
+        shapes.append(contentsOf: copies)
+        shapeLayerIDs.append(contentsOf: newLayerIDs)
+        syncLayerVectors()
+        selectedShapeIndices = Set((shapes.count - copies.count)..<shapes.count)
+        statusMessage = String(
+            format: "Nest: %d placed, %d unplaced, utilization %.1f%%",
+            result.parts.count, result.unplacedCount, result.utilization
+        )
+        markDirty()
+        return result
+    }
+
+    // MARK: - Tiling (SPK-0805)
+
+    /// Tile the SELECTED shapes (or all shapes) across the active sheet using
+    /// the real `TilingManager` layout engine. Each tile's content is the
+    /// source selection, copied to the tile cell origin (mirror flags
+    /// applied). Materializes as new design vectors — undo + dirty.
+    @discardableResult
+    func generateTiling(tilesPerRow: Int, tilesPerColumn: Int,
+                        tileGap: Double = 2.0, margin: Double = 5.0) -> TilingResult? {
+        let sourceIndices: [Int]
+        if !selectedShapeIndices.isEmpty {
+            sourceIndices = Array(selectedShapeIndices).sorted()
+        } else {
+            sourceIndices = Array(shapes.indices)
+        }
+        guard !sourceIndices.isEmpty else {
+            statusMessage = "Tiling: nothing to tile — draw or select shapes first"
+            return nil
+        }
+        guard let sheet = activeSheet else {
+            statusMessage = "Tiling: no sheet — set up the job first"
+            return nil
+        }
+        // Tile cell = sheet footprint minus margins, split into the grid.
+        let cellW = (sheet.width - 2 * margin) / Double(tilesPerRow)
+        let cellH = (sheet.depth - 2 * margin) / Double(tilesPerColumn)
+        let config = TilingConfig(
+            tilesPerRow: tilesPerRow,
+            tilesPerColumn: tilesPerColumn,
+            tileWidth: cellW,
+            tileHeight: cellH,
+            tileGap: tileGap,
+            gapType: .fixed,
+            direction: .horizontal,
+            alignment: .topLeft,
+            originX: margin,
+            originY: margin,
+            rotation: 0,
+            mirrorHorizontal: false,
+            mirrorVertical: false,
+            stagger: false,
+            staggerAmount: 0
+        )
+        let result = TilingManager().generateLayout(config: config, sheetWidth: sheet.width, sheetHeight: sheet.depth)
+        guard result.success, !result.tiles.isEmpty else {
+            statusMessage = "Tiling: layout failed — \(result.errorMessage ?? "unknown")"
+            return result
+        }
+        // Source shapes' content bbox (so copies center in each tile cell).
+        let contentBB = sourceIndices.reduce(into: Rect()) { acc, idx in
+            guard shapes.indices.contains(idx) else { return }
+            let bb = shapes[idx].boundingRect
+            acc = acc.width == 0 && acc.height == 0 ? bb : Rect(
+                minX: min(acc.minX, bb.minX), minY: min(acc.minY, bb.minY),
+                maxX: max(acc.maxX, bb.maxX), maxY: max(acc.maxY, bb.maxY)
+            )
+        }
+        let contentW = contentBB.width == 0 ? cellW : contentBB.width
+        let contentH = contentBB.height == 0 ? cellH : contentBB.height
+
+        registerUndoPoint()
+        let layerID = activeSheet?.layers.first?.id ?? UUID()
+        var copies: [VectorShape] = []
+        for tile in result.tiles where tile.placed {
+            // Center the content in the tile cell.
+            let cellCenterX = tile.x + tile.width / 2
+            let cellCenterY = tile.y + tile.height / 2
+            let dx = cellCenterX - contentW / 2 - contentBB.minX
+            let dy = cellCenterY - contentH / 2 - contentBB.minY
+            var copy = contentBB.width == 0 && contentBB.height == 0
+                ? VectorShape.rectangle(origin: VectorPoint(x: tile.x, y: tile.y),
+                                        width: tile.width, height: tile.height)
+                : shapes[sourceIndices[0]].translated(by: dx, dy)
+            copies.append(copy)
+        }
+        let newLayerIDs = Array(repeating: layerID, count: copies.count)
+        shapes.append(contentsOf: copies)
+        shapeLayerIDs.append(contentsOf: newLayerIDs)
+        syncLayerVectors()
+        selectedShapeIndices = Set((shapes.count - copies.count)..<shapes.count)
+        statusMessage = "Tiling: \(result.placedTiles) tiles placed (\(tilesPerRow)×\(tilesPerColumn) grid)"
+        markDirty()
+        return result
+    }
+
+    // MARK: - Thread milling (SPK-0902)
+
+    /// Generate a thread-mill op on the FIRST selected closed vector (its
+    /// bounding-box center is the hole center; the hole Ø is derived from the
+    /// vector size). Uses the real helical engine.
+    func generateThreadMillingToolpath() {
+        guard let target = selectedClosedShapeBBoxCenter() else {
+            statusMessage = "Thread Mill: select a closed vector (the hole) first"
+            return
+        }
+        registerUndoPoint()
+        let params = ThreadMillParams()
+        let result = ThreadMillingToolpathEngine.compute(
+            centerX: target.center.x,
+            centerY: target.center.y,
+            params: params
+        )
+        let node = addToolpathNode(
+            named: "Thread Mill \(toolpathTree.allNodes.count)",
+            gcode: result.gcodeLines,
+            estimatedTime: result.estimatedTimeSeconds
+        )
+        node.paramsJSON = encodeParams(params)
+        statusMessage = "Thread Mill: M\(String(format: "%.2f", result.threadPitchMm)) pitch, \(result.helixCount) helical pass(es), \(result.gcodeLines.count) lines"
+    }
+
+    /// Recompute a thread-mill op with new params (form Apply).
+    @discardableResult
+    func applyThreadMillParams(_ params: ThreadMillParams, to nodeID: UUID,
+                               centerX: Double = 0, centerY: Double = 0) -> Bool {
+        guard let node = toolpathTree.findNode(id: nodeID),
+              node.strategyKind == .threadMill else {
+            statusMessage = "Apply params: select a Thread Mill operation"
+            return false
+        }
+        registerUndoPoint()
+        node.paramsJSON = encodeParams(params)
+        let result = ThreadMillingToolpathEngine.compute(centerX: centerX, centerY: centerY, params: params)
+        node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+        node.estimatedTimeSeconds = result.estimatedTimeSeconds
+        node.clearDirty()
+        let all = allToolpathGCode
+        if !all.isEmpty { gcodeLines = all }
+        statusMessage = "Thread Mill: \(result.helixCount) helical pass(es)"
+        markDirty()
+        return true
+    }
+
+    /// Center of the selected closed shape's bounding box (nil when none).
+    private func selectedClosedShapeBBoxCenter() -> (center: (x: Double, y: Double), size: (w: Double, h: Double))? {
+        guard let idx = selectedShapeIndices.sorted().first, shapes.indices.contains(idx) else { return nil }
+        let bb = shapes[idx].boundingRect
+        return ((bb.minX + bb.width / 2, bb.minY + bb.height / 2), (bb.width, bb.height))
     }
 
     /// Generate an Inlay op from a named V-Carve recipe preset (SPK-0802
@@ -3250,8 +3903,8 @@ final class AppSession: ObservableObject {
             statusMessage = "Inlay \(variant == .pocket ? "pocket" : "plug"):"
         }
         let result: SpecialtyResult = variant == .pocket
-            ? InlayToolpathEngine.computePocket(paths: vectors, params: params, stockHeightMm: job.sheets.first?.height ?? 25.0)
-            : InlayToolpathEngine.computePlug(paths: vectors, params: params, stockHeightMm: job.sheets.first?.height ?? 25.0)
+            ? InlayToolpathEngine.computePocket(paths: vectors, params: params, stockHeightMm: activeSheet?.height ?? 25.0)
+            : InlayToolpathEngine.computePlug(paths: vectors, params: params, stockHeightMm: activeSheet?.height ?? 25.0)
         let node = addToolpathNode(
             named: "Inlay \(variant == .pocket ? "Pocket" : "Plug") \(toolpathTree.allNodes.count)",
             gcode: result.gcodeLines,
@@ -3259,6 +3912,61 @@ final class AppSession: ObservableObject {
         )
         node.paramsJSON = encodeParams(params)
         statusMessage += " \(result.gcodeLines.count) lines, ~\(Int(result.estimatedTimeSeconds))s"
+    }
+
+    // MARK: - Level mirror modes (SPK-0908)
+
+    /// The session's level manager (level metadata + mirror modes).
+    let levelManager = LevelManager()
+
+    /// Mirror a level's content: flips every component heightfield in that
+    /// level along the requested axis (real grid transform, world footprint
+    /// kept) and recomposites the active relief. Undoable + dirty.
+    @discardableResult
+    func mirrorLevel(_ id: UUID, axis: LevelManager.MirrorAxis) -> Bool {
+        guard let level = levelManager.levels.first(where: { $0.id == id }) else {
+            statusMessage = "Mirror: level not found"
+            return false
+        }
+        guard var stack = job.reliefComponents, !stack.isEmpty else {
+            statusMessage = "Mirror: no relief components to mirror"
+            return false
+        }
+        registerUndoPoint()
+        let levelComponentIDs = Set(level.components)
+        var mirrored = false
+        for i in stack.indices where levelComponentIDs.contains(stack[i].id) {
+            stack[i].heightfield = LevelMirrorEngine.mirror(stack[i].heightfield, axis: axis)
+            mirrored = true
+        }
+        guard mirrored else {
+            statusMessage = "Mirror: level holds no relief components"
+            return false
+        }
+        job.reliefComponents = stack
+        levelManager.mirrorLevel(id, axis: axis)
+        markDirty()
+        let ok = recompositeRelief()
+        statusMessage = "Level “\(level.name)” mirrored \(axis.rawValue)\(ok ? " — relief recomposited" : "")"
+        return ok
+    }
+
+    /// Mirror the document's ACTIVE relief in place (no component stack
+    /// needed) — the single-relief workflow equivalent of a level mirror.
+    @discardableResult
+    func mirrorActiveRelief(axis: LevelManager.MirrorAxis) -> Bool {
+        guard let hf = job.stlHeightfield else {
+            statusMessage = "Mirror: no active relief — import an image or STL first"
+            return false
+        }
+        registerUndoPoint()
+        job.stlHeightfield = LevelMirrorEngine.mirror(hf, axis: axis)
+        for node in toolpathTree.allNodes where node.strategyKind == .rough3D || node.strategyKind == .finish3D {
+            node.markDirty()
+        }
+        markDirty()
+        statusMessage = "Relief mirrored \(axis.rawValue) — 3D ops marked dirty"
+        return true
     }
 
     // MARK: - Text + bitmap trace + export (studio surface)
@@ -3291,7 +3999,7 @@ final class AppSession: ObservableObject {
     /// document. The image is mapped onto the job sheet's dimensions.
     @discardableResult
     func traceBitmap(from url: URL, threshold: Double) -> Bool {
-        let sheet = job.sheets.first
+        let sheet = activeSheet
         let result = BitmapTracer.trace(
             from: url,
             quality: BitmapTraceQuality(threshold: threshold),
@@ -3431,7 +4139,7 @@ final class AppSession: ObservableObject {
         let result = VCarveEngine.compute(
             vectors: vectors,
             params: params,
-            stockHeightMm: job.sheets.first?.height ?? 25.0
+            stockHeightMm: activeSheet?.height ?? 25.0
         )
         node.toolpathResult = result.gcodeLines.joined(separator: "\n")
         node.estimatedTimeSeconds = result.estimatedTimeSeconds

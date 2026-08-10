@@ -439,3 +439,60 @@ struct SketchCarveParamsForm: View {
         .padding(8)
     }
 }
+
+// MARK: - Thread Mill form (SPK-0902)
+
+struct ThreadMillParamsForm: View {
+    let node: ToolpathTreeNode
+    let onApply: (ThreadMillParams) -> Void
+
+    @State private var params: ThreadMillParams
+
+    init(node: ToolpathTreeNode, onApply: @escaping (ThreadMillParams) -> Void) {
+        self.node = node
+        self.onApply = onApply
+        _params = State(initialValue: node.threadMillParams())
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            GroupBox("Thread") {
+                Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                    SpecialtyNumRow(label: "Hole Ø (mm)", value: $params.holeDiameterMm)
+                    SpecialtyNumRow(label: "Pitch (mm)", value: $params.pitchMm)
+                    SpecialtyNumRow(label: "Thread length (mm)", value: $params.threadLengthMm)
+                    SpecialtyNumRow(label: "Tool Ø (mm)", value: $params.toolDiameterMm)
+                    Picker("Thread", selection: $params.isInternal) {
+                        Text("Internal").tag(true)
+                        Text("External").tag(false)
+                    }
+                    .pickerStyle(.segmented)
+                    .gridCellColumns(2)
+                }
+            }
+            GroupBox("Passes") {
+                Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                    SpecialtyNumRow(label: "Passes", value: Binding(
+                        get: { Double(params.passes) },
+                        set: { params.passes = max(1, Int($0)) }
+                    ))
+                    SpecialtyNumRow(label: "Pass step (mm)", value: $params.passStepMm)
+                }
+            }
+            GroupBox("Feeds") {
+                Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                    SpecialtyNumRow(label: "Feed (mm/min)", value: $params.feedRateMmPerMin)
+                    SpecialtyNumRow(label: "Plunge (mm/min)", value: $params.plungeRateMmPerMin)
+                    SpecialtyNumRow(label: "Spindle (RPM)", value: $params.spindleRpm)
+                    SpecialtyNumRow(label: "Safe Z (mm)", value: $params.safeZHeightMm)
+                }
+            }
+            Button("Apply Params — Regenerate") {
+                onApply(params)
+            }
+            .buttonStyle(.borderedProminent)
+            .frame(maxWidth: .infinity)
+        }
+        .padding(8)
+    }
+}

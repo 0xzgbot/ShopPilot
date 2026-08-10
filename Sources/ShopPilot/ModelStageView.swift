@@ -290,6 +290,16 @@ struct ModelStageView: View {
             Button("Work Area") { _ = session.computeWorkAreaFromComponents() }
                 .disabled(session.job.stlHeightfield == nil && (session.reliefComponents ?? []).isEmpty)
                 .help("Compute the zero plane and boundary from the component stack")
+            // SPK-0908 — level mirror modes (X / Y / both).
+            Menu {
+                Button("Mirror X") { _ = session.mirrorActiveRelief(axis: .horizontal) }
+                Button("Mirror Y") { _ = session.mirrorActiveRelief(axis: .vertical) }
+                Button("Mirror X + Y") { _ = session.mirrorActiveRelief(axis: .both) }
+            } label: {
+                Label("Mirror", systemImage: "arrow.left.and.right.righttriangle.left.righttriangle.right")
+            }
+            .disabled(session.job.stlHeightfield == nil)
+            .help("SPK-0908: flip the relief along X, Y, or both axes (3D ops marked dirty)")
             // SPK-0906 — laser cut/engrave G-code from the design vectors.
             Button("Laser…") { showLaserToolpath = true }
                 .help("Generate laser cut or engrave G-code from the design vectors")

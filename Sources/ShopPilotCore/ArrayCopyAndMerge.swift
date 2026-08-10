@@ -242,3 +242,158 @@ public final class ArrayCopyAndMergeEngine {
         return (errors.isEmpty, errors)
     }
 }
+
+// MARK: - Real G-code transform engine (SPK-0803)
+
+/// Persisted params for an array-copy / merge toolpath node (SPK-0803).
+/// Stored as `paramsJSON` on the tree node so the op's configuration survives
+/// save/open and recalc stays faithful.
+public struct ArrayCopyParamsJSON: Codable, Sendable {
+    public var kind: String        // "linear" | "circular" | "merge"
+    public var count: Int
+    public var spacing: Double
+    public var angle: Double
+    public var radius: Double
+    public var centerX: Double
+    public var centerY: Double
+
+    public init(kind: String, count: Int, spacing: Double = 20.0, angle: Double = 0.0,
+                radius: Double = 0.0, centerX: Double = 0.0, centerY: Double = 0.0) {
+        self.kind = kind
+        self.count = count
+        self.spacing = spacing
+        self.angle = angle
+        self.radius = radius
+        self.centerX = centerX
+        self.centerY = centerY
+    }
+}
+
+/// Transforms raw G-code lines for array-copy + merge operations. This is the
+/// REAL engine behind SPK-0803 — the legacy `ArrayCopyAndMergeEngine` above
+/// only fabricates ids/estimates and is retained for API compatibility.
+public enum ToolpathGCodeTransformer {
+
+    /// Result of transforming a G-code program.
+    public struct TransformResult: Codable, Sendable {
+        public let lines: [String]
+        public let copyCount: Int
+        public let moveCount: Int
+        public var isEmpty: Bool { lines.isEmpty }
+    }
+
+    /// Parse the X/Y/Z coordinates out of a G0/G1/G2/G3 word line.
+    /// Returns nil for non-motion lines (comments, %, O=, M-codes, etc.).
+    public static func motionTarget(_ line: String) -> (x: Double?, y: Double?, z: Double?)? {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard trimmed.hasPrefix("G0") || trimmed.hasPrefix("G1")
+            || trimmed.hasPrefix("G2") || trimmed.hasPrefix("G3") else { return nil }
+        var x: Double? = nil
+        var y: Double? = nil
+        var z: Double? = nil
+        // Split on whitespace; each token is a word like "X12.5" or "F1500".
+        for token in trimmed.split(whereSeparator: { $0 == " " || $0 == "\t" }) {
+            let word = String(token)
+            if word.hasPrefix("X"), let v = Double(word.dropFirst()) { x = v }
+            else if word.hasPrefix("Y"), let v = Double(word.dropFirst()) { y = v }
+            else if word.hasPrefix("Z"), let v = Double(word.dropFirst()) { z = v }
+        }
+        return (x, y, z)
+    }
+
+    /// Apply a transform to one motion line: translate + rotate X/Y in place.
+    /// Non-motion lines pass through untouched. Z words are preserved.
+    public static func transformLine(_ line: String, translateX: Double, translateY: Double,
+                                     rotateDegrees: Double = 0, centerX: Double = 0, centerY: Double = 0) -> String {
+        guard let target = motionTarget(line) else { return line }
+        let cosA = cos(rotateDegrees * .pi / 180.0)
+        let sinA = sin(rotateDegrees * .pi / 180.0)
+        var words: [String] = []
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        for token in trimmed.split(whereSeparator: { $0 == " " || $0 == "\t" }) {
+            let word = String(token)
+            if word.hasPrefix("X"), let v = Double(word.dropFirst()) {
+                // translate first, then rotate about (centerX, centerY)
+                let px = v + translateX - centerX
+                let py = (target.y ?? 0) + translateY - centerY
+                let rx = px * cosA - py * sinA + centerX
+                words.append(String(format: "X%.3f", rx))
+            } else if word.hasPrefix("Y"), let v = Double(word.dropFirst()) {
+                let px = (target.x ?? 0) + translateX - centerX
+                let py = v + translateY - centerY
+                let ry = px * sinA + py * cosA + centerY
+                words.append(String(format: "Y%.3f", ry))
+            } else if word.hasPrefix("Z"), let v = Double(word.dropFirst()) {
+                words.append(String(format: "Z%.3f", v))
+            } else {
+                words.append(word)
+            }
+        }
+        return words.joined(separator: " ")
+    }
+
+    /// Linear array copy: `count` copies of `base` spaced by `spacing` along
+    /// `angle` degrees (0 = +X axis, 90 = +Y). The first copy is the base
+    /// itself (identity transform); each subsequent copy is translated.
+    public static func linearArray(base: [String], params: LinearArrayCopyParams) -> TransformResult {
+        guard params.count >= 1 else {
+            return TransformResult(lines: [], copyCount: 0, moveCount: 0)
+        }
+        let rad = params.angle * .pi / 180.0
+        let dx = cos(rad) * params.spacing
+        let dy = sin(rad) * params.spacing
+        var out: [String] = []
+        for copy in 0..<params.count {
+            let tx = Double(copy) * dx
+            let ty = Double(copy) * dy
+            for line in base {
+                out.append(transformLine(line, translateX: tx, translateY: ty))
+            }
+        }
+        return TransformResult(lines: out, copyCount: params.count, moveCount: out.count)
+    }
+
+    /// Circular array copy: `count` copies arranged around (centerX, centerY)
+    /// at `radius`, sweeping startAngle → endAngle. Each copy is rotated in
+    /// place by the placement angle (so it stays tangent to the ring like a
+    /// clock hand) and translated to its ring position. Copy 0 sits at
+    /// startAngle; the base program appears once per copy.
+    public static func circularArray(base: [String], params: CircularArrayCopyParams) -> TransformResult {
+        guard params.count >= 1, params.radius > 0 else {
+            return TransformResult(lines: [], copyCount: 0, moveCount: 0)
+        }
+        var out: [String] = []
+        for copy in 0..<params.count {
+            let fraction = params.count > 1
+                ? Double(copy) / Double(params.count - 1)
+                : 0.0
+            let sweep = params.startAngle + (params.endAngle - params.startAngle) * fraction
+            let rad = sweep * .pi / 180.0
+            let tx = cos(rad) * params.radius + params.centerX
+            let ty = sin(rad) * params.radius + params.centerY
+            for line in base {
+                // Rotate in place about the copy's own origin, then translate
+                // to the ring position (rotate-then-translate keeps the copy
+                // exactly at `radius` from the center — the CAD circular-array
+                // semantic, verified by ShopPilotVerify0803).
+                let rotated = transformLine(line, translateX: 0, translateY: 0,
+                                            rotateDegrees: sweep,
+                                            centerX: 0, centerY: 0)
+                out.append(transformLine(rotated, translateX: tx, translateY: ty))
+            }
+        }
+        return TransformResult(lines: out, copyCount: params.count, moveCount: out.count)
+    }
+
+    /// Merge multiple programs in order, keeping each program's marker lines
+    /// (`O=...`) so the merged node's identity is auditable. Returns the
+    /// concatenated program.
+    public static func merge(programs: [[String]]) -> [String] {
+        var out: [String] = []
+        for program in programs {
+            if !out.isEmpty { out.append("") } // blank line between programs
+            out.append(contentsOf: program)
+        }
+        return out
+    }
+}

@@ -1,0 +1,10 @@
+{
+  "description": "Portrait-style relief carving with fine detail in the face area and simpler background.",
+  "icon": "person.crop.circle",
+  "id": "E621E1F8-C36C-495A-93FC-0C247A3E6E5F",
+  "name": "Portrait Relief",
+  "recommendedStrategy": "Adaptive Z-level roughing + parallel finishing",
+  "stockDepth": 457.2,
+  "stockHeight": 19.05,
+  "stockWidth": 304.8
+}

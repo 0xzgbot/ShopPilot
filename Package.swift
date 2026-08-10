@@ -28,6 +28,96 @@ let package = Package(
             path: "Sources/ShopPilotVerify0312"
         ),
         .executableTarget(
+            name: "ShopPilotVerify0800",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify0800"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify0801",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify0801"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify0803",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify0803"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify0804",
+            dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
+            path: "Sources/ShopPilotVerify0804"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify0805",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify0805"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify0806",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify0806"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify0807",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify0807"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify0808",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify0808"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify0903",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify0903"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify0902",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify0902"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify0908",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify0908"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify0909",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify0909"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1000",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1000"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1001",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1001"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1003",
+            dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
+            path: "Sources/ShopPilotVerify1003"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1006",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1006"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1008",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1008"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1010",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1010"
+        ),
+        .executableTarget(
             name: "ShopPilotVerify0308",
             dependencies: ["ShopPilotCore"],
             path: "Sources/ShopPilotVerify0308"

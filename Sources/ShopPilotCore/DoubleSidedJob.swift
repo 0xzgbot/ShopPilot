@@ -46,6 +46,16 @@ public enum AlignmentMethod: String, Codable, Sendable {
     case edgeAlignment
     case gridAlignment
     case manualOffset
+
+    /// Human-readable alignment method name (SPK-0801 UI).
+    public var displayName: String {
+        switch self {
+        case .registrationMarks: return "Registration Marks"
+        case .edgeAlignment: return "Edge Alignment"
+        case .gridAlignment: return "Grid Alignment"
+        case .manualOffset: return "Manual Offset"
+        }
+    }
 }
 
 // Registration mark for alignment.

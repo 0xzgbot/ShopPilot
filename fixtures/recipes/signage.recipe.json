@@ -1,0 +1,10 @@
+{
+  "description": "Single-face sign with lettering and decorative graphics.",
+  "icon": "textformat.abc",
+  "id": "9B6D5C4E-2222-4B3C-AD4E-1F2A3B4C5D6E",
+  "name": "Signage",
+  "recommendedStrategy": "Profile + V-Carve lettering",
+  "stockDepth": 609.6,
+  "stockHeight": 19.05,
+  "stockWidth": 457.2
+}

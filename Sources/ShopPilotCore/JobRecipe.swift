@@ -3,7 +3,8 @@ import Foundation
 // MARK: - Job Recipe Model
 
 /// A predefined job template that users can select when creating a new project.
-public struct JobRecipe: Identifiable {
+/// Codable (SPK-1006) so recipes round-trip as JSON files.
+public struct JobRecipe: Identifiable, Codable, Sendable {
     public let id: UUID
     public let name: String
     public let description: String
@@ -36,6 +37,44 @@ public struct JobRecipe: Identifiable {
     public var displayDimensions: String {
         String(format: "%.1f × %.1f × %.2f in",
                stockWidth / 25.4, stockDepth / 25.4, stockHeight / 25.4)
+    }
+}
+
+// MARK: - JSON recipe codec (SPK-1006)
+
+/// JSON serialization for recipes: a recipe file is a single JobRecipe
+/// encoded with pretty-printed JSON. Unknown keys are tolerated on decode so
+/// a recipe written by a newer version still loads (forward-compatible).
+public enum RecipeJSONCodec {
+
+    /// Encode a recipe to pretty JSON data.
+    public static func encode(_ recipe: JobRecipe) throws -> Data {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        return try encoder.encode(recipe)
+    }
+
+    /// Decode a recipe from JSON data. Returns nil for non-recipe payloads.
+    public static func decode(_ data: Data) -> JobRecipe? {
+        try? JSONDecoder().decode(JobRecipe.self, from: data)
+    }
+
+    /// Decode many recipes from a JSON array payload (recipe pack).
+    public static func decodePack(_ data: Data) -> [JobRecipe] {
+        (try? JSONDecoder().decode([JobRecipe].self, from: data)) ?? []
+    }
+
+    /// A JSON object may carry a `"recipes": [...]` envelope (the plugin/API
+    /// shape); decode that when present, else the bare array, else nil.
+    public static func decodeEnvelope(_ data: Data) -> [JobRecipe] {
+        if let pack = try? JSONDecoder().decode(RecipePackEnvelope.self, from: data) {
+            return pack.recipes
+        }
+        return decodePack(data)
+    }
+
+    private struct RecipePackEnvelope: Decodable {
+        let recipes: [JobRecipe]
     }
 }
 

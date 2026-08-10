@@ -52,7 +52,8 @@ public final class CutToMachineBridge {
         toolInfo: String?,
         machineProfile: MachineProfile,
         fileName: String = "job",
-        postTemplate: PostTemplate? = nil
+        postTemplate: PostTemplate? = nil,
+        postVariables: [String: String] = [:]
     ) throws -> CutToMachineBridgeResult {
         
         // Validate input
@@ -86,7 +87,8 @@ public final class CutToMachineBridge {
         let output: PostProcessedOutput
         let postTemplateID: String?
         if let postTemplate {
-            let result = PostTemplateEngine.emit(gcodeLines: gcodeLines, template: postTemplate)
+            let result = PostTemplateEngine.emit(gcodeLines: gcodeLines, template: postTemplate,
+                                                 variables: postVariables)
             let processed = result.lines.joined(separator: "\n")
             output = PostProcessedOutput(
                 gcodeString: processed,

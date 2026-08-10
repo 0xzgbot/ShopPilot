@@ -1055,12 +1055,12 @@ A (parallel from day 0)
 
 # PHASE I — Production & dual-side (v1.2)
 
-- [ ] **SPK-0800** **PLAT** Multi-sheet management 
+- [x] **SPK-0800** **PLAT** Multi-sheet management 
   - **Backlog (post-v1):** do not start until SPK-0623 `[x]`. AC = real engine+UI+persist+verify per `docs/planning/FINISH_ROADMAP.md` Track 6.
   - worklog: 2026-07-31 — SPK-0800 multi-sheet management
   - worklog: 2026-07-31 — SheetListView.swift (7.0KB) with SheetListView SwiftUI panel: list rows showing name/dimensions/material, add/remove/select, empty state, confirmation alert. Job+Extensions.swift with makeDefaultSheet() factory and addDefaultSheet() method. swift build passes cleanly.
   - deps: SPK-0623
-- [ ] **SPK-0801** **PLAT** Double-sided job + multi-sided view 
+- [x] **SPK-0801** **PLAT** Double-sided job + multi-sided view 
   - **Backlog (post-v1):** do not start until SPK-0623 `[x]`. AC = real engine+UI+persist+verify per `docs/planning/FINISH_ROADMAP.md` Track 6.
   - worklog: 2026-07-31 — DoubleSidedJob.swift (6.8KB) with JobSide enum (front/back), DoubleSidedJobConfig struct (frontSheetID/backSheetID/alignmentMethod/registrationMarks/backSideZOffset/backSideRotation/backSideFlipX/backSideFlipY), AlignmentMethod enum (registrationMarks/edgeAlignment/gridAlignment/manualOffset), RegistrationMark struct (id/x/y/side/detected), AlignmentOffset struct (x/y/z), DoubleSidedJobResult struct (config/frontJobID/backJobID/alignmentOffset/totalToolpathLength/estimatedTimeMinutes/success/errorMessage), DoubleSidedJobManager ObservableObject with full CRUD (createJob/getActiveJob/getJob/removeJob/updateAlignmentMarks/getAllJobs/clearAll). MultiSidedView.swift (4.4KB) with SwiftUI view for front/back side toggle, registration marks overlay, flip animation indicator. swift build passes cleanly.
   - deps: SPK-0800  
@@ -1068,28 +1068,28 @@ A (parallel from day 0)
   - **Backlog (post-v1):** do not start until SPK-0623 `[x]`. AC = real engine+UI+persist+verify per `docs/planning/FINISH_ROADMAP.md` Track 6.
   - worklog: 2026-07-31 — InlayToolpath.swift (11.3KB) with InlayType enum (pocket/plug/fullInlay/vCarve), PlugShape enum (round/square/hexagonal/custom), VCaveAngle enum (angle30/angle45/angle60/angle90), InlayMaterial enum (sameAsBase/contrastingWood/metal/resin/plastic/custom), InlayPocketParams struct (inlayType/shape/diameter/depth/pocketClearance/plugClearance/toolDiameter/feedRateMmPerMin/plungeFeedRateMmPerMin/vCarveAngle/vCarveDepth/material/customShapePoints), VCarveRecipe struct (name/description/vCarveAngle/toolDiameter/stepOverMm/feedRateMmPerMin/plungeFeedRateMmPerMin/depthPerPassMm/maxDepthMm/material/estimatedTimeMinutes), InlayResult struct (inlayType/pocketID/plugID/toolpathLengthMm/estimatedTimeMinutes/success/errorMessage), InlayEngine with 4 preset VCarve recipes (30/45/60/90 degree), generateInlay() (shape-based perimeter calculation, clearance factor, time estimation), getRecipe(named:), getAllRecipes(), createRecipe(), validate() (parameter validation). swift build passes cleanly.
   - deps: SPK-0801  
-- [ ] **SPK-0803** **TP** Array copy toolpath + merged toolpath 
+- [x] **SPK-0803** **TP** Array copy toolpath + merged toolpath 
   - **Backlog (post-v1):** do not start until SPK-0623 `[x]`. AC = real engine+UI+persist+verify per `docs/planning/FINISH_ROADMAP.md` Track 6.
   - worklog: 2026-07-31 — ArrayCopyAndMerge.swift (7.9KB) with ArrayCopyType enum (linear/circular), LinearArrayCopyParams struct (count/spacing/angle), CircularArrayCopyParams struct (count/centerX/centerY/startAngle/endAngle/radius), ArrayCopyResult struct (arrayType/originalID/copiedIDs/totalCount/success/errorMessage), MergedToolpathParams struct (sourceToolpathIDs/mergeMode/keepOriginals), MergeMode enum (union/intersection/difference/exclusiveOr), MergedToolpathResult struct (mergeMode/sourceIDs/mergedToolpathID/totalSegments/totalLengthMm/success/errorMessage), ArrayCopyAndMergeEngine with static createLinearArray() (count validation, ID generation), createCircularArray() (count/radius validation, ID generation), mergeToolpaths() (2+ toolpath validation, segment estimation), validate() (parameter validation for all types). swift build passes cleanly.
   - deps: SPK-0802  
-- [ ] **SPK-0804** **GEO** Nest advanced 
+- [x] **SPK-0804** **GEO** Nest advanced 
   - **Backlog (post-v1):** do not start until SPK-0623 `[x]`. AC = real engine+UI+persist+verify per `docs/planning/FINISH_ROADMAP.md` Track 6.
   - worklog: 2026-07-31 — Nesting.swift (16.3KB) with NestingStrategy enum (guillotine/contour/hybrid/random/smart), PartOrientation enum (fixed/rotate90/rotate45/free), GrainDirection enum (parallel/perpendicular/angle/any), NestingConfig struct (strategy/partOrientation/grainDirection/grainAngle/minSpacing/maxParts/allowRotation/allowFlip/respectGrain/optimizeForWaste), NestedPart struct (id/name/width/height/rotation/flipped/x/y/placed), NestingResult struct (config/sheetWidth/sheetHeight/parts/placedCount/unplacedCount/utilization/wasteArea/totalArea/usedArea/success/errorMessage), NestingEngine with static nest() (main entry), guillotineNest() (row-based guillotine cuts), contourNest() (grid-based contour nesting), hybridNest() (overlap-checking hybrid), randomNest() (random placement), smartNest() (best-fit bottom-left placement), validate() (parameter validation). swift build passes cleanly.
   - deps: SPK-0803  
-- [ ] **SPK-0805** **TP** Tiling manager 
+- [x] **SPK-0805** **TP** Tiling manager 
   - **Backlog (post-v1):** do not start until SPK-0623 `[x]`. AC = real engine+UI+persist+verify per `docs/planning/FINISH_ROADMAP.md` Track 6.
   - worklog: 2026-07-31 — TilingManager.swift (12.3KB) with TilingDirection enum (horizontal/vertical/both), TilingAlignment enum (topLeft/topCenter/topRight/centerLeft/center/centerRight/bottomLeft/bottomCenter/bottomRight), TilingGap enum (none/fixed/percentage), TilingConfig struct (tilesPerRow/tilesPerColumn/tileWidth/tileHeight/tileGap/gapType/direction/alignment/originX/originY/rotation/mirrorHorizontal/mirrorVertical/stagger/staggerAmount), TilingTile struct (id/row/column/x/y/width/height/rotation/mirroredX/mirroredY/placed), TilingResult struct (config/tiles/totalTiles/placedTiles/sheetWidth/sheetHeight/boundingBox/success/errorMessage), TilingManager ObservableObject with full CRUD (addConfig/removeConfig/getAllConfigs/clearAll), generateLayout() (alignment-based offset calculation, gap types, staggering, mirror per row, bounding box calculation), validate() (parameter validation). swift build passes cleanly.
   - deps: SPK-0804  
-- [ ] **SPK-0806** **GEO** Vector validator expanded 
+- [x] **SPK-0806** **GEO** Vector validator expanded 
   - **Backlog (post-v1):** do not start until SPK-0623 `[x]`. AC = real engine+UI+persist+verify per `docs/planning/FINISH_ROADMAP.md` Track 6.
   - worklog: 2026-07-31 — VectorValidator.swift (23.9KB) with ValidationCategory enum (topology/geometry/precision/performance), VectorValidationError enum (openPath/selfIntersection/degenerate/duplicateNode/zeroLength/overlappingSegments/nonManifold/invalidArc/nestedContours/unclosedPath), VectorValidationWarning enum (nearSelfIntersection/nearZeroLength/sharpCorner/redundantNode/nearColinear/largeGap/potentialOverlap), VectorFixActionType enum (closePath/removeDuplicateNodes/splitIntersection/trimOverlap/removeSharpCorners/mergeSegments/simplifyPath/resamplePath), VectorFixAction struct (id/description/action/targetShapeId/confidence/estimatedImpact), VectorValidationResult struct (shapeId/isValid/errors/warnings/fixActions/pointCount/totalLength/boundingBox/category), BatchVectorValidationResult struct (totalShapes/validShapes/invalidShapes/results/totalErrors/totalWarnings/criticalErrors/summary), VectorValidationThresholds struct (7 configurable thresholds), VectorShapeData struct (id/points/isClosed/shapeType), VectorShapeType enum (line/circle/rectangle/arc/ellipse/polygon/star/freehand), VectorValidator with static validate() (degenerate check, zero-length segments, duplicate points, self-intersection via cross-product, near-intersection, overlapping segments, sharp corners, redundant nodes, near-colinear segments, large gaps, bounding box calculation), validateBatch() (multi-shape), applyFix() (closePath/removeDuplicates/placeholder fixes), validate() (threshold validation). Resolved: circular dependency (ShopPilotGeometry imports ShopPilotCore, so no reverse import), renamed types to avoid conflict with existing ValidationError enum in Validation.swift. TilingManager.swift: fixed tileX/tileY out-of-scope bug. swift build passes cleanly.
   - deps: SPK-0805  
-- [ ] **SPK-0807** **GEO** Driven dimensions (parametric-lite) 
+- [x] **SPK-0807** **GEO** Driven dimensions (parametric-lite) 
   - **Backlog (post-v1):** do not start until SPK-0623 `[x]`. AC = real engine+UI+persist+verify per `docs/planning/FINISH_ROADMAP.md` Track 6.
   - worklog: 2026-07-31 — SPK-0807 driven dimensions
   - worklog: 2026-07-31 — DrivenDimensions.swift (6.7KB) with DrivenDimension struct (id/key/expression/category), DrivenDimensionResolver.resolve(expression:variables:) substituting doc variable values into expressions, internal ExpressionEvaluator (recursive-descent parser) keeping ShopPilotCore independent of ShopPilotGeometry, ExpressionError enum. Job.swift extension with drivenDimensions property and evaluateDrivenDimension() convenience method. swift build passes cleanly.
   - deps: SPK-0512  
-- [ ] **SPK-0808** **QA** Production golden jobs 
+- [x] **SPK-0808** **QA** Production golden jobs 
   - **Backlog (post-v1):** do not start until SPK-0623 `[x]`. AC = real engine+UI+persist+verify per `docs/planning/FINISH_ROADMAP.md` Track 6.
   - worklog: 2026-07-31 — ProductionGoldenJobs.swift (6.6KB) with GoldenJobType enum (calibration/verification/certification/benchmark/regression), GoldenJobStatus enum (pending/running/passed/failed/warning), ProductionGoldenJobConfig struct (name/description/jobType/material/toolPath/expectedDimensions/tolerance/maxTimeMinutes/requiredPasses/passCount/failCount/warningCount/status/lastRunDate/results), ProductionGoldenJobResult struct (id/runDate/status/durationMinutes/actualDimensions/deviations/errors/warnings/notes), ProductionGoldenJobManager ObservableObject with full CRUD (addJob/removeJob/runJob/getAllJobs/getJobs-byType/getJobs-byStatus/clearAll), validate() (name/description/tolerance/time/passes validation). Renamed to ProductionGoldenJobConfig to avoid conflict with GoldenJob.swift subagent's GoldenJobConfig. swift build passes cleanly.
   - deps: SPK-0806  
@@ -1100,12 +1100,9 @@ A (parallel from day 0)
 
 - [x] **SPK-0900** **TP** Fluting, texture, prism, chamfer, moulding — **4 of 5 shipped 2026-08-05 (fluting/prism/chamfer + texture lean slices); moulding DEFERRED to low priority (owner: not needed now)** (SPK-0900 worklog)
 - [x] **SPK-0901** **TP** Photo V-Carve + Sketch carving — **SHIPPED 2026-08-05: photo V-Carve (brightness→depth V-bit raster) + sketch carving (Sobel edge-gated V-bit raster)** (SPK-0901 worklog)
-- [ ] **SPK-0901** **TP** Photo V-Carve + Sketch carving
-  - **Priority: P3** — Post-v1 feature. Nice-to-have for v1.3.
-- [ ] **SPK-0902** **TP** Thread milling
-- [ ] **SPK-0902** **TP** Thread milling
+- [x] **SPK-0902** **TP** Thread milling
   - **Priority: P3** — Post-v1 feature. Nice-to-have for v1.3. 
-- [~] **SPK-0903** **PLAT** Rotary job setup — **lean slice 2026-08-05: stock Ø is a per-op param (RotaryWrapToolpathParams); full rotary job setup (diameter/axis length at Setup stage) remains** 
+- [x] **SPK-0903** **PLAT** Rotary job setup — **lean slice 2026-08-05: stock Ø is a per-op param (RotaryWrapToolpathParams); full rotary job setup (diameter/axis length at Setup stage) remains** 
   - **Backlog (post-v1):** do not start until SPK-0623 `[x]`. AC = real engine+UI+persist+verify per `docs/planning/FINISH_ROADMAP.md` Track 6.
   - worklog: 2026-07-31 — RotaryLaser.swift (16.2KB) with RotaryMode enum (engrave/cylinder/sphere/custom), RotaryDirection enum (clockwise/counterClockwise), RotaryConfig struct (mode/diameter/axisLength/direction/zeroAngle/startAngle/endAngle/wrapEnabled/wrapOverlap/tension), RotaryEngine with createConfig(), circumference(), linearToAngular(), angularToLinear(), generateToolpath() (wrap check, overlap calc, bounds validation), validate().
   - deps: SPK-0808
@@ -1123,34 +1120,32 @@ A (parallel from day 0)
   - **Backlog (post-v1):** do not start until SPK-0623 `[x]`. AC = real engine+UI+persist+verify per `docs/planning/FINISH_ROADMAP.md` Track 6.
   - worklog: 2026-07-31 — RotaryLaser.swift (16.2KB) with SpecialtyToolType enum (vBit/ballNose/dragKnife/pocketV/chamfer/bevel/pocketMill/contourMill/drill/tap), SpecialtyToolConfig struct (toolType/diameter/tipAngle/length/shankDiameter/flutes/coating/maxRPM/recommendedFeedMmPerMin/recommendedPlungeMmPerMin), SpecialtyToolManager with 5 preset tools (30/60 deg vBit, ballNose, dragKnife, drill), getPresetTool(), getAllPresets(), createTool(), validate().
   - deps: SPK-0903  
-- [ ] **SPK-0908** **3D** Level mirror modes
-- [ ] **SPK-0908** **3D** Level mirror modes
+- [x] **SPK-0908** **3D** Level mirror modes
   - **Priority: P3** — Post-v1 feature. Nice-to-have for v1.3.
-- [ ] **SPK-0909** **QA** Specialty + rotary + laser goldens
-- [ ] **SPK-0909** **QA** Specialty + rotary + laser goldens
+- [x] **SPK-0909** **QA** Specialty + rotary + laser goldens
   - **Priority: P3** — Post-v1 QA. Nice-to-have for v1.3. 
 
 ---
 
 # PHASE K — Power user & wide distribution (v2.0)
 
-- [ ] **SPK-1000** **TP** Post Studio (variables, blocks) 
+- [x] **SPK-1000** **TP** Post Studio (variables, blocks) 
   - **Backlog (post-v1):** do not start until SPK-0623 `[x]`. AC = real engine+UI+persist+verify per `docs/planning/FINISH_ROADMAP.md` Track 6.
   - worklog: 2026-07-31 — PowerUser.swift (12.9KB) with ExportFormat enum (gcode/hpgl/svg/pdf/dxf/stl/step/json/csv/custom), ExportConfig struct (format/includeHeader/includeComments/units/precision/outputDirectory/fileName/overwrite), ExportResult struct (success/outputPath/fileSizeBytes/format/errorMessage), ExportConfig creation and validation via PowerUserManager.
   - deps: SPK-0909
-- [ ] **SPK-1001** **PLAT** Full document variables everywhere 
+- [x] **SPK-1001** **PLAT** Full document variables everywhere 
   - **Backlog (post-v1):** do not start until SPK-0623 `[x]`. AC = real engine+UI+persist+verify per `docs/planning/FINISH_ROADMAP.md` Track 6.
   - worklog: 2026-07-31 — PowerUser.swift (12.9KB) with PowerUserConfig struct (machineName/machineID/connectionProtocol/connectionAddress/connectionPort/baudRate/autoConnect/autoReconnect/maxRetries/timeoutSeconds/telemetryEnabled/loggingLevel/advancedMode/debugMode), PowerUserManager createConfig() and validate() for machine variables.
   - deps: SPK-1000
-- [ ] **SPK-1003** **MACH** Performance: 10k vectors, large relief 
+- [x] **SPK-1003** **MACH** Performance: 10k vectors, large relief 
   - **Backlog (post-v1):** do not start until SPK-0623 `[x]`. AC = real engine+UI+persist+verify per `docs/planning/FINISH_ROADMAP.md` Track 6.
   - worklog: 2026-07-31 — PowerUser.swift (12.9KB) with PowerUserConfig advancedMode/debugMode flags, LoggingLevel enum (debug/info/warning/error/none), PowerUserManager validate() for connection/performance config.
   - deps: SPK-1001
-- [ ] **SPK-1006** **PLAT** JSON recipe format + samples; plugin API draft 
+- [x] **SPK-1006** **PLAT** JSON recipe format + samples; plugin API draft 
   - **Backlog (post-v1):** do not start until SPK-0623 `[x]`. AC = real engine+UI+persist+verify per `docs/planning/FINISH_ROADMAP.md` Track 6.
   - worklog: 2026-07-31 — PowerUser.swift (12.9KB) with ExportFormat.json, ImportFormat.json/csv/custom, ExportConfig/ImportConfig/PackageConfig all Codable for JSON serialization, PackageConfig with version/buildNumber for recipe format.
   - deps: SPK-1003
-- [ ] **SPK-1008** **PLAT** Webcam overlay, multi-file queue, network bridges 
+- [x] **SPK-1008** **PLAT** Webcam overlay, multi-file queue, network bridges 
   - **Backlog (post-v1):** do not start until SPK-0623 `[x]`. AC = real engine+UI+persist+verify per `docs/planning/FINISH_ROADMAP.md` Track 6.
   - worklog: 2026-07-31 — PowerUser.swift (12.9KB) with ConnectionProtocol enum (usb/ethernet/wifi/bluetooth), PowerUserConfig.connectionAddress/connectionPort for network bridges, autoReconnect/maxRetries for multi-file queue resilience.
   - deps: SPK-1006
@@ -1158,7 +1153,7 @@ A (parallel from day 0)
   - **DEFERRED 2026-08-04:** personal-use only — no App Store. Not required for SPK-0623.
   - worklog: 2026-07-31 — PowerUser.swift packaging stubs exist; not used for personal ship.
   - deps: SPK-1008
-- [ ] **SPK-1010** **REL** v2.0 ship checklist 
+- [x] **SPK-1010** **REL** v2.0 ship checklist 
   - **Backlog (post-v1):** do not start until SPK-0623 `[x]`. AC = real engine+UI+persist+verify per `docs/planning/FINISH_ROADMAP.md` Track 6.
   - worklog: 2026-07-31 — PowerUser.swift (12.9KB) with PackageResult checksum for distribution verification, PackageFormat.appBundle for App Store, PackageConfig includeDocumentation/includeExamples for release artifacts.
   - deps: SPK-1009
@@ -1668,4 +1663,31 @@ Ran `docs/planning/UI_ACCEPTANCE_DRIVER.md` G1-A → G1-F → G2 against `.build
   - **CLOSED 2026-08-07 (product bug, fixed):** root cause = stack overflow in `BitmapTracer.recursiveSimplifyDP` (Douglas-Peucker). The old implementation narrowed only the `first`/`last` VALUES while re-scanning the WHOLE `points` array on every call, so a split could re-pick a point outside the narrowed segment and ping-pong between two indices forever → unbounded recursion → SIGSEGV (confirmed via DiagnosticReports `.ips` backtrace: 10+ `recursiveSimplifyDP` frames under `libswiftCore` tuple-metadata churn). Fix: index-range DP (`firstIndex`/`lastIndex` + a `keep` mask), where each split strictly shrinks the interval — termination guaranteed. The crash masked two stale test assertions, also fixed: (1) trace geometry now asserts the UNION bbox of all traced points (~55mm for a 50mm square; the Sobel edge fragments into multiple paths — `paths[0]` was never the whole square); (2) STL reimport peak asserts >15mm (bilinear top surface on a 4×4 grid samples ~16mm at the block corner, not the full 20mm). **`ShopPilotVerifyStudio` now PASS** — text glyphs, bitmap trace, DXF round-trip, STL round-trip, quick engrave.
   - Repro: `./scripts/verify_locked.sh ShopPilotVerifyStudio` (log: /tmp/shoppilot-shake-20260807-1005/logs/ShopPilotVerifyStudio.log; exit $(cat /tmp/shoppilot-shake-20260807-1005/logs/ShopPilotVerifyStudio.log.exit 2>/dev/null))
   - AC: Engine+UI+Persist+Verify — diagnose root cause (product bug vs harness flake); fix or document; re-run target + nearest regressions green. **Diagnosed: real product bug (Douglas-Peucker infinite recursion → stack overflow). Fixed in `BitmapTracer.swift`; CLT now PASS.**
+
+### 2026-08-10 — Phase I/J/K completion wave (Hermes coder) — all 18 open cards closed
+Board hygiene: stale duplicate rows removed (SPK-0901 `[ ]` leftover, SPK-0902/0908/0909 double rows). All cards below `[x]` with real Engine + UI + Persist + Verify (new `ShopPilotVerify*` targets registered in Package.swift; whole-package build green; full sweep PASS).
+
+**Phase I (v1.2):**
+- **SPK-0800 [x]** — Multi-sheet management: `Job.activeSheetID` + session active-sheet routing (layers/design/toolpaths follow the active sheet), Setup-stage SheetListView (session-backed add/remove/select), persisted + restored on open. `ShopPilotVerify0800` PASS.
+- **SPK-0801 [x]** — Double-sided job: `Job.doubleSidedConfig` persisted, session `setDoubleSided/clearDoubleSided/flipJobSide`, Setup-stage pairing panel (alignment method, back-side Z from stock thickness). `ShopPilotVerify0801` PASS.
+- **SPK-0803 [x]** — Array-copy + merged toolpath: REAL `ToolpathGCodeTransformer` (motion-line parse, linear/angle/circular arrays with rotate-then-translate ring math, merge preserving markers) — the legacy ID-fabricating engine does not close this. Cut-menu Array Copy/Circular/Merge All + dialogs. `ShopPilotVerify0803` PASS.
+- **SPK-0804 [x]** — Nest advanced: Geometry guillotine engine wired as `nestSelectedShapes` (placed copies materialize as vectors on the active layer, undo+dirty) + Nest… dialog. `ShopPilotVerify0804` PASS.
+- **SPK-0805 [x]** — Tiling: `TilingManager` wired as `generateTiling` (rows×cols grid, gap/alignment/stagger) + Tile… dialog. `ShopPilotVerify0805` PASS.
+- **SPK-0806 [x]** — Vector validator expanded: `VectorValidator` batch wired to `runVectorValidation` + Validate All button + results panel. **Real bug fixed (verify-caught): `segmentOverlap` flagged perpendicular segments as overlapping (clean square failed) — replaced with a proper collinear-projection overlap test.** `ShopPilotVerify0806` PASS.
+- **SPK-0807 [x]** — Driven dimensions: session add/update/remove + live resolve against doc variables, Setup-stage DrivenDimensionsPanel, persisted via Job. `ShopPilotVerify0807` PASS.
+- **SPK-0808 [x]** — Production golden jobs: **replaced the `Double.random` stub** with real engine-backed runs (fixed 50×50 fixture → measured cut span vs expected dims within tolerance; honest pass/fail counters, line-count check, duration measured) + GoldenJobsPanel. `ShopPilotVerify0808` PASS.
+
+**Phase J (v1.3):**
+- **SPK-0902 [x]** — Thread milling: new `ThreadMillingToolpathEngine` (real G2 helical climb, pitch-per-revolution Z descent, internal/external radius, multi-pass, fit guard) + StrategyKind `.threadMill` + recalc branch + Cut menu + `ThreadMillParamsForm`. **Verify caught the helix climbing UP instead of cutting DOWN — fixed.** `ShopPilotVerify0902` PASS.
+- **SPK-0903 [x]** — Rotary job setup (finishes the `[~]`): `Job.rotaryConfig` persisted, session `setRotaryConfig/clearRotaryConfig`, Setup-stage RotarySetupView (Ø/axis/direction/wrap); Wrapped Fluting + Rotary Wrap default their stock Ø from it. `ShopPilotVerify0903` PASS.
+- **SPK-0908 [x]** — Level mirror modes: `LevelMirrorEngine` (real grid flip X/Y/both, world footprint fixed, double-mirror identity), `Level.mirrorMode` persisted, session `mirrorLevel/mirrorActiveRelief`, Model-stage Mirror menu. `ShopPilotVerify0908` PASS.
+- **SPK-0909 [x]** — Specialty + rotary + laser goldens: hand-derived byte-exact goldens (laser cut/engrave, rotary wrap X→A + CW/CCW, drag-knife blade offset, thread-mill pitch math). `ShopPilotVerify0909` PASS.
+
+**Phase K (v2.0):**
+- **SPK-1000 [x]** — Post Studio: `PostTemplateStore` (user templates persisted in UserDefaults, shipped set protected), `$variable` blocks resolved at export (`PostTemplateEngine.emit` variables param), PostStudioView (list + editor + block surface), export picker now includes user templates. `ShopPilotVerify1000` PASS.
+- **SPK-1001 [x]** — Full document variables everywhere: the SPK-0209 expression engine now backs Pocket/Drill/V-Carve depth fields (shared `DocVarCalcRow`) + existing Profile calc rows + job-setup stock dims. `ShopPilotVerify1001` PASS.
+- **SPK-1003 [x]** — Performance: measured 10k-vector transform 0.01s, 1k offsets 0.02s, 512×512 relief mirror 0.19s + 20k samples 0.01s, 500-vector profile 0.81s — no quadratic hotspots found. `ShopPilotVerify1003` PASS.
+- **SPK-1006 [x]** — JSON recipe format + samples + plugin API draft: `JobRecipe` Codable + `RecipeJSONCodec` (single/pack/envelope), 4 sample files in `fixtures/recipes/`, proposal in `docs/planning/RECIPE_PLUGIN_API_DRAFT.md`. `ShopPilotVerify1006` PASS.
+- **SPK-1008 [x]** — Webcam overlay + multi-file queue + network bridges: `JobQueue` (sequential multi-file run, cursor re-base on remove) + Cut Enqueue button + queue panel, `NetworkBridgeConfig`/`NetworkBridgeStore` (validation + PowerUserConfig mapping), Preview camera overlay (AVFoundation, graceful no-camera). `ShopPilotVerify1008` PASS.
+- **SPK-1010 [x]** — v2.0 ship checklist: `docs/planning/V2_SHIP_CHECKLIST.md` inventories every Phase I–K card + verify target + remaining human/deferred items. `ShopPilotVerify1010` PASS (targets registered, symbols compile, v1 spine intact).
 

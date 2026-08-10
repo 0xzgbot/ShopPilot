@@ -55,6 +55,24 @@ public struct Job: Identifiable, Codable, Sendable {
     /// Driven (computed) dimensions whose values are derived from expressions.
     public var drivenDimensions: [DrivenDimension] = []
 
+    /// SPK-0800 — the sheet id the session's design surface + toolpaths last
+    /// targeted (restored on open so the document reopens on the same sheet).
+    /// Optional + legacy-safe — older documents decode nil (first sheet).
+    public var activeSheetID: UUID?
+
+    /// SPK-0801 — double-sided job configuration (front/back sheet pairing,
+    /// registration alignment, back-side Z offset/flip/rotation). Optional +
+    /// legacy-safe — single-sided documents decode nil.
+    public var doubleSidedConfig: DoubleSidedJobConfig?
+
+    /// Whether this document is a double-sided job.
+    public var isDoubleSided: Bool { doubleSidedConfig != nil }
+
+    /// SPK-0903 — job-level rotary setup: stock diameter + axis length for
+    /// rotary machining. Optional + legacy-safe; rotary wrap/fluting ops read
+    /// it as their stock Ø default (per-op params still override).
+    public var rotaryConfig: RotaryConfig?
+
     /// UI-polish cluster — persisted vector groups as index lists into the
     /// sheet's vector order (one entry per group). Optional + legacy-safe:
     /// documents saved before grouping existed decode as nil (no groups).

@@ -269,9 +269,37 @@ private struct SetupStageView: View {
                 NewJobView(docVars: session.docVars) { job in
                     session.replaceJob(job)
                 }
+                // SPK-0800 — multi-sheet management: add / remove / switch
+                // sheets. Session-backed so every change is undoable + dirty
+                // and the design surface + toolpath stock follow the active
+                // sheet.
+                SheetListView(
+                    sheets: Binding(
+                        get: { session.job.sheets },
+                        set: { session.job.sheets = $0 }
+                    ),
+                    selectedSheetId: Binding(
+                        get: { session.activeSheetID ?? session.job.sheets.first?.id },
+                        set: { id in
+                            guard let id else { return }
+                            session.selectSheet(id: id)
+                        }
+                    ),
+                    onAddSheet: {
+                        session.addSheet() ?? Sheet(name: "Sheet 1")
+                    },
+                    onRemoveSheet: { id in
+                        _ = session.removeSheet(id: id)
+                    }
+                )
+                .frame(minHeight: 160)
+                DoubleSidedSetupView(session: session)
+                RotarySetupView(session: session)
                 MaterialSetupView(session: session)
                 DocumentVariablesPanelView(model: session.docVars)
                     .frame(minHeight: 240)
+                DrivenDimensionsPanelView(session: session)
+                GoldenJobsPanelView(session: session)
             }
             .padding()
         }
@@ -294,6 +322,12 @@ private struct DesignStageView: View {
     @State private var showCircularDialog = false
     @State private var circularCount = "6"
     @State private var circularRotate = false
+    @State private var showNestDialog = false
+    @State private var nestMargin = "5.0"
+    @State private var showTilingDialog = false
+    @State private var tilingRows = "2"
+    @State private var tilingCols = "3"
+    @State private var tilingGap = "2.0"
     @State private var showKeyholeDialog = false
     @State private var keyholeHeadDia = "10.0"
     @State private var keyholeShaftDia = "5.0"
@@ -308,6 +342,8 @@ private struct DesignStageView: View {
     /// SPK-UI605: Import hub is a sheet / empty-canvas panel — not a permanent
     /// right rail that reappears on every Design entry when vectors exist.
     @State private var showImportHub = false
+    /// SPK-0806: expanded validator results panel (Validate All button).
+    @State private var showValidationPanel = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -349,6 +385,11 @@ private struct DesignStageView: View {
 
                 if session.preflightPanelVisible {
                     PreflightDoctorView(session: session)
+                        .frame(minWidth: 280, idealWidth: 320)
+                }
+
+                if showValidationPanel, let validation = session.lastVectorValidation {
+                    VectorValidationPanel(result: validation)
                         .frame(minWidth: 280, idealWidth: 320)
                 }
             }
@@ -398,6 +439,30 @@ private struct DesignStageView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Copies the selection around its center.")
+        }
+        .alert("Nest", isPresented: $showNestDialog) {
+            TextField("Margin (mm)", text: $nestMargin)
+            Button("Nest") {
+                let margin = Double(nestMargin) ?? 5.0
+                _ = session.nestSelectedShapes(margin: margin)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Arranges copies of the selected shapes (or all shapes) into the sheet with the guillotine nest engine.")
+        }
+        .alert("Tile", isPresented: $showTilingDialog) {
+            TextField("Rows", text: $tilingRows)
+            TextField("Columns", text: $tilingCols)
+            TextField("Gap (mm)", text: $tilingGap)
+            Button("Tile") {
+                let rows = Int(tilingRows) ?? 2
+                let cols = Int(tilingCols) ?? 3
+                let gap = Double(tilingGap) ?? 2.0
+                _ = session.generateTiling(tilesPerRow: cols, tilesPerColumn: rows, tileGap: gap)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Repeats the selected shapes (or all shapes) across the sheet in a rows × columns grid.")
         }
         .alert("Keyhole", isPresented: $showKeyholeDialog) {
             TextField("Screw head Ø (mm)", text: $keyholeHeadDia)
@@ -471,6 +536,12 @@ private struct DesignStageView: View {
             Button("Circular…") { showCircularDialog = true }
                 .disabled(session.selectedShapeIndices.isEmpty)
                 .help("Copy the selection around its center")
+            Button("Nest…") { showNestDialog = true }
+                .disabled(session.shapes.isEmpty)
+                .help("Arrange copies of the selection (or all shapes) into the sheet with the guillotine nest engine")
+            Button("Tile…") { showTilingDialog = true }
+                .disabled(session.shapes.isEmpty)
+                .help("Repeat the selection (or all shapes) across the sheet in a rows × columns grid")
             Button("Keyhole…") { showKeyholeDialog = true }
                 .help("Add a keyhole-slot vector for wall-hanging mounts")
             Button("Text…") { showTextDialog = true }
@@ -513,6 +584,11 @@ private struct DesignStageView: View {
                 session.preflightPanelVisible = true
             }
             .help("Detect open vectors, self-intersections, degenerate shapes and gaps — with fix actions (before cutting)")
+            Button("Validate All") {
+                _ = session.runVectorValidation()
+                showValidationPanel = true
+            }
+            .help("SPK-0806: run the expanded batch validator (topology/geometry/precision, fix actions) over every vector")
             Divider().frame(height: 14)
             // SPK-3D-spine-a: import an STL relief as a heightfield.
             Button("STL Relief…") { session.importSTLHeightfieldFromPanel() }
@@ -636,6 +712,8 @@ private struct CutStageView: View {
     @State private var showExportBlockAlert = false
     /// SPK-1134 — post template applied on Save Toolpaths (nil = legacy post).
     @State private var selectedPostTemplateID: String = "grbl-mm"
+    /// SPK-1000 — Post Studio sheet (template editor + variable blocks).
+    @State private var showPostStudio = false
     @State private var exportBlockMessage = ""
 
     /// Toolpath preflight gate (SPK-FM-R013): error issues block save with a
@@ -644,6 +722,13 @@ private struct CutStageView: View {
     @State private var showToolpathPreflightAlert = false
     /// SPK-1133 — selected tool in the grouped tool browser (left pane).
     @State private var selectedBrowserToolID: UUID?
+    /// SPK-0803 — array-copy dialogs (linear row / circular ring).
+    @State private var showArrayCopyDialog = false
+    @State private var arrayCopyCount = "3"
+    @State private var arrayCopySpacing = "20.0"
+    @State private var showCircularArrayDialog = false
+    @State private var circularCount = "6"
+    @State private var circularRadius = "50.0"
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -695,6 +780,16 @@ private struct CutStageView: View {
                         .help("Parallel or crosshatch grooves clipped inside closed vectors")
                     Button("Rotary Wrap") { session.generateRotaryWrapToolpath() }
                         .help("Wrap the selected vectors around a rotary axis (X → A degrees, Y stays axial)")
+                    Button("Thread Mill") { session.generateThreadMillingToolpath() }
+                        .help("Cut a thread inside the selected closed vector with one helical pass (real G2 helix)")
+                    Divider()
+                    // SPK-0803 — array-copy + merge the selected operation's G-code.
+                    Button("Array Copy…") { showArrayCopyDialog = true }
+                        .help("Copy the selected toolpath operation in a linear row (real G-code transform)")
+                    Button("Circular Array…") { showCircularArrayDialog = true }
+                        .help("Copy the selected toolpath operation around a circle")
+                    Button("Merge All Ops") { session.generateMergedToolpath() }
+                        .help("Concatenate every computed operation into one program (markers preserved)")
                     Divider()
                     // SPK-3D-spine-b: relief strategies (need an imported STL).
                     Button("Rough 3D") { session.generateRough3DToolpath() }
@@ -754,6 +849,28 @@ private struct CutStageView: View {
                     Label("Job Sheet…", systemImage: "doc.text")
                 }
                 .help("Export an A4 HTML job sheet (rendered to PDF) with job, tool and toolpath details")
+                // SPK-1000 — Post Studio: manage user post templates + the
+                // document-variable blocks they resolve at export.
+                Button {
+                    showPostStudio = true
+                } label: {
+                    Label("Post Studio…", systemImage: "text.badge.plus")
+                }
+                .help("Create and edit post templates with $variable blocks")
+                // SPK-1008 — multi-file job queue: enqueue the current cut
+                // plan as one program in the sequential run queue.
+                Button {
+                    let gcode = session.allToolpathGCode
+                    guard !gcode.isEmpty else {
+                        session.statusMessage = "Queue: no G-code to enqueue — generate toolpaths first"
+                        return
+                    }
+                    session.jobQueue.enqueue(name: session.job.name, gcode: gcode)
+                    session.statusMessage = "Queued “\(session.job.name)” (\(gcode.count) lines) — \(session.jobQueue.programs.count) program(s) in queue"
+                } label: {
+                    Label("Enqueue", systemImage: "list.number")
+                }
+                .help("Add the current cut plan to the multi-file run queue")
             }
 
             HSplitView {
@@ -770,6 +887,9 @@ private struct CutStageView: View {
                     Divider()
                     // SPK-0308: keep-out zone management (create/edit/toggle).
                     KeepOutZonesPanel(session: session)
+                    Divider()
+                    // SPK-1008: multi-file job queue (sequential programs).
+                    JobQueuePanelView(session: session)
                 }
 
                 selectedDetail
@@ -826,6 +946,38 @@ private struct CutStageView: View {
             }
         } message: {
             Text(toolpathPreflightMessage)
+        }
+        .alert("Linear Array Copy", isPresented: $showArrayCopyDialog) {
+            TextField("Copies", text: $arrayCopyCount)
+            TextField("Spacing (mm)", text: $arrayCopySpacing)
+            Button("Copy") {
+                let count = Int(arrayCopyCount) ?? 3
+                let spacing = Double(arrayCopySpacing) ?? 20.0
+                _ = session.generateArrayCopyToolpath(count: count, spacing: spacing, angle: 0)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Copy the selected operation's G-code in a row along X. Select an operation in the tree first.")
+        }
+        .alert("Circular Array Copy", isPresented: $showCircularArrayDialog) {
+            TextField("Copies", text: $circularCount)
+            TextField("Radius (mm)", text: $circularRadius)
+            Button("Copy") {
+                let count = Int(circularCount) ?? 6
+                let radius = Double(circularRadius) ?? 50.0
+                let sheet = session.activeSheet
+                let cx = (sheet?.width ?? 600) / 2
+                let cy = (sheet?.depth ?? 400) / 2
+                _ = session.generateCircularArrayCopyToolpath(count: count, radius: radius,
+                                                              centerX: cx, centerY: cy)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Copy the selected operation's G-code around the sheet center. Select an operation in the tree first.")
+        }
+        .sheet(isPresented: $showPostStudio) {
+            PostStudioView(session: session)
+                .frame(width: 640, height: 560)
         }
     }
 
@@ -884,10 +1036,11 @@ private struct CutStageView: View {
         panel.canCreateDirectories = true
         panel.title = "Save Toolpaths"
 
-        // SPK-1134: post picker accessory — choose the post template applied
-        // on export. The accessory also carries a summary of each template.
+        // SPK-1134 + SPK-1000: post picker accessory — choose the post
+        // template applied on export (shipped GRBL set + user Post Studio
+        // templates). The accessory also carries a summary of each template.
         let postPicker = PostTemplatePickerView(
-            templates: PostTemplate.shipped,
+            templates: session.postTemplateStore.allTemplates,
             selectedID: selectedPostTemplateID
         ) { id in
             selectedPostTemplateID = id
@@ -901,13 +1054,14 @@ private struct CutStageView: View {
         }
 
         do {
-            let postTemplate = PostTemplate.shipped(byID: selectedPostTemplateID)
+            let postTemplate = session.postTemplateStore.template(byID: selectedPostTemplateID)
             let result = try CutToMachineBridge.export(
                 gcodeLines: gcode,
                 toolInfo: nil,
                 machineProfile: activeMachineProfile,
                 fileName: destinationURL.deletingPathExtension().lastPathComponent,
-                postTemplate: postTemplate
+                postTemplate: postTemplate,
+                postVariables: session.postTemplateVariables
             )
 
             if let errorMessage = result.errorMessage {
@@ -1102,7 +1256,7 @@ private struct CutStageView: View {
                 // SPK-1136b: Pocket strategy form — installer-verified §M fields.
                 if node.isPocketOperation {
                     ScrollView {
-                        PocketParamsForm(node: node) { newParams in
+                        PocketParamsForm(node: node, variables: session.docVars.variables) { newParams in
                             _ = session.applyPocketParams(newParams, to: node.id)
                         }
                     }
@@ -1112,7 +1266,7 @@ private struct CutStageView: View {
                 // SPK-1136c: Drill strategy form — installer-verified §N fields.
                 if node.isDrillOperation {
                     ScrollView {
-                        DrillParamsForm(node: node) { newParams in
+                        DrillParamsForm(node: node, variables: session.docVars.variables) { newParams in
                             _ = session.applyDrillParams(newParams, to: node.id)
                         }
                     }
@@ -1122,7 +1276,7 @@ private struct CutStageView: View {
                 // SPK-1136d: V-Carve strategy form — installer-verified §O fields.
                 if node.isVCarveOperation {
                     ScrollView {
-                        VCarveParamsForm(node: node) { newParams in
+                        VCarveParamsForm(node: node, variables: session.docVars.variables) { newParams in
                             _ = session.applyVCarveParams(newParams, to: node.id)
                         }
                     }
@@ -1224,6 +1378,16 @@ private struct CutStageView: View {
                     ScrollView {
                         RotaryWrapParamsForm(node: node) { newParams in
                             _ = session.applyRotaryWrapParams(newParams, to: node.id)
+                        }
+                    }
+                    .frame(maxHeight: 320)
+                }
+
+                // SPK-0902: Thread Mill strategy form.
+                if node.strategyKind == .threadMill {
+                    ScrollView {
+                        ThreadMillParamsForm(node: node) { newParams in
+                            _ = session.applyThreadMillParams(newParams, to: node.id)
                         }
                     }
                     .frame(maxHeight: 320)
@@ -1454,17 +1618,58 @@ private struct ProfileParamsForm: View {
 
 // MARK: - Pocket strategy form (SPK-1136b)
 
+/// SPK-1001 — calculation edit row shared by the strategy forms: plain
+/// number OR an expression (`2*pi*r`, `$width/2`) resolved against the
+/// document variables on commit (same contract as SPK-0209's Profile calcRow).
+private struct DocVarCalcRow: View {
+    let label: String
+    @Binding var value: Double
+    let variables: [DocumentVariable]
+    @Binding var message: String
+
+    var body: some View {
+        GridRow {
+            Text(label).font(.caption).foregroundStyle(.secondary)
+            TextField(
+                "",
+                text: Binding(
+                    get: { String(format: "%.3f", value) },
+                    set: { newText in
+                        let trimmed = newText.trimmingCharacters(in: .whitespaces)
+                        guard !trimmed.isEmpty else { return }
+                        if let plain = Double(trimmed) {
+                            value = plain
+                            return
+                        }
+                        if let resolved = ExpressionCalculator.evaluate(trimmed, variables: variables) {
+                            value = resolved
+                        } else {
+                            message = "Invalid expression: \(trimmed)"
+                        }
+                    }
+                )
+            )
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 110)
+        }
+    }
+}
+
 /// Editable form for the installer-verified §M Pocket field set. Editing is
 /// local; "Apply" stores the params on the operation and regenerates its
 /// G-code with the real engine.
 private struct PocketParamsForm: View {
     let node: ToolpathTreeNode
+    let variables: [DocumentVariable]
     let onApply: (PocketToolpathParams) -> Void
 
     @State private var params: PocketToolpathParams
+    @State private var calcMessage = ""
 
-    init(node: ToolpathTreeNode, onApply: @escaping (PocketToolpathParams) -> Void) {
+    init(node: ToolpathTreeNode, variables: [DocumentVariable] = [],
+         onApply: @escaping (PocketToolpathParams) -> Void) {
         self.node = node
+        self.variables = variables
         self.onApply = onApply
         _params = State(initialValue: node.pocketParams())
     }
@@ -1500,9 +1705,16 @@ private struct PocketParamsForm: View {
             GroupBox("Depth & passes") {
                 Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
                     numRow("Start depth (mm)", $params.startDepthMm)
-                    numRow("Depth/pass (mm)", $params.maxDepthOfCutMm)
+                    DocVarCalcRow(label: "Depth/pass (mm)", value: $params.maxDepthOfCutMm,
+                                  variables: variables, message: $calcMessage)
                     numRow("Pocket allowance (mm)", $params.allowanceMm)
                     numRow("Safe Z (mm)", $params.safetyHeightMm)
+                }
+                if !calcMessage.isEmpty {
+                    Text(calcMessage)
+                        .font(.caption2)
+                        .foregroundStyle(.red)
+                        .padding(.top, 2)
                 }
                 Toggle("Exact step depth", isOn: $params.exactStepDepth)
             }
@@ -1549,12 +1761,16 @@ private struct PocketParamsForm: View {
 /// G-code with the real engine.
 private struct DrillParamsForm: View {
     let node: ToolpathTreeNode
+    let variables: [DocumentVariable]
     let onApply: (DrillToolpathParams) -> Void
 
     @State private var params: DrillToolpathParams
+    @State private var calcMessage = ""
 
-    init(node: ToolpathTreeNode, onApply: @escaping (DrillToolpathParams) -> Void) {
+    init(node: ToolpathTreeNode, variables: [DocumentVariable] = [],
+         onApply: @escaping (DrillToolpathParams) -> Void) {
         self.node = node
+        self.variables = variables
         self.onApply = onApply
         _params = State(initialValue: node.drillParams())
     }
@@ -1579,8 +1795,15 @@ private struct DrillParamsForm: View {
             GroupBox("Depth") {
                 Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
                     numRow("Start depth (mm)", $params.startDepthMm)
-                    numRow("Cut depth (mm)", $params.cutDepthMm)
+                    DocVarCalcRow(label: "Cut depth (mm)", value: $params.cutDepthMm,
+                                  variables: variables, message: $calcMessage)
                     numRow("Peck depth (mm)", $params.peckDepthMm)
+                }
+                if !calcMessage.isEmpty {
+                    Text(calcMessage)
+                        .font(.caption2)
+                        .foregroundStyle(.red)
+                        .padding(.top, 2)
                 }
             }
 
@@ -1644,12 +1867,16 @@ private struct DrillParamsForm: View {
 /// G-code with the real engine.
 private struct VCarveParamsForm: View {
     let node: ToolpathTreeNode
+    let variables: [DocumentVariable]
     let onApply: (VCarveParams) -> Void
 
     @State private var params: VCarveParams
+    @State private var calcMessage = ""
 
-    init(node: ToolpathTreeNode, onApply: @escaping (VCarveParams) -> Void) {
+    init(node: ToolpathTreeNode, variables: [DocumentVariable] = [],
+         onApply: @escaping (VCarveParams) -> Void) {
         self.node = node
+        self.variables = variables
         self.onApply = onApply
         _params = State(initialValue: node.vcarveParams())
     }
@@ -1668,7 +1895,14 @@ private struct VCarveParamsForm: View {
             GroupBox("Depth") {
                 Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
                     numRow("Start depth (mm)", $params.startDepthMm)
-                    numRow("Cut depth (mm)", $params.maxDepthOfCutMm)
+                    DocVarCalcRow(label: "Cut depth (mm)", value: $params.maxDepthOfCutMm,
+                                  variables: variables, message: $calcMessage)
+                }
+                if !calcMessage.isEmpty {
+                    Text(calcMessage)
+                        .font(.caption2)
+                        .foregroundStyle(.red)
+                        .padding(.top, 2)
                 }
                 VStack(alignment: .leading, spacing: 4) {
                     Toggle("Flat-bottom mode", isOn: $params.flatBottomMode)

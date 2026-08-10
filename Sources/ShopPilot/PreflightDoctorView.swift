@@ -1,5 +1,6 @@
 import SwiftUI
 import ShopPilotGeometry
+import ShopPilotCore
 
 // MARK: - Preflight Doctor View (SPK-0211 + SPK-0212)
 
@@ -133,3 +134,96 @@ struct PreflightDoctorView_Previews: PreviewProvider {
     }
 }
 #endif
+
+// MARK: - Expanded Vector Validation Panel (SPK-0806)
+
+/// Right-panel summary of the expanded batch validator: per-category error
+/// and warning counts with the first few critical issues listed plainly.
+/// Pure summary — the deep rule set is proven by ShopPilotVerify0806.
+struct VectorValidationPanel: View {
+    let result: BatchVectorValidationResult
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("VALIDATION")
+                    .font(.caption2)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(summary)
+                    .font(.caption2)
+                    .foregroundStyle(statusColor)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+
+            Divider()
+
+            if result.criticalErrors.isEmpty && result.totalWarnings == 0 {
+                VStack(spacing: 8) {
+                    Image(systemName: "checkmark.seal.fill")
+                        .font(.title3)
+                        .foregroundStyle(.green)
+                    Text("All \(result.totalShapes) shapes pass the expanded checks")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(spacing: 12) {
+                            stat("Shapes", "\(result.totalShapes)", .primary)
+                            stat("Errors", "\(result.totalErrors)", .red)
+                            stat("Warnings", "\(result.totalWarnings)", .orange)
+                        }
+
+                        if !result.criticalErrors.isEmpty {
+                            Text("CRITICAL")
+                                .font(.caption2)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(.red)
+                            ForEach(Array(result.criticalErrors.prefix(6).enumerated()), id: \.offset) { _, entry in
+                                HStack(alignment: .top, spacing: 6) {
+                                    Image(systemName: "xmark.octagon.fill")
+                                        .font(.caption)
+                                        .foregroundStyle(.red)
+                                    VStack(alignment: .leading, spacing: 1) {
+                                        Text(entry.errors.map(\.rawValue).joined(separator: ", "))
+                                            .font(.caption)
+                                        Text(String(format: "%.1f mm path", entry.totalLength))
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .padding(12)
+                }
+            }
+        }
+        .frame(maxHeight: 260)
+    }
+
+    private var summary: String {
+        "\(result.validShapes)/\(result.totalShapes) valid"
+    }
+
+    private var statusColor: Color {
+        result.criticalErrors.isEmpty ? (result.totalWarnings > 0 ? .orange : .green) : .red
+    }
+
+    private func stat(_ label: String, _ value: String, _ color: Color) -> some View {
+        VStack(spacing: 2) {
+            Text(value)
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(color)
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+}

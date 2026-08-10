@@ -1,0 +1,35 @@
+{
+  "apiVersion": 1,
+  "recipes": [
+    {
+      "description": "Portrait-style relief carving with fine detail in the face area and simpler background.",
+      "icon": "person.crop.circle",
+      "id": "E621E1F8-C36C-495A-93FC-0C247A3E6E5F",
+      "name": "Portrait Relief",
+      "recommendedStrategy": "Adaptive Z-level roughing + parallel finishing",
+      "stockDepth": 457.2,
+      "stockHeight": 19.05,
+      "stockWidth": 304.8
+    },
+    {
+      "description": "Symmetrical decorative panel for furniture or wall mounting.",
+      "icon": "square.grid.2x2",
+      "id": "7A5C4B2D-1111-4A2B-9C3D-0E1F2A3B4C5D",
+      "name": "Decorative Panel",
+      "recommendedStrategy": "Z-level contouring with radial finishing",
+      "stockDepth": 609.6,
+      "stockHeight": 19.05,
+      "stockWidth": 609.6
+    },
+    {
+      "description": "Single-face sign with lettering and decorative graphics.",
+      "icon": "textformat.abc",
+      "id": "9B6D5C4E-2222-4B3C-AD4E-1F2A3B4C5D6E",
+      "name": "Signage",
+      "recommendedStrategy": "Profile + V-Carve lettering",
+      "stockDepth": 609.6,
+      "stockHeight": 19.05,
+      "stockWidth": 457.2
+    }
+  ]
+}

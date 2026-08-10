@@ -42,7 +42,13 @@ public struct PostTemplateEngine {
 
     // MARK: - Entry point
 
-    public static func emit(gcodeLines: [String], template: PostTemplate) -> EmitResult {
+    /// Emit a program from raw G-code lines through the template.
+    /// `variables` (SPK-1000 Post Studio) substitute `$name` tokens in the
+    /// recipe's header/footer/move lines (e.g. `$jobName`, `$sheetWidth`).
+    /// Unknown tokens are left verbatim so a template written for a newer
+    /// store still emits readable output.
+    public static func emit(gcodeLines: [String], template: PostTemplate,
+                            variables: [String: String] = [:]) -> EmitResult {
         let recipeLines = template.text.components(separatedBy: "\n")
         var header: [String] = []
         var moveTemplates: [String] = []
@@ -59,13 +65,22 @@ public struct PostTemplateEngine {
             }
         }
 
+        func substituteVariables(_ line: String) -> String {
+            guard !variables.isEmpty, line.contains("$") else { return line }
+            var out = line
+            for (key, value) in variables {
+                out = out.replacingOccurrences(of: "$\(key)", with: value)
+            }
+            return out
+        }
+
         var out: [String] = []
         var lineNumber = 10
         var lastWords: [String: Double] = [:]
         var moveCount = 0
 
         func emitRecipeLine(_ recipe: String, move: ParsedMove?) {
-            var expanded = recipe
+            var expanded = substituteVariables(recipe)
             // Line number token (any decimals specifier accepted).
             if expanded.contains("[N|A|N|") {
                 expanded = expanded.replacingOccurrences(

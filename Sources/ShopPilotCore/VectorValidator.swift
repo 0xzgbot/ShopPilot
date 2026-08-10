@@ -478,12 +478,44 @@ public final class VectorValidator {
     }
     
     // Calculates overlap between two segments.
+    //
+    // Real segment-overlap test (SPK-0806 verify-caught): the previous
+    // heuristic compared start-to-start distance against the longer segment
+    // length, which flagged PERPENDICULAR segments as overlapping (a clean
+    // closed square failed validation). The correct test: segments overlap
+    // only when they are (nearly) collinear AND their projections onto the
+    // shared axis overlap. Returns the overlap fraction of the shorter
+    // segment, or 0 when not collinear / no overlap.
     private static func segmentOverlap(_ p1: VectorPoint, _ p2: VectorPoint, _ p3: VectorPoint, _ p4: VectorPoint) -> Double {
-        let d = distance(p1, p3)
-        let len1 = distance(p1, p2)
-        let len2 = distance(p3, p4)
-        let maxLen = max(len1, len2)
-        return maxLen > 0 ? d / maxLen : 0
+        let ax = p2.x - p1.x
+        let ay = p2.y - p1.y
+        let lenA = sqrt(ax * ax + ay * ay)
+        guard lenA > 1e-9 else { return 0 }
+
+        // Cross products measure how far C and D sit from line AB (collinearity).
+        let crossC = abs((p3.x - p1.x) * ay - (p3.y - p1.y) * ax) / lenA
+        let crossD = abs((p4.x - p1.x) * ay - (p4.y - p1.y) * ax) / lenA
+        let collinearTolerance = 0.01 * lenA
+        guard crossC < collinearTolerance && crossD < collinearTolerance else { return 0 }
+
+        // Project C and D onto the AB axis.
+        let tC = ((p3.x - p1.x) * ax + (p3.y - p1.y) * ay) / lenA
+        let tD = ((p4.x - p1.x) * ax + (p4.y - p1.y) * ay) / lenA
+        let t0: Double = 0
+        let t1 = lenA
+
+        // Overlap interval on the shared axis.
+        let lo = max(min(tC, tD), t0)
+        let hi = min(max(tC, tD), t1)
+        let overlapLength = max(0, hi - lo)
+
+        // Adjacent segments sharing exactly one endpoint have zero-length
+        // overlap (touching, not overlapping).
+        if overlapLength <= 1e-9 { return 0 }
+
+        let lenB = distance(p3, p4)
+        let shorter = max(1e-9, min(lenA, lenB))
+        return overlapLength / shorter
     }
     
     // Finds sharp corners.

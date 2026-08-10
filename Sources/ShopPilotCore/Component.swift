@@ -50,6 +50,10 @@ public struct Level: Identifiable, Codable, Sendable {
     public var opacity: Double
     public var blendMode: String  // "normal", "multiply", "screen", etc.
 
+    /// SPK-0908 — last mirror axis applied to this level's content
+    /// (nil = unmirrored). Legacy-safe: older documents decode nil.
+    public var mirrorMode: LevelManager.MirrorAxis?
+
     public init(
         id: UUID = UUID(),
         name: String = "Level",
@@ -57,7 +61,8 @@ public struct Level: Identifiable, Codable, Sendable {
         visible: Bool = true,
         locked: Bool = false,
         opacity: Double = 1.0,
-        blendMode: String = "normal"
+        blendMode: String = "normal",
+        mirrorMode: LevelManager.MirrorAxis? = nil
     ) {
         self.id = id
         self.name = name
@@ -66,6 +71,7 @@ public struct Level: Identifiable, Codable, Sendable {
         self.locked = locked
         self.opacity = max(0.0, min(1.0, opacity))
         self.blendMode = blendMode
+        self.mirrorMode = mirrorMode
     }
 }
 

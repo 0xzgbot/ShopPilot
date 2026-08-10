@@ -23,6 +23,8 @@ struct ToolpathPreviewView: View {
     @State private var isSimulating = false
     @State private var simTask: Task<Void, Never>?
     @State private var cancelFlag = PreviewSimCancelFlag()
+    /// SPK-1008 — webcam overlay visibility in the Preview stage.
+    @State private var showCamera = false
 
     private var segments: [(start: (x: Double, y: Double), end: (x: Double, y: Double), isRapid: Bool)] {
         WireframeRenderer.generateSegments(from: session.allToolpathGCode)
@@ -178,6 +180,12 @@ struct ToolpathPreviewView: View {
             HStack {
                 Button("Back to Cut") { session.selectedStage = .cut }
                 Spacer()
+                // SPK-1008 — webcam overlay toggle (watch the stock while the
+                // sim runs). Camera availability degrades gracefully.
+                Toggle("Camera", isOn: $showCamera)
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
+                    .help("Show the live webcam feed over the preview (SPK-1008)")
                 Button("Continue to Machine") {
                     session.loadFixtureGCodeIfNeeded()
                     session.selectedStage = .machine
@@ -186,6 +194,10 @@ struct ToolpathPreviewView: View {
             }
         }
         .padding()
+        .overlay(alignment: .bottomTrailing) {
+            WebcamOverlayView(isVisible: $showCamera)
+                .padding(12)
+        }
         .onAppear { fitContent() }
         .onChange(of: session.allToolpathGCode.count) { _, _ in fitContent() }
     }

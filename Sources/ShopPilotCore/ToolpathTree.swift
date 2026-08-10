@@ -180,6 +180,7 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
         case texture
         case sketchCarve
         case rotaryWrap
+        case threadMill
         case unknown
     }
 
@@ -215,6 +216,7 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
         if label.hasPrefix("Texture") { return .texture }
         if label.hasPrefix("Sketch Carve") { return .sketchCarve }
         if label.hasPrefix("Rotary Wrap") { return .rotaryWrap }
+        if label.hasPrefix("Thread Mill") { return .threadMill }
         return .unknown
     }
 
@@ -236,6 +238,19 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
         case .drill: return drillParams().feedRateMmPerMin
         case .drillBank: return drillBankParams().feedRateMmPerMin
         case .vcarve: return vcarveParams().feedRateMmPerMin
+        default: return nil
+        }
+    }
+
+    /// The spindle RPM from this node's stored params, when the strategy
+    /// carries one (SPK-1000 post blocks). Falls back to nil.
+    public var paramSpindleRpm: Double? {
+        switch strategyKind {
+        case .profile: return profileParams().spindleRpm
+        case .pocket: return pocketParams().spindleRpm
+        case .drill: return drillParams().spindleRpm
+        case .drillBank: return drillBankParams().spindleRpm
+        case .vcarve: return vcarveParams().spindleRpm
         default: return nil
         }
     }
@@ -450,6 +465,18 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
               let params = try? JSONDecoder().decode(RotaryWrapToolpathParams.self, from: data)
         else {
             return RotaryWrapToolpathParams()
+        }
+        return params
+    }
+
+    /// The node's stored thread-mill params (SPK-0902), or defaults when
+    /// none were persisted (legacy-safe).
+    public func threadMillParams() -> ThreadMillParams {
+        guard let json = paramsJSON,
+              let data = json.data(using: .utf8),
+              let params = try? JSONDecoder().decode(ThreadMillParams.self, from: data)
+        else {
+            return ThreadMillParams()
         }
         return params
     }
@@ -837,6 +864,23 @@ public final class ToolpathTreeManager: ObservableObject {
                 node.estimatedTimeSeconds = result.estimatedTimeSeconds
                 node.clearDirty()
                 regenerated.append(node)
+
+            case .threadMill:
+                // Recompute around the first closed vector's bbox center.
+                if let target = vectors.first(where: { $0.isClosed }) {
+                    let xs = target.points.map(\.x)
+                    let ys = target.points.map(\.y)
+                    let cx = (xs.min()! + xs.max()!) / 2
+                    let cy = (ys.min()! + ys.max()!) / 2
+                    let result = ThreadMillingToolpathEngine.compute(
+                        centerX: cx, centerY: cy,
+                        params: node.threadMillParams()
+                    )
+                    node.setResult(result.gcodeLines.joined(separator: "\n"))
+                    node.estimatedTimeSeconds = result.estimatedTimeSeconds
+                    node.clearDirty()
+                    regenerated.append(node)
+                }
 
             case .unknown:
                 continue

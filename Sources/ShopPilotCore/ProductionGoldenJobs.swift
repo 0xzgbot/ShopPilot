@@ -150,29 +150,135 @@ public final class ProductionGoldenJobManager: ObservableObject {
     }
     
     // Runs a golden job (simulated).
+    /// Run a golden job against the REAL toolpath engines (SPK-0808 — the
+    /// legacy `Double.random` stub did not close this card).
+    ///
+    /// Semantics: computes a real Profile toolpath on a FIXED 50×50mm
+    /// calibration fixture (independent of the expectations — so a wrong
+    /// expectation genuinely fails), then measures the actual G-code:
+    ///   - "width"  — X extent of cut moves (on-cut profile follows the
+    ///                vector, so the nominal span equals the fixture width).
+    ///   - "depth"  — Y extent of cut moves.
+    ///   - "gcodeLines" — actual G-code line count.
+    /// Each expected dimension must land within `tolerance` mm (or count
+    /// tolerance for line counts) or the run FAILS with the deviation.
+    /// Duration is measured, not random.
     public func runJob(_ config: ProductionGoldenJobConfig) -> ProductionGoldenJobResult {
-        let result = ProductionGoldenJobResult(
-            status: .passed,
-            durationMinutes: Double.random(in: 5...25),
-            actualDimensions: config.expectedDimensions,
-            deviations: [:],
-            errors: [],
-            warnings: [],
-            notes: "Golden job completed successfully"
+        let started = Date()
+        let width = 50.0
+        let depth = 50.0
+        let expectedLines = config.expectedDimensions["gcodeLines"]
+
+        // Real engine run: Profile on the fixed closed-square calibration
+        // fixture (on-cut → cut span equals the fixture dimensions).
+        let rect = VectorPath(
+            points: [
+                VectorPoint(x: 0, y: 0), VectorPoint(x: width, y: 0),
+                VectorPoint(x: width, y: depth), VectorPoint(x: 0, y: depth),
+                VectorPoint(x: 0, y: 0),
+            ],
+            isClosed: true
         )
-        
-        // Update job state
+        var params = ProfileToolpathParams()
+        params.cutMode = .onCut
+        params.toolDiameterMm = 6.0
+        params.feedRateMmPerMin = 1500
+        let engineResult = ProfileToolpathEngine.compute(
+            vectors: [rect], params: params, material: nil, stockHeightMm: 12.0
+        )
+        let gcode = engineResult.gcodeLines
+        let lineCount = gcode.count
+        let duration = Date().timeIntervalSince(started) / 60.0
+
+        // Measure actual X/Y extents of CUT moves (G1) from the real output.
+        var minX = Double.greatestFiniteMagnitude
+        var maxX = -Double.greatestFiniteMagnitude
+        var minY = Double.greatestFiniteMagnitude
+        var maxY = -Double.greatestFiniteMagnitude
+        for line in gcode where line.hasPrefix("G1") {
+            var x: Double? = nil
+            var y: Double? = nil
+            for token in line.split(whereSeparator: { $0 == " " }) {
+                let word = String(token)
+                if word.hasPrefix("X"), let v = Double(word.dropFirst()) { x = v }
+                else if word.hasPrefix("Y"), let v = Double(word.dropFirst()) { y = v }
+            }
+            if let x { minX = min(minX, x); maxX = max(maxX, x) }
+            if let y { minY = min(minY, y); maxY = max(maxY, y) }
+        }
+        let measuredWidth = maxX - minX
+        let measuredDepth = maxY - minY
+
+        var actual: [String: Double] = [:]
+        var deviations: [String: Double] = [:]
+        var errors: [String] = []
+        var warnings: [String] = []
+
+        // Width check: the config's expected width is compared against the
+        // MEASURED cut span of the fixed 50×50 fixture. A config expecting
+        // 50mm passes; expecting anything else fails with the deviation.
+        let expectedSpanW = config.expectedDimensions["width"] ?? width
+        let wDev = abs(measuredWidth - expectedSpanW)
+        actual["width"] = measuredWidth
+        deviations["width"] = wDev
+        if wDev > config.tolerance {
+            errors.append("width: measured \(String(format: "%.2f", measuredWidth))mm, expected \(String(format: "%.2f", expectedSpanW))mm ± \(config.tolerance)mm")
+        }
+
+        let expectedSpanD = config.expectedDimensions["depth"] ?? depth
+        let dDev = abs(measuredDepth - expectedSpanD)
+        actual["depth"] = measuredDepth
+        deviations["depth"] = dDev
+        if dDev > config.tolerance {
+            errors.append("depth: measured \(String(format: "%.2f", measuredDepth))mm, expected \(String(format: "%.2f", expectedSpanD))mm ± \(config.tolerance)mm")
+        }
+
+        if let expectedLines {
+            actual["gcodeLines"] = Double(lineCount)
+            let lineDev = abs(Double(lineCount) - expectedLines)
+            deviations["gcodeLines"] = lineDev
+            if lineDev > max(config.tolerance, 1.0) {
+                errors.append("gcodeLines: engine emitted \(lineCount), expected \(Int(expectedLines))")
+            }
+        }
+
+        if lineCount == 0 {
+            errors.append("engine produced no G-code")
+        }
+        if duration > config.maxTimeMinutes {
+            warnings.append("run took \(String(format: "%.1f", duration))min over \(config.maxTimeMinutes)min budget")
+        }
+
+        let status: GoldenJobStatus = errors.isEmpty ? (warnings.isEmpty ? .passed : .warning) : .failed
+        let result = ProductionGoldenJobResult(
+            status: status,
+            durationMinutes: duration,
+            actualDimensions: actual,
+            deviations: deviations,
+            errors: errors,
+            warnings: warnings,
+            notes: errors.isEmpty
+                ? "Golden job passed — \(lineCount) G-code lines, \(String(format: "%.2f", measuredWidth))×\(String(format: "%.2f", measuredDepth))mm cut span"
+                : "Golden job failed — \(errors.joined(separator: "; "))"
+        )
+
+        // Update job state.
         var updatedConfig = config
-        updatedConfig.status = .passed
-        updatedConfig.passCount += 1
-        updatedConfig.lastRunDate = Date()
+        updatedConfig.status = status
+        if status == .passed {
+            updatedConfig.passCount += 1
+        } else if status == .failed {
+            updatedConfig.failCount += 1
+        } else {
+            updatedConfig.warningCount += 1
+        }
+        updatedConfig.lastRunDate = result.runDate
         updatedConfig.results.append(result)
-        
-        // Replace in array
+
         if let index = jobs.firstIndex(where: { $0.name == config.name }) {
             jobs[index] = updatedConfig
         }
-        
+
         return result
     }
     
