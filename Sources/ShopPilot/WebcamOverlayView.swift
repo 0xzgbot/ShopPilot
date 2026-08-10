@@ -112,6 +112,70 @@ struct CameraPreview: NSViewRepresentable {
 }
 #endif
 
+// MARK: - Plugins panel (SPK-1006 loadable ABI)
+
+/// Left-pane plugin strip: lists discovered plugins with their kind and a
+/// Run action for toolpath strategies (injects the plugin's G-code as a
+/// toolpath node). Discovery covers Application Support/ShopPilot/Plugins +
+/// the bundled sample in fixtures/plugins (repo dev).
+struct PluginsPanelView: View {
+    @ObservedObject var session: AppSession
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("PLUGINS")
+                    .font(.caption2)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text("\(session.pluginStore.plugins.count)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            if session.pluginStore.plugins.isEmpty {
+                Text("No plugins found — drop a plugin folder into Application Support/ShopPilot/Plugins.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 3) {
+                        ForEach(session.pluginStore.plugins) { plugin in
+                            HStack(spacing: 4) {
+                                VStack(alignment: .leading, spacing: 0) {
+                                    Text(plugin.manifest.name)
+                                        .font(.caption)
+                                        .lineLimit(1)
+                                    Text(plugin.manifest.kind.rawValue)
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer(minLength: 2)
+                                if plugin.manifest.kind == .toolpathStrategy {
+                                    Button("Run") {
+                                        _ = session.runPluginStrategy(plugin)
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .controlSize(.mini)
+                                    .help("Run this plugin and add its G-code to the tree")
+                                }
+                            }
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.secondary.opacity(0.06))
+                            .cornerRadius(4)
+                        }
+                    }
+                }
+                .frame(maxHeight: 100)
+            }
+        }
+        .padding(8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
 // MARK: - Multi-file job queue panel (SPK-1008)
 
 /// Left-pane queue strip: shows the sequential multi-file run queue with

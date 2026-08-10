@@ -1,0 +1,13 @@
+{
+  "apiVersion": 1,
+  "id": "com.shoppilot.dotgrid",
+  "name": "Dot Grid Engrave",
+  "kind": "toolpath-strategy",
+  "entry": "main.swift",
+  "capabilities": ["vectors-in", "gcode-out"],
+  "params": [
+    { "key": "spacingMm", "type": "number", "defaultValue": "10" },
+    { "key": "depthMm", "type": "number", "defaultValue": "0.5" },
+    { "key": "feedRate", "type": "number", "defaultValue": "1200" }
+  ]
+}

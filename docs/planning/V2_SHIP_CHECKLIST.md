@@ -69,8 +69,15 @@ CLT are in place (the same DoD as v1). Human `[!]` items stay unchecked.
       Verify: `ShopPilotVerify1003` PASS.
 - [x] **SPK-1006 JSON recipe format + samples + plugin API draft** — `JobRecipe`
       Codable + `RecipeJSONCodec` (single / pack / envelope), 4 sample files in
-      `fixtures/recipes/`, plugin API proposal in
-      `docs/planning/RECIPE_PLUGIN_API_DRAFT.md`. Verify: `ShopPilotVerify1006` PASS.
+      `fixtures/recipes/`, plugin API in `docs/planning/RECIPE_PLUGIN_API_DRAFT.md`.
+      Verify: `ShopPilotVerify1006` PASS.
+- [x] **Plugin ABI loadable (SPK-1006 follow-up)** — the draft is now a working
+      ABI: `PluginStore` discovery (Application Support + bundle + fixtures),
+      `PluginRunner` child-process sandbox with timeout kill, `PluginJobDocument` /
+      `PluginOutput` JSON contract, bundled sample plugin
+      (`fixtures/plugins/dotgrid-engrave/`), Cut-stage Plugins panel + session
+      `runPluginStrategy`. Verify: `ShopPilotVerifyPluginABI` PASS (runs the real
+      child process, 12-dot grid on 40×30 stock).
 - [x] **SPK-1008 Webcam overlay, multi-file queue, network bridges** — Preview
       camera overlay (AVFoundation, graceful no-camera), sequential run queue
       (Enqueue / Next / Clear in Cut), persisted network-bridge config with
@@ -82,7 +89,6 @@ CLT are in place (the same DoD as v1). Human `[!]` items stay unchecked.
 - [ ] **SPK-0010** interviews (optional for v1; required before v2 pricing).
 - [ ] **SPK-0419** live hardware air-cut on a real router (needs hardware).
 - [ ] **SPK-1009** App Store submission — deferred (personal use).
-- [ ] Plugin ABI loadability (the SPK-1006 draft is a proposal, not loadable).
 
 ## 5. Verification gate
 

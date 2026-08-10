@@ -1,7 +1,8 @@
-# ShopPilot Recipe & Plugin API — Draft (SPK-1006)
+# ShopPilot Recipe & Plugin API — Implemented (SPK-1006)
 
-> Status: **Draft** — the JSON recipe format is implemented (see below); the
-> plugin API is a design proposal for v2.0, not yet a loadable ABI.
+> Status: **Implemented** — the JSON recipe format and the plugin ABI are
+> both loadable and verified. The plugin contract below is the shipped ABI
+> (child-process sandbox with timeout), not a proposal.
 
 ## 1. JSON Recipe Format (implemented)
 
@@ -51,7 +52,7 @@ A recipe is a single JSON object describing a job template. Files live in
 - `recipe-pack.json` — a 3-recipe pack (envelope shape) for testing
   `decodeEnvelope`.
 
-## 3. Plugin API Draft (proposal, not loadable)
+## 3. Plugin ABI (implemented, verified)
 
 Goal: third-party toolpath strategies and importers as self-contained
 plugins, loaded from `~/Library/Application Support/ShopPilot/Plugins/`.
@@ -66,32 +67,47 @@ A plugin is a directory with a `manifest.json`:
   "id": "com.example.my-strategy",
   "name": "My Strategy",
   "kind": "toolpath-strategy",   // or "importer" | "post-template" | "gadget"
-  "entry": "main.swift",         // or compiled binary
+  "entry": "main.swift",         // or a compiled binary / shebang script
   "capabilities": ["vectors-in", "gcode-out"]
 }
 ```
 
+`params` declares the plugin's knobs (`key`/`type`/`defaultValue`); the Cut
+inspector renders them generically. A manifest with `apiVersion != 1` or
+missing id/name/entry is rejected at discovery and never fatal.
+
 ### 3.2 Contract (what ShopPilot promises a plugin)
 
-1. **Input**: a JSON document on stdin describing the job — sheets, vectors
-   (as path point arrays), material, tool, and the plugin's own params block.
-2. **Output**: a JSON document on stdout — `{ "gcodeLines": [...],
-   "estimatedTimeSeconds": n, "params": {...} }` — merged into the toolpath
-   tree like any native strategy.
-3. **Sandbox**: plugins run as child processes with a timeout; a hung plugin
-   is killed and surfaced as a toolpath error, never a crash.
-4. **Discovery**: plugins are enumerated at launch; a broken manifest is
-   skipped with a console note (never blocks the app).
+1. **Input**: a JSON document on stdin — `PluginJobDocument`:
+   `{ jobName, stockWidthMm, stockDepthMm, stockHeightMm, vectors:
+   [{points:[{x,y}], isClosed}], params: {...} }`.
+2. **Output**: a JSON document on stdout — `PluginOutput`:
+   `{ gcodeLines: [...], estimatedTimeSeconds: n, params: {...} }` — injected
+   into the toolpath tree as a normal operation node.
+3. **Sandbox**: plugins run as child processes with a timeout (default 30s);
+   a hung plugin is terminated and surfaced as a toolpath error, never a
+   crash. `PluginRunner.run` implements the spawn → stdin → wait → kill.
+4. **Discovery**: `PluginStore` enumerates plugin directories at launch
+   (Application Support/ShopPilot/Plugins + the app bundle's Plugins dir);
+   a broken manifest is skipped with a console note.
 5. **Params**: plugin params are declared in the manifest
-   (`"params": [{"key": "depth", "type": "number", "default": 3.0}]`) and the
-   Cut inspector renders them generically (no per-plugin SwiftUI).
+   (`"params": [{"key": "depth", "type": "number", "default": 3.0}]`) and
+   merged from defaults into the job document at run time.
 
-### 3.3 Open questions (v2.0)
+### 3.3 Shipped sample
+
+`fixtures/plugins/dotgrid-engrave/` — a real toolpath-strategy plugin
+(`manifest.json` + `main.swift`) that emits a peck-dot grid across the stock.
+`ShopPilotVerifyPluginABI` runs it as a real child process and checks the
+emitted G-code (markers, modal header, 4×3 grid on 40×30 stock = 12 plunges,
+last dot at (35,25)), plus manifest rejection and the timeout kill.
+
+### 3.4 Open questions (v2.0)
 
 - Code signing / notarization expectations for third-party plugins.
-- Whether the JSON document format should match `.shoppilot` internals or a
-  purpose-built `PluginJob` shape.
-- Strategy-kind registration (tree badge, recalc branch) for plugin ops.
+- Strategy-kind registration (tree badge, recalc branch) for plugin ops —
+  today plugin output is injected as an operation node with the plugin name;
+  a dedicated `.plugin` StrategyKind would give it native badge/recalc.
 
 ## 4. Verification
 

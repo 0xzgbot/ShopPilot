@@ -131,6 +131,19 @@ final class AppSession: ObservableObject {
     let jobQueue = JobQueue()
     let networkBridgeStore = NetworkBridgeStore()
 
+    /// SPK-1006 loadable ABI — discovered plugins (Application Support +
+    /// bundled sample plugin).
+    lazy var pluginStore: PluginStore = {
+        var dirs = PluginStore.appSearchDirectories()
+        // Repo-dev: also discover the bundled sample plugin from fixtures.
+        let repoPlugins = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+            .appendingPathComponent("fixtures/plugins")
+        if FileManager.default.fileExists(atPath: repoPlugins.path) {
+            dirs.append(repoPlugins)
+        }
+        return PluginStore(searchDirectories: dirs)
+    }()
+
     /// Document variables for post-template blocks (SPK-1000): filled from
     /// the live document so `$jobName` / `$sheetWidth` style tokens in a
     /// user template resolve at export.
@@ -2666,6 +2679,55 @@ final class AppSession: ObservableObject {
         selectedStage = .cut
         markDirty()
         return node
+    }
+
+    // MARK: - Plugin strategies (SPK-1006 loadable ABI)
+
+    /// Run a discovered plugin as a toolpath strategy: builds the job
+    /// document from the live session, runs the plugin child process, and —
+    /// on a valid output — injects its G-code as a new toolpath node.
+    @discardableResult
+    func runPluginStrategy(_ plugin: PluginStore.LoadedPlugin,
+                           params: [String: String] = [:]) -> Bool {
+        registerUndoPoint()
+        var merged = params
+        for decl in plugin.manifest.params where merged[decl.key] == nil {
+            merged[decl.key] = decl.defaultValue
+        }
+        let sheet = activeSheet
+        let doc = PluginJobDocument(
+            jobName: job.name,
+            stockWidthMm: sheet?.width ?? 304.8,
+            stockDepthMm: sheet?.depth ?? 304.8,
+            stockHeightMm: sheet?.height ?? 19.05,
+            vectors: vectors.map { path in
+                PluginVectorPath(
+                    points: path.points.map { PluginVectorPoint(x: $0.x, y: $0.y) },
+                    isClosed: path.isClosed
+                )
+            },
+            params: merged
+        )
+        guard let output = PluginRunner.run(
+            manifest: plugin.manifest,
+            pluginDirectory: plugin.directory,
+            document: doc
+        ) else {
+            statusMessage = "Plugin “\(plugin.manifest.name)” failed or timed out"
+            return false
+        }
+        guard !output.gcodeLines.isEmpty else {
+            statusMessage = "Plugin “\(plugin.manifest.name)” returned no G-code"
+            return false
+        }
+        let node = addToolpathNode(
+            named: "Plugin: \(plugin.manifest.name)",
+            gcode: output.gcodeLines,
+            estimatedTime: output.estimatedTimeSeconds
+        )
+        node.toolID = toolDatabase.defaultTool(forStrategy: "V-Carve")?.id
+        statusMessage = "Plugin “\(plugin.manifest.name)” → \(output.gcodeLines.count) G-code lines"
+        return true
     }
 
     /// Generate a Pocket toolpath from the closed session vectors (zigzag

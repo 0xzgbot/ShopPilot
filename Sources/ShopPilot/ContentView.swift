@@ -890,6 +890,11 @@ private struct CutStageView: View {
                     Divider()
                     // SPK-1008: multi-file job queue (sequential programs).
                     JobQueuePanelView(session: session)
+                    Divider()
+                    // SPK-1006 loadable ABI: discovered plugins (sample
+                    // dot-grid engrave ships in fixtures; users drop their
+                    // own plugin dirs into Application Support/ShopPilot/Plugins).
+                    PluginsPanelView(session: session)
                 }
 
                 selectedDetail
