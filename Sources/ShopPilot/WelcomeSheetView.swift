@@ -66,5 +66,7 @@ struct WelcomeSheetView: View {
         }
         .padding(28)
         .frame(width: 460)
+        // Esc dismisses the welcome sheet like any other dialog.
+        .onExitCommand { onDone() }
     }
 }

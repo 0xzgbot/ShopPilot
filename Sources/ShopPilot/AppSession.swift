@@ -26,7 +26,6 @@ final class AppSession: ObservableObject {
     @Published var lastToolpathSummary: String = "No toolpath generated"
     @Published var statusMessage: String = "Ready"
     @Published var showCommandPalette = false
-    @Published var showPreferences = false
     @Published var showSafetyDisclaimer = true
     @Published var safetyAccepted = false
 

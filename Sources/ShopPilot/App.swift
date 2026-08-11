@@ -62,8 +62,11 @@ struct ShopPilotApp: App {
                 }
                 .keyboardShortcut(shortcut("palette"))
 
-                Button("Preferences…") {
-                    session.showPreferences = true
+                // Opens the standard macOS Settings window (Settings scene
+                // below) — NOT a sheet, so it keeps the native close button,
+                // ⌘W, and Escape dismissal.
+                SettingsLink {
+                    Text("Preferences…")
                 }
                 .keyboardShortcut(shortcut("prefs"))
 

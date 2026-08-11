@@ -569,6 +569,16 @@ let package = Package(
             path: "Sources/ShopPilotFixtureGen"
         ),
         .executableTarget(
+            name: "ShopPilotTestPackGen",
+            dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
+            path: "Sources/ShopPilotTestPackGen"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerifyTestPack",
+            dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
+            path: "Sources/ShopPilotVerifyTestPack"
+        ),
+        .executableTarget(
             name: "ShopPilotVerifySHAKEd",
             dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
             path: "Sources/ShopPilotVerifySHAKEd"

@@ -8,6 +8,7 @@ import ShopPilotCore
 /// export. User templates persist in UserDefaults via `PostTemplateStore`.
 struct PostStudioView: View {
     @ObservedObject var session: AppSession
+    @Environment(\.dismiss) private var dismiss
 
     @State private var editingID: String?
     @State private var name = ""
@@ -84,7 +85,9 @@ struct PostStudioView: View {
 
                 Spacer()
 
-                Button("Done") { showNewForm = false }
+                // Done dismisses the whole sheet — it must close even when
+                // the new-template form was never opened.
+                Button("Done") { showNewForm = false; dismiss() }
                     .buttonStyle(.bordered)
             }
             .padding(12)
@@ -104,6 +107,8 @@ struct PostStudioView: View {
         } message: {
             Text("This user template will be removed from the post picker. Shipped templates cannot be deleted.")
         }
+        // Esc closes the whole sheet like any other dialog.
+        .onExitCommand { dismiss() }
     }
 
     private func templateRow(_ template: PostTemplate, isUser: Bool) -> some View {

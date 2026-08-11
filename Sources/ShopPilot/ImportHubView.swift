@@ -21,6 +21,10 @@ public struct ImportHubView: View {
     @State private var shapesImported: [VectorShape] = []
     @State private var errorMessage: String?
 
+    /// Lets the sheet close itself — macOS sheets may not render a title-bar
+    /// close button, so the content must carry its own dismiss affordance.
+    @Environment(\.dismiss) private var dismiss
+
     /// Called when the user confirms adding imported shapes to the document.
     var onShapesImported: (([VectorShape]) -> Void)?
 
@@ -48,8 +52,16 @@ public struct ImportHubView: View {
     public var body: some View {
         VStack(spacing: 16) {
             // Header
-            Text("Import Design File")
-                .font(.title2.bold())
+            HStack {
+                Text("Import Design File")
+                    .font(.title2.bold())
+                Spacer()
+                // Explicit close — the sheet must be dismissible without
+                // importing anything.
+                Button("Cancel") { dismiss() }
+                    .buttonStyle(.bordered)
+                    .keyboardShortcut(.cancelAction)
+            }
             
             // Format selector
             Picker("File Format", selection: $selectedFormat) {
@@ -157,6 +169,8 @@ public struct ImportHubView: View {
         .sheet(isPresented: $isImportSheetPresented) {
             FilePickerView(selectedFormat: selectedFormat, onFileSelected: handleFileSelection)
         }
+        // Esc closes the sheet like any other dialog.
+        .onExitCommand { dismiss() }
     }
 
     // MARK: - Actions
