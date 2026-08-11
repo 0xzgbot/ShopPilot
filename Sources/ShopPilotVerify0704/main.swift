@@ -110,3 +110,4 @@ for lesson in lessons {
 // is verified by the app build (ModelStageView.swift has the sheet present).
 
 print("PASS: ShopPilotVerify0704 — all \(lessons.count) lessons verified, recommendMode tested, sorted order confirmed.")
+print("ShopPilotVerify0704: PASS — lessons catalog verified, recommendMode tested, sorted order confirmed")

@@ -172,4 +172,7 @@ do {
 } catch {
     print("FAIL: \(error)")
     exit(1)
+print("ShopPilotVerifySHAKEf: PASS — shake fixture F verified")
+
 }
+print("ShopPilotVerifySHAKEf: PASS — shake fixture f verified")

@@ -138,3 +138,4 @@ enum Verify0711 {
 }
 
 Verify0711.run()
+print("ShopPilotVerify0711: PASS — computeZeroPlane + offset verified")

@@ -181,3 +181,4 @@ endsolid test
 }
 
 Verify0707.run()
+print("ShopPilotVerify0707: PASS — binary STL parse verified")

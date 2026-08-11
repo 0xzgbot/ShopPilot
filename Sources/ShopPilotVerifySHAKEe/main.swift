@@ -227,4 +227,6 @@ do {
 
 extension Rect {
     var center: VectorPoint { VectorPoint(x: (minX + maxX) / 2, y: (minY + maxY) / 2) }
+
 }
+print("ShopPilotVerifySHAKEe: PASS — shake fixture E verified")

@@ -36,6 +36,12 @@ public final class MachineController: ObservableObject {
     /// Transport choice. Lives here so it survives navigation.
     @Published public var transportType: MachineTransportType = .simulator
 
+    /// SPK-1324 — serial port + baud for the Serial transport (the UI picker
+    /// writes these; connect() threads them into the transport factory).
+    @Published public var serialPortName: String = "/dev/cu.usbmodem"
+    @Published public var serialBaudRate: Int = 115200
+    public static let validBaudRates = [9600, 19200, 38400, 57600, 115200, 250000]
+
     /// Jog step in millimetres.
     @Published public var jogStepSize: Double = 1.0
 
@@ -164,7 +170,10 @@ public final class MachineController: ObservableObject {
 
     public func connect() async {
         latchedAlarm = nil
-        await connection.connect(to: transportType)
+        let serialConfig = transportType == .serial
+            ? ShopPilotCore.SerialConfig(baudRate: serialBaudRate, portName: serialPortName, isSimulator: false)
+            : nil
+        await connection.connect(to: transportType, serialConfig: serialConfig)
         // Wire up MachineSession transport after connection so hold/resume/reset
         // realtime commands (!, ~, 0x18) reach the connected transport.
         if let transport = connection.transport, connection.connectionState == .connected {

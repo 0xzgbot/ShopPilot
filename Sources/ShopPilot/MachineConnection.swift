@@ -157,13 +157,13 @@ public final class ConnectionManager: ObservableObject {
     private var eventTask: Task<Void, Never>?
     
     /// Connect to machine using the specified transport type.
-    public func connect(to type: MachineTransportType) async {
+    public func connect(to type: MachineTransportType, serialConfig: ShopPilotCore.SerialConfig? = nil) async {
         guard connectionState.isDisconnected else { return }
         
         connectionState = .connecting
         addSystemMessage("Connecting...")
         
-        let result = TransportFactory.createTransport(for: type)
+        let result = TransportFactory.createTransport(for: type, config: serialConfig)
         
         if !result.success {
             connectionState = .error(result.errorMessage ?? "Unknown error")
@@ -418,6 +418,32 @@ public struct MachineConnectionView: View {
             .labelsHidden()
             .frame(width: 180)
             .disabled(connectionManager.connectionState.isConnected || connectionManager.connectionState == .connecting)
+
+            // SPK-1324 — when Serial is selected, pick the actual port +
+            // baud instead of the factory's hardcoded /dev/ttyUSB0 default.
+            if controller.transportType == .serial {
+                Picker("Port", selection: $controller.serialPortName) {
+                    ForEach(TransportFactory.listAvailablePorts(), id: \.self) { port in
+                        Text(port).tag(port)
+                    }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .frame(width: 190)
+                .disabled(connectionManager.connectionState.isConnected || connectionManager.connectionState == .connecting)
+                .help("USB serial port (auto-scanned from /dev)")
+
+                Picker("Baud", selection: $controller.serialBaudRate) {
+                    ForEach(MachineController.validBaudRates, id: \.self) { rate in
+                        Text("\(rate)").tag(rate)
+                    }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .frame(width: 110)
+                .disabled(connectionManager.connectionState.isConnected || connectionManager.connectionState == .connecting)
+                .help("Serial baud rate (GRBL: 115200)")
+            }
 
             if connectionManager.connectionState.isDisconnected {
                 Button {

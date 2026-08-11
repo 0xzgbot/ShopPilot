@@ -103,3 +103,4 @@ let inGcode = inResult.gcodeLines.joined(separator: "\n")
 assert(onGcode != inGcode, "onCut and inCut should produce different G-code")
 
 print("\nAll checks passed.")
+print("ShopPilotVerifyProfileToolpath: PASS — profile toolpath engine verified")
