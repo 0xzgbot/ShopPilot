@@ -1186,14 +1186,14 @@ Plan: `docs/planning/UI_OVERHAUL_PLAN.md`. DoD = Engine + UI + Persist + Verify 
 
 ### Phase M — ease-of-use wave (2026-08-10)
 
-- [ ] **SPK-1311** **UX** Toolpath templates UI — wire the built-but-unplugged `ToolpathTemplateManager` into the Cut stage (Save as Template / Apply Template). Deps: none.
-- [ ] **SPK-1312** **UX** Autosave + recovery — instantiate the built-but-unplugged `Autosaver` (5-min interval) in the session; crash-recovery notice. Deps: none.
-- [ ] **SPK-1313** **UX** Sample projects pack — 3–4 bundled `.shoppilot` example files (sign, box, keychain, plaque) + Welcome-sheet picker. Deps: none.
-- [ ] **SPK-1314** **UX** Async recalc — move the dirty-recalc off the main thread so big jobs never freeze the UI. Deps: none.
-- [ ] **SPK-1315** **TOOLS** Manufacturer tool presets — bundled Amana/Whiteside catalog (common part numbers) importable into the tool DB. Deps: none.
-- [ ] **SPK-1316** **UX** Sheet-aware stock rendering — the preview shows the actual sheet block/ghost under the toolpath (Easel-style). Deps: none.
-- [ ] **SPK-1317** **UX** Editable shortcuts + toolbar — user-assignable keyboard shortcuts (⌘K palette parity). Deps: none.
-- [ ] **SPK-1318** **SHOP** Job sheets wired — save/print the job sheet from the Cut stage (generator exists, button missing). Deps: none.
+- [x] **SPK-1311** **UX** Toolpath templates UI — wire the built-but-unplugged `ToolpathTemplateManager` into the Cut stage (Save as Template / Apply Template). Deps: none.
+- [x] **SPK-1312** **UX** Autosave + recovery — instantiate the built-but-unplugged `Autosaver` (5-min interval) in the session; crash-recovery notice. Deps: none.
+- [x] **SPK-1313** **UX** Sample projects pack — 3–4 bundled `.shoppilot` example files (sign, box, keychain, plaque) + Welcome-sheet picker. Deps: none.
+- [x] **SPK-1314** **UX** Async recalc — move the dirty-recalc off the main thread so big jobs never freeze the UI. Deps: none.
+- [x] **SPK-1315** **TOOLS** Manufacturer tool presets — bundled Amana/Whiteside catalog (common part numbers) importable into the tool DB. Deps: none.
+- [x] **SPK-1316** **UX** Sheet-aware stock rendering — the preview shows the actual sheet block/ghost under the toolpath (Easel-style). Deps: none.
+- [x] **SPK-1317** **UX** Editable shortcuts + toolbar — user-assignable keyboard shortcuts (⌘K palette parity). Deps: none.
+- [x] **SPK-1318** **SHOP** Job sheets wired — save/print the job sheet from the Cut stage (generator exists, button missing). Deps: none.
 
 **Permanent scope lock (2026-08-10):** 3D-view vector editing / Fusion-style parametric 3D modeling is **never** in scope — ShopPilot is a 2.5D CAM tool, not a CAD app. The existing Model-stage relief editing (components/combine/sculpt) is unaffected. Matrix rows B02/B08/B09/E34 remain `[-]` forever.
 
@@ -1729,6 +1729,9 @@ Board hygiene: stale duplicate rows removed (SPK-0901 `[ ]` leftover, SPK-0902/0
 - **SPK-1006 [x]** — JSON recipe format + samples + plugin API draft: `JobRecipe` Codable + `RecipeJSONCodec` (single/pack/envelope), 4 sample files in `fixtures/recipes/`, proposal in `docs/planning/RECIPE_PLUGIN_API_DRAFT.md`. `ShopPilotVerify1006` PASS.
 - **SPK-1008 [x]** — Webcam overlay + multi-file queue + network bridges: `JobQueue` (sequential multi-file run, cursor re-base on remove) + Cut Enqueue button + queue panel, `NetworkBridgeConfig`/`NetworkBridgeStore` (validation + PowerUserConfig mapping), Preview camera overlay (AVFoundation, graceful no-camera). `ShopPilotVerify1008` PASS.
 - **SPK-1010 [x]** — v2.0 ship checklist: `docs/planning/V2_SHIP_CHECKLIST.md` inventories every Phase I–K card + verify target + remaining human/deferred items. `ShopPilotVerify1010` PASS (targets registered, symbols compile, v1 spine intact).
+
+### 2026-08-10 — Phase M ease-of-use wave: 8 cards closed (Hermes coder + 4 subagents)
+SPK-1311…1318 flipped `[x]`. Engines built in PARALLEL via 4 subagents (1311 ToolpathTemplateLibrary, 1312 AutosaveRecovery, 1313 SampleProjectsStore, 1315 ManufacturerToolCatalog — each self-verified) while the orchestrator built 1314 (async recalc: pure compute/apply split + background queue + spinner), 1316 (sheet-aware stock block), 1317 (ShortcutRegistry + Preferences Menu Shortcuts pane) directly, and discovered 1318 (job sheets) was ALREADY SHIPPED (button + WKWebView PDF exist). 7 new CLTs PASS; whole-package build green; commit `5b0500c`. Scope lock recorded: 3D-view editing / Fusion-style parametric 3D never in scope.
 
 ### 2026-08-10 — Phase M wave 1: 5 essential CAM/machine features (Hermes coder)
 SPK-1301…1305 closed `[x]` — dogbone corner relief, feed-rate override + spindle control, touch-off Z probing, work offsets G54–G59, rest machining. Engines + verify CLTs built in PARALLEL via 4 subagents (1301–1304, each self-verified with `verify_locked.sh`) while the orchestrator built 1305 + all session/UI wiring directly. Whole-package build green; 5/5 new CLTs PASS; commit `60a4184`.
