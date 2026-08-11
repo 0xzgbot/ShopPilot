@@ -1176,6 +1176,14 @@ Plan: `docs/planning/UI_OVERHAUL_PLAN.md`. DoD = Engine + UI + Persist + Verify 
 - [x] **SPK-1209** **UX** WebP import + recent-files rail — ImageIO WebP decode, `RecentFilesStore` (UserDefaults, cap 10, dedupe), Recent rail in ImportHub.
 - [x] **SPK-1210** **UX** Peck-drill viz + toolpath-on-hover — peck retract detection in `WireframeRenderer`, per-node segment tags, hover row → highlight op on Preview canvas. Deps: SPK-1201.
 
+### Phase M — essential CAM features (2026-08-10)
+
+- [x] **SPK-1301** **CAM** Dogbone corner relief — `Dogbone.cornerReliefs(for:bitDiameter:)` places relief circles on the 45° bisector so a round bit reaches a rectangle pocket's square corners (joinery); Design ops bar button + bit-diameter dialog. Deps: none.
+- [x] **SPK-1302** **MACHINE** Feed-rate override + spindle control — `FeedRateOverride` (10%…200% multiplier → scaled F word) + `SpindleCommand` (M3 S / M5 / S), wired into MachineController + Run Controls panel. Deps: none.
+- [x] **SPK-1303** **MACHINE** Touch-off Z probing — `TouchOff.plan/gcode/zOffset` (G38.2 probe sequence, safe retract, G54 Z offset math: plateThickness − probeHitZ); Machine stage Touch-Off button. Deps: none.
+- [x] **SPK-1304** **MACHINE** Work offsets G54–G59 — `WorkOffsetRegistry` (6 Codable slots, active-index switching, G-code emission); Run Controls offset picker. Deps: none.
+- [x] **SPK-1305** **CAM** Rest machining — `RestRoughing.planRestPasses` (remaining-depth grid → layered z-passes, tolerance, shape guards) + `generateRestMachiningToolpath` (zigzag clearing rasters per pass); Cut menu button. Deps: none.
+
 ---
 
 ## 3. Kanban column mapping (for Hermes / UI boards)
@@ -1708,6 +1716,9 @@ Board hygiene: stale duplicate rows removed (SPK-0901 `[ ]` leftover, SPK-0902/0
 - **SPK-1006 [x]** — JSON recipe format + samples + plugin API draft: `JobRecipe` Codable + `RecipeJSONCodec` (single/pack/envelope), 4 sample files in `fixtures/recipes/`, proposal in `docs/planning/RECIPE_PLUGIN_API_DRAFT.md`. `ShopPilotVerify1006` PASS.
 - **SPK-1008 [x]** — Webcam overlay + multi-file queue + network bridges: `JobQueue` (sequential multi-file run, cursor re-base on remove) + Cut Enqueue button + queue panel, `NetworkBridgeConfig`/`NetworkBridgeStore` (validation + PowerUserConfig mapping), Preview camera overlay (AVFoundation, graceful no-camera). `ShopPilotVerify1008` PASS.
 - **SPK-1010 [x]** — v2.0 ship checklist: `docs/planning/V2_SHIP_CHECKLIST.md` inventories every Phase I–K card + verify target + remaining human/deferred items. `ShopPilotVerify1010` PASS (targets registered, symbols compile, v1 spine intact).
+
+### 2026-08-10 — Phase M wave 1: 5 essential CAM/machine features (Hermes coder)
+SPK-1301…1305 closed `[x]` — dogbone corner relief, feed-rate override + spindle control, touch-off Z probing, work offsets G54–G59, rest machining. Engines + verify CLTs built in PARALLEL via 4 subagents (1301–1304, each self-verified with `verify_locked.sh`) while the orchestrator built 1305 + all session/UI wiring directly. Whole-package build green; 5/5 new CLTs PASS; commit `60a4184`.
 
 ### 2026-08-10 — Phase L complete: all 10 UX cards closed (Hermes coder)
 Board rows SPK-1201…1210 flipped `[x]` (plan: `docs/planning/UI_OVERHAUL_PLAN.md`; per-card CLTs `ShopPilotVerify120x` all PASS; whole-package build green; sweep will re-certify). Wave 1 = 1207/1209/1206/1204, Wave 2 = 1201/1202/1205, Wave 3 = 1203/1208/1210.
