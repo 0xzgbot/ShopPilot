@@ -23,17 +23,19 @@ A card may be `[x]` only when **all four** are true:
 
 ---
 
-## Current inventory (honest)
+## Current inventory (honest — updated 2026-08-11)
 
 | Area | Library code | Product-finished |
 | --- | --- | --- |
-| App shell / stages | Wired spine exists | Partial — browser/inspector/doc round-trip incomplete |
-| Geometry kernel | Substantial | **No** — not a full Design editor product |
-| 2D toolpath engines | Profile/Pocket/Drill/VCarve emit G-code | **No** — Cut tree/UI/dirty/recalc not productized |
-| Preview / Metal | Partial / stubby | **No** |
-| Machine sim + serial | Substantial | Partial — handoff/tests/CI incomplete |
-| Sign shop | Partial engines + panels | **No** — E2E recipe not product-complete |
-| Phase H–K | Mostly data-model stubs | **No** — correctly backlog |
+| App shell / stages | Wired spine | **Yes** — six-stage rail, browser/inspector, doc round-trip, command palette, coach |
+| Geometry kernel | Substantial | **Yes** — full 2D editor: booleans, node edit, transforms, dimensions, dogbone, vector boundary, nest |
+| 2D toolpath engines | Profile/Pocket/Drill/VCarve/17 strategies | **Yes** — Cut tree/UI/dirty/recalc productized; async recalc; templates |
+| Preview / sim | Heightfield + wireframe + dirty-region | **Yes** — sheet-aware stock, material surfaces, peck viz, cancellable |
+| Machine sim + serial | Real transports | **Yes** — port/baud pickers, touch-off, feed override, work offsets, job sheets |
+| Sign shop | Recipes + samples | **Yes** — recipe picker, sample projects, job sheets, Post Studio |
+| Phases I–N | All shipped | **Yes** — multi-sheet, rotary, laser, specialty, plugins, visual wave |
+
+All Phase I–N cards are `[x]` on MASTER_KANBAN. Remaining: `[!]` SPK-0419 (live air-cut, needs hardware), `[-]` commercial-era cards (permanent personal-use deferrals).
 
 ---
 

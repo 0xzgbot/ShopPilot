@@ -6,6 +6,80 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [0.04] — unreleased (build on request)
+
+### Added — Phase L (UX overhaul, SPK-1201…1210)
+- Cut-Layers table (LightBurn-style sortable grid over the toolpath tree)
+- Surface-color material preview (walnut/acrylic/painted-MDF/plywood palettes, depth-shaded)
+- Smart part selection + canvas dimension handles
+- Context menus everywhere (command registry shared with toolbars)
+- Inline coach strip with first-run tooltips
+- View gizmo + orthographic toggle (top/iso/front presets)
+- Visual toolpath status dots + Recalc All
+- Sheet duplication + toolpath transfer across sheets
+- WebP import + recent-files rail
+- Peck-drill visualization + toolpath-on-hover
+
+### Added — Phase M (essential CAM, SPK-1301…1305)
+- Dogbone corner relief (joinery)
+- Feed-rate override (10–200%) + spindle control (M3 S/M5)
+- Touch-off Z probing (G38.2 sequence + offset math)
+- Work offsets G54–G59
+- Rest machining (remaining-depth z-level passes)
+
+### Added — Phase M ease-of-use (SPK-1311…1318)
+- Toolpath templates (save/apply)
+- Autosave (5-min) + crash recovery
+- Sample projects pack (sign, box, keychain, plaque)
+- **Async recalc** — dirty recalc off the main thread, no UI freeze
+- Manufacturer tool presets (Amana/Whiteside catalog)
+- Sheet-aware stock block in the preview
+- Editable keyboard shortcuts + Preferences pane
+- Job-sheet save/print from the Cut stage (generator existed; button added)
+
+### Added — Phase N remaining gaps (SPK-1319…1325)
+- 3D text relief (glyph raster → raised-letter heightfield)
+- Acceleration-aware time estimates (trapezoidal velocity profile)
+- Vector boundary (convex hull + offset)
+- Design PDF export (CoreGraphics A4)
+- Import torture — SVG/DXF hostile-input robustness proven by CLT
+- Real serial wiring — port/baud pickers in the Machine stage
+- Sweep WARN hygiene — all 15 exit-0-no-marker targets emit canonical PASS lines
+
+### Added — Phase N visual wave (SPK-VIS-1…5)
+- Custom app icon (programmatic router-bit mark, amber-on-graphite, bundled via `package_app.sh`)
+- Brand accent tint applied app-wide (`SP.Tint.brand`)
+- CNC-meaningful stage icons (verified to exist in SF Symbols)
+- Material swatch chips in Setup (visible wood/acrylic)
+- Design-anchored canvas grid + amber origin datum
+
+### Changed
+- Full regression sweep: **175 PASS / 0 FAIL / 0 WARN** (first WARN-free run, 2026-08-11)
+- Permanent scope lock recorded: personal-use only; no 3D-view editing, no parametric modeling
+
+---
+
+## [0.03] — 2026-08-10
+
+### Added — Phases I–K (production & power user)
+- **Multi-sheet management** (SPK-0800) — sheets, active-sheet routing, duplication + toolpath transfer
+- **Double-sided jobs** (SPK-0801) — front/back pairing, alignment, back-side Z offset
+- **Array-copy toolpaths** (SPK-0803) + **advanced nesting** (SPK-0804) + **tiling manager** (SPK-0805)
+- **Vector validator expanded** (SPK-0806) — real overlap-detection bug fixed
+- **Driven dimensions** (SPK-0807) — parametric-lite expressions over document variables
+- **Production golden jobs** (SPK-0808) — golden runs against real engines
+- **Thread milling** (SPK-0902) — real helical engine; verify caught a Z-direction bug
+- **Rotary job setup** (SPK-0903) + wrap/spiral strategies
+- **Level mirror modes** (SPK-0908) + specialty/rotary/laser goldens (SPK-0909)
+- **Post Studio** (SPK-1000) — user post templates with `$variable` blocks
+- **Document variables everywhere** (SPK-1001) — expression-backed depth fields
+- **Performance** (SPK-1003) — 10k vectors, large relief, no quadratic hotspots
+- **JSON recipes + plugin ABI** (SPK-1006) — loadable sandboxed child-process plugins
+- **Webcam overlay, multi-file queue, network bridges** (SPK-1008)
+- **v2.0 ship checklist** (SPK-1010)
+
+---
+
 ## [0.02] — 2026-08-05
 
 ### Changed
@@ -21,109 +95,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
-## [Unreleased]
+## [0.01] — 2026-08-01
 
 ### Added
 - Native macOS app shell with SwiftUI (Phase B)
 - Stage rail UI: Setup | Design | Model | Cut | Preview | Machine
 - Document model v0: Job, Sheet, Layer, undo, dirty doc
 - Save/open `.shoppilot` package format with autosave and crash recovery
-- Browser panels: Layers, Components, Toolpaths, Sheets
-- Inspector shell with Essentials/Advanced disclosure groups
-- ⌘K command palette framework with stub commands
-- Preferences panel: units, theme, pro-skip checklist
-- Job recipe picker (blank, calibration, sign)
-- Vector kernel: polyline, arc, circle, rect (Phase C)
-- Node editing, transform, align, group operations
-- Offset vectors, boolean weld/subtract/intersection
-- Join/close/trim vector operations
-- SVG + DXF import support
-- Layers CRUD with visibility controls
-- Measure tool and calculation numeric fields
-- Vector Preflight Doctor with plain-English fix actions (Phase C)
-- Material setup for flat jobs (Phase D)
-- Tool database v0: endmill, V-bit
-- Profile toolpath with out/in/on cutting + tabs support
-- Pocket toolpath strategy
-- Drill toolpath strategy
-- Toolpath tree with dirty badges (no silent auto-recalculation)
-- Recalculate dirty/all toolpaths command
-- Export block while dirty with expert override (Phase D)
-- Keep-out zones v0
-- Heightfield preview simulation + wireframe rendering
-- Draft vs Final preview modes with progressive refinement
-- Metal-backed preview path for stable viewport
-- Rough time estimate calculation
-- GRBL post-processor export with extension labeling
-- Vector selector for toolpath strategies (Phase D)
-- Serial configuration and machine profile models (Phase E)
-- Machine transport protocol abstraction
-- Simulator transport (fake GRBL) for testing without hardware
-- Status parser with unit tests
-- G-code streamer with ok-wait flow, hold/resume/reset controls
-- Machine session facade with status polling (Phase E)
-- Real serial enumerate + open/read/write on macOS
-- Transport factory: simulator vs serial selection
-- Machine UI: connect button, console output, status strip
-- Safety chrome: always-on Hold and Reset buttons during machine operation
-- Jog controls, soft home, work zero setup (Phase E)
-- Stream job from file with progress indicator
-- Pre-flight checklist before Run command
-- One-click Run CTA when armed (Phase E)
-- Cut stage to Machine stream handoff (STU integration)
-- Post auto-select from machine profile (Phase E)
-- Text tool and system font support (Phase F)
-- Text to curves conversion
-- V-Carve strategy with field map generation
-- Quick engrave toolpath
-- Trace bitmap functionality
-- Text on curve (Phase F)
-- Engraving font pack (Phase F)
-- Nesting engine (shelf-packing + grid) (Phase F)
-- Toolpath templates save/load
-- Job sheet PDF export
-- Document variables panel v0 (Phase F)
-- Base tier path works without 3D unlock (FeatureFlag + StageGate) (Phase G)
-
-### Fixed
-- VectorOffset: full-circle input now samples full circumference (was 1-point path)
-- ShapeJoinEngine: chain-join extends away from coincident point (was dropping segments)
-- LayerManager: shape deletion uses value-based lookup (was broken Identifiable cast)
-- PreflightReport: worstSeverity uses max (was using min — returned least severe)
-- RealSerialTransport: open() uses forUpdatingAtPath (was forWritingAtPath — killed RX)
-- Bug fixes will be added as they are discovered
-
----
-
-## [1.0.0] — Planned Ship Version
-
-### Added
-- All Phase A–G features listed above
-- README with Mac-native positioning and feature overview
-- SAFETY.md with compliance guidelines and in-app disclaimer
-- End-user first-cut tutorial (TUTORIAL_FIRST_CUT.md)
-- Keyboard shortcut reference (KEYBOARD_SHORTCUTS.md)
-- Distribution guide with notarization steps (DISTRIBUTION.md)
-- Product tier strategy: Control / Studio2D / Studio3D (PACKAGING.md)
-- Preflight rules document (PREFLIGHT_RULES.md)
-- Versioning scheme and release process (VERSIONING.md)
-
-### Quality Gates Met
-- Calibration job E2E on simulator green
-- All core unit tests passing in CI
-- Dirty toolpath export blocked without override
-- Preflight blocks V-Carve on open vectors with fix CTA
-- Stage density audit: ≤12 icons per stage confirmed
-- Hold/Reset visible whenever machine is connected
-- Base tier path works without 3D unlock
-
----
-
-## [0.9.x] — Pre-release Development
-
-### Added
-- Project scaffolding and architecture decision records
-- Feature parity matrix against the reference V12
-- UX stage system design with anti-bloat rules
-- Product boundaries document (relief CAM only, no solid CAD)
-- Form index crawl (218 URLs across all chapters)

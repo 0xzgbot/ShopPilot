@@ -1,6 +1,6 @@
 # ShopPilot v2.0 — Ship Checklist (SPK-1010)
 
-**Status:** Tracking — completed 2026-08-10 wave closes Phases I–K feature backlog.
+**Status:** Tracking — completed 2026-08-11 (Phases I–N + visual wave all closed).
 **Gate:** every item below is `[x]` only when its Engine + UI + Persist + Verify
 CLT are in place (the same DoD as v1). Human `[!]` items stay unchecked.
 
@@ -84,13 +84,57 @@ CLT are in place (the same DoD as v1). Human `[!]` items stay unchecked.
       validation. Verify: `ShopPilotVerify1008` PASS.
 - [x] **SPK-1010 v2.0 ship checklist** — this document.
 
-## 4. Human / deferred items (remain open)
+## 4. Phase L — UX overhaul (v2.1)
+
+- [x] **SPK-1201 Cut-Layers table** — LightBurn-style sortable grid over the toolpath tree (✓ | status | # | name | tool | feed | depth | time), inline edit, drag reorder. Verify: `ShopPilotVerify1201` PASS.
+- [x] **SPK-1202 Surface-color material preview** — MaterialSurfacePalette presets (walnut/acrylic/painted MDF/plywood), depth-shaded renderer. Verify: `ShopPilotVerify1202` PASS.
+- [x] **SPK-1203 Smart selection + dimension handles** — PartDetector (closed shapes sharing an edge = one part), DimensionHandle drag math. Verify: `ShopPilotVerify1203` PASS.
+- [x] **SPK-1204 Context menus** — CommandContext registry (action + enabled predicate), right-click on tree rows/layers/canvas/toolpaths. Verify: `ShopPilotVerify1204` PASS.
+- [x] **SPK-1205 Coach strip** — CoachRuleEngine (stage + selection + dirty + preflight → tip). Verify: `ShopPilotVerify1205` PASS.
+- [x] **SPK-1206 View gizmo + ortho** — ViewOrientation presets, nav cube, ⌘⌥1…4. Verify: `ShopPilotVerify1206` PASS.
+- [x] **SPK-1207 Toolpath status + Recalc All** — ToolpathStatusEngine (stale/current/error), status dots, recalc-all. Verify: `ShopPilotVerify1207` PASS.
+- [x] **SPK-1208 Sheet dup + transfer** — SheetOperations deep-copy with new UUIDs, toolpath re-parenting. Verify: `ShopPilotVerify1208` PASS.
+- [x] **SPK-1209 WebP + recent rail** — ImageIO WebP decode, RecentFilesStore (cap 10, dedupe). Verify: `ShopPilotVerify1209` PASS.
+- [x] **SPK-1210 Peck viz + hover** — peck retract detection, per-node segment tags, hover row → canvas highlight. Verify: `ShopPilotVerify1210` PASS.
+
+## 5. Phase M — essential CAM + ease-of-use (2026-08-10)
+
+- [x] **SPK-1301 Dogbone corner relief** — Dogbone.cornerReliefs on the 45° bisector. Verify: `ShopPilotVerify1301` PASS.
+- [x] **SPK-1302 Feed override + spindle** — FeedRateOverride (10–200%), SpindleCommand (M3 S/M5/S). Verify: `ShopPilotVerify1302` PASS.
+- [x] **SPK-1303 Touch-off probing** — TouchOff.plan/gcode/zOffset (G38.2 + G54 math). Verify: `ShopPilotVerify1303` PASS.
+- [x] **SPK-1304 Work offsets G54–G59** — WorkOffsetRegistry (6 Codable slots). Verify: `ShopPilotVerify1304` PASS.
+- [x] **SPK-1305 Rest machining** — RestRoughing.planRestPasses (remaining-depth grid → z passes). Verify: `ShopPilotVerify1305` PASS.
+- [x] **SPK-1311 Toolpath templates UI** — built-but-unplugged ToolpathTemplateManager wired into Cut. Verify: `ShopPilotVerify1311` PASS.
+- [x] **SPK-1312 Autosave + recovery** — built-but-unplugged Autosaver instantiated (5-min), crash-recovery notice. Verify: `ShopPilotVerify1312` PASS.
+- [x] **SPK-1313 Sample projects** — 4 bundled examples + Welcome picker. Verify: `ShopPilotVerify1313` PASS.
+- [x] **SPK-1314 Async recalc** — pure compute/apply split; dirty recalc off-main. Verify: `ShopPilotVerify1314` PASS.
+- [x] **SPK-1315 Manufacturer presets** — Amana/Whiteside catalog importable. Verify: `ShopPilotVerify1315` PASS.
+- [x] **SPK-1316 Sheet-aware stock** — preview draws the actual sheet block under toolpaths. Verify: `ShopPilotVerify1316` PASS.
+- [x] **SPK-1317 Editable shortcuts** — ShortcutRegistry + Preferences Menu Shortcuts pane. Verify: `ShopPilotVerify1317` PASS.
+- [x] **SPK-1318 Job sheets** — save/print button (generator existed). Verify: pre-existing (SPK-1135).
+
+## 6. Phase N — remaining gaps + visual wave (2026-08-11)
+
+- [x] **SPK-1319 3D text relief** — ReliefText3D glyph raster → raised-letter heightfield. Verify: `ShopPilotVerify1319` PASS.
+- [x] **SPK-1320 Accel-aware time estimates** — MachineAccelProfile + AccelTimeEstimator (trapezoidal profile). Verify: `ShopPilotVerify1320` PASS.
+- [x] **SPK-1321 Vector boundary** — convex hull + centroid-ray offset. Verify: `ShopPilotVerify1321` PASS.
+- [x] **SPK-1322 Design PDF export** — CoreGraphics A4 render, %PDF-validated. Verify: `ShopPilotVerify1322` PASS.
+- [x] **SPK-1323 Import torture** — SVG/DXF hostile-input CLT. Verify: `ShopPilotVerify1323` PASS.
+- [x] **SPK-1324 Real serial wiring** — port/baud pickers threaded through connect() → SerialConfig.
+- [x] **SPK-1325 Sweep WARN hygiene** — all 15 no-marker targets emit canonical PASS lines (sweep: 0 WARN).
+- [x] **SPK-VIS-1 App icon** — programmatic router-bit mark, .icns bundled by `package_app.sh`.
+- [x] **SPK-VIS-2 Brand accent** — SP.Tint.brand applied app-wide.
+- [x] **SPK-VIS-3 Stage icons** — CNC-meaningful rail glyphs, verified in SF Symbols.
+- [x] **SPK-VIS-4 Material swatch chips** — tappable wood/acrylic chips in Setup.
+- [x] **SPK-VIS-5 Canvas grid + origin** — design-anchored grid + amber datum cross.
+
+## 7. Human / deferred items (remain open)
 
 - [ ] **SPK-0419** live hardware air-cut on a real router (needs hardware).
 - [ ] ~~**SPK-0010** interviews~~ — permanently deferred: personal-use only, never for sale (no pricing/commercialization).
 - [ ] **SPK-1009** App Store submission — deferred (personal use).
 
-## 5. Verification gate
+## 8. Verification gate
 
 - Every `ShopPilotVerify*` target above passes via `./scripts/verify_locked.sh`.
 - Whole-package `swift build` green.

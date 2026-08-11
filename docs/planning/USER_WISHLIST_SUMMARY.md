@@ -2,7 +2,8 @@
 
 **Date:** 2026-07-30  
 **Source:** Web research across r/CNC, r/vcarve, vendor forums, and CAM community discussions  
-**Purpose:** Identify top user complaints and feature requests to prioritize ShopPilot development
+**Purpose:** Identify top user complaints and feature requests to prioritize ShopPilot development  
+**Resolution status:** every theme marked SHIPPED/SCOPE-CHANGED/N/A as of 2026-08-11 (see WISHLIST_THEMES.md)
 
 ---
 

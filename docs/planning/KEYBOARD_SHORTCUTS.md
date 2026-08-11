@@ -67,7 +67,12 @@
 | `⌘ Shift + [` | Send selection backward in z-order | Canvas |
 | `⌘ Shift + ]` | Bring selection forward in z-order | Canvas |
 | `D` | Duplicate and offset selected item(s) | Canvas |
-| `E` | Extrude / loft 2D profile to 3D | Canvas (3D mode) |
+| `⌘ 1`…`⌘ 6` | Jump to stage: Setup / Design / Model / Cut / Preview / Machine | Global |
+| `⌘ K` | Command palette | Global |
+| `⌘ ⇧ P` | Command palette (alternative) | Global |
+| `⌘ ⌥ 1`…`⌘ ⌥ 3` | View presets: top / isometric / front (gizmo) | Preview / Model |
+
+> All menu-bar shortcuts are **user-remappable** — Preferences → Menu Shortcuts (SPK-1317). The table above shows the defaults.
 
 ---
 
