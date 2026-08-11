@@ -1195,6 +1195,14 @@ Plan: `docs/planning/UI_OVERHAUL_PLAN.md`. DoD = Engine + UI + Persist + Verify 
 - [x] **SPK-1317** **UX** Editable shortcuts + toolbar — user-assignable keyboard shortcuts (⌘K palette parity). Deps: none.
 - [x] **SPK-1318** **SHOP** Job sheets wired — save/print the job sheet from the Cut stage (generator exists, button missing). Deps: none.
 
+### Phase N — visual wave 1 (2026-08-11)
+
+- [x] **SPK-VIS-1** **UX** App icon — programmatic CoreGraphics router-bit mark (amber flutes, collet, slab + toolpath arc) at all .icns sizes; `package_app.sh` bundles it + `CFBundleIconFile`. Dock/About show a real brand, not the generic SwiftUI icon. Deps: none.
+- [x] **SPK-VIS-2** **UX** Brand accent — `SP.Tint.brand` (warm wood-shop amber, matching the icon + material palettes) applied app-wide via `.tint()`; buttons/selection/focus read as one brand. Deps: none.
+- [x] **SPK-VIS-3** **UX** Stage icons — CNC-meaningful rail glyphs (ruler / pencil.and.ruler.fill / cube.transparent / toolpath-vector / eye / gearshape.2), all verified to exist in SF Symbols. Deps: none.
+- [x] **SPK-VIS-4** **UX** Material swatch chips — the four `MaterialSurfacePalette` surfaces as tappable skin-over-base chips in Setup (same palettes the Preview tints with). Deps: SPK-1202.
+- [x] **SPK-VIS-5** **UX** Canvas grid + origin — design-anchored grid (pans with content, not screen-fixed) + amber datum cross at world (0,0). Deps: none.
+
 ### Phase N — remaining gaps (2026-08-11)
 
 - [x] **SPK-1319** **MODEL** 3D text relief — `ReliefText3D` (glyph raster even-odd point-in-polygon, raised-letter heightfield convention: letters stand proud, background carved down; mismatch guard; lettersAndSpacing). Deps: none.
