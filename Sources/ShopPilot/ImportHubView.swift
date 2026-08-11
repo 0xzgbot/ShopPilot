@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import ShopPilotCore
 #if canImport(ShopPilotGeometry)
 import ShopPilotGeometry
 #endif
@@ -23,8 +24,23 @@ public struct ImportHubView: View {
     /// Called when the user confirms adding imported shapes to the document.
     var onShapesImported: (([VectorShape]) -> Void)?
 
-    public init(onShapesImported: (([VectorShape]) -> Void)? = nil) {
+    /// SPK-1209 — called with the picked URL when an import succeeds, so the
+    /// session can remember it for the Recent rail.
+    var onRecordRecent: ((URL) -> Void)?
+
+    /// SPK-1209 — recent files shown in the rail (injected by the session;
+    /// nil hides the rail).
+    var recentFiles: [RecentFilesStore.RecentFile]?
+    var clearRecent: () -> Void = {}
+
+    public init(onShapesImported: (([VectorShape]) -> Void)? = nil,
+                onRecordRecent: ((URL) -> Void)? = nil,
+                recentFiles: [RecentFilesStore.RecentFile]? = nil,
+                clearRecent: @escaping () -> Void = {}) {
         self.onShapesImported = onShapesImported
+        self.onRecordRecent = onRecordRecent
+        self.recentFiles = recentFiles
+        self.clearRecent = clearRecent
     }
 
     // MARK: - Body
@@ -60,6 +76,48 @@ public struct ImportHubView: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .padding(.horizontal)
+
+            // SPK-1209 — Recent rail: one-click re-import of files you used
+            // recently (deduped, capped at 10, persisted in UserDefaults).
+            if let recent = recentFiles, !recent.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("Recent")
+                            .font(.caption.bold())
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Button("Clear") { clearRecent() }
+                            .buttonStyle(.plain)
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    ForEach(recent) { file in
+                        Button {
+                            handleFileSelection(url: file.url)
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "clock")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                Text(file.url.lastPathComponent)
+                                    .font(.caption)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                                Spacer()
+                                Text(file.importedAt, style: .relative)
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.vertical, 1)
+                    }
+                }
+                .padding()
+                .background(Color(NSColor.controlBackgroundColor))
+                .cornerRadius(8)
+                .padding(.horizontal)
+            }
 
             // Supported formats info
             VStack(alignment: .leading, spacing: 8) {
@@ -114,6 +172,11 @@ public struct ImportHubView: View {
         Task {
             do {
                 let result = try await performImport(url: url, format: selectedFormat)
+                // SPK-1209 — a successful import is remembered for the Recent
+                // rail (even partial imports with warnings count as used).
+                if !result.shapes.isEmpty {
+                    onRecordRecent?(url)
+                }
                 importResult = result
                 errorMessage = nil
                 shapesImported = result.shapes

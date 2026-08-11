@@ -395,10 +395,20 @@ private struct DesignStageView: View {
             }
         }
         .sheet(isPresented: $showImportHub) {
-            ImportHubView { shapes in
-                session.addShapes(shapes)
-                showImportHub = false
-            }
+            ImportHubView(
+                onShapesImported: { shapes in
+                    session.addShapes(shapes)
+                    showImportHub = false
+                },
+                onRecordRecent: { url in
+                    // SPK-1209 — remember imports for the Recent rail.
+                    session.recentFilesStore.record(url)
+                },
+                recentFiles: session.recentFilesStore.recent,
+                clearRecent: {
+                    session.recentFilesStore.clear()
+                }
+            )
             .frame(width: 420, height: 520)
         }
         .alert("Offset Vectors", isPresented: $showOffsetDialog) {

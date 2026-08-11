@@ -86,6 +86,14 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
         return child
     }
 
+    /// Add a new operation under THIS node (SPK-1204 duplicate uses it to
+    /// place the copy under the original's parent).
+    @discardableResult
+    public func addOperation(_ name: String) -> ToolpathTreeNode {
+        let node = ToolpathTreeNode(name: name, type: .operation(name))
+        return addChild(node)
+    }
+
     /// Remove a child node by ID (direct children only).
     @discardableResult
     public func removeChild(id: UUID) -> Bool {
@@ -568,6 +576,25 @@ public final class ToolpathTreeManager: ObservableObject {
             return false // Can't remove root
         }
         return root.removeDescendant(id: id)
+    }
+
+    /// Find the parent of a node (SPK-1204 duplicate needs the insertion
+    /// point). Returns nil for the root / missing nodes.
+    public func parent(of id: UUID) -> ToolpathTreeNode? {
+        if id == root.id { return nil }
+        var result: ToolpathTreeNode? = nil
+        func walk(_ node: ToolpathTreeNode) -> Bool {
+            for child in node.children {
+                if child.id == id {
+                    result = node
+                    return true
+                }
+                if walk(child) { return true }
+            }
+            return false
+        }
+        _ = walk(root)
+        return result
     }
 
     /// Find a node anywhere in the tree (including the root).

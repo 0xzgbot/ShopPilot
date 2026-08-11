@@ -131,6 +131,9 @@ final class AppSession: ObservableObject {
     let jobQueue = JobQueue()
     let networkBridgeStore = NetworkBridgeStore()
 
+    /// SPK-1209 — recent imports for the Import hub rail.
+    let recentFilesStore = RecentFilesStore()
+
     /// SPK-1006 loadable ABI — discovered plugins (Application Support +
     /// bundled sample plugin).
     lazy var pluginStore: PluginStore = {
@@ -2492,7 +2495,64 @@ final class AppSession: ObservableObject {
             selection = .none
         }
         statusMessage = "Deleted toolpath"
-        lastToolpathSummary = "\(toolpaths.count) toolpath(s) remaining"
+        lastToolpathSummary = "\\(toolpaths.count) toolpath(s) remaining"
+        markDirty()
+        return true
+    }
+
+    // MARK: - Context-menu actions (SPK-1204)
+
+    /// Recalculate ONE toolpath node: marks it dirty, then runs the shared
+    /// dirty-recalc — only this node regenerates (its siblings are clean).
+    @discardableResult
+    func recalculateToolpath(id: UUID) -> Bool {
+        guard let node = toolpathTree.findNode(id: id),
+              case .operation = node.type else {
+            statusMessage = "No toolpath operation to recalculate"
+            return false
+        }
+        node.markDirty()
+        let count = recalculateDirtyToolpaths()
+        statusMessage = count > 0
+            ? "Recalculated “\(node.name)”"
+            : "“\(node.name)” has nothing to recalculate"
+        return count > 0
+    }
+
+    /// Select the source vectors a toolpath was cut from (the tree rows
+    /// highlight them in Design). Falls back to selecting all vectors when
+    /// no link is recorded.
+    func selectToolpathSources(id: UUID) {
+        let sourceIDs = linkManager.sourceVectorIds(forToolpathId: id.uuidString) ?? []
+        if !sourceIDs.isEmpty {
+            selectedVectorIDs = Set(sourceIDs)
+            selection = .toolpath(id)
+            statusMessage = "Selected \(sourceIDs.count) source vector(s) for this toolpath"
+        } else {
+            selectedVectorIDs = Set(vectors.map(\.id))
+            statusMessage = "No link recorded — selected all vectors"
+        }
+    }
+
+    /// Duplicate a toolpath node (same params + result, new node under the
+    /// same parent). Undoable + marks dirty.
+    @discardableResult
+    func duplicateToolpath(id: UUID) -> Bool {
+        guard let node = toolpathTree.findNode(id: id),
+              case .operation = node.type,
+              let parent = toolpathTree.parent(of: id) else {
+            statusMessage = "No toolpath operation to duplicate"
+            return false
+        }
+        registerUndoPoint()
+        let copy = parent.addOperation(node.name + " copy")
+        copy.toolID = node.toolID
+        copy.paramsJSON = node.paramsJSON
+        copy.toolpathResult = node.toolpathResult
+        copy.estimatedTimeSeconds = node.estimatedTimeSeconds
+        copy.markDirty() // the copy still needs a fresh compute against sources
+        selectToolpath(copy.id)
+        statusMessage = "Duplicated “\(node.name)”"
         markDirty()
         return true
     }

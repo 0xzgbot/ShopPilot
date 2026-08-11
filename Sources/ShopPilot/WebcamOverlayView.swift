@@ -112,6 +112,47 @@ struct CameraPreview: NSViewRepresentable {
 }
 #endif
 
+// MARK: - View gizmo (SPK-1206)
+
+/// Mini nav-cube overlay: three tappable faces (top / isometric / front)
+/// that switch the preview's 2.5D orientation, matching Aspire's view
+/// control pattern. The active face is highlighted; the cube is small so it
+/// never blocks the canvas.
+struct ViewGizmoView: View {
+    @Binding var orientation: ViewOrientation
+
+    var body: some View {
+        VStack(spacing: 3) {
+            gizmoFace(.isometric, icon: "cube.fill")
+            HStack(spacing: 3) {
+                gizmoFace(.top, icon: "square.grid.2x2")
+                gizmoFace(.front, icon: "rectangle.portrait")
+            }
+        }
+        .padding(6)
+        .background(.bar)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .shadow(radius: 4)
+        .help("View orientation — ⌘⌥1 top, ⌘⌥2 isometric, ⌘⌥3 front")
+    }
+
+    private func gizmoFace(_ face: ViewOrientation, icon: String) -> some View {
+        let isActive = orientation == face
+        return Button {
+            orientation = face
+        } label: {
+            Image(systemName: icon)
+                .font(.system(size: 11))
+                .frame(width: 22, height: 18)
+                .foregroundStyle(isActive ? Color.white : Color.secondary)
+                .background(isActive ? Color.accentColor : Color.secondary.opacity(0.10))
+                .cornerRadius(4)
+        }
+        .buttonStyle(.plain)
+        .help(face.title)
+    }
+}
+
 // MARK: - Plugins panel (SPK-1006 loadable ABI)
 
 /// Left-pane plugin strip: lists discovered plugins with their kind and a

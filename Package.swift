@@ -123,6 +123,26 @@ let package = Package(
             path: "Sources/ShopPilotVerifyPluginABI"
         ),
         .executableTarget(
+            name: "ShopPilotVerify1207",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1207"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1209",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1209"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1206",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1206"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1204",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1204"
+        ),
+        .executableTarget(
             name: "ShopPilotVerify0308",
             dependencies: ["ShopPilotCore"],
             path: "Sources/ShopPilotVerify0308"

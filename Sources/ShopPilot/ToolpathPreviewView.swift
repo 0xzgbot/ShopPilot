@@ -25,6 +25,9 @@ struct ToolpathPreviewView: View {
     @State private var cancelFlag = PreviewSimCancelFlag()
     /// SPK-1008 — webcam overlay visibility in the Preview stage.
     @State private var showCamera = false
+    /// SPK-1206 — view orientation (top/iso/front) + orthographic toggle.
+    @State private var viewOrientation: ViewOrientation = .top
+    @State private var orthographic = true
 
     private var segments: [(start: (x: Double, y: Double), end: (x: Double, y: Double), isRapid: Bool)] {
         WireframeRenderer.generateSegments(from: session.allToolpathGCode)
@@ -180,6 +183,20 @@ struct ToolpathPreviewView: View {
             HStack {
                 Button("Back to Cut") { session.selectedStage = .cut }
                 Spacer()
+                // SPK-1206 — view orientation preset picker + ortho toggle.
+                Picker("View", selection: $viewOrientation) {
+                    ForEach(ViewOrientation.allCases) { orientation in
+                        Label(orientation.title, systemImage: orientation.icon).tag(orientation)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .controlSize(.small)
+                .frame(width: 260)
+                .help("View orientation (⌘⌥1 top, ⌘⌥2 isometric, ⌘⌥3 front)")
+                Toggle("Ortho", isOn: $orthographic)
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
+                    .help("Orthographic projection (SPK-1206)")
                 // SPK-1008 — webcam overlay toggle (watch the stock while the
                 // sim runs). Camera availability degrades gracefully.
                 Toggle("Camera", isOn: $showCamera)
@@ -198,14 +215,33 @@ struct ToolpathPreviewView: View {
             WebcamOverlayView(isVisible: $showCamera)
                 .padding(12)
         }
+        .overlay(alignment: .topTrailing) {
+            // SPK-1206 — mini view gizmo: cube faces map to orientations.
+            ViewGizmoView(orientation: $viewOrientation)
+                .padding(12)
+        }
+        .onKeyPress { keyPress in
+            // ⌘⌥1…3 — keyboard view presets (macOS onKeyPress).
+            if keyPress.modifiers.contains(.command) && keyPress.modifiers.contains(.option),
+               let char = keyPress.characters.first,
+               let orientation = ViewOrientationShortcut.orientation(for: char) {
+                viewOrientation = orientation
+                return .handled
+            }
+            return .ignored
+        }
         .onAppear { fitContent() }
         .onChange(of: session.allToolpathGCode.count) { _, _ in fitContent() }
     }
 
     private func worldToView(_ x: Double, _ y: Double, size: CGSize) -> CGPoint {
-        CGPoint(
-            x: size.width / 2 + pan.width + CGFloat(x) * scale,
-            y: size.height / 2 + pan.height - CGFloat(y) * scale
+        // SPK-1206 — 2.5D projection: top = identity; iso shears X and
+        // compresses Y; front collapses Y (edge-on).
+        let proj = ViewProjection.projection(for: viewOrientation, orthographic: orthographic)
+        let mapped = proj.map(x: x, y: y)
+        return CGPoint(
+            x: size.width / 2 + pan.width + CGFloat(mapped.x) * scale,
+            y: size.height / 2 + pan.height - CGFloat(mapped.y) * scale
         )
     }
 

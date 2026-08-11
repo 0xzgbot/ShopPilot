@@ -84,17 +84,26 @@ struct ToolpathTreeView: View {
                 Image(systemName: "circle.fill")
                     .font(.system(size: 6))
                     .foregroundStyle(.orange)
-                Text("\(dirtyOperationCount) operation(s) need recalculation")
+                Text("\\(dirtyOperationCount) operation(s) need recalculation")
             } else {
                 Text("All toolpaths up to date")
             }
             Spacer()
+            // SPK-1207 — Recalc All: regenerate every stale op in one click.
+            if dirtyOperationCount > 0 {
+                Button("Recalc All") {
+                    _ = session.recalculateDirtyToolpaths()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.mini)
+                .help("Recalculate all stale toolpaths (SPK-1207)")
+            }
             // SPK-0312: whole-job estimate from TimeEstimator over the full
             // buffer (includes travel/rapids), not just the engine per-op sums.
             if let estimate = session.fullJobTimeEstimate {
-                Text("Total ~\(estimate.formattedTotalTime)")
+                Text("Total ~\\(estimate.formattedTotalTime)")
                     .fontWeight(.medium)
-                    .help("\(estimate.formattedCuttingTime) cutting · \(estimate.formattedTravelTime) travel")
+                    .help("\\(estimate.formattedCuttingTime) cutting · \\(estimate.formattedTravelTime) travel")
             }
         }
         .font(.caption2)
@@ -115,6 +124,10 @@ struct ToolpathTreeView: View {
             onSelect: { session.selectToolpath(node.id) },
             onToggle: { node.isExpanded.toggle() },
             onDelete: { session.deleteToolpath(id: node.id) },
+            // SPK-1204 — context-menu actions routed to the session.
+            onRecalc: { _ = session.recalculateToolpath(id: node.id) },
+            onSelectSources: { session.selectToolpathSources(id: node.id) },
+            onDuplicate: { _ = session.duplicateToolpath(id: node.id) },
             pickerTools: session.toolDatabase.tools(ofTypes: [.endMill, .vBit]),
             onAssignTool: { toolID in
                 session.assignTool(toolID, toToolpath: node.id)
@@ -157,7 +170,19 @@ struct ToolpathTreeView: View {
 
 // MARK: - Row
 
-/// Single tree row: icon, name, tool picker, dirty badge, time, hover delete.
+/// File-private registry accessor — the app's standard action catalog
+/// (SPK-1204). Kept here so the row menu and the (future) table menu share
+/// one source of truth without threading the registry through the view tree.
+private enum CommandRegistryAction {
+    static let registry = AppCommandRegistry.make()
+
+    static func action(id: String) -> CommandAction? {
+        registry.action(id: id)
+    }
+}
+
+/// Single tree row: icon, name, tool picker, status dot, time, hover delete,
+/// registry-driven context menu (recalc/select-sources/duplicate/delete).
 private struct ToolpathRow: View {
     let node: ToolpathTreeNode
     let indent: Int
@@ -165,6 +190,10 @@ private struct ToolpathRow: View {
     let onSelect: () -> Void
     let onToggle: () -> Void
     let onDelete: () -> Void
+    /// SPK-1204 — context-menu actions.
+    let onRecalc: () -> Void
+    let onSelectSources: () -> Void
+    let onDuplicate: () -> Void
     /// Tools offered by the picker (already filtered to supported types).
     let pickerTools: [Tool]
     let onAssignTool: (UUID?) -> Void
@@ -204,9 +233,7 @@ private struct ToolpathRow: View {
                 )
             }
 
-            if node.isDirty {
-                dirtyBadge
-            }
+            statusDot
 
             if case .operation = node.type, node.estimatedTimeSeconds > 0 {
                 Text(ToolpathRow.timeString(node.estimatedTimeSeconds))
@@ -233,7 +260,33 @@ private struct ToolpathRow: View {
         .onTapGesture(perform: onSelect)
         .onHover { hovering = $0 }
         .contextMenu {
-            Button("Delete", role: .destructive, action: onDelete)
+            // SPK-1204 — registry-driven menu: recalc (only when dirty),
+            // select source vectors, duplicate, delete.
+            if let action = CommandRegistryAction.action(id: "tp.recalc"),
+               action.isEnabled(.toolpathNode(id: node.id, isDirty: node.isDirty, toolID: node.toolID)) {
+                Button(action: onRecalc) {
+                    Label(action.title, systemImage: action.systemImage)
+                }
+            }
+            if let action = CommandRegistryAction.action(id: "tp.selectSources"),
+               action.isEnabled(.toolpathNode(id: node.id, isDirty: node.isDirty, toolID: node.toolID)) {
+                Button(action: onSelectSources) {
+                    Label(action.title, systemImage: action.systemImage)
+                }
+            }
+            if let action = CommandRegistryAction.action(id: "tp.duplicate"),
+               action.isEnabled(.toolpathNode(id: node.id, isDirty: node.isDirty, toolID: node.toolID)) {
+                Button(action: onDuplicate) {
+                    Label(action.title, systemImage: action.systemImage)
+                }
+            }
+            Divider()
+            if let action = CommandRegistryAction.action(id: "tp.delete"),
+               action.isEnabled(.toolpathNode(id: node.id, isDirty: node.isDirty, toolID: node.toolID)) {
+                Button(role: .destructive, action: onDelete) {
+                    Label(action.title, systemImage: action.systemImage)
+                }
+            }
         }
     }
 
@@ -242,20 +295,35 @@ private struct ToolpathRow: View {
         return "scissors"
     }
 
-    /// Compact dirty badge: orange dot + label pill.
-    private var dirtyBadge: some View {
-        HStack(spacing: 3) {
-            Image(systemName: "circle.fill")
-                .font(.system(size: 5))
-            Text("dirty")
-                .font(.system(size: 9))
+    /// SPK-1207 — visual toolpath status: one colored dot per row.
+    ///   gray  = pending (never computed)      green = current
+    ///   orange = stale (needs recalc)          red   = error (blocked)
+    private var statusDot: some View {
+        let status = ToolpathStatusEngine.status(
+            isDirty: node.isDirty,
+            hasResult: node.toolpathResult != nil && !node.toolpathResult!.isEmpty,
+            hasBlockingIssue: node.toolID == nil && node.isDirty
+        )
+        let color: Color
+        switch status {
+        case .pending:  color = .gray
+        case .current:  color = .green
+        case .stale:    color = .orange
+        case .error:    color = .red
         }
-        .foregroundStyle(.orange)
-        .padding(.horizontal, 4)
-        .padding(.vertical, 1)
-        .background(Color.orange.opacity(0.12))
-        .cornerRadius(3)
-        .help("Needs recalculation")
+        return Image(systemName: "circle.fill")
+            .font(.system(size: 6))
+            .foregroundStyle(color)
+            .help(helpText(for: status))
+    }
+
+    private func helpText(for status: ToolpathStatus) -> String {
+        switch status {
+        case .pending: return "Not computed yet"
+        case .current: return "Up to date"
+        case .stale:   return "Needs recalculation"
+        case .error:   return "Blocked — assign a tool or fix the vectors"
+        }
     }
 
     static func timeString(_ seconds: Double) -> String {
