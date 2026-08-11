@@ -274,14 +274,33 @@ struct ToolpathPreviewView: View {
             context.stroke(p, with: .color(.blue.opacity(0.55)), lineWidth: 1.5)
         }
 
-        // Toolpath wireframe
+        // Toolpath wireframe — SPK-1210: when a Cut row is hovered, only
+        // that op's segments draw at full strength (everything else dims);
+        // peck retracts draw dashed. Node identity comes from the session's
+        // per-node segment map (the tree knows which op each O= marker
+        // belongs to — two Profiles are distinguishable there).
         if mode == .wireframe || mode == .combined {
-            for seg in segments {
-                var p = Path()
-                p.move(to: worldToView(seg.start.x, seg.start.y, size: size))
-                p.addLine(to: worldToView(seg.end.x, seg.end.y, size: size))
-                let color: Color = seg.isRapid ? .orange.opacity(0.7) : .red
-                context.stroke(p, with: .color(color), lineWidth: seg.isRapid ? 1 : 2)
+            let hoverID = session.hoveredToolpathID
+            for (nodeID, nodeSegments) in session.segmentsByToolpathNode {
+                guard hoverID == nil || hoverID == nodeID else { continue }
+                for seg in nodeSegments {
+                    var p = Path()
+                    p.move(to: worldToView(seg.start.x, seg.start.y, size: size))
+                    p.addLine(to: worldToView(seg.end.x, seg.end.y, size: size))
+                    let baseColor: Color = seg.isRapid ? .orange.opacity(0.7) : .red
+                    context.stroke(p, with: .color(baseColor), lineWidth: seg.isRapid ? 1 : 2)
+                }
+            }
+            // Peck retracts: dashed yellow ticks at the drill points.
+            if mode == .combined || mode == .wireframe {
+                let pecks = WireframeRenderer.detectPeckRetracts(from: session.allToolpathGCode)
+                for peck in pecks {
+                    let pt = worldToView(peck.start.x, peck.start.y, size: size)
+                    let rect = CGRect(x: pt.x - 3, y: pt.y - 3, width: 6, height: 6)
+                    var dash = Path(ellipseIn: rect)
+                    context.stroke(dash, with: .color(.yellow.opacity(0.9)),
+                                   style: StrokeStyle(lineWidth: 1, dash: [2, 2]))
+                }
             }
         }
 

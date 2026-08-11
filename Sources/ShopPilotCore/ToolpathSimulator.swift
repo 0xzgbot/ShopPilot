@@ -409,6 +409,154 @@ public struct WireframeRenderer {
 
         return (segments, false)
     }
+
+    // MARK: - Peck retract detection (SPK-1210)
+
+    /// A Z rapid that sits between two plunges at the same XY inside a drill
+    /// block — the peck cycle's retract. Detected from the raw G-code:
+    /// `G0 Z<up>` following a `G1 Z<down>` and followed by another `G1 Z<down>`
+    /// at the same XY = a peck retract (rendered dashed in the sim).
+    public static func detectPeckRetracts(
+        from gcodeLines: [String]
+    ) -> [(start: (x: Double, y: Double), end: (x: Double, y: Double))] {
+        var retracts: [(start: (x: Double, y: Double), end: (x: Double, y: Double))] = []
+        var candidateRetracts: [String] = []
+        var lastX: Double?
+        var lastY: Double?
+        var lastZ: Double?
+        var lastWasPlunge = false
+        var lastPlungeX: Double?
+        var lastPlungeY: Double?
+
+        func zOf(_ line: String) -> Double? {
+            let trimmed = line.uppercased()
+            guard let range = trimmed.range(of: "Z") else { return nil }
+            var i = range.upperBound
+            var num = ""
+            while i < trimmed.endIndex {
+                let c = trimmed[i]
+                if c == "-" || c == "+" || c == "." || c.isNumber { num.append(c); i = trimmed.index(after: i) } else { break }
+            }
+            return Double(num)
+        }
+
+        for line in gcodeLines {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+            // Track modal XY (G0/G1 moves only; arcs don't feed the peck model).
+            if trimmed.hasPrefix("G0") || trimmed.hasPrefix("G1") || trimmed.hasPrefix("G00") || trimmed.hasPrefix("G01") {
+                if trimmed.hasPrefix("G2") || trimmed.hasPrefix("G3") { continue }
+                if let parsed = parseXY(from: line, previousX: lastX, previousY: lastY) {
+                    lastX = parsed.x
+                    lastY = parsed.y
+                }
+            }
+            guard let z = zOf(line) else { continue }
+            let isRapid = trimmed.hasPrefix("G0") && !trimmed.hasPrefix("G01") && !trimmed.hasPrefix("G1")
+            if isRapid, let lz = lastZ, let lx = lastX, let ly = lastY,
+               z > lz + 0.5,               // a real retract upward
+               lastWasPlunge,              // ...right after a plunge
+               let px = lastPlungeX, let py = lastPlungeY,
+               abs(px - lx) < 0.001, abs(py - ly) < 0.001 {  // same XY
+                // Candidate peck retract — confirmed only if a plunge
+                // FOLLOWS at the same XY (lookahead below).
+                candidateRetracts.append(line)
+            }
+            lastWasPlunge = (!isRapid) && (lastZ == nil || z < (lastZ ?? 0))
+            if lastWasPlunge, let lx = lastX, let ly = lastY {
+                lastPlungeX = lx
+                lastPlungeY = ly
+            }
+            lastZ = z
+        }
+        // Confirm: a candidate is a peck retract only when a plunge follows
+        // at the same XY (the final end-of-op retract has none).
+        for candidate in candidateRetracts {
+            var seenPlunge = false
+            var cx: Double?
+            var cy: Double?
+            for line in gcodeLines {
+                if line == candidate {
+                    seenPlunge = false // reset; we're past the retract now
+                    cx = lastXBefore(line, in: gcodeLines)
+                    cy = lastYBefore(line, in: gcodeLines)
+                    continue
+                }
+                if seenPlunge { continue }
+                guard let z = zOf(line) else { continue }
+                let isRapidLine = line.uppercased().hasPrefix("G0")
+                    && !line.uppercased().hasPrefix("G01") && !line.uppercased().hasPrefix("G1")
+                if !isRapidLine, let px = cx, let py = cy,
+                   let parsed = parseXY(from: line, previousX: px, previousY: py) {
+                    if abs(parsed.x - px) < 0.001, abs(parsed.y - py) < 0.001 {
+                        seenPlunge = true
+                    }
+                }
+            }
+            if seenPlunge, let lx = lastXBefore(candidate, in: gcodeLines),
+               let ly = lastYBefore(candidate, in: gcodeLines) {
+                retracts.append((start: (lx, ly), end: (lx, ly)))
+            }
+        }
+        return retracts
+    }
+
+    /// XY in effect just before `line` (the last G0/G1 position).
+    private static func lastXBefore(_ line: String, in gcodeLines: [String]) -> Double? {
+        var lastX: Double?
+        var lastY: Double?
+        for l in gcodeLines {
+            if l == line { break }
+            if let parsed = parseXY(from: l, previousX: lastX, previousY: lastY) {
+                lastX = parsed.x
+                lastY = parsed.y
+            }
+        }
+        return lastX
+    }
+
+    private static func lastYBefore(_ line: String, in gcodeLines: [String]) -> Double? {
+        var lastX: Double?
+        var lastY: Double?
+        for l in gcodeLines {
+            if l == line { break }
+            if let parsed = parseXY(from: l, previousX: lastX, previousY: lastY) {
+                lastX = parsed.x
+                lastY = parsed.y
+            }
+        }
+        return lastY
+    }
+
+    // MARK: - Per-node segment tagging (SPK-1210)
+
+    /// Tag segments with the operation node they belong to, using the `O=`
+    /// marker lines the engines emit. Segments before the first marker are
+    /// untagged (nil). This is the hover-highlight lookup: the preview can
+    /// dim everything except one node's segments.
+    public static func tagSegments(
+        from gcodeLines: [String]
+    ) -> [(start: (x: Double, y: Double), end: (x: Double, y: Double), isRapid: Bool, nodeID: String?)] {
+        var tagged: [(start: (x: Double, y: Double), end: (x: Double, y: Double), isRapid: Bool, nodeID: String?)] = []
+        var currentID: String?
+        var lastX: Double?
+        var lastY: Double?
+
+        for line in gcodeLines {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.hasPrefix("O=") {
+                currentID = trimmed
+                continue
+            }
+            guard let parsed = parseXY(from: line, previousX: lastX, previousY: lastY) else { continue }
+            let current = (parsed.x, parsed.y)
+            if let lx = lastX, let ly = lastY {
+                tagged.append((start: (lx, ly), end: current, isRapid: parsed.isRapid, nodeID: currentID))
+            }
+            lastX = parsed.x
+            lastY = parsed.y
+        }
+        return tagged
+    }
 }
 
 // MARK: - Preview (Xcode only — not available in CLI builds)

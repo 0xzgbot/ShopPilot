@@ -52,6 +52,25 @@ final class AppSession: ObservableObject {
         return nodeLines.isEmpty ? gcodeLines : nodeLines
     }
 
+    /// SPK-1210 — per-node wireframe segments: each operation node's G-code
+    /// rendered to segments keyed by node id. The Preview canvas uses this
+    /// to highlight exactly one op when its Cut row is hovered.
+    var segmentsByToolpathNode: [UUID: [(start: (x: Double, y: Double),
+                                          end: (x: Double, y: Double),
+                                          isRapid: Bool)]] {
+        var map: [UUID: [(start: (x: Double, y: Double), end: (x: Double, y: Double), isRapid: Bool)]] = [:]
+        for node in toolpathTree.allNodes where node.toolpathResult != nil {
+            let lines = (node.toolpathResult ?? "")
+                .components(separatedBy: .newlines)
+                .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+            let segs = WireframeRenderer.generateSegments(from: lines)
+            if !segs.isEmpty {
+                map[node.id] = segs
+            }
+        }
+        return map
+    }
+
     /// SPK-0315 — G-code of the DIRTY operation nodes only (the partial-resim
     /// line set). Empty when nothing is dirty.
     var dirtyToolpathGCode: [String] {
@@ -174,6 +193,9 @@ final class AppSession: ObservableObject {
     /// Currently selected toolpath tree node id (nil = none).
     /// The toolpath tree UI mirrors this; the inspector reads it too.
     @Published var selectedToolpathID: UUID?
+    /// SPK-1210 — the toolpath row currently hovered in the Cut overview;
+    /// the Preview canvas highlights exactly its segments.
+    @Published var hoveredToolpathID: UUID?
 
     /// Whether the document has unsaved changes.
     @Published private(set) var isDirty = false
@@ -768,7 +790,7 @@ final class AppSession: ObservableObject {
         registerUndoPoint()
         StockSheetPresets.apply(preset, to: &sheet)
         job.sheets[activeSheetIndex] = sheet
-        statusMessage = "Stock: \\(preset.name)"
+        statusMessage = "Stock: \(preset.name)"
         markDirty()
     }
 
@@ -825,6 +847,74 @@ final class AppSession: ObservableObject {
     private func removedSheetLayerIDs(id: UUID) -> [UUID] {
         guard let sheet = job.sheets.first(where: { $0.id == id }) else { return [] }
         return sheet.layers.map(\.id)
+    }
+
+    // MARK: - Sheet duplication + toolpath transfer (SPK-1208)
+
+    /// Duplicate a sheet: deep copy (new sheet + layer ids, same dims/
+    /// material/preset/vectors), make it active, add a matching toolpath
+    /// group to the tree. Undoable + dirty.
+    @discardableResult
+    func duplicateSheet(id: UUID) -> Bool {
+        guard let sheet = job.sheets.first(where: { $0.id == id }) else {
+            statusMessage = "Sheet to duplicate not found"
+            return false
+        }
+        registerUndoPoint()
+        let copy = SheetOperations.duplicate(sheet)
+        job.addSheet(copy)
+        // A fresh toolpath group so the copy starts clean (toolpaths are
+        // NOT auto-copied — they belong to the original's ops until moved).
+        _ = toolpathTree.addGroup(SheetOperations.toolpathGroupName(for: copy))
+        activeSheetID = copy.id
+        selection = .sheet(copy.id)
+        statusMessage = "Duplicated “\(sheet.name)” → “\(copy.name)”"
+        markDirty()
+        return true
+    }
+
+    /// Move a toolpath node to another sheet's group. Guards: target exists,
+    /// not already there, node is an operation. The move re-homes the node
+    /// under the target group (creating the group when needed).
+    @discardableResult
+    func moveToolpathToSheet(nodeID: UUID, targetSheetID: UUID) -> Bool {
+        guard let node = toolpathTree.findNode(id: nodeID),
+              case .operation = node.type,
+              let target = job.sheets.first(where: { $0.id == targetSheetID }) else {
+            statusMessage = "Move failed — toolpath or target sheet not found"
+            return false
+        }
+        if let reason = SheetOperations.validateToolpathMove(
+            targetSheetID: targetSheetID,
+            sheets: job.sheets
+        ) {
+            statusMessage = "Move failed — \(reason)"
+            return false
+        }
+        // Find the node's current parent to remove it from.
+        guard let currentParent = toolpathTree.parent(of: nodeID) else {
+            statusMessage = "Move failed — toolpath has no parent"
+            return false
+        }
+        registerUndoPoint()
+        let groupName = SheetOperations.toolpathGroupName(for: target)
+        // Find or create the target sheet's group under root.
+        let targetGroup: ToolpathTreeNode
+        if let existing = toolpathTree.root.children.first(where: { node in
+            if case .group(let label) = node.type { return label == groupName }
+            return false
+        }) {
+            targetGroup = existing
+        } else {
+            targetGroup = toolpathTree.addGroup(groupName)
+        }
+        // Remove from the old parent and append under the target group
+        // (preserving the node's result/params — it stays computed).
+        _ = currentParent.removeChild(id: nodeID)
+        targetGroup.addChild(node)
+        statusMessage = "Moved “\(node.name)” to “\(target.name)”"
+        markDirty()
+        return true
     }
 
     /// Switch the design surface + toolpath stock to another sheet.
@@ -2480,6 +2570,30 @@ final class AppSession: ObservableObject {
         selection = id.map { .toolpath($0) } ?? .none
     }
 
+    // MARK: - Smart part selection (SPK-1203)
+
+    /// Select the whole PART a shape belongs to: closed shapes that touch or
+    /// overlap (within 0.5 mm) are one part. Single click → whole assembly,
+    /// no manual grouping — the Aspire 12.5 smart-selection pattern.
+    @discardableResult
+    func smartSelectPart(containing shapeIndex: Int) -> Bool {
+        guard shapes.indices.contains(shapeIndex) else { return false }
+        let parts = PartDetector.detectParts(of: shapes, tolerance: 0.5) { shape in
+            // Only closed shapes join parts (open paths are separate).
+            switch shape {
+            case .freehand(let pts): return pts.count >= 3
+            default: return true
+            }
+        }
+        guard let part = PartDetector.part(containing: shapeIndex, in: parts) else {
+            selectedShapeIndices = [shapeIndex]
+            return true
+        }
+        selectedShapeIndices = Set(part.shapeIndices)
+        statusMessage = "Selected part — \(part.shapeIndices.count) shape(s)"
+        return true
+    }
+
     /// Delete a toolpath node from the tree (any depth, undoable, marks dirty).
     @discardableResult
     func deleteToolpath(id: UUID) -> Bool {
@@ -2495,7 +2609,7 @@ final class AppSession: ObservableObject {
             selection = .none
         }
         statusMessage = "Deleted toolpath"
-        lastToolpathSummary = "\\(toolpaths.count) toolpath(s) remaining"
+        lastToolpathSummary = "\(toolpaths.count) toolpath(s) remaining"
         markDirty()
         return true
     }

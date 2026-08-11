@@ -18,6 +18,9 @@ struct CutLayersTableView: View {
     @State private var sortKey: SortKey = .order
     @State private var sortAscending = true
     @State private var editingFeedID: UUID?
+    /// SPK-1210 — the row being hovered; its op's G-code segments highlight
+    /// on the Preview canvas (session drives the preview, so we publish here).
+    @State private var hoveredRowID: UUID?
 
     private var rows: [CutLayerRow] {
         let built = session.cutLayerRows
@@ -193,6 +196,12 @@ struct CutLayersTableView: View {
                     : Color.clear)
         .contentShape(Rectangle())
         .onTapGesture { session.selectToolpath(row.id) }
+        .onHover { hovering in
+            // SPK-1210 — publish the hovered op to the session so the
+            // Preview canvas can highlight exactly its segments.
+            hoveredRowID = hovering ? row.id : nil
+            session.hoveredToolpathID = hovering ? row.id : nil
+        }
         .contextMenu {
             // SPK-1204 — same registry as the tree rows.
             if let action = CommandRegistryAction.action(id: "tp.recalc"),

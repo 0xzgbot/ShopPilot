@@ -474,7 +474,10 @@ struct DesignCanvasView: View {
                 if isMulti {
                     session.selectedShapeIndices.formSymmetricDifference([idx])
                 } else {
-                    session.selectedShapeIndices = [idx]
+                    // SPK-1203 — smart part selection: a plain click grabs
+                    // the whole connected part (touching/overlapping closed
+                    // shapes), not just the one shape under the cursor.
+                    _ = session.smartSelectPart(containing: idx)
                 }
             } else if !isMulti {
                 session.selectedShapeIndices = []
