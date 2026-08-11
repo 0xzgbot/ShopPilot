@@ -83,6 +83,59 @@ public struct MaterialSetupView: View {
             }
             .labelsHidden()
             .frame(maxWidth: .infinity, alignment: .leading)
+
+            // SPK-visual — material swatch chips: the four brand surface
+            // palettes rendered as visible wood/acrylic chips (the same
+            // palettes the Preview heightfield tints with). Click to apply.
+            HStack(spacing: 6) {
+                ForEach(MaterialSurfacePalette.presets, id: \.name) { palette in
+                    MaterialSwatchChip(palette: palette, isSelected: materialBinding.wrappedValue == palette.name) {
+                        materialBinding.wrappedValue = palette.name
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    /// A tappable material chip: top-skin color band over the base color,
+    /// with the name — reads like the real stock at a glance.
+    private struct MaterialSwatchChip: View {
+        let palette: MaterialSurfacePalette
+        let isSelected: Bool
+        let action: () -> Void
+
+        var body: some View {
+            Button(action: action) {
+                VStack(spacing: 0) {
+                    // Skin band (top color).
+                    Rectangle()
+                        .fill(Color(red: palette.topColor.r, green: palette.topColor.g, blue: palette.topColor.b))
+                        .frame(height: 14)
+                    // Base band (what the cut reveals).
+                    Rectangle()
+                        .fill(Color(red: palette.baseColor.r, green: palette.baseColor.g, blue: palette.baseColor.b))
+                        .frame(height: 10)
+                    Text(palette.name)
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .padding(.vertical, 3)
+                }
+                .frame(width: 64)
+                .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                        .strokeBorder(isSelected ? SP.Tint.brand : Color.secondary.opacity(0.3),
+                                      lineWidth: isSelected ? 1.5 : 0.5)
+                )
+                .background(
+                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                        .fill(isSelected ? SP.Tint.brand.opacity(0.08) : .clear)
+                )
+            }
+            .buttonStyle(.plain)
+            .help("\(palette.name) — \(palette.surfaceLayers) surface layer(s)")
+            .accessibilityLabel(palette.name)
         }
     }
 

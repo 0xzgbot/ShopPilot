@@ -77,6 +77,9 @@ struct ContentView: View {
             }
         }
         .animation(SP.Motion.state, value: session.showCommandPalette)
+        // SPK-visual — brand accent: warm wood-shop amber everywhere controls
+        // inherit the environment accent (buttons, selection, focus rings).
+        .tint(SP.Tint.brand)
         .sheet(isPresented: $session.showPreferences) {
             PreferencesView()
                 .frame(width: 440, height: 320)

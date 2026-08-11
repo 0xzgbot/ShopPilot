@@ -36,12 +36,12 @@ enum Stage: String, CaseIterable, Identifiable {
     /// ICON_INVENTORY §1 audit picks the replacements.
     var icon: String {
         switch self {
-        case .setup:      return "gearshape"
-        case .design:     return "pencil.and.outline"
-        case .model:      return "cube.box"
-        case .cut:        return "scissors"
-        case .preview:    return "play.circle"
-        case .machine:    return "cable.connector"
+        case .setup:      return "ruler"                  // stock dims / origin
+        case .design:     return "pencil.and.ruler.fill"  // drafting the artwork
+        case .model:      return "cube.transparent"       // relief components
+        case .cut:        return "point.topleft.down.curvedto.point.bottomright.up"  // toolpath vector
+        case .preview:    return "eye"                    // trust the cut
+        case .machine:    return "gearshape.2"            // machine motion
         }
     }
 

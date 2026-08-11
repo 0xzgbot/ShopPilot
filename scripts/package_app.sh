@@ -55,6 +55,7 @@ cat > "$CONTENTS/Info.plist" <<PLIST
     <key>CFBundleName</key><string>$APP_NAME</string>
     <key>CFBundleDisplayName</key><string>$APP_NAME</string>
     <key>CFBundlePackageType</key><string>APPL</string>
+    <key>CFBundleIconFile</key><string>ShopPilot</string>
     <key>CFBundleShortVersionString</key><string>$VERSION</string>
     <key>CFBundleVersion</key><string>1</string>
     <key>LSMinimumSystemVersion</key><string>14.0</string>
@@ -72,6 +73,14 @@ PLIST
 if [[ -d "fixtures" ]]; then
     echo "-- bundling fixtures --"
     cp -R fixtures "$RESOURCES_DIR/fixtures"
+fi
+
+# 4b. App icon (SPK-visual): the .icns ships in Resources; Info.plist points
+#     at CFBundleIconFile=ShopPilot. Regenerate with:
+#     swift <T>/make_shoppilot_icon.swift dist/icon-src && iconutil -c icns ...
+if [[ -f "dist/icon-src/ShopPilot.icns" ]]; then
+    echo "-- bundling app icon --"
+    cp "dist/icon-src/ShopPilot.icns" "$RESOURCES_DIR/ShopPilot.icns"
 fi
 
 # 5. Ad-hoc codesign (runs locally; Gatekeeper will still warn on first open

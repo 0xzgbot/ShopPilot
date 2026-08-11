@@ -43,6 +43,10 @@ enum SP {
     /// Semantic tint. Red is reserved for machine safety — Reset and alarms —
     /// per AGENTS.md §2 and the UX density budget.
     enum Tint {
+        /// Brand accent — warm wood-shop amber (matches the app icon + the
+        /// material palettes). Applied as the app-wide accent so buttons,
+        /// selection and focus read as one brand, not default system blue.
+        static let brand = Color(red: 0.93, green: 0.60, blue: 0.18)
         static let safety = Color.red
         static let hold = Color.orange
         /// Spindle is moving.

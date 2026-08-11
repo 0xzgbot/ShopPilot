@@ -206,21 +206,45 @@ struct DesignCanvasView: View {
 
     private var gridLayer: some View {
         Canvas { context, size in
+            // SPK-visual — design-anchored grid: lines move with the content
+            // (offset + scale), so the sheet reads as a fixed world, and a
+            // bold amber origin cross marks the (0,0) datum at any zoom.
             let step: CGFloat = 20 * scale
+            guard step > 2 else { return }
+            let origin = screen(0, 0)
             var path = Path()
-            var x: CGFloat = 0
-            while x < size.width {
+            // Vertical lines.
+            var x = origin.x.truncatingRemainder(dividingBy: step)
+            if x < 0 { x += step }
+            while x <= size.width {
                 path.move(to: CGPoint(x: x, y: 0))
                 path.addLine(to: CGPoint(x: x, y: size.height))
                 x += step
             }
-            var y: CGFloat = 0
-            while y < size.height {
+            // Horizontal lines.
+            var y = origin.y.truncatingRemainder(dividingBy: step)
+            if y < 0 { y += step }
+            while y <= size.height {
                 path.move(to: CGPoint(x: 0, y: y))
                 path.addLine(to: CGPoint(x: size.width, y: y))
                 y += step
             }
-            context.stroke(path, with: .color(.gray.opacity(0.15)), lineWidth: 0.5)
+            context.stroke(path, with: .color(.gray.opacity(0.14)), lineWidth: 0.5)
+
+            // Origin axes — amber datum cross at world (0,0).
+            if origin.x >= -100, origin.x <= size.width + 100,
+               origin.y >= -100, origin.y <= size.height + 100 {
+                var axes = Path()
+                let arm: CGFloat = 400
+                axes.move(to: CGPoint(x: origin.x, y: max(0, origin.y - arm)))
+                axes.addLine(to: CGPoint(x: origin.x, y: min(size.height, origin.y + arm)))
+                axes.move(to: CGPoint(x: max(0, origin.x - arm), y: origin.y))
+                axes.addLine(to: CGPoint(x: min(size.width, origin.x + arm), y: origin.y))
+                context.stroke(axes, with: .color(SP.Tint.brand.opacity(0.45)), lineWidth: 1)
+                // Small datum dot.
+                let dot = CGRect(x: origin.x - 3, y: origin.y - 3, width: 6, height: 6)
+                context.fill(Path(ellipseIn: dot), with: .color(SP.Tint.brand.opacity(0.7)))
+            }
         }
     }
 
