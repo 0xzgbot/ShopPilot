@@ -253,6 +253,75 @@ public final class MachineController: ObservableObject {
         }
     }
 
+    // MARK: - Run controls (SPK-1302)
+
+    /// Live feed-rate override — sends a new F word (GRBL feed override
+    /// approach). 100% = multiplier 1.0; range 10%…200%.
+    @Published public var feedOverride = FeedRateOverride()
+
+    /// Current spindle RPM for the M3/S commands.
+    @Published public var spindleRPM: Double = 12000
+
+    /// Apply the current feed override to the NEXT cut feed... The override
+    /// is a modal F word, so this targets the streamer's current feed by
+    /// re-emitting it scaled (the streamer sends it before the next move).
+    public func applyFeedOverride() {
+        Task {
+            await connection.sendCommand(feedOverride.gcode(feed: 600))
+            connection.addSystemMessage("Feed override → \(Int(feedOverride.multiplier * 100))%")
+        }
+    }
+
+    /// Spindle on (M3 S<rpm>) / off (M5).
+    public func spindleOn() {
+        Task {
+            await connection.sendCommand(SpindleCommand.on(rpm: spindleRPM))
+            connection.addSystemMessage("Spindle ON — \(SpindleCommand.on(rpm: spindleRPM))")
+        }
+    }
+
+    public func spindleOff() {
+        Task {
+            await connection.sendCommand(SpindleCommand.off())
+            connection.addSystemMessage("Spindle OFF — M5")
+        }
+    }
+
+    // MARK: - Touch-off probing (SPK-1303)
+
+    /// Run the touch-off probe sequence at the current XY. After the probe
+    /// hits, compute + apply the Z work offset so the stock surface reads 0.
+    public func touchOffZ(plateThickness: Double = 3.0) {
+        let plan = TouchOff.plan(plateThickness: plateThickness)
+        let sequence = TouchOff.gcode(plan)
+        Task {
+            for line in sequence {
+                await connection.sendCommand(line)
+            }
+            connection.addSystemMessage("Touch-off probe sent (plate \(plateThickness)mm) — set Z zero at the plate top")
+        }
+    }
+
+    /// The Z work offset math for a reported probe hit (used after a manual
+    /// or auto probe to display the computed offset).
+    public func computedZOffset(probeHitZ: Double, plateThickness: Double) -> Double {
+        TouchOff.zOffset(probeHitZ: probeHitZ, plateThickness: plateThickness)
+    }
+
+    // MARK: - Work offsets (SPK-1304)
+
+    /// The G54–G59 registry for this machine session.
+    @Published public var workOffsets = WorkOffsetRegistry()
+
+    /// Switch the active work offset (G54…G59) on the controller.
+    public func selectWorkOffset(_ index: Int) {
+        guard workOffsets.setActive(index) else { return }
+        Task {
+            await connection.sendCommand(workOffsets.activeGcode)
+            connection.addSystemMessage("Work offset → \(workOffsets.active.name) (\(workOffsets.activeGcode))")
+        }
+    }
+
     // MARK: - Console
 
     public func sendConsoleCommand(_ text: String) {

@@ -322,6 +322,9 @@ private struct SetupStageView: View {
 private struct DesignStageView: View {
     @ObservedObject var session: AppSession
     @State private var showOffsetDialog = false
+    /// SPK-1301 — dogbone corner-relief dialog state.
+    @State private var showDogboneDialog = false
+    @State private var dogboneBitDiameter = 6.0
     @State private var offsetDistance = "3.0"
     @State private var showFilletDialog = false
     @State private var filletRadius = "3.0"
@@ -430,6 +433,15 @@ private struct DesignStageView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Positive = outward, negative = inward.")
+        }
+        .alert("Dogbone Corner Relief", isPresented: $showDogboneDialog) {
+            TextField("Bit Diameter (mm)", value: $dogboneBitDiameter, format: .number)
+            Button("Add Reliefs") {
+                _ = session.addDogboneReliefs(bitDiameter: dogboneBitDiameter)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Adds corner-relief circles so a round bit can cut the pocket's square corners.")
         }
         .alert("Fillet Corners", isPresented: $showFilletDialog) {
             TextField("Radius (mm)", text: $filletRadius)
@@ -547,6 +559,11 @@ private struct DesignStageView: View {
             Button("Fillet…") { showFilletDialog = true }
                 .disabled(session.selectedShapeIndices.isEmpty)
                 .help("Round the corners of selected vectors")
+            // SPK-1301 — dogbone corner relief (joinery): add relief circles
+            // so a round bit reaches a rectangle pocket's square corners.
+            Button("Dogbone…") { showDogboneDialog = true }
+                .disabled(!session.hasSelectedRectangle)
+                .help("Add dogbone corner-relief circles to the selected rectangle pocket (joinery)")
             Button("Extend…") { showExtendDialog = true }
                 .disabled(session.selectedShapeIndices.isEmpty)
                 .help("Extend the open ends of selected vectors")
@@ -828,6 +845,8 @@ private struct CutStageView: View {
                         .help("Z-level rough the imported STL relief (needs a relief)")
                     Button("Finish 3D") { session.generateFinish3DToolpath() }
                         .help("Surface-following finish of the imported STL relief (needs a relief)")
+                    Button("Rest Machine") { session.generateRestMachiningToolpath() }
+                        .help("Clear leftover material the rough pass left behind (needs a relief)")
                 } label: {
                     Label("Add Toolpath", systemImage: "plus.circle")
                 }

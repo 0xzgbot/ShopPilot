@@ -3820,6 +3820,143 @@ final class AppSession: ObservableObject {
         statusMessage = "Rotary Wrap: \(result.featureCount) path(s), ~\(Int(result.estimatedTimeSeconds))s"
     }
 
+    /// True when the selection contains a rectangle (dogbone target).
+    var hasSelectedRectangle: Bool {
+        selectedShapeIndices.contains { idx in
+            shapes.indices.contains(idx) && {
+                if case .rectangle = shapes[idx] { return true }
+                return false
+            }()
+        }
+    }
+
+    // MARK: - Dogbone corner relief (SPK-1301)
+
+    /// Add dogbone corner-relief circles to a selected rectangle pocket so a
+    /// round bit can cut square corners (joinery). Returns the count added.
+    @discardableResult
+    func addDogboneReliefs(bitDiameter: Double) -> Int {
+        // Find the selected rectangle (first selected shape that is one).
+        guard let index = selectedShapeIndices.first,
+              shapes.indices.contains(index) else {
+            statusMessage = "Select a rectangle pocket first"
+            return 0
+        }
+        let shape = shapes[index]
+        guard case .rectangle(let origin, let width, let height) = shape else {
+            statusMessage = "Dogbone works on a rectangle pocket — select one"
+            return 0
+        }
+        let bounds = Rect(
+            minX: origin.x, minY: origin.y,
+            maxX: origin.x + width, maxY: origin.y + height
+        )
+        let reliefs = Dogbone.cornerReliefs(for: bounds, bitDiameter: bitDiameter)
+        guard !reliefs.isEmpty else {
+            statusMessage = "Dogbone: invalid bit diameter"
+            return 0
+        }
+        registerUndoPoint()
+        var added = 0
+        for relief in reliefs {
+            shapes.append(.circle(center: relief.center, radius: relief.radius))
+            added += 1
+        }
+        statusMessage = "Dogbone: \(added) corner relief(s) added (\(bitDiameter)mm bit)"
+        markDirty()
+        return added
+    }
+
+    // MARK: - Rest machining (SPK-1305)
+
+    /// Generate a Rest Machining op: after a rough pass, clear leftover
+    /// material (pockets the big tool couldn't reach) with z-level passes.
+    /// The remaining-depth grid comes from the heightfield (cells where the
+    /// relief is higher than the target floor), the planner computes the
+    /// layers, and each pass becomes a zigzag clearing raster at that Z.
+    func generateRestMachiningToolpath(stepDown: Double = 2.0, minRemaining: Double = 0.3) {
+        guard let hf = job.stlHeightfield else {
+            statusMessage = "No relief — import an image (Model → Image Relief…) or STL first"
+            return
+        }
+        registerUndoPoint()
+        // Remaining depth per cell: height above the relief's floor.
+        // (A flat stock yields all-zero remaining → no rest passes needed.)
+        let floor = hf.heights.min() ?? 0
+        let remaining = hf.heights.map { max(0, $0 - floor) }
+        let passes = RestRoughing.planRestPasses(
+            remainingDepthGrid: remaining,
+            gridWidth: hf.width,
+            stepDown: stepDown,
+            minRemaining: minRemaining
+        )
+        guard !passes.isEmpty else {
+            statusMessage = "Rest Machining: nothing left to clear (rough pass already cleaned the relief)"
+            return
+        }
+        let gcode = restMachiningGCode(passes: passes, heightfield: hf)
+        let node = addToolpathNode(
+            named: "Rest Machine \(toolpathTree.allNodes.count)",
+            gcode: gcode,
+            estimatedTime: TimeEstimator.estimate(gcodeLines: gcode).cuttingTimeSeconds
+        )
+        let params = RestMachiningParams(stepDown: stepDown, minRemaining: minRemaining)
+        node.paramsJSON = encodeParams(params)
+        statusMessage = "Rest Machining: \(passes.count) pass(es), \(gcode.count) lines"
+    }
+
+    /// Zigzag clearing rasters per rest pass, over the cells that still hold
+    /// material at that layer. Cells → world coords via the heightfield grid.
+    private func restMachiningGCode(passes: [RestPass], heightfield hf: HeightfieldData) -> [String] {
+        var lines: [String] = ["G21", "G90", "G17"]
+        let safeZ = 5.0
+        lines.append("G0 Z\(safeZ)")
+        let cellW = hf.cellSizeMm
+        let worldX = { (gx: Int) -> Double in hf.minX + (Double(gx) + 0.5) * cellW }
+        let worldY = { (gy: Int) -> Double in hf.minY + (Double(gy) + 0.5) * cellW }
+        for pass in passes {
+            // The raster band: min/max world extents of this pass's cells.
+            var minX = Double.greatestFiniteMagnitude, maxX = -Double.greatestFiniteMagnitude
+            var minY = Double.greatestFiniteMagnitude, maxY = -Double.greatestFiniteMagnitude
+            for idx in pass.cellIndices {
+                let gx = idx % hf.width, gy = idx / hf.width
+                let x = worldX(gx), y = worldY(gy)
+                minX = min(minX, x); maxX = max(maxX, x)
+                minY = min(minY, y); maxY = max(maxY, y)
+            }
+            guard minX <= maxX, minY <= maxY else { continue }
+            lines.append("G0 X\(fmt(minX)) Y\(fmt(minY))")
+            lines.append("G1 Z\(fmt(pass.depth)) F300")
+            // Zigzag across the band at cell resolution.
+            var y = minY
+            var dir = 1.0
+            while y <= maxY + 1e-9 {
+                if dir > 0 {
+                    lines.append("G1 X\(fmt(maxX)) Y\(fmt(y)) F600")
+                } else {
+                    lines.append("G1 X\(fmt(minX)) Y\(fmt(y)) F600")
+                }
+                y += cellW
+                dir *= -1
+            }
+            lines.append("G0 Z\(safeZ)")
+        }
+        lines.append("M5")
+        lines.append("M30")
+        return lines
+    }
+
+    private func fmt(_ value: Double) -> String {
+        String(format: "%.3f", value)
+            .replacingOccurrences(of: "\\.?0+$", with: "", options: .regularExpression)
+    }
+
+    /// Params snapshot stored on the node so the form can restore + recalc.
+    struct RestMachiningParams: Codable {
+        var stepDown: Double
+        var minRemaining: Double
+    }
+
     @discardableResult
     func applyRotaryWrapParams(_ params: RotaryWrapToolpathParams, to nodeID: UUID) -> Bool {
         guard let node = toolpathTree.findNode(id: nodeID), node.strategyKind == .rotaryWrap else {
