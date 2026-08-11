@@ -1165,16 +1165,16 @@ A (parallel from day 0)
 
 Plan: `docs/planning/UI_OVERHAUL_PLAN.md`. DoD = Engine + UI + Persist + Verify CLT (`ShopPilotVerify120x` PASS, whole-package build green, board `[x]` + worklog). Wave order: W1 = 1207/1209/1206/1204 (parallel), W2 = 1201/1202/1205, W3 = 1203/1208/1210.
 
-- [ ] **SPK-1201** **UX** Cut-Layers table (LightBurn-style) — sortable grid over the toolpath tree: ✓ | status | # | name | tool | feed | depth | time; inline edit commits via applyXParams; drag reorder rewrites tree order. Deps: SPK-1207.
-- [ ] **SPK-1202** **UX** Surface-color material preview — `MaterialSurfacePalette` presets (walnut/acrylic/painted MDF/plywood), depth-shaded heightfield renderer (top skin until the cut passes the layer → base). 
-- [ ] **SPK-1203** **UX** Smart part selection + canvas dimension handles — `PartDetector` (closed shapes sharing an edge point = one part), `DimensionHandle` drag math over SPK-0807 driven dimensions.
-- [ ] **SPK-1204** **UX** Context menus everywhere — `CommandContext` registry (action + enabled predicate, one source of truth with toolbars); right-click on tree rows / layers / canvas / toolpaths.
-- [ ] **SPK-1205** **UX** Inline coach strip — `CoachRuleEngine` (stage + selection + dirty + preflight → tip, priority-ordered) under the stage rail + first-run tooltips.
-- [ ] **SPK-1206** **UX** View control gizmo + orthographic toggle — `ViewOrientation` presets + gizmo hit-test math; nav cube in Preview/Model; ⌘⌥1…4.
-- [ ] **SPK-1207** **UX** Visual toolpath status + Recalc All — `ToolpathStatusEngine` (stale/current/error from dirty marks), status dots in the tree, Recalc-All regenerates only stale nodes.
-- [ ] **SPK-1208** **UX** Sheet duplication + toolpath sheet transfer — `SheetOperations` deep-copy sheet+vectors+toolpaths (new UUIDs), re-parent toolpath across sheets with consistency guards. Deps: SPK-1204.
-- [ ] **SPK-1209** **UX** WebP import + recent-files rail — ImageIO WebP decode, `RecentFilesStore` (UserDefaults, cap 10, dedupe), Recent rail in ImportHub.
-- [ ] **SPK-1210** **UX** Peck-drill viz + toolpath-on-hover — peck retract detection in `WireframeRenderer`, per-node segment tags, hover row → highlight op on Preview canvas. Deps: SPK-1201.
+- [x] **SPK-1201** **UX** Cut-Layers table (LightBurn-style) — sortable grid over the toolpath tree: ✓ | status | # | name | tool | feed | depth | time; inline edit commits via applyXParams; drag reorder rewrites tree order. Deps: SPK-1207.
+- [x] **SPK-1202** **UX** Surface-color material preview — `MaterialSurfacePalette` presets (walnut/acrylic/painted MDF/plywood), depth-shaded heightfield renderer (top skin until the cut passes the layer → base). 
+- [x] **SPK-1203** **UX** Smart part selection + canvas dimension handles — `PartDetector` (closed shapes sharing an edge point = one part), `DimensionHandle` drag math over SPK-0807 driven dimensions.
+- [x] **SPK-1204** **UX** Context menus everywhere — `CommandContext` registry (action + enabled predicate, one source of truth with toolbars); right-click on tree rows / layers / canvas / toolpaths.
+- [x] **SPK-1205** **UX** Inline coach strip — `CoachRuleEngine` (stage + selection + dirty + preflight → tip, priority-ordered) under the stage rail + first-run tooltips.
+- [x] **SPK-1206** **UX** View control gizmo + orthographic toggle — `ViewOrientation` presets + gizmo hit-test math; nav cube in Preview/Model; ⌘⌥1…4.
+- [x] **SPK-1207** **UX** Visual toolpath status + Recalc All — `ToolpathStatusEngine` (stale/current/error from dirty marks), status dots in the tree, Recalc-All regenerates only stale nodes.
+- [x] **SPK-1208** **UX** Sheet duplication + toolpath sheet transfer — `SheetOperations` deep-copy sheet+vectors+toolpaths (new UUIDs), re-parent toolpath across sheets with consistency guards. Deps: SPK-1204.
+- [x] **SPK-1209** **UX** WebP import + recent-files rail — ImageIO WebP decode, `RecentFilesStore` (UserDefaults, cap 10, dedupe), Recent rail in ImportHub.
+- [x] **SPK-1210** **UX** Peck-drill viz + toolpath-on-hover — peck retract detection in `WireframeRenderer`, per-node segment tags, hover row → highlight op on Preview canvas. Deps: SPK-1201.
 
 ---
 
@@ -1708,6 +1708,9 @@ Board hygiene: stale duplicate rows removed (SPK-0901 `[ ]` leftover, SPK-0902/0
 - **SPK-1006 [x]** — JSON recipe format + samples + plugin API draft: `JobRecipe` Codable + `RecipeJSONCodec` (single/pack/envelope), 4 sample files in `fixtures/recipes/`, proposal in `docs/planning/RECIPE_PLUGIN_API_DRAFT.md`. `ShopPilotVerify1006` PASS.
 - **SPK-1008 [x]** — Webcam overlay + multi-file queue + network bridges: `JobQueue` (sequential multi-file run, cursor re-base on remove) + Cut Enqueue button + queue panel, `NetworkBridgeConfig`/`NetworkBridgeStore` (validation + PowerUserConfig mapping), Preview camera overlay (AVFoundation, graceful no-camera). `ShopPilotVerify1008` PASS.
 - **SPK-1010 [x]** — v2.0 ship checklist: `docs/planning/V2_SHIP_CHECKLIST.md` inventories every Phase I–K card + verify target + remaining human/deferred items. `ShopPilotVerify1010` PASS (targets registered, symbols compile, v1 spine intact).
+
+### 2026-08-10 — Phase L complete: all 10 UX cards closed (Hermes coder)
+Board rows SPK-1201…1210 flipped `[x]` (plan: `docs/planning/UI_OVERHAUL_PLAN.md`; per-card CLTs `ShopPilotVerify120x` all PASS; whole-package build green; sweep will re-certify). Wave 1 = 1207/1209/1206/1204, Wave 2 = 1201/1202/1205, Wave 3 = 1203/1208/1210.
 
 ### 2026-08-10 — Plugin ABI loadable (Hermes coder, SPK-1006 follow-up)
 - **Plugin ABI [x]** — the SPK-1006 plugin API is now a working, verified ABI (was: "proposal, not loadable"). New `Sources/ShopPilotCore/PluginAPI.swift`: `PluginManifest` (apiVersion/id/name/kind/entry/capabilities/params, rejected on bad apiVersion or missing fields), `PluginJobDocument`/`PluginOutput` JSON contract, `PluginRunner` (child-process sandbox — job JSON on stdin, output JSON on stdout, `.swift` entry via `swift` interpreter or direct binary/shebang, 30s default timeout with terminate+reap), `PluginStore` discovery (Application Support/ShopPilot/Plugins + app-bundle Plugins + repo fixtures). Session `runPluginStrategy` builds the doc from the live job and injects plugin G-code as a toolpath node; Cut-stage `PluginsPanelView` lists discovered plugins with a Run button. Bundled sample plugin `fixtures/plugins/dotgrid-engrave/` (manifest + main.swift, peck-dot grid across stock). **`ShopPilotVerifyPluginABI` PASS** — real child-process run (12-dot grid on 40×30 stock, last dot (35,25), markers + modal header), bad-manifest rejection, 2s timeout kill of a hung plugin, vector round-trip through the doc. Docs: `RECIPE_PLUGIN_API_DRAFT.md` → Implemented; v2 checklist deferred item removed.
