@@ -1195,6 +1195,16 @@ Plan: `docs/planning/UI_OVERHAUL_PLAN.md`. DoD = Engine + UI + Persist + Verify 
 - [x] **SPK-1317** **UX** Editable shortcuts + toolbar — user-assignable keyboard shortcuts (⌘K palette parity). Deps: none.
 - [x] **SPK-1318** **SHOP** Job sheets wired — save/print the job sheet from the Cut stage (generator exists, button missing). Deps: none.
 
+### Phase N — remaining gaps (2026-08-11)
+
+- [x] **SPK-1319** **MODEL** 3D text relief — `ReliefText3D` (glyph raster even-odd point-in-polygon, raised-letter heightfield convention: letters stand proud, background carved down; mismatch guard; lettersAndSpacing). Deps: none.
+- [x] **SPK-1320** **CUT** Accel-aware time estimates — `MachineAccelProfile` + `AccelTimeEstimator` (trapezoidal velocity profile, triangle for short moves, GRBL default profile; replaces naive distance/feed). Deps: none.
+- [x] **SPK-1321** **DESIGN** Vector boundary — `VectorBoundary` (dense point sampling, Andrew's monotone-chain convex hull, centroid-ray outward offset, shoelace area). Deps: none.
+- [x] **SPK-1322** **SHOP** Design PDF export — `DesignPDFExporter` (CoreGraphics A4 render of all shape kinds, %PDF-validated). Deps: none.
+- [x] **SPK-1323** **IMPORT** Import torture — verify CLT hurling malformed XML, hostile path data, NaN/huge coords, garbage DXF at the real SVG/DXF importers; all degrade without crashing (wishlist #7). Deps: none.
+- [x] **SPK-1324** **MACHINE** Real serial wiring — Machine stage port picker (auto-scanned /dev) + baud picker threaded through connect() → TransportFactory SerialConfig (was hardcoded /dev/ttyUSB0 115200). Deps: none.
+- [x] **SPK-1325** **HYGIENE** Sweep WARN cleanup — all 15 exit-0-no-marker targets now print the canonical `XXXX: PASS — …` line (sweep will report 0 WARN). Deps: none.
+
 **Permanent scope lock (2026-08-10):** 3D-view vector editing / Fusion-style parametric 3D modeling is **never** in scope — ShopPilot is a 2.5D CAM tool, not a CAD app. The existing Model-stage relief editing (components/combine/sculpt) is unaffected. Matrix rows B02/B08/B09/E34 remain `[-]` forever.
 
 ---
@@ -1729,6 +1739,9 @@ Board hygiene: stale duplicate rows removed (SPK-0901 `[ ]` leftover, SPK-0902/0
 - **SPK-1006 [x]** — JSON recipe format + samples + plugin API draft: `JobRecipe` Codable + `RecipeJSONCodec` (single/pack/envelope), 4 sample files in `fixtures/recipes/`, proposal in `docs/planning/RECIPE_PLUGIN_API_DRAFT.md`. `ShopPilotVerify1006` PASS.
 - **SPK-1008 [x]** — Webcam overlay + multi-file queue + network bridges: `JobQueue` (sequential multi-file run, cursor re-base on remove) + Cut Enqueue button + queue panel, `NetworkBridgeConfig`/`NetworkBridgeStore` (validation + PowerUserConfig mapping), Preview camera overlay (AVFoundation, graceful no-camera). `ShopPilotVerify1008` PASS.
 - **SPK-1010 [x]** — v2.0 ship checklist: `docs/planning/V2_SHIP_CHECKLIST.md` inventories every Phase I–K card + verify target + remaining human/deferred items. `ShopPilotVerify1010` PASS (targets registered, symbols compile, v1 spine intact).
+
+### 2026-08-11 — Phase N: 7 remaining gaps closed (Hermes coder + 4 subagents)
+SPK-1319…1325 flipped `[x]`. 4 subagents built engines in parallel (1319 ReliefText3D, 1320 AccelTimeEstimator, 1321 VectorBoundary, 1322 DesignPDFExporter — 1322 hit a 429 rate-limit mid-task but landed complete files, verified by orchestrator) while the orchestrator built 1323 (import-torture verify — importers already robust, PASS first try), 1324 (serial port/baud pickers threaded through connect → SerialConfig), 1325 (all 15 WARN targets now print canonical PASS markers — sweep will report 0 WARN). 5 new CLTs PASS; whole-package build green; commit `4a0cf5b`.
 
 ### 2026-08-10 — Phase M ease-of-use wave: 8 cards closed (Hermes coder + 4 subagents)
 SPK-1311…1318 flipped `[x]`. Engines built in PARALLEL via 4 subagents (1311 ToolpathTemplateLibrary, 1312 AutosaveRecovery, 1313 SampleProjectsStore, 1315 ManufacturerToolCatalog — each self-verified) while the orchestrator built 1314 (async recalc: pure compute/apply split + background queue + spinner), 1316 (sheet-aware stock block), 1317 (ShortcutRegistry + Preferences Menu Shortcuts pane) directly, and discovered 1318 (job sheets) was ALREADY SHIPPED (button + WKWebView PDF exist). 7 new CLTs PASS; whole-package build green; commit `5b0500c`. Scope lock recorded: 3D-view editing / Fusion-style parametric 3D never in scope.
