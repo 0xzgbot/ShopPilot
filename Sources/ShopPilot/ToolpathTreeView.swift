@@ -92,7 +92,7 @@ struct ToolpathTreeView: View {
             // SPK-1207 — Recalc All: regenerate every stale op in one click.
             if dirtyOperationCount > 0 {
                 Button("Recalc All") {
-                    _ = session.recalculateDirtyToolpaths()
+                    _ = session.recalculateDirtyToolpathsAsync()
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.mini)

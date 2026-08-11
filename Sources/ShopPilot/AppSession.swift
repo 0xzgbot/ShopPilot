@@ -199,6 +199,8 @@ final class AppSession: ObservableObject {
 
     /// Whether the document has unsaved changes.
     @Published private(set) var isDirty = false
+    /// SPK-1314 — a background recalc is in flight (UI shows a spinner).
+    @Published var isRecalculating = false
 
     /// Undo/redo stack hooks for document mutations.
     let undoManager = UndoManager()
@@ -2819,6 +2821,57 @@ final class AppSession: ObservableObject {
     /// G-code. The session G-code buffer is rebuilt from the clean tree.
     /// Returns the number of regenerated ops.
     @discardableResult
+    /// SPK-1314 — async recalc: the heavy engine compute runs on a
+    /// background queue (pure pass, no @Published mutation), then the
+    /// results are applied on the main actor. Big jobs no longer freeze
+    /// the UI. Falls back to the sync path when the compute returns nothing.
+    func recalculateDirtyToolpathsAsync() {
+        let dirtyBefore = toolpathTree.dirtyNodeCount
+        guard dirtyBefore > 0 else {
+            statusMessage = "No dirty toolpaths to recalculate"
+            return
+        }
+        let vectorsSnapshot = vectors
+        let material = activeSheet?.material
+        let stockHeight = activeSheet?.height ?? 6.0
+        let toolsSnapshot = toolDatabase.tools
+        let heightfield = job.stlHeightfield
+        let machine = activeMachineName
+        isRecalculating = true
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self else { return }
+            let computed = self.toolpathTree.computeDirtyToolpathResults(
+                vectors: vectorsSnapshot,
+                material: material,
+                stockHeightMm: stockHeight,
+                tools: toolsSnapshot,
+                heightfield: heightfield,
+                machineName: machine
+            )
+            DispatchQueue.main.async {
+                self.finishAsyncRecalc(computed)
+            }
+        }
+    }
+
+    /// Apply async-recalc results on the main actor and refresh UI state.
+    private func finishAsyncRecalc(_ computed: [ToolpathNodeResult]) {
+        let regenerated = toolpathTree.applyToolpathResults(computed)
+        let all = allToolpathGCode
+        if !all.isEmpty {
+            gcodeLines = all
+        }
+        let remaining = toolpathTree.dirtyNodeCount
+        lastToolpathSummary = "\(gcodeLines.count) G-code lines · \(remaining) dirty"
+        statusMessage = regenerated.isEmpty
+            ? "Recalculated: no supported ops were dirty"
+            : remaining == 0
+                ? "Recalculated \(regenerated.count) dirty toolpath(s)"
+                : "Recalculated \(regenerated.count) dirty toolpath(s); \(remaining) still dirty"
+        isRecalculating = false
+        markDirty()
+    }
+
     func recalculateDirtyToolpaths() -> Int {
         let dirtyBefore = toolpathTree.dirtyNodeCount
         guard dirtyBefore > 0 else {

@@ -14,6 +14,10 @@ struct PreferencesView: View {
     /// the single source of truth.
     @State private var shortcutOverrides: [String: String] = ShortcutStore.overrides()
 
+    /// SPK-1317 — menu-bar shortcuts (New Job, stages, palette…) read from
+    /// the shared registry; remaps here live-update the app menus.
+    @ObservedObject private var menuShortcuts = ShortcutRegistry.shared
+
     var body: some View {
         Form {
             // ── Units ────────────────────────────────────────
@@ -64,6 +68,40 @@ struct PreferencesView: View {
                 }
             }
 
+            // ── Menu-bar shortcuts (SPK-1317) ────────────────
+            // The app's menu-bar commands (New Job, stages, palette…) read
+            // their key/modifiers from ShortcutRegistry.shared, so remaps
+            // here live-update the menus.
+            Section {
+                ForEach(menuShortcuts.bindings) { binding in
+                    HStack {
+                        Text(binding.title)
+                        Spacer()
+                        TextField("Key", text: menuShortcutKeyBinding(for: binding.id))
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 70)
+                        Picker("Mods", selection: menuShortcutModsBinding(for: binding.id)) {
+                            Text("⌘").tag(["command"])
+                            Text("⌘⇧").tag(["command", "shift"])
+                            Text("⌘⌥").tag(["command", "option"])
+                        }
+                        .pickerStyle(.segmented)
+                        .frame(width: 150)
+                    }
+                }
+            } header: {
+                Text("Menu Bar Shortcuts")
+            } footer: {
+                HStack {
+                    Button("Reset Menu Shortcuts") {
+                        menuShortcuts.resetAll()
+                    }
+                    Text("Key = single character (e.g. n, 4). Modifiers apply to the key.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
             // Spacer so form doesn't stretch awkwardly.
             Spacer()
         }
@@ -81,6 +119,30 @@ struct PreferencesView: View {
                 let normalized = ShortcutStore.normalize(newValue)
                 ShortcutStore.setOverride(normalized.isEmpty ? nil : normalized, for: cmd.rawValue)
                 shortcutOverrides = ShortcutStore.overrides()
+            }
+        )
+    }
+
+    /// SPK-1317 — live binding to a menu command's key; writes through the
+    /// shared registry (which re-renders the app menus).
+    private func menuShortcutKeyBinding(for id: String) -> Binding<String> {
+        Binding(
+            get: { menuShortcuts.binding(for: id)?.key ?? "" },
+            set: { newValue in
+                let key = ShortcutStore.normalize(newValue)
+                guard !key.isEmpty, let current = menuShortcuts.binding(for: id) else { return }
+                _ = menuShortcuts.setOverride(id: id, key: key, modifiers: current.modifiers)
+            }
+        )
+    }
+
+    /// SPK-1317 — live binding to a menu command's modifier set.
+    private func menuShortcutModsBinding(for id: String) -> Binding<[String]> {
+        Binding(
+            get: { menuShortcuts.binding(for: id)?.modifiers ?? ["command"] },
+            set: { newMods in
+                guard let current = menuShortcuts.binding(for: id) else { return }
+                _ = menuShortcuts.setOverride(id: id, key: current.key, modifiers: newMods)
             }
         )
     }

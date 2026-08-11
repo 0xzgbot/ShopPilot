@@ -198,6 +198,41 @@ let package = Package(
             path: "Sources/ShopPilotVerify1305"
         ),
         .executableTarget(
+            name: "ShopPilotVerify1311",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1311"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1312",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1312"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1313",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1313"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1314",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1314"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1315",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1315"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1316",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1316"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1317",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1317"
+        ),
+        .executableTarget(
             name: "ShopPilotVerify0308",
             dependencies: ["ShopPilotCore"],
             path: "Sources/ShopPilotVerify0308"

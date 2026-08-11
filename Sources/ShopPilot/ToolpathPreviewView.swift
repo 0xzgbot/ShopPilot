@@ -258,7 +258,41 @@ struct ToolpathPreviewView: View {
         )
     }
 
+    /// SPK-1316 — the active sheet as a soft stock block: translucent fill
+    /// + a labeled edge, drawn FIRST so the toolpath wireframe sits "on" it.
+    /// Uses the same world convention as the material sim (sheet spans
+    /// [0, width] × [0, depth], origin at a corner).
+    private func drawSheetStock(context: GraphicsContext, size: CGSize) {
+        guard let sheet = session.activeSheet else { return }
+        let p0 = worldToView(0, 0, size: size)
+        let p1 = worldToView(sheet.width, sheet.depth, size: size)
+        let rect = CGRect(x: p0.x, y: p1.y,
+                          width: p1.x - p0.x, height: p0.y - p1.y)
+        guard rect.width > 2, rect.height > 2 else { return }
+        // Block fill: wood-ish tint in the heightfield/combined modes, a
+        // faint slate in pure wireframe so it never drowns the cuts.
+        let fill: Color = (mode == .heightfield || mode == .combined)
+            ? Color(red: 0.55, green: 0.38, blue: 0.20).opacity(0.16)
+            : Color.gray.opacity(0.06)
+        context.fill(Path(rect), with: .color(fill))
+        // Edge + dimension caption.
+        context.stroke(Path(rect), with: .color(Color.secondary.opacity(0.5)),
+                       lineWidth: 1)
+        let caption = "\(Int(sheet.width)) × \(Int(sheet.depth)) mm · \(sheet.name)"
+        context.draw(
+            Text(caption)
+                .font(.caption2)
+                .foregroundColor(.secondary),
+            at: CGPoint(x: rect.midX, y: rect.minY - 8),
+            anchor: .center
+        )
+    }
+
     private func drawPreview(context: GraphicsContext, size: CGSize) {
+        // SPK-1316 — sheet-aware stock: the ACTIVE sheet drawn as a soft
+        // block under everything, so toolpaths read as cutting this piece.
+        drawSheetStock(context: context, size: size)
+
         // Design vectors (session-owned)
         for path in session.vectors {
             guard path.points.count >= 2 else { continue }

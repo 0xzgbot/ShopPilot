@@ -556,6 +556,23 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
     }
 }
 
+
+// MARK: - Toolpath node result (SPK-1314)
+
+/// A computed toolpath result detached from the tree — the async recalc
+/// carries these between the compute pass (any thread) and the apply pass
+/// (main actor). Pure value type.
+public struct ToolpathNodeResult: Sendable {
+    public let nodeID: UUID
+    public let gcode: String
+    public let estimatedTimeSeconds: Double
+    public init(nodeID: UUID, gcode: String, estimatedTimeSeconds: Double) {
+        self.nodeID = nodeID
+        self.gcode = gcode
+        self.estimatedTimeSeconds = estimatedTimeSeconds
+    }
+}
+
 // MARK: - Toolpath Tree Manager
 
 /// Manages the toolpath tree with dirty state tracking and batch recalculation.
@@ -682,15 +699,15 @@ public final class ToolpathTreeManager: ObservableObject {
     /// defaults (feed 1000, rpm 0) — explicitly configured values (user form
     /// values) are preserved. Unknown ops stay dirty. Returns the regenerated
     /// nodes in tree order.
-    public func recalculateDirtyToolpaths(
+    public func computeDirtyToolpathResults(
         vectors: [VectorPath],
         material: Material?,
         stockHeightMm: Double,
         tools: [Tool] = [],
         heightfield: HeightfieldData? = nil,
         machineName: String? = nil
-    ) -> [ToolpathTreeNode] {
-        var regenerated: [ToolpathTreeNode] = []
+    ) -> [ToolpathNodeResult] {
+        var results: [ToolpathNodeResult] = []
         let materialName = material?.name
         for node in root.allDirtyNodes {
             switch node.strategyKind {
@@ -701,10 +718,11 @@ public final class ToolpathTreeManager: ObservableObject {
                     material: material,
                     stockHeightMm: stockHeightMm
                 )
-                node.setResult(result.gcodeLines.joined(separator: "\n"))
-                node.estimatedTimeSeconds = result.estimatedTimeSeconds
-                node.clearDirty()
-                regenerated.append(node)
+                results.append(ToolpathNodeResult(
+                    nodeID: node.id,
+                    gcode: result.gcodeLines.joined(separator: "\n"),
+                    estimatedTimeSeconds: result.estimatedTimeSeconds
+                ))
 
             case .pocket:
                 let result = PocketToolpathEngine.compute(
@@ -713,10 +731,11 @@ public final class ToolpathTreeManager: ObservableObject {
                     material: material,
                     stockHeightMm: stockHeightMm
                 )
-                node.setResult(result.gcodeLines.joined(separator: "\n"))
-                node.estimatedTimeSeconds = result.estimatedTimeSeconds
-                node.clearDirty()
-                regenerated.append(node)
+                results.append(ToolpathNodeResult(
+                    nodeID: node.id,
+                    gcode: result.gcodeLines.joined(separator: "\n"),
+                    estimatedTimeSeconds: result.estimatedTimeSeconds
+                ))
 
             case .drill:
                 let params = withToolFeeds(node.drillParams(), node: node, tools: tools, materialName: materialName, machineName: machineName)
@@ -738,10 +757,11 @@ public final class ToolpathTreeManager: ObservableObject {
                     material: material,
                     stockHeightMm: stockHeightMm
                 )
-                node.setResult(result.gcodeLines.joined(separator: "\n"))
-                node.estimatedTimeSeconds = result.estimatedTimeSeconds
-                node.clearDirty()
-                regenerated.append(node)
+                results.append(ToolpathNodeResult(
+                    nodeID: node.id,
+                    gcode: result.gcodeLines.joined(separator: "\n"),
+                    estimatedTimeSeconds: result.estimatedTimeSeconds
+                ))
 
             case .drillBank:
                 let params = withToolFeeds(node.drillBankParams(), node: node, tools: tools, materialName: materialName, machineName: machineName)
@@ -765,10 +785,11 @@ public final class ToolpathTreeManager: ObservableObject {
                     params: params,
                     stockHeightMm: stockHeightMm
                 )
-                node.setResult(result.gcodeLines.joined(separator: "\n"))
-                node.estimatedTimeSeconds = result.estimatedTimeSeconds
-                node.clearDirty()
-                regenerated.append(node)
+                results.append(ToolpathNodeResult(
+                    nodeID: node.id,
+                    gcode: result.gcodeLines.joined(separator: "\n"),
+                    estimatedTimeSeconds: result.estimatedTimeSeconds
+                ))
 
             case .vcarve:
                 let result = VCarveEngine.compute(
@@ -776,10 +797,11 @@ public final class ToolpathTreeManager: ObservableObject {
                     params: withToolFeeds(node.vcarveParams(), node: node, tools: tools, materialName: materialName, machineName: machineName),
                     stockHeightMm: stockHeightMm
                 )
-                node.setResult(result.gcodeLines.joined(separator: "\n"))
-                node.estimatedTimeSeconds = result.estimatedTimeSeconds
-                node.clearDirty()
-                regenerated.append(node)
+                results.append(ToolpathNodeResult(
+                    nodeID: node.id,
+                    gcode: result.gcodeLines.joined(separator: "\n"),
+                    estimatedTimeSeconds: result.estimatedTimeSeconds
+                ))
 
             case .rough3D:
                 // Needs the imported relief; without one the node stays dirty.
@@ -788,10 +810,11 @@ public final class ToolpathTreeManager: ObservableObject {
                     heightfield: hf,
                     params: withToolFeeds(node.rough3DParams(), node: node, tools: tools, materialName: materialName, machineName: machineName)
                 )
-                node.setResult(result.gcodeLines.joined(separator: "\n"))
-                node.estimatedTimeSeconds = result.estimatedTimeSeconds
-                node.clearDirty()
-                regenerated.append(node)
+                results.append(ToolpathNodeResult(
+                    nodeID: node.id,
+                    gcode: result.gcodeLines.joined(separator: "\n"),
+                    estimatedTimeSeconds: result.estimatedTimeSeconds
+                ))
 
             case .finish3D:
                 guard let hf = heightfield else { continue }
@@ -799,10 +822,11 @@ public final class ToolpathTreeManager: ObservableObject {
                     heightfield: hf,
                     params: withToolFeeds(node.finish3DParams(), node: node, tools: tools, materialName: materialName, machineName: machineName)
                 )
-                node.setResult(result.gcodeLines.joined(separator: "\n"))
-                node.estimatedTimeSeconds = result.estimatedTimeSeconds
-                node.clearDirty()
-                regenerated.append(node)
+                results.append(ToolpathNodeResult(
+                    nodeID: node.id,
+                    gcode: result.gcodeLines.joined(separator: "\n"),
+                    estimatedTimeSeconds: result.estimatedTimeSeconds
+                ))
 
             case .prism:
                 let result = PrismToolpathEngine.compute(
@@ -810,10 +834,11 @@ public final class ToolpathTreeManager: ObservableObject {
                     params: node.prismParams(),
                     stockHeightMm: stockHeightMm
                 )
-                node.setResult(result.gcodeLines.joined(separator: "\n"))
-                node.estimatedTimeSeconds = result.estimatedTimeSeconds
-                node.clearDirty()
-                regenerated.append(node)
+                results.append(ToolpathNodeResult(
+                    nodeID: node.id,
+                    gcode: result.gcodeLines.joined(separator: "\n"),
+                    estimatedTimeSeconds: result.estimatedTimeSeconds
+                ))
 
             case .fluting:
                 let result = FlutingToolpathEngine.compute(
@@ -821,10 +846,11 @@ public final class ToolpathTreeManager: ObservableObject {
                     params: node.flutingParams(),
                     stockHeightMm: stockHeightMm
                 )
-                node.setResult(result.gcodeLines.joined(separator: "\n"))
-                node.estimatedTimeSeconds = result.estimatedTimeSeconds
-                node.clearDirty()
-                regenerated.append(node)
+                results.append(ToolpathNodeResult(
+                    nodeID: node.id,
+                    gcode: result.gcodeLines.joined(separator: "\n"),
+                    estimatedTimeSeconds: result.estimatedTimeSeconds
+                ))
 
             case .chamfer:
                 let result = ChamferToolpathEngine.compute(
@@ -832,20 +858,22 @@ public final class ToolpathTreeManager: ObservableObject {
                     params: node.chamferParams(),
                     stockHeightMm: stockHeightMm
                 )
-                node.setResult(result.gcodeLines.joined(separator: "\n"))
-                node.estimatedTimeSeconds = result.estimatedTimeSeconds
-                node.clearDirty()
-                regenerated.append(node)
+                results.append(ToolpathNodeResult(
+                    nodeID: node.id,
+                    gcode: result.gcodeLines.joined(separator: "\n"),
+                    estimatedTimeSeconds: result.estimatedTimeSeconds
+                ))
 
             case .inlay:
                 let params = node.inlayParams()
                 let result = params.variant == .pocket
                     ? InlayToolpathEngine.computePocket(paths: vectors, params: params, stockHeightMm: stockHeightMm)
                     : InlayToolpathEngine.computePlug(paths: vectors, params: params, stockHeightMm: stockHeightMm)
-                node.setResult(result.gcodeLines.joined(separator: "\n"))
-                node.estimatedTimeSeconds = result.estimatedTimeSeconds
-                node.clearDirty()
-                regenerated.append(node)
+                results.append(ToolpathNodeResult(
+                    nodeID: node.id,
+                    gcode: result.gcodeLines.joined(separator: "\n"),
+                    estimatedTimeSeconds: result.estimatedTimeSeconds
+                ))
 
             case .quickEngrave:
                 let result = QuickEngraveToolpathEngine.compute(
@@ -853,10 +881,11 @@ public final class ToolpathTreeManager: ObservableObject {
                     params: node.quickEngraveParams(),
                     stockHeightMm: stockHeightMm
                 )
-                node.setResult(result.gcodeLines.joined(separator: "\n"))
-                node.estimatedTimeSeconds = result.estimatedTimeSeconds
-                node.clearDirty()
-                regenerated.append(node)
+                results.append(ToolpathNodeResult(
+                    nodeID: node.id,
+                    gcode: result.gcodeLines.joined(separator: "\n"),
+                    estimatedTimeSeconds: result.estimatedTimeSeconds
+                ))
 
             case .photoVCarve:
                 // Needs the imported relief (image or STL); without one the
@@ -866,10 +895,11 @@ public final class ToolpathTreeManager: ObservableObject {
                     heightfield: hf,
                     params: node.photoVCarveParams()
                 )
-                node.setResult(result.gcodeLines.joined(separator: "\n"))
-                node.estimatedTimeSeconds = result.estimatedTimeSeconds
-                node.clearDirty()
-                regenerated.append(node)
+                results.append(ToolpathNodeResult(
+                    nodeID: node.id,
+                    gcode: result.gcodeLines.joined(separator: "\n"),
+                    estimatedTimeSeconds: result.estimatedTimeSeconds
+                ))
 
             case .dragKnife:
                 let result = DragKnifeToolpathEngine.compute(
@@ -877,10 +907,11 @@ public final class ToolpathTreeManager: ObservableObject {
                     params: node.dragKnifeParams(),
                     stockHeightMm: stockHeightMm
                 )
-                node.setResult(result.gcodeLines.joined(separator: "\n"))
-                node.estimatedTimeSeconds = result.estimatedTimeSeconds
-                node.clearDirty()
-                regenerated.append(node)
+                results.append(ToolpathNodeResult(
+                    nodeID: node.id,
+                    gcode: result.gcodeLines.joined(separator: "\n"),
+                    estimatedTimeSeconds: result.estimatedTimeSeconds
+                ))
 
             case .texture:
                 let result = TextureToolpathEngine.compute(
@@ -888,10 +919,11 @@ public final class ToolpathTreeManager: ObservableObject {
                     params: node.textureParams(),
                     stockHeightMm: stockHeightMm
                 )
-                node.setResult(result.gcodeLines.joined(separator: "\n"))
-                node.estimatedTimeSeconds = result.estimatedTimeSeconds
-                node.clearDirty()
-                regenerated.append(node)
+                results.append(ToolpathNodeResult(
+                    nodeID: node.id,
+                    gcode: result.gcodeLines.joined(separator: "\n"),
+                    estimatedTimeSeconds: result.estimatedTimeSeconds
+                ))
 
             case .sketchCarve:
                 // Needs the imported relief (image or STL); without one the
@@ -901,10 +933,11 @@ public final class ToolpathTreeManager: ObservableObject {
                     heightfield: hf,
                     params: node.sketchCarveParams()
                 )
-                node.setResult(result.gcodeLines.joined(separator: "\n"))
-                node.estimatedTimeSeconds = result.estimatedTimeSeconds
-                node.clearDirty()
-                regenerated.append(node)
+                results.append(ToolpathNodeResult(
+                    nodeID: node.id,
+                    gcode: result.gcodeLines.joined(separator: "\n"),
+                    estimatedTimeSeconds: result.estimatedTimeSeconds
+                ))
 
             case .rotaryWrap:
                 let result = RotaryWrapToolpathEngine.compute(
@@ -912,10 +945,11 @@ public final class ToolpathTreeManager: ObservableObject {
                     params: node.rotaryWrapParams(),
                     stockHeightMm: stockHeightMm
                 )
-                node.setResult(result.gcodeLines.joined(separator: "\n"))
-                node.estimatedTimeSeconds = result.estimatedTimeSeconds
-                node.clearDirty()
-                regenerated.append(node)
+                results.append(ToolpathNodeResult(
+                    nodeID: node.id,
+                    gcode: result.gcodeLines.joined(separator: "\n"),
+                    estimatedTimeSeconds: result.estimatedTimeSeconds
+                ))
 
             case .threadMill:
                 // Recompute around the first closed vector's bbox center.
@@ -928,18 +962,54 @@ public final class ToolpathTreeManager: ObservableObject {
                         centerX: cx, centerY: cy,
                         params: node.threadMillParams()
                     )
-                    node.setResult(result.gcodeLines.joined(separator: "\n"))
-                    node.estimatedTimeSeconds = result.estimatedTimeSeconds
-                    node.clearDirty()
-                    regenerated.append(node)
+                    results.append(ToolpathNodeResult(
+                        nodeID: node.id,
+                        gcode: result.gcodeLines.joined(separator: "\n"),
+                        estimatedTimeSeconds: result.estimatedTimeSeconds
+                    ))
                 }
 
             case .unknown:
                 continue
             }
         }
+        return results
+    }
+    /// Apply computed results to the tree on the calling (main) actor —
+    /// the only place @Published node state may change. Returns the
+    /// regenerated nodes (same contract as the old sync recalc).
+    public func applyToolpathResults(_ results: [ToolpathNodeResult]) -> [ToolpathTreeNode] {
+        var regenerated: [ToolpathTreeNode] = []
+        for result in results {
+            guard let node = findNode(id: result.nodeID) else { continue }
+            node.setResult(result.gcode)
+            node.estimatedTimeSeconds = result.estimatedTimeSeconds
+            node.clearDirty()
+            regenerated.append(node)
+        }
         return regenerated
     }
+
+    /// Sync recalc (unchanged contract): compute + apply on the caller thread.
+    public func recalculateDirtyToolpaths(
+        vectors: [VectorPath],
+        material: Material?,
+        stockHeightMm: Double,
+        tools: [Tool] = [],
+        heightfield: HeightfieldData? = nil,
+        machineName: String? = nil
+    ) -> [ToolpathTreeNode] {
+        let results = computeDirtyToolpathResults(
+            vectors: vectors,
+            material: material,
+            stockHeightMm: stockHeightMm,
+            tools: tools,
+            heightfield: heightfield,
+            machineName: machineName
+        )
+        return applyToolpathResults(results)
+    }
+
 
     /// SPK-1133b — apply the assigned tool's linked cut data (SPK-1133b:
     /// feed/plunge/rpm from the resolved geometry→material→machine chain) to

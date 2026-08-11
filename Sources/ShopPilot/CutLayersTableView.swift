@@ -249,9 +249,15 @@ struct CutLayersTableView: View {
                 Text("All toolpaths up to date")
             }
             Spacer()
+            // SPK-1314 — spinner while the background recalc runs.
+            if session.isRecalculating {
+                ProgressView()
+                    .controlSize(.mini)
+                    .help("Recalculating toolpaths…")
+            }
             if attention > 0 {
                 Button("Recalc All") {
-                    _ = session.recalculateDirtyToolpaths()
+                    _ = session.recalculateDirtyToolpathsAsync()
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.mini)

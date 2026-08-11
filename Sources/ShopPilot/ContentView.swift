@@ -873,7 +873,7 @@ private struct CutStageView: View {
                 // SPK-1102c: regenerate dirty ops with the real engine; badge
                 // count doubles as the enable signal.
                 Button("Recalculate Dirty (\(session.toolpathTree.dirtyNodeCount))") {
-                    _ = session.recalculateDirtyToolpaths()
+                    _ = session.recalculateDirtyToolpathsAsync()
                 }
                 .disabled(session.toolpathTree.dirtyNodeCount == 0)
                 .help("Regenerate dirty Profile toolpaths (out-of-scope ops stay dirty)")

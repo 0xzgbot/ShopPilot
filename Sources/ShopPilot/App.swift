@@ -16,8 +16,9 @@ struct ShopPilotApp: App {
     }
 
     var body: some Scene {
-        // SPK-UI606: single main window (not WindowGroup) so relaunch doesn't
-        // open a restored frame plus a brand-new default window.
+        // SPK-1317 — remappable shortcuts: every CommandGroup button below
+        // reads its key/modifiers from the session's ShortcutRegistry, so a
+        // Preferences pane can reassign them at runtime.
         Window("ShopPilot", id: "main") {
             ContentView()
                 .environmentObject(session)
@@ -30,24 +31,19 @@ struct ShopPilotApp: App {
                 Button("New Job") {
                     session.selectedStage = .setup
                 }
-                .keyboardShortcut("n", modifiers: .command)
-
-                Button("Command Palette…") {
-                    session.showCommandPalette = true
-                }
-                .keyboardShortcut("k", modifiers: .command)
+                .keyboardShortcut(shortcut("file.new"))
             }
 
             CommandGroup(after: .undoRedo) {
                 Button("Group") {
                     _ = session.applyGroup()
                 }
-                .keyboardShortcut("g", modifiers: .command)
+                .keyboardShortcut(shortcut("edit.group"))
 
                 Button("Ungroup") {
                     _ = session.applyUngroup()
                 }
-                .keyboardShortcut("g", modifiers: [.command, .shift])
+                .keyboardShortcut(shortcut("edit.ungroup"))
             }
 
             // Stage navigation belongs on the keyboard as well as the rail.
@@ -56,15 +52,20 @@ struct ShopPilotApp: App {
                     Button(stage.title) {
                         withAnimation(SP.Motion.stage) { session.selectedStage = stage }
                     }
-                    .keyboardShortcut(KeyEquivalent(stage.shortcutCharacter), modifiers: .command)
+                    .keyboardShortcut(shortcut("stage.\(stage.rawValue)"))
                 }
             }
 
             CommandMenu("ShopPilot") {
+                Button("Command Palette…") {
+                    session.showCommandPalette = true
+                }
+                .keyboardShortcut(shortcut("palette"))
+
                 Button("Preferences…") {
                     session.showPreferences = true
                 }
-                .keyboardShortcut(",", modifiers: .command)
+                .keyboardShortcut(shortcut("prefs"))
 
                 Button("Show Safety Notice") {
                     session.showSafetyDisclaimer = true
@@ -86,5 +87,26 @@ struct ShopPilotApp: App {
         Settings {
             PreferencesView()
         }
+    }
+
+    /// Resolve a command's current key/modifiers from the shared shortcut
+    /// registry, falling back to the shipped default when the id is unknown.
+    /// Reads ShortcutRegistry.shared so Preferences remaps live-update.
+    private func shortcut(_ id: String) -> KeyboardShortcut {
+        guard let binding = ShortcutRegistry.shared.binding(for: id) else {
+            return KeyboardShortcut("n", modifiers: .command)
+        }
+        let key = KeyEquivalent(Character(binding.key))
+        var modifiers: EventModifiers = []
+        for name in binding.modifiers {
+            switch name {
+            case "command": modifiers.insert(.command)
+            case "shift": modifiers.insert(.shift)
+            case "option": modifiers.insert(.option)
+            case "control": modifiers.insert(.control)
+            default: break
+            }
+        }
+        return KeyboardShortcut(key, modifiers: modifiers)
     }
 }

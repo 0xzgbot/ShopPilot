@@ -1184,6 +1184,19 @@ Plan: `docs/planning/UI_OVERHAUL_PLAN.md`. DoD = Engine + UI + Persist + Verify 
 - [x] **SPK-1304** **MACHINE** Work offsets G54–G59 — `WorkOffsetRegistry` (6 Codable slots, active-index switching, G-code emission); Run Controls offset picker. Deps: none.
 - [x] **SPK-1305** **CAM** Rest machining — `RestRoughing.planRestPasses` (remaining-depth grid → layered z-passes, tolerance, shape guards) + `generateRestMachiningToolpath` (zigzag clearing rasters per pass); Cut menu button. Deps: none.
 
+### Phase M — ease-of-use wave (2026-08-10)
+
+- [ ] **SPK-1311** **UX** Toolpath templates UI — wire the built-but-unplugged `ToolpathTemplateManager` into the Cut stage (Save as Template / Apply Template). Deps: none.
+- [ ] **SPK-1312** **UX** Autosave + recovery — instantiate the built-but-unplugged `Autosaver` (5-min interval) in the session; crash-recovery notice. Deps: none.
+- [ ] **SPK-1313** **UX** Sample projects pack — 3–4 bundled `.shoppilot` example files (sign, box, keychain, plaque) + Welcome-sheet picker. Deps: none.
+- [ ] **SPK-1314** **UX** Async recalc — move the dirty-recalc off the main thread so big jobs never freeze the UI. Deps: none.
+- [ ] **SPK-1315** **TOOLS** Manufacturer tool presets — bundled Amana/Whiteside catalog (common part numbers) importable into the tool DB. Deps: none.
+- [ ] **SPK-1316** **UX** Sheet-aware stock rendering — the preview shows the actual sheet block/ghost under the toolpath (Easel-style). Deps: none.
+- [ ] **SPK-1317** **UX** Editable shortcuts + toolbar — user-assignable keyboard shortcuts (⌘K palette parity). Deps: none.
+- [ ] **SPK-1318** **SHOP** Job sheets wired — save/print the job sheet from the Cut stage (generator exists, button missing). Deps: none.
+
+**Permanent scope lock (2026-08-10):** 3D-view vector editing / Fusion-style parametric 3D modeling is **never** in scope — ShopPilot is a 2.5D CAM tool, not a CAD app. The existing Model-stage relief editing (components/combine/sculpt) is unaffected. Matrix rows B02/B08/B09/E34 remain `[-]` forever.
+
 ---
 
 ## 3. Kanban column mapping (for Hermes / UI boards)
