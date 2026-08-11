@@ -190,6 +190,31 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
         case rotaryWrap
         case threadMill
         case unknown
+
+        /// Human-readable strategy name (SPK-1201 cut-layers table column).
+        public var displayName: String {
+            switch self {
+            case .profile: return "Profile"
+            case .pocket: return "Pocket"
+            case .drill: return "Drill"
+            case .drillBank: return "Drill Bank"
+            case .vcarve: return "V-Carve"
+            case .rough3D: return "Rough 3D"
+            case .finish3D: return "Finish 3D"
+            case .prism: return "Prism"
+            case .fluting: return "Fluting"
+            case .chamfer: return "Chamfer"
+            case .inlay: return "Inlay"
+            case .quickEngrave: return "Quick Engrave"
+            case .photoVCarve: return "Photo V-Carve"
+            case .dragKnife: return "Drag Knife"
+            case .texture: return "Texture"
+            case .sketchCarve: return "Sketch Carve"
+            case .rotaryWrap: return "Rotary Wrap"
+            case .threadMill: return "Thread Mill"
+            case .unknown: return "Operation"
+            }
+        }
     }
 
     /// Whether this node is a Profile operation.

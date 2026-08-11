@@ -3,26 +3,44 @@ import ShopPilotCore
 
 // MARK: - Coach Panel View
 
-/// A contextual coaching panel that shows stage-specific guidance.
+/// A contextual coaching strip under the canvas. SPK-1205: the message comes
+/// from the rule engine (`CoachRuleEngine`) — blocking issues > empty states
+/// > suggestions — with the static per-stage fallback when no rule matches
+/// (no dead air). The app builds a `CoachContext` from the live session and
+/// passes it in, so the strip reacts to what's actually on screen.
 public struct CoachPanelView: View {
     @State private var dismissed = false
     @State private var lastActivityTime = Date.now
-    
+
     let currentStage: Stage
 
     /// SPK-0318 — follow-source state driving the Cut coach copy.
     let followSourceMode: FollowSourceMode?
     let activeFollowLinkCount: Int
-    
+
+    /// SPK-1205 — the live session snapshot the rules evaluate against.
+    let context: CoachContext
+
     init(currentStage: Stage,
          followSourceMode: FollowSourceMode? = nil,
-         activeFollowLinkCount: Int = 0) {
+         activeFollowLinkCount: Int = 0,
+         context: CoachContext? = nil) {
         self.currentStage = currentStage
         self.followSourceMode = followSourceMode
         self.activeFollowLinkCount = activeFollowLinkCount
+        self.context = context ?? CoachContext(stage: currentStage.rawValue)
     }
-    
+
     private var coachMessage: String {
+        // SPK-1205 — rule engine first: blocking > empty > suggestion.
+        if let rule = CoachRuleEngine.resolve(rules: CoachRuleEngine.standardRules, context: context) {
+            return rule.message
+        }
+        // Fallback: the static per-stage copy (existing behavior).
+        return staticMessage
+    }
+
+    private var staticMessage: String {
         switch currentStage {
         case .setup:
             return "Start by selecting your material and setting up the sheet dimensions. Accurate setup ensures correct toolpaths."
@@ -34,9 +52,6 @@ public struct CoachPanelView: View {
             }
             return "Create 3D reliefs, combine components, or sculpt surfaces. Use the shape tools to add depth and detail to your design."
         case .cut:
-            // SPK-0318: the coach explains the follow-source contract in the
-            // state the toggle is in (OFF = toolpaths don't follow art; ON =
-            // edits mark linked ops stale, recalc is explicit).
             if let mode = followSourceMode {
                 return CoachCopy.followSourceCutMessage(mode: mode, activeLinkCount: activeFollowLinkCount)
             }
@@ -50,7 +65,7 @@ public struct CoachPanelView: View {
             return "Connect via simulator or serial cable. Run a pre-flight checklist, then air-cut to verify before committing to material."
         }
     }
-    
+
     /// Coach glyphs follow the stage rail so the same stage never wears two
     /// different symbols (ICON_INVENTORY §1 audit).
     private var coachIcon: String {
@@ -93,7 +108,7 @@ public struct CoachPanelView: View {
             .overlay(alignment: .top) { Divider() }
         }
     }
-    
+
     private func dismiss() {
         dismissed = true
     }

@@ -2557,6 +2557,44 @@ final class AppSession: ObservableObject {
         return true
     }
 
+    // MARK: - Cut-layers table support (SPK-1201)
+
+    /// The cut-layers table rows — a flat projection of the toolpath tree in
+    /// tree order with tool names resolved.
+    var cutLayerRows: [CutLayerRow] {
+        CutLayerTableBuilder.build(tree: toolpathTree) { [weak self] toolID in
+            self?.toolDatabase.tool(withID: toolID)?.name
+        }
+    }
+
+    /// Inline feed-rate edit from the table: dispatches on the node's
+    /// strategy, updates the right params struct, and regenerates the op.
+    @discardableResult
+    func setToolpathFeedRate(_ feed: Double, nodeID: UUID) -> Bool {
+        guard let node = toolpathTree.findNode(id: nodeID),
+              case .operation = node.type else { return false }
+        switch node.strategyKind {
+        case .profile:
+            var p = node.profileParams()
+            p.feedRateMmPerMin = feed
+            return applyProfileParams(p, to: nodeID)
+        case .pocket:
+            var p = node.pocketParams()
+            p.feedRateMmPerMin = feed
+            return applyPocketParams(p, to: nodeID)
+        case .drill:
+            var p = node.drillParams()
+            p.feedRateMmPerMin = feed
+            return applyDrillParams(p, to: nodeID)
+        case .vcarve:
+            var p = node.vcarveParams()
+            p.feedRateMmPerMin = feed
+            return applyVCarveParams(p, to: nodeID)
+        default:
+            return false // specialty ops keep their form-defined feeds
+        }
+    }
+
     /// Assign a tool (from `toolDatabase`) to a toolpath operation node.
     /// Marks the node dirty and records an undo point.
     @discardableResult

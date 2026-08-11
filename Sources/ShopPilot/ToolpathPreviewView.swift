@@ -28,6 +28,8 @@ struct ToolpathPreviewView: View {
     /// SPK-1206 — view orientation (top/iso/front) + orthographic toggle.
     @State private var viewOrientation: ViewOrientation = .top
     @State private var orthographic = true
+    /// SPK-1202 — material surface palette for the heightfield preview.
+    @State private var materialPaletteName = MaterialSurfacePalette.presets[0].name
 
     private var segments: [(start: (x: Double, y: Double), end: (x: Double, y: Double), isRapid: Bool)] {
         WireframeRenderer.generateSegments(from: session.allToolpathGCode)
@@ -197,6 +199,17 @@ struct ToolpathPreviewView: View {
                     .toggleStyle(.switch)
                     .controlSize(.small)
                     .help("Orthographic projection (SPK-1206)")
+                // SPK-1202 — material surface picker (colors the heightfield
+                // sim like the real stock: skin on top, base at depth).
+                Picker("Material", selection: $materialPaletteName) {
+                    ForEach(MaterialSurfacePalette.presets, id: \.name) { palette in
+                        Text(palette.name).tag(palette.name)
+                    }
+                }
+                .pickerStyle(.menu)
+                .controlSize(.small)
+                .frame(width: 120)
+                .help("Surface material for the heightfield preview (SPK-1202)")
                 // SPK-1008 — webcam overlay toggle (watch the stock while the
                 // sim runs). Camera availability degrades gracefully.
                 Toggle("Camera", isOn: $showCamera)
@@ -322,13 +335,18 @@ struct ToolpathPreviewView: View {
             }
         }
 
-        // Draft heightfield samples
+        // Draft heightfield samples — SPK-1202: tinted by the selected
+        // material palette (skin color on top, base revealed at depth).
         if (mode == .heightfield || mode == .combined), !heightSamples.isEmpty {
             for sample in heightSamples {
                 let pt = worldToView(sample.x, sample.y, size: size)
                 let t = max(0, min(1, sample.z / 10))
+                let palette = MaterialSurfacePalette.preset(named: materialPaletteName)
+                    ?? MaterialSurfacePalette.presets[0]
+                let c = palette.color(atDepthFraction: t)
                 let rect = CGRect(x: pt.x - 2, y: pt.y - 2, width: 4, height: 4)
-                context.fill(Path(ellipseIn: rect), with: .color(Color(red: 0.2, green: 0.6 + 0.3 * t, blue: 0.3)))
+                context.fill(Path(ellipseIn: rect),
+                             with: .color(Color(red: c.r, green: c.g, blue: c.b)))
             }
         }
 

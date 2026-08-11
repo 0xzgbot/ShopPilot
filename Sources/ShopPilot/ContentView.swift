@@ -30,12 +30,25 @@ struct ContentView: View {
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                         if !proSkip {
-                            // SPK-0318: pass the follow-source state so the Cut
-                            // coach explains the current contract.
+                            // SPK-0318 + SPK-1205: pass the follow-source state
+                            // AND the live session snapshot so the coach strip
+                            // reacts to what's on screen (rules beat static copy).
                             CoachPanelView(
                                 currentStage: session.selectedStage,
                                 followSourceMode: session.linkManager.followSourceMode,
-                                activeFollowLinkCount: session.linkManager.activeFollowLinkCount
+                                activeFollowLinkCount: session.linkManager.activeFollowLinkCount,
+                                context: CoachContext(
+                                    stage: session.selectedStage.rawValue,
+                                    hasVectors: !session.vectors.isEmpty,
+                                    hasSelection: session.selectedToolpathID != nil
+                                        || !session.selectedVectorIDs.isEmpty
+                                        || !session.selectedShapeIndices.isEmpty,
+                                    isDirty: session.isDirty,
+                                    hasToolpaths: !session.toolpaths.isEmpty,
+                                    hasBlockingIssue: session.toolpathTree.dirtyNodeCount > 0,
+                                    hasSheets: !session.job.sheets.isEmpty,
+                                    isConnected: session.machine.connection.connectionState == .connected
+                                )
                             )
                         }
                     }
@@ -717,6 +730,13 @@ private struct DesignStageView: View {
 private struct CutStageView: View {
     @ObservedObject var session: AppSession
 
+    /// SPK-1201 — which cut overview is shown in the left pane.
+    private enum CutViewMode: String, CaseIterable, Identifiable {
+        case layers
+        case tree
+        var id: String { rawValue }
+    }
+
     /// Blocker instance whose expert override is confirmed via the dirty-toolpath alert.
     @State private var exportBlocker: ExportBlocker?
     @State private var showExportBlockAlert = false
@@ -724,6 +744,8 @@ private struct CutStageView: View {
     @State private var selectedPostTemplateID: String = "grbl-mm"
     /// SPK-1000 — Post Studio sheet (template editor + variable blocks).
     @State private var showPostStudio = false
+    /// SPK-1201 — cut overview mode: Layers table (default) or Tree.
+    @State private var cutLayersViewMode: CutViewMode = .layers
     @State private var exportBlockMessage = ""
 
     /// Toolpath preflight gate (SPK-FM-R013): error issues block save with a
@@ -885,8 +907,25 @@ private struct CutStageView: View {
 
             HSplitView {
                 VStack(spacing: 0) {
-                    ToolpathTreeView(session: session)
-                        .frame(minWidth: 200, idealWidth: 240, maxWidth: 300)
+                    // SPK-1201 — Cut-Layers table is the primary overview;
+                    // the tree stays for grouping/params. Toggle between them.
+                    Picker("View", selection: $cutLayersViewMode) {
+                        Text("Layers").tag(CutViewMode.layers)
+                        Text("Tree").tag(CutViewMode.tree)
+                    }
+                    .pickerStyle(.segmented)
+                    .controlSize(.mini)
+                    .labelsHidden()
+                    .padding(.horizontal, 8)
+                    .padding(.top, 6)
+
+                    if cutLayersViewMode == .layers {
+                        CutLayersTableView(session: session)
+                            .frame(minWidth: 200, idealWidth: 280, maxWidth: 340)
+                    } else {
+                        ToolpathTreeView(session: session)
+                            .frame(minWidth: 200, idealWidth: 240, maxWidth: 300)
+                    }
                     Divider()
                     // SPK-1133: tool browser grouped by class (left pane).
                     ToolBrowserView(
