@@ -36,21 +36,16 @@ public enum MachineTransportType: String, Codable, Sendable, CaseIterable, Hasha
         case .serial: return "Serial"
         }
     }
-}
 
-// MARK: - Transport Factory Result
-
-/// Result of creating a transport via the factory.
-public struct TransportFactoryResult {
-    
-    /// The created transport (if successful).
-    public let transport: MachineTransport?
-    
-    /// Error message if creation failed.
-    public var errorMessage: String? = nil
-    
-    /// Whether transport creation succeeded.
-    public var success: Bool { transport != nil }
+    /// SPK-1506 — one factory: the UI-facing enum maps to the Core
+    /// `TransportType` consumed by `ShopPilotCore.TransportFactory`
+    /// (the duplicate app-side factory was deleted).
+    public var coreType: TransportType {
+        switch self {
+        case .simulator: return .simulator
+        case .serial: return .serial
+        }
+    }
 }
 
 // MARK: - Pre-flight Checklist Item
@@ -63,73 +58,6 @@ public struct PreFlightItem: Identifiable, Equatable {
     
     public static func == (lhs: PreFlightItem, rhs: PreFlightItem) -> Bool {
         lhs.id == rhs.id
-    }
-}
-
-// MARK: - Transport Factory
-
-/// Factory for creating machine transports based on configuration.
-public final class TransportFactory {
-    
-    /// Create a transport based on the specified type and configuration.
-    public static func createTransport(for type: MachineTransportType, config: ShopPilotCore.SerialConfig? = nil) -> TransportFactoryResult {
-        switch type {
-        case .simulator:
-            return createSimulatorTransport()
-            
-        case .serial:
-            let serialConfig = config ?? ShopPilotCore.SerialConfig(baudRate: 115200, portName: "/dev/ttyUSB0", isSimulator: false)
-            return createSerialTransport(config: serialConfig)
-        }
-    }
-    
-    /// Create a simulator transport for development/testing.
-    private static func createSimulatorTransport() -> TransportFactoryResult {
-        let transport = ShopPilotCore.SimulatorTransport()
-        return TransportFactoryResult(transport: transport)
-    }
-    
-    /// Create a serial transport with the given configuration.
-    private static func createSerialTransport(config: ShopPilotCore.SerialConfig) -> TransportFactoryResult {
-        // Validate baud rate
-        guard [9600, 19200, 38400, 57600, 115200, 250000].contains(config.baudRate) else {
-            return TransportFactoryResult(
-                transport: nil,
-                errorMessage: "Invalid baud rate: \(config.baudRate)"
-            )
-        }
-        
-        // Real serial transport (IOKit / FileHandle). Never auto-connect on launch.
-        let transport = RealSerialTransport()
-        return TransportFactoryResult(transport: transport)
-    }
-    
-    /// List available serial ports for user selection.
-    public static func listAvailablePorts() -> [String] {
-        var ports: [String] = []
-        
-        // Scan /dev for serial devices
-        let fileManager = FileManager.default
-        do {
-            let contents = try fileManager.contentsOfDirectory(atPath: "/dev")
-            
-            for item in contents where item.hasPrefix("cu.") || item.hasPrefix("tty.") {
-                ports.append("/dev/\(item)")
-            }
-        } catch {
-            print("Warning: Could not enumerate serial ports: \(error.localizedDescription)")
-        }
-        
-        return ports.sorted()
-    }
-    
-    /// Get the default transport type for the current environment.
-    public static func defaultTransportType() -> MachineTransportType {
-        #if DEBUG
-        return .simulator
-        #else
-        return .simulator
-        #endif
     }
 }
 
@@ -168,7 +96,14 @@ public final class ConnectionManager: ObservableObject {
         // here by opening with a fresh default `SerialConfig()`.
         let effectiveConfig = serialConfig ?? ShopPilotCore.SerialConfig()
 
-        let result = TransportFactory.createTransport(for: type, config: effectiveConfig)
+        // SPK-1506 — one factory: the Core TransportFactory (which validates
+        // baud, uses the App-registered serialTransportBuilder for real
+        // serial, and SimulatorTransport for sim). The app-side duplicate
+        // was deleted.
+        let result = ShopPilotCore.TransportFactory.createTransport(
+            for: type.coreType,
+            config: effectiveConfig
+        )
         
         if !result.success {
             connectionState = .error(result.errorMessage ?? "Unknown error")
@@ -430,7 +365,7 @@ public struct MachineConnectionView: View {
             // baud instead of the factory's hardcoded /dev/ttyUSB0 default.
             if controller.transportType == .serial {
                 Picker("Port", selection: $controller.serialPortName) {
-                    ForEach(TransportFactory.listAvailablePorts(), id: \.self) { port in
+                    ForEach(ShopPilotCore.TransportFactory.listAvailablePorts(), id: \.self) { port in
                         Text(port).tag(port)
                     }
                 }
