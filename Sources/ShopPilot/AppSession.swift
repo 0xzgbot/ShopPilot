@@ -283,6 +283,9 @@ final class AppSession: ObservableObject, AutosaveSessionLike {
     // AutosaveSessionLike — the live document + dirty flag the Autosaver reads.
     var autosaveJob: Job { job }
     var isAutosaveDirty: Bool { isDirty }
+    /// Full package for recovery (Bugbot High fix): autosave must carry
+    /// toolpaths + doc vars + groups, not a Job-only payload.
+    var autosavePayload: ShopPilotPackagePayload? { makePackagePayload() }
 
     init() {
         var job = Job(name: "Untitled Job")
@@ -4720,7 +4723,7 @@ final class AppSession: ObservableObject, AutosaveSessionLike {
         case .saveJob:
             savePackageToDefaultLocation()
         case .openJob:
-            openPackageFromDefaultLocation()
+            openPackageFromPanel()
         case .undo:
             if undo() {
                 statusMessage = "Undo"
@@ -4937,6 +4940,26 @@ final class AppSession: ObservableObject, AutosaveSessionLike {
         }
     }
 
+    /// ⌘O / ⌘K "Open Job…" / Welcome "Open a Job…": present a REAL package
+    /// picker (Bugbot Medium fix — the previous routing opened a default
+    /// location without ever showing an NSOpenPanel). Filters to `.shoppilot`
+    /// packages; the panel path then runs the same `openPackage(from:)`
+    /// loader the File menu uses.
+    func openPackageFromPanel() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.init(filenameExtension: "shoppilot")].compactMap { $0 }
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.title = "Open ShopPilot Job"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try openPackage(from: url)
+        } catch {
+            statusMessage = "Open failed: \(error.localizedDescription)"
+        }
+    }
+
     // MARK: - Sample projects (SPK-1400a)
 
     /// Load a bundled sample project (from `SampleProjectsStore`) into this
@@ -4946,6 +4969,13 @@ final class AppSession: ObservableObject, AutosaveSessionLike {
     func loadSampleProject(id: UUID) -> Bool {
         guard let payload = SampleProjectsStore.payload(for: id) else { return false }
         applyPackagePayload(payload)
+        // Sample load is a fresh in-memory document (Bugbot Medium fix):
+        // it must not look dirty, must not inherit the previous file's URL
+        // (Save would overwrite the old file), and must start a clean undo
+        // stack — mirroring openPackage/NewJob.
+        packageURL = nil
+        markClean()
+        clearUndoStack()
         statusMessage = "Opened “\(payload.job.name)” — ready to design"
         return true
     }

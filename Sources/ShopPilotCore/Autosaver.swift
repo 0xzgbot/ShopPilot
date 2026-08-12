@@ -19,6 +19,11 @@ public final class Autosaver: @unchecked Sendable {
     /// `document.isDirty` — the app's dirty state lives on the session, and
     /// `Job` is a value type whose `isDirty` is always `false`.
     private let isDocumentDirty: (() -> Bool)?
+    /// Optional FULL-payload provider (Bugbot High fix). When set, autosave
+    /// writes the complete package (job + toolpaths + doc vars + groups)
+    /// instead of the Job-only fallback, so crash recovery never drops
+    /// toolpaths. Read fresh on every tick like `documentProvider`.
+    private let payloadProvider: (() -> ShopPilotPackagePayload?)?
     private let saveURL: URL
     private let interval: TimeInterval
     private let saver: DocumentSaver
@@ -38,12 +43,16 @@ public final class Autosaver: @unchecked Sendable {
     ///     whatever it returns each tick (default: the init-time `document`).
     ///   - isDocumentDirty: Optional dirty-flag closure — autosave writes only
     ///     while it returns true (default: `document.isDirty`).
+    ///   - payloadProvider: Optional FULL-package closure — when set, autosave
+    ///     writes the complete payload (job + toolpaths) each tick, so crash
+    ///     recovery keeps toolpaths (default: Job-only save).
     public init(
         document: Job,
         saveURL: URL,
         interval: TimeInterval = Autosaver.defaultInterval,
         documentProvider: (() -> Job?)? = nil,
-        isDocumentDirty: (() -> Bool)? = nil
+        isDocumentDirty: (() -> Bool)? = nil,
+        payloadProvider: (() -> ShopPilotPackagePayload?)? = nil
     ) {
         self.document = document
         self.saveURL = saveURL
@@ -52,6 +61,7 @@ public final class Autosaver: @unchecked Sendable {
         self.lastSavedState = .now
         self.documentProvider = documentProvider
         self.isDocumentDirty = isDocumentDirty
+        self.payloadProvider = payloadProvider
     }
     
     // MARK: - Lifecycle
@@ -95,9 +105,16 @@ public final class Autosaver: @unchecked Sendable {
     
     private func saveIfNeeded() {
         guard let doc = currentDocument, isDirtyNow else { return }
-        
+
         do {
-            try saver.save(doc, to: saveURL)
+            // Full-payload save when a provider exists (Bugbot High fix):
+            // recovery must carry toolpaths + doc vars + groups, not just the
+            // Job. Falls back to Job-only for minimal conformers.
+            if let payload = payloadProvider?() {
+                try saver.save(payload, to: saveURL)
+            } else {
+                try saver.save(doc, to: saveURL)
+            }
             lastSavedState = .now
         } catch {
             // In a real app, log this error. For v0, silently skip.

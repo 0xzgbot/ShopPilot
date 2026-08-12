@@ -19,6 +19,18 @@ public protocol AutosaveSessionLike: AnyObject {
     var autosaveJob: Job { get }
     /// Whether the session currently has unsaved changes.
     var isAutosaveDirty: Bool { get }
+    /// The FULL package payload to autosave (job + toolpaths + doc vars +
+    /// groups). Recovery must not drop toolpaths: the Job-only save path
+    /// (`DocumentSaver.save(_ job:)`) wraps a payload with EMPTY toolpaths,
+    /// which would lose every toolpath on crash recovery (Bugbot High).
+    /// Default implementation returns nil so minimal conformers (and the
+    /// pre-Bugbot contract) keep the Job-only fallback.
+    var autosavePayload: ShopPilotPackagePayload? { get }
+}
+
+extension AutosaveSessionLike {
+    /// Default: no payload builder → Autosaver falls back to Job-only save.
+    public var autosavePayload: ShopPilotPackagePayload? { nil }
 }
 
 // MARK: - RecoveryCoordinator
@@ -51,7 +63,8 @@ public enum RecoveryCoordinator {
             saveURL: recoveryURL(for: session.autosaveJob, directory: directory),
             interval: interval,
             documentProvider: { [weak session] in session?.autosaveJob },
-            isDocumentDirty: { [weak session] in session?.isAutosaveDirty ?? false }
+            isDocumentDirty: { [weak session] in session?.isAutosaveDirty ?? false },
+            payloadProvider: { [weak session] in session?.autosavePayload }
         )
         autosaver.start()
         return autosaver

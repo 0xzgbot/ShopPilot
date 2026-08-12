@@ -27,9 +27,13 @@ func expect(_ cond: Bool, _ msg: String) throws {
 final class FakeSession: AutosaveSessionLike {
     var autosaveJob: Job
     var isAutosaveDirty: Bool
-    init(job: Job, dirty: Bool) {
+    /// Full payload override (Bugbot High fix) — nil = Job-only fallback.
+    var payload: ShopPilotPackagePayload?
+    var autosavePayload: ShopPilotPackagePayload? { payload }
+    init(job: Job, dirty: Bool, payload: ShopPilotPackagePayload? = nil) {
         autosaveJob = job
         isAutosaveDirty = dirty
+        self.payload = payload
     }
 }
 
@@ -79,6 +83,22 @@ func main() throws {
         .url.resolvingSymlinksInPath() == packageURL.resolvingSymlinksInPath(),
         "latestSnapshot == the autosaved package")
     autosaver.stop()
+
+    // ── 5b. Bugbot High fix: a session WITH a full payload must autosave
+    // toolpaths (recovery must not drop them). Job-only fallback has no
+    // toolpaths.json; payload save does.
+    var payloadJob = Job(name: "Payload Part")
+    _ = payloadJob.ensureSingleSheet()
+    var payload = ShopPilotPackagePayload(job: payloadJob)
+    payload.toolpaths = [
+        PersistedToolpath(name: "RecoverMe", toolpathResult: "G0 X0", estimatedTimeSeconds: 1.0, isDirty: false)
+    ]
+    let payloadSession = FakeSession(job: payloadJob, dirty: true, payload: payload)
+    let payloadAutosaver = RecoveryCoordinator.startAutosaver(for: payloadSession, directory: dir)
+    defer { payloadAutosaver.stop() }
+    let payloadURL = RecoveryCoordinator.recoveryURL(for: payloadJob, directory: dir)
+    try expect(fm.fileExists(atPath: payloadURL.appendingPathComponent("toolpaths.json").path),
+               "payload autosave writes toolpaths.json (Bugbot High fix)")
 
     // ── 6. Clean session → nothing written. ─────────────────────────────
     let cleanDir = dir.appendingPathComponent("clean", isDirectory: true)
