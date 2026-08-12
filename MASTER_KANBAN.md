@@ -163,6 +163,14 @@ A (parallel from day 0)
 
 **Goal:** Product-complete vertical slices. Prefer these over scattered legacy cards when both are open.
 
+## AppSession split (parent — epic, one slice at a time)
+
+**Goal:** Shrink the ~5000-line `AppSession` god object by extracting cohesive domains into their own types. `AppSession` stays the `ObservableObject` facade; ContentView bindings and all public contracts unchanged. Do NOT attempt the whole split in one card. Do NOT start `@Observable` migration / `NavigationSplitView` here.
+
+- [ ] **SPK-1403** **PLAT** AppSession split parent — first cohesive domain extracted; facade + bindings intact. Deps: none. DoD on parent (all slices `[x]` + no behavior change).
+- [x] **SPK-1403a** **PLAT** (slice 1) Extract sample-load lifecycle — `SampleProjectLoader` (Core) owns id→payload→apply→clean/undo-reset→status via a minimal `SampleLoadingSession` protocol; `AppSession.loadSampleProject(id:)` delegates. Files: `Sources/ShopPilotCore/SampleProjectLoader.swift` (new), `AppSession.swift` (delegate + protocol conformance). Verify: `ShopPilotVerify1403a` (fake session: known id → all lifecycle hooks called + status set; unknown id → false + no mutation). Out of scope: `@Observable`, NavigationSplitView, other AppSession regions, ContentView, serial. // serialize vs any other AppSession editor. Assignee: coder. 60m.
+  - worklog: 2026-08-12 — Hermes coder. New `ShopPilotCore/SampleProjectLoader.swift`: `SampleLoadingSession` protocol (packageURL set/clear, applyPackagePayload, markClean, clearUndoStack, setStatusMessage) + `SampleProjectLoader.load(id:into:)` — identical hook sequence and status text to the old `AppSession.loadSampleProject` body (Bugbot Medium fix preserved: packageURL=nil, markClean, clearUndoStack). `AppSession` conforms (`setStatusMessage` hook added; `packageURL` setter widened from private(set) to internal for conformance) and `loadSampleProject(id:)` is now a one-line delegate. Verify `ShopPilotVerify1403a` PASS (all 4 samples: full hook sequence + exact status text + packageURL cleared; unknown id → false with zero mutations; store is the catalog) + `ShopPilotVerify1400a` PASS (samples regression) + app build green. Parent SPK-1403 stays `[ ]` (slice 1 of N).
+
 - [x] **SPK-1100** **PLAT** Document session spine — AppSession owns job/layers/vectors/toolpaths/undo/dirty; stages bind to it // P0
   - AC: Save/open round-trips vectors+toolpaths+vars; browser/inspector show live data
   - deps: SPK-0100, SPK-0101
