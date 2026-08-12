@@ -428,6 +428,17 @@ Swift lock; no .build wipe; worktree only. kanban_complete.
 4. Human `[!]`: live air-cut (SPK-0419) still human. Agents must not claim live serial “done” without 1401a–f `[x]`.
 5. Parents stay `[ ]` until children cover DoD.
 
+### Next dispatch (2026-08-12, post review-bug fixes)
+
+Wave 0–3 children for serial/persist/coach/inspector/dead-UI are `[x]`. Review-bug commit `3734628` (autosave full payload, sample `markClean`, real Open panel). Remaining friendliness is **ContentView-only**, one card at a time:
+
+1. **FIRST:** `SPK-1400b` Setup collapse (`SetupStageView` still has no `DisclosureGroup("Advanced")`).
+2. Then `SPK-1400d` Design empty (copy still says “tool above”; no Try a sample; chrome still “Untitled Job”).
+3. Then `SPK-1400e` Cut recipes (still giant `Menu` “Add Toolpath” + export dump on the row).
+4. Then `SPK-1400h` Cut left (keep-outs/queue/plugins still always visible).
+
+**Do not parallel** any two of 1400b/d/e/h. Do not mix Track B serial into these UI cards. Track B/C children are done — do not re-dispatch 1401*/1402*.
+
 ---
 
 ## Out of this path
