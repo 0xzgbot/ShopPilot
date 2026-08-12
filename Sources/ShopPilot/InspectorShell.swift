@@ -90,13 +90,14 @@ struct InspectorShell: View {
             case .job:
                 SelectionBadge(name: "Job", type: session.job.name)
             case .sheet(let id):
-                SelectionBadge(name: "Sheet", type: id.uuidString.prefix(8).uppercased())
+                let sheetName = session.job.sheets.first(where: { $0.id == id })?.name ?? "Sheet"
+                SelectionBadge(name: sheetName, type: "Sheet")
             case .layer(let id):
                 let layerName = session.layers.first(where: { $0.id == id })?.name ?? "Layer"
-                SelectionBadge(name: layerName, type: id.uuidString.prefix(8).uppercased())
+                SelectionBadge(name: layerName, type: "Layer")
             case .toolpath(let id):
-                let tpName = session.toolpaths.first(where: { $0.id == id })?.name ?? "Toolpath"
-                SelectionBadge(name: tpName, type: id.uuidString.prefix(8).uppercased())
+                let tp = session.toolpaths.first(where: { $0.id == id })
+                SelectionBadge(name: tp?.name ?? "Toolpath", type: tp?.typeLabel ?? "Operation")
             }
         }
     }
@@ -125,12 +126,17 @@ struct InspectorShell: View {
         VStack(alignment: .leading, spacing: 12) {
             SectionLabel("Stock dimensions")
 
-            if let sheet = session.job.sheets.first {
-                HStack(spacing: 8) {
-                    dimensionField(label: "Width", value: String(format: "%.1f", sheet.width))
-                    dimensionField(label: "Depth", value: String(format: "%.1f", sheet.depth))
-                    dimensionField(label: "Height", value: String(format: "%.1f", sheet.height))
+            if let sheet = session.activeSheet {
+                StockDimensionEditor(session: session, sheet: sheet)
+                if session.job.sheets.count > 1 {
+                    Text("Editing active sheet: \(sheet.name)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
+            } else {
+                Text("No sheet in this job yet.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             if !session.docVars.variables.isEmpty {
@@ -145,18 +151,64 @@ struct InspectorShell: View {
         .padding(.horizontal, 12)
     }
 
-    private func dimensionField(label: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+    /// Editable stock W/D/H bound to the session's ACTIVE sheet. Commits go
+    /// through `updateSheetDimensions` (undo + dirty), so the inspector never
+    /// shows fake or first-sheet-only values (SPK-1400g).
+    private struct StockDimensionEditor: View {
+        @ObservedObject var session: AppSession
+        let sheet: Sheet
 
-            Text(value)
-                .font(.caption)
-                .padding(4)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color(NSColor.controlBackgroundColor))
-                .cornerRadius(4)
+        var body: some View {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 8) {
+                    ForEach(sheet.stockDimensions, id: \.label) { dimension in
+                        StockDimensionField(session: session, dimension: dimension)
+                    }
+                }
+            }
+        }
+    }
+
+    /// One editable W/D/H field. Labels + formatting come from the Core
+    /// `StockDimension` seam; commits target the axis the field represents.
+    private struct StockDimensionField: View {
+        @ObservedObject var session: AppSession
+        let dimension: StockDimension
+        @State private var text: String = ""
+
+        var body: some View {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(dimension.label)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+
+                TextField(dimension.label, text: $text)
+                    .font(.caption)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit(commit)
+            }
+            .onAppear(perform: syncFromSheet)
+            .onChange(of: session.activeSheetID) { _ in syncFromSheet() }
+            .onChange(of: dimension.valueMm) { _ in syncFromSheet() }
+        }
+
+        private func syncFromSheet() {
+            text = dimension.formatted
+        }
+
+        private func commit() {
+            guard let parsed = Double(text.trimmingCharacters(in: CharacterSet.whitespaces)),
+                  parsed > 0,
+                  let sheet = session.activeSheet else {
+                syncFromSheet() // Revert invalid input to the sheet's values.
+                return
+            }
+            session.updateSheetDimensions(
+                width: dimension.axis == .width ? parsed : sheet.width,
+                depth: dimension.axis == .depth ? parsed : sheet.depth,
+                height: dimension.axis == .height ? parsed : sheet.height
+            )
+            syncFromSheet()
         }
     }
 
@@ -209,9 +261,19 @@ struct InspectorShell: View {
         VStack(alignment: .leading, spacing: 12) {
             SectionLabel("3D model")
 
-            Text("Requires Studio3D tier.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            if let hf = session.job.stlHeightfield {
+                PropertyRow(label: "Grid", value: "\(hf.width)×\(hf.height)")
+                PropertyRow(label: "Cell", value: String(format: "%.1f mm", hf.cellSizeMm))
+                PropertyRow(label: "Max height", value: String(format: "%.1f mm", hf.maxHeight))
+                PropertyRow(label: "Components", value: "\(session.reliefComponents.count)")
+                Text("Edit the relief in the Model stage; Rough 3D / Finish 3D add toolpaths to Cut.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("No relief yet. Import an STL or add an image relief to start modeling.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .padding(.horizontal, 12)
     }

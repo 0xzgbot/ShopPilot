@@ -87,6 +87,44 @@ public struct Sheet: Identifiable, Codable, Sendable {
     }
 }
 
+// MARK: - Stock dimension display (SPK-1400g)
+
+/// One stock axis of a sheet: which axis, its display label, and its mm value.
+/// Shared by the Setup inspector (and the CLT verify) so the W/D/H labels and
+/// formatting have a single source of truth and always describe the ACTIVE
+/// sheet's real values — never a fake or first-sheet-only readout.
+public struct StockDimension: Sendable, Equatable {
+    public enum Axis: String, Sendable {
+        case width
+        case depth
+        case height
+    }
+
+    public let axis: Axis
+    public let label: String
+    public let valueMm: Double
+
+    /// Compact one-decimal mm string, e.g. "600.0".
+    public var formatted: String { String(format: "%.1f", valueMm) }
+
+    public init(axis: Axis, label: String, valueMm: Double) {
+        self.axis = axis
+        self.label = label
+        self.valueMm = valueMm
+    }
+}
+
+extension Sheet {
+    /// The sheet's stock dimensions in inspector display order (width/depth/height).
+    public var stockDimensions: [StockDimension] {
+        [
+            StockDimension(axis: .width, label: "Width", valueMm: width),
+            StockDimension(axis: .depth, label: "Depth", valueMm: depth),
+            StockDimension(axis: .height, label: "Height", valueMm: height),
+        ]
+    }
+}
+
 // MARK: - Preview (Xcode only — not available in CLI builds)
 
 #if canImport(SwiftUI) && DEBUG
