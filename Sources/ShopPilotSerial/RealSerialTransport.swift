@@ -124,7 +124,10 @@ public final class RealSerialTransport: MachineTransport, @unchecked Sendable {
         
         self.fileHandle = handle
         
-        // Configure baud rate using termios (simplified — real implementation would use ioctl)
+        // Apply Darwin termios 8N1 at the requested baud rate. The baud
+        // from config must NOT be discarded (SPK-1401b) — a port left at the
+        // OS-default rate (often 9600) would silently mis-clock a 115200
+        // GRBL controller.
         try configureSerial(baudRate: config.baudRate)
         
         isConnected = true
@@ -180,25 +183,31 @@ public final class RealSerialTransport: MachineTransport, @unchecked Sendable {
     // MARK: - Serial Configuration
     
     private func configureSerial(baudRate: Int) throws {
-        // Note: Full termios configuration requires POSIX imports.
-        // This is a simplified version — production code would use Darwin's termios.h
-        // via @_silgen_name or Foundation's FileHandle settings.
-        
-        // For now, we rely on the OS default serial configuration
-        // which typically uses 8N1 (8 data bits, no parity, 1 stop bit)
-        
-        #if os(macOS)
-        // In a real implementation, you would:
-        // 1. Open the file descriptor with open(path, O_RDWR | O_NOCTTY | O_NONBLOCK)
-        // 2. Use tcgetattr() to get current termios settings
-        // 3. Configure c_cflag with B<baudrate>, CS8, CLOCAL, CREAD
-        // 4. Set parity based on config.parity
-        // 5. Set stop bits based on config.stopBits
-        // 6. Use tcsetattr() to apply changes
-        
-        // Example baud rate mapping (simplified for documentation):
-        _ = baudRate
-        #endif
+        guard let handle = fileHandle else {
+            throw RealSerialTransportError.notConnected
+        }
+
+        // Real termios configuration via Darwin (same approach as
+        // ORSSerialPort): raw mode + 8N1 frame + requested baud.
+        let settings = SerialTermiosSettings.make(baud: baudRate)
+        var t = termios()
+
+        guard tcgetattr(handle.fileDescriptor, &t) == 0 else {
+            throw RealSerialTransportError.termiosError("tcgetattr failed")
+        }
+
+        // Raw mode: no echo, no canonical buffering, no IXON/IXOFF software
+        // flow control — byte-exact TX/RX for GRBL/FluidNC streaming.
+        cfmakeraw(&t)
+
+        // 8N1 (8 data bits, no parity, 1 stop bit) at the requested baud.
+        // The transformation is a pure, port-free function so the verify CLT
+        // asserts it without hardware.
+        settings.apply8N1(to: &t)
+
+        guard tcsetattr(handle.fileDescriptor, TCSANOW, &t) == 0 else {
+            throw RealSerialTransportError.termiosError("tcsetattr failed")
+        }
     }
     
     // MARK: - Data Monitoring
@@ -285,6 +294,7 @@ public enum RealSerialTransportError: LocalizedError, Sendable {
     case cannotOpenPort(String)
     case notConnected
     case ioError(String)
+    case termiosError(String)
     
     public var errorDescription: String? {
         switch self {
@@ -296,6 +306,8 @@ public enum RealSerialTransportError: LocalizedError, Sendable {
             return "Not connected to a serial port"
         case .ioError(let message):
             return "I/O error: \(message)"
+        case .termiosError(let message):
+            return "Termios configuration error: \(message)"
         }
     }
 }
