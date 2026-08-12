@@ -4890,4 +4890,17 @@ final class AppSession: ObservableObject {
             statusMessage = "Open failed: \(error.localizedDescription)"
         }
     }
+
+    // MARK: - Sample projects (SPK-1400a)
+
+    /// Load a bundled sample project (from `SampleProjectsStore`) into this
+    /// session. Wraps the Core store's id → payload mapping plus
+    /// `applyPackagePayload`, which lands on the Design stage. Returns false
+    /// (and changes nothing) when the id is not a known sample.
+    func loadSampleProject(id: UUID) -> Bool {
+        guard let payload = SampleProjectsStore.payload(for: id) else { return false }
+        applyPackagePayload(payload)
+        statusMessage = "Opened “\(payload.job.name)” — ready to design"
+        return true
+    }
 }
