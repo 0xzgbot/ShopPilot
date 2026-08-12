@@ -815,6 +815,9 @@ private struct CutStageView: View {
     @State private var showPostStudio = false
     /// SPK-1201 — cut overview mode: Layers table (default) or Tree.
     @State private var cutLayersViewMode: CutViewMode = .layers
+    /// SPK-1400h — keep-outs / job queue / plugins collapse under "More"
+    /// (default collapsed: the left pane earns its width with layers + tools).
+    @State private var cutMorePanelsExpanded = false
     @State private var exportBlockMessage = ""
 
     /// Toolpath preflight gate (SPK-FM-R013): error issues block save with a
@@ -995,17 +998,29 @@ private struct CutStageView: View {
                         selectedToolID: $selectedBrowserToolID
                     )
                     .frame(minWidth: 200, idealWidth: 240, maxWidth: 300, minHeight: 140, maxHeight: 220)
-                    Divider()
-                    // SPK-0308: keep-out zone management (create/edit/toggle).
-                    KeepOutZonesPanel(session: session)
-                    Divider()
-                    // SPK-1008: multi-file job queue (sequential programs).
-                    JobQueuePanelView(session: session)
-                    Divider()
-                    // SPK-1006 loadable ABI: discovered plugins (sample
-                    // dot-grid engrave ships in fixtures; users drop their
-                    // own plugin dirs into Application Support/ShopPilot/Plugins).
-                    PluginsPanelView(session: session)
+
+                    // SPK-1400h — advanced left-pane panels (keep-outs, job
+                    // queue, plugins) collapse under one "More" disclosure so
+                    // the default Cut left shows Layers/Tree + the tool
+                    // browser. Nothing deleted — one click away.
+                    DisclosureGroup("More", isExpanded: $cutMorePanelsExpanded) {
+                        VStack(spacing: 0) {
+                            Divider()
+                            // SPK-0308: keep-out zone management (create/edit/toggle).
+                            KeepOutZonesPanel(session: session)
+                            Divider()
+                            // SPK-1008: multi-file job queue (sequential programs).
+                            JobQueuePanelView(session: session)
+                            Divider()
+                            // SPK-1006 loadable ABI: discovered plugins (sample
+                            // dot-grid engrave ships in fixtures; users drop their
+                            // own plugin dirs into Application Support/ShopPilot/Plugins).
+                            PluginsPanelView(session: session)
+                        }
+                        .padding(.bottom, 6)
+                    }
+                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, 8)
                 }
 
                 selectedDetail
