@@ -122,15 +122,45 @@ struct ContentView: View {
                 showWelcome = false
             }
         }
+        // SPK-1402d — launch-time recovery offer: an autosave artifact from a
+        // previous session exists → Recover (loads it) or Discard (clears it).
+        .sheet(isPresented: $showRecoveryOffer) {
+            if let snapshot = session.pendingRecovery {
+                RecoveryOfferView(
+                    snapshotName: snapshot.url.deletingPathExtension().lastPathComponent,
+                    modifiedAt: snapshot.modifiedAt
+                ) {
+                    // Recover: load the artifact into the session, then clear.
+                    do {
+                        try session.recoverFromPendingAutosave()
+                        session.statusMessage = "Recovered unsaved work"
+                    } catch {
+                        session.statusMessage = "Recovery failed: \(error.localizedDescription)"
+                    }
+                    showRecoveryOffer = false
+                } onDiscard: {
+                    session.discardPendingRecovery()
+                    showRecoveryOffer = false
+                }
+            }
+        }
         .onAppear {
             if FirstRunGate.isFirstRun {
                 showWelcome = true
+            }
+            // SPK-1402d — offer recovery whenever a pending snapshot exists;
+            // the Welcome sheet (first run) and the recovery sheet are
+            // independent, so a first-run recovery offer still appears.
+            if session.pendingRecovery != nil {
+                showRecoveryOffer = true
             }
         }
     }
 
     /// UI-polish cluster — first-run onboarding sheet (shown once).
     @State private var showWelcome = false
+    /// SPK-1402d — launch-time "Recover unsaved work?" offer.
+    @State private var showRecoveryOffer = false
 
     @ViewBuilder
     private var stageBody: some View {

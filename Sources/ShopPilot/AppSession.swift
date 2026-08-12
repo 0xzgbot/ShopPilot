@@ -280,6 +280,15 @@ final class AppSession: ObservableObject, AutosaveSessionLike {
         return true
     }
 
+    /// Dismiss the recovery offer WITHOUT loading: clear the pending snapshot
+    /// and remove the artifact, so launch never offers the same file again.
+    /// The accepting action behind "Discard" in the recovery sheet (SPK-1402d).
+    func discardPendingRecovery() {
+        guard let snapshot = pendingRecovery else { return }
+        try? FileManager.default.removeItem(at: snapshot.url)
+        pendingRecovery = nil
+    }
+
     // AutosaveSessionLike — the live document + dirty flag the Autosaver reads.
     var autosaveJob: Job { job }
     var isAutosaveDirty: Bool { isDirty }
