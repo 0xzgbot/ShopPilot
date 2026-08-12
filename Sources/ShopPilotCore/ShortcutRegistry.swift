@@ -53,6 +53,9 @@ public final class ShortcutRegistry: ObservableObject, @unchecked Sendable {
     /// The catalog of remappable commands.
     public static let catalog: [ShortcutBinding] = [
         ShortcutBinding(id: "file.new", title: "New Job", defaultKey: "n", defaultModifiers: ["command"]),
+        // SPK-1500 — File menu Open Job… (same ⌘O the command palette uses
+        // for CommandID.openJob), remappable like every other menu binding.
+        ShortcutBinding(id: "file.open", title: "Open Job…", defaultKey: "o", defaultModifiers: ["command"]),
         ShortcutBinding(id: "palette", title: "Command Palette…", defaultKey: "k", defaultModifiers: ["command"]),
         ShortcutBinding(id: "edit.group", title: "Group", defaultKey: "g", defaultModifiers: ["command"]),
         ShortcutBinding(id: "edit.ungroup", title: "Ungroup", defaultKey: "g", defaultModifiers: ["command", "shift"]),

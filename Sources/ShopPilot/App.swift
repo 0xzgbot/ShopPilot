@@ -36,6 +36,16 @@ struct ShopPilotApp: App {
                     session.selectedStage = .setup
                 }
                 .keyboardShortcut(shortcut("file.new"))
+
+                // SPK-1500 — File menu Open Job… uses the SAME session path
+                // as the Welcome sheet (handleCommand(.openJob) →
+                // openPackageFromPanel), so ⌘O and the File menu both open the
+                // real package picker. The ⌘O key is the existing Commands
+                // palette binding (CommandID.openJob = "o").
+                Button("Open Job…") {
+                    session.handleCommand(.openJob)
+                }
+                .keyboardShortcut(shortcut("file.open"))
             }
 
             CommandGroup(after: .undoRedo) {
