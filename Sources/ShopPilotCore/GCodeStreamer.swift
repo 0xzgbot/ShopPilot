@@ -26,6 +26,37 @@ extension StreamState: Equatable {
     }
 }
 
+// MARK: - GCode Response Classification
+
+/// Classification of one trimmed controller response line (GRBL / FluidNC
+/// dialect). Extracted so `waitForOk` can treat `ALARM:` / `error:` lines as
+/// failures instead of skipping them and waiting forever (SPK-1401d).
+public enum GCodeResponse: Equatable {
+    /// `ok` — the command was accepted; the stream may advance.
+    case ok
+    /// `ALARM:...` — machine alarm; streaming must stop.
+    case alarm(String)
+    /// `error:...` / `error N` — the command was rejected; streaming must stop.
+    case error(String)
+    /// Anything else (`<Idle|...>` status reports, `[MSG:...]`, etc.) — ignore.
+    case other
+
+    /// Classify a single response line (leading/trailing whitespace tolerated).
+    public static func parse(_ line: String) -> GCodeResponse {
+        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        let upper = trimmed.uppercased()
+        if upper.hasPrefix("OK") {
+            return .ok
+        } else if upper.hasPrefix("ALARM:") {
+            return .alarm(trimmed)
+        } else if upper.hasPrefix("ERROR:") || upper.hasPrefix("ERROR ") {
+            return .error(trimmed)
+        } else {
+            return .other
+        }
+    }
+}
+
 // MARK: - GCode Streamer
 
 /// Streams G-code to a CNC machine using GRBL ok-wait protocol.
@@ -190,21 +221,39 @@ public final class GCodeStreamer: ObservableObject {
         }
     }
     
-    /// Wait for "ok" response from GRBL after sending a command.
-    private func waitForOk(from transport: MachineTransport) async throws {
+    /// Wait for the controller's `ok` acknowledgement after sending a command
+    /// (GRBL ok-wait protocol). Throws when the controller reports an alarm
+    /// (`ALARM:...`) or rejects the command (`error:...` / `error N`), when the
+    /// transport errors or disconnects, or when no response arrives within
+    /// `timeout` seconds — a silent controller must not hang the stream forever
+    /// (SPK-1401d).
+    public func waitForOk(from transport: MachineTransport, timeout: TimeInterval = 5.0) async throws {
         var iterator = transport.events.makeAsyncIterator()
-        try await waitForOk(iterator: &iterator)
+        try await waitForOk(iterator: &iterator, timeout: timeout)
     }
 
-    private func waitForOk(iterator: inout AsyncStream<TransportEvent>.Iterator) async throws {
-        while let event = await iterator.next() {
+    private func waitForOk(iterator: inout AsyncStream<TransportEvent>.Iterator, timeout: TimeInterval = 5.0) async throws {
+        // Total deadline for the whole wait: a controller that never replies
+        // (or replies with noise) cannot stall the stream past `timeout`.
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .seconds(timeout))
+        while let event = try await nextEvent(from: &iterator, deadline: deadline) {
             switch event {
             case .dataReceived(let data):
-                if let text = String(data: data, encoding: .utf8),
-                   text.trimmingCharacters(in: .whitespacesAndNewlines)
-                    .split(whereSeparator: { $0.isNewline })
-                    .contains(where: { $0.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("ok") }) {
-                    return
+                guard let text = String(data: data, encoding: .utf8) else { continue }
+                for line in text.split(whereSeparator: { $0.isNewline }) {
+                    switch GCodeResponse.parse(String(line)) {
+                    case .ok:
+                        return
+                    case .alarm(let raw):
+                        throw NSError(domain: "GCodeStreamer", code: 5,
+                                      userInfo: [NSLocalizedDescriptionKey: "Alarm from controller: \(raw)"])
+                    case .error(let raw):
+                        throw NSError(domain: "GCodeStreamer", code: 6,
+                                      userInfo: [NSLocalizedDescriptionKey: "Error from controller: \(raw)"])
+                    case .other:
+                        continue
+                    }
                 }
             case .error(let msg):
                 throw NSError(domain: "GCodeStreamer", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
@@ -215,6 +264,30 @@ public final class GCodeStreamer: ObservableObject {
             }
         }
         throw NSError(domain: "GCodeStreamer", code: 3, userInfo: [NSLocalizedDescriptionKey: "Event stream ended before ok"])
+    }
+
+    /// Fetch the next transport event, throwing a timeout error (code 4) once
+    /// `deadline` passes. Returns `nil` when the event stream ends.
+    private func nextEvent(
+        from iterator: inout AsyncStream<TransportEvent>.Iterator,
+        deadline: ContinuousClock.Instant
+    ) async throws -> TransportEvent? {
+        let clock = ContinuousClock()
+        guard deadline - clock.now > .zero else {
+            throw NSError(domain: "GCodeStreamer", code: 4,
+                          userInfo: [NSLocalizedDescriptionKey: "Timed out waiting for ok response"])
+        }
+        return try await withThrowingTaskGroup(of: TransportEvent?.self) { group in
+            var it = iterator
+            group.addTask { await it.next() }
+            group.addTask {
+                try await clock.sleep(until: deadline)
+                throw NSError(domain: "GCodeStreamer", code: 4,
+                              userInfo: [NSLocalizedDescriptionKey: "Timed out waiting for ok response"])
+            }
+            defer { group.cancelAll() }
+            return try await group.next() ?? nil
+        }
     }
     
     // MARK: - Control
