@@ -26,6 +26,11 @@ public final class RealSerialTransport: MachineTransport, @unchecked Sendable {
     // MARK: - Internal State
     
     private let serialQueue = DispatchQueue(label: "com.shoppilot.serial")
+    /// SPK-1401h — one-writer-at-a-time gate for port writes AND termios
+    /// configuration. Previously `write(_:)` hit the FileHandle with no
+    /// queue while `read()` used `serialQueue.sync`, so a concurrent
+    /// streamer + status `?` + realtime `!` could byte-race on the wire.
+    private let writeGate = SerialWriteGate()
     private var fileHandle: FileHandle?
     /// Multi-consumer event hub (session poll + streamer ok-wait + UI console).
     private let fanOut = TransportEventFanOut()
@@ -158,10 +163,14 @@ public final class RealSerialTransport: MachineTransport, @unchecked Sendable {
         guard let handle = fileHandle, isConnected else {
             throw RealSerialTransportError.notConnected
         }
-        
-        // Write data to the serial port
+
+        // SPK-1401h — every write (streamer G-code, status `?`, realtime
+        // `!`/`~`/0x18) serializes through the write gate, so two writers
+        // can never interleave mid-frame on the port.
         do {
-            try handle.write(contentsOf: data)
+            try writeGate.synchronized {
+                try handle.write(contentsOf: data)
+            }
         } catch {
             throw RealSerialTransportError.ioError(error.localizedDescription)
         }
@@ -187,33 +196,38 @@ public final class RealSerialTransport: MachineTransport, @unchecked Sendable {
             throw RealSerialTransportError.notConnected
         }
 
-        // Real termios configuration via Darwin (same approach as
-        // ORSSerialPort): raw mode + 8N1 frame + requested baud.
-        let settings = SerialTermiosSettings.make(baud: baudRate)
-        var t = termios()
+        // SPK-1401h — configuration shares the write gate: termios applies
+        // under the same lock as port writes, so a write can never land
+        // mid-tcsetattr (and vice versa).
+        try writeGate.synchronized {
+            // Real termios configuration via Darwin (same approach as
+            // ORSSerialPort): raw mode + 8N1 frame + requested baud.
+            let settings = SerialTermiosSettings.make(baud: baudRate)
+            var t = termios()
 
-        guard tcgetattr(handle.fileDescriptor, &t) == 0 else {
-            throw RealSerialTransportError.termiosError("tcgetattr failed")
+            guard tcgetattr(handle.fileDescriptor, &t) == 0 else {
+                throw RealSerialTransportError.termiosError("tcgetattr failed")
+            }
+
+            // Raw mode: no echo, no canonical buffering, no IXON/IXOFF software
+            // flow control — byte-exact TX/RX for GRBL/FluidNC streaming.
+            cfmakeraw(&t)
+
+            // 8N1 (8 data bits, no parity, 1 stop bit) at the requested baud.
+            // The transformation is a pure, port-free function so the verify CLT
+            // asserts it without hardware.
+            settings.apply8N1(to: &t)
+
+            guard tcsetattr(handle.fileDescriptor, TCSANOW, &t) == 0 else {
+                throw RealSerialTransportError.termiosError("tcsetattr failed")
+            }
+
+            // SPK-1401g — custom baud rates (e.g. 250000) have no termios speed
+            // constant; apply them via the Darwin IOSSIOSPEED ioctl so the
+            // transport actually runs at the requested rate instead of silently
+            // falling back to B9600. No-op for standard rates.
+            settings.applyCustomBaud(to: handle.fileDescriptor)
         }
-
-        // Raw mode: no echo, no canonical buffering, no IXON/IXOFF software
-        // flow control — byte-exact TX/RX for GRBL/FluidNC streaming.
-        cfmakeraw(&t)
-
-        // 8N1 (8 data bits, no parity, 1 stop bit) at the requested baud.
-        // The transformation is a pure, port-free function so the verify CLT
-        // asserts it without hardware.
-        settings.apply8N1(to: &t)
-
-        guard tcsetattr(handle.fileDescriptor, TCSANOW, &t) == 0 else {
-            throw RealSerialTransportError.termiosError("tcsetattr failed")
-        }
-
-        // SPK-1401g — custom baud rates (e.g. 250000) have no termios speed
-        // constant; apply them via the Darwin IOSSIOSPEED ioctl so the
-        // transport actually runs at the requested rate instead of silently
-        // falling back to B9600. No-op for standard rates.
-        settings.applyCustomBaud(to: handle.fileDescriptor)
     }
     
     // MARK: - Data Monitoring
