@@ -82,7 +82,7 @@ public struct Job: Identifiable, Codable, Sendable {
 
     public init(
         id: UUID = UUID(),
-        name: String = "Untitled Job",
+        name: String = "Untitled Project",
         sheets: [Sheet] = []
     ) {
         self.id = id

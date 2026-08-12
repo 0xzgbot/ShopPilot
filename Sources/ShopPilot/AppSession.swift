@@ -288,7 +288,7 @@ final class AppSession: ObservableObject, AutosaveSessionLike {
     var autosavePayload: ShopPilotPackagePayload? { makePackagePayload() }
 
     init() {
-        var job = Job(name: "Untitled Job")
+        var job = Job(name: "Untitled Project")
         _ = job.ensureSingleSheet()
         self.job = job
         self.safetyAccepted = UserDefaults.standard.bool(forKey: "shop_pilot_safety_accepted")

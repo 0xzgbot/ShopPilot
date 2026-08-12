@@ -199,7 +199,7 @@ private struct TopChromeBar: View {
 
     private var documentIdentity: some View {
         VStack(alignment: .leading, spacing: 1) {
-            Text(session.job.name.isEmpty ? "Untitled Job" : session.job.name)
+            Text(session.job.name.isEmpty ? "Untitled Project" : session.job.name)
                 .font(.system(size: 13, weight: .semibold))
                 .lineLimit(1)
                 .truncationMode(.middle)
@@ -396,11 +396,11 @@ private struct DesignStageView: View {
             HSplitView {
                 DesignCanvasView(session: session)
                     .overlay(alignment: .center) {
-                        // Empty canvas: one calm sentence and one way in,
+                        // Empty canvas: one calm sentence and two ways in,
                         // rather than a permanent import rail. The prompt is
                         // decorative — it must not intercept the drags the
                         // canvas needs, or the message ("draw straight onto the
-                        // sheet") would be a lie. Only the button takes hits.
+                        // sheet") would be a lie. Only the buttons take hits.
                         if session.vectors.isEmpty {
                             VStack(spacing: SP.Space.m) {
                                 VStack(spacing: SP.Space.xs) {
@@ -411,7 +411,9 @@ private struct DesignStageView: View {
                                     Text("Nothing drawn yet")
                                         .font(SP.Typography.stageTitle)
 
-                                    Text("Pick a tool above and draw straight onto the sheet, or bring in an SVG or DXF.")
+                                    // SPK-1400d — the tool rail lives on the
+                                    // LEFT of the canvas, so say so.
+                                    Text("Pick a tool on the left and draw straight onto the sheet, or bring in an SVG or DXF.")
                                         .font(.callout)
                                         .foregroundStyle(.secondary)
                                         .multilineTextAlignment(.center)
@@ -422,6 +424,19 @@ private struct DesignStageView: View {
                                 Button("Import Artwork…") { showImportHub = true }
                                     .buttonStyle(.borderedProminent)
                                     .controlSize(.large)
+
+                                // SPK-1400d — one click into a bundled sample
+                                // (the same 1400a API the Welcome sheet uses),
+                                // so a first-timer is never staring at nothing.
+                                if let firstSample = SampleProjectsStore.samples.first {
+                                    Button("Try a sample") {
+                                        if session.loadSampleProject(id: firstSample.id) {
+                                            session.selectedStage = .design
+                                        }
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .controlSize(.large)
+                                }
                             }
                             .padding(SP.Space.xl)
                         }
