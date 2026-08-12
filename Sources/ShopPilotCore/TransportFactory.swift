@@ -38,7 +38,9 @@ public struct TransportFactoryResult {
 public final class TransportFactory {
 
     /// App-layer registers real serial construction here (avoids Core → Serial dependency cycle).
-    /// Example (ShopPilot app launch): `TransportFactory.serialTransportBuilder = { _ in RealSerialTransport() }`
+    /// Example (ShopPilot app launch): `TransportFactory.serialTransportBuilder = { config in RealSerialTransport() }`
+    /// SPK-1401a: the closure MUST use the config argument (UI port/baud) — it
+    /// reaches the transport at open(config:) — never discard it with `_`.
     public static var serialTransportBuilder: ((SerialConfig) -> MachineTransport)?
     
     /// Create a transport based on the specified type and configuration.

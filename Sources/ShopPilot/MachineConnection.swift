@@ -162,8 +162,13 @@ public final class ConnectionManager: ObservableObject {
         
         connectionState = .connecting
         addSystemMessage("Connecting...")
-        
-        let result = TransportFactory.createTransport(for: type, config: serialConfig)
+
+        // SPK-1401a: the config the factory validates must be the SAME one
+        // handed to open(config:) — the UI's port/baud were being discarded
+        // here by opening with a fresh default `SerialConfig()`.
+        let effectiveConfig = serialConfig ?? ShopPilotCore.SerialConfig()
+
+        let result = TransportFactory.createTransport(for: type, config: effectiveConfig)
         
         if !result.success {
             connectionState = .error(result.errorMessage ?? "Unknown error")
@@ -179,7 +184,7 @@ public final class ConnectionManager: ObservableObject {
         self.transport = transport
         
         do {
-            try await transport.open(config: ShopPilotCore.SerialConfig())
+            try await transport.open(config: effectiveConfig)
             self.transport = transport
             connectionState = .connected
             addSystemMessage("Connected successfully")

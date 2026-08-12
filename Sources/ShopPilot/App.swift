@@ -8,7 +8,11 @@ struct ShopPilotApp: App {
 
     init() {
         // Register real serial transport for Core factory callers (sim remains default in UI).
-        ShopPilotCore.TransportFactory.serialTransportBuilder = { _ in
+        ShopPilotCore.TransportFactory.serialTransportBuilder = { config in
+            // SPK-1401a: the factory hands the UI's SerialConfig (port/baud)
+            // to the serial builder — the config argument is used, not `_`.
+            // RealSerialTransport applies it at open(config:) (port path +
+            // termios baud, SPK-1401b).
             RealSerialTransport()
         }
         // SPK-UI606: avoid restored-window + fresh-scene double launch after force-quit.
