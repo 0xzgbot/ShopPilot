@@ -13,7 +13,7 @@ import ShopPilotSerial
 /// the `isDirty` flag, and the undo/redo stack hooks. Stages read from this
 /// object instead of keeping parallel ad-hoc state.
 @MainActor
-final class AppSession: ObservableObject {
+final class AppSession: ObservableObject, AutosaveSessionLike {
     @Published var selectedStage: Stage = .setup
     /// Active Design-stage create tool — lifted from the canvas so the left
     /// tool palette and the canvas share one source of truth.
@@ -250,6 +250,40 @@ final class AppSession: ObservableObject {
         case toolpath(UUID)
     }
 
+    // MARK: - Autosave (SPK-1402a)
+
+    /// The running Autosaver for the current document. Started at launch and
+    /// restarted whenever the document is replaced (open / sample / recipe),
+    /// so recovery files always follow the current job.
+    private(set) var autosaver: Autosaver?
+
+    /// Newest autosave snapshot found at launch, if any — the surface a
+    /// launch-time "Recover unsaved work?" offer reads.
+    private(set) var pendingRecovery: RecoverySnapshot?
+
+    /// Start (or restart) autosaving the current job into the recovery
+    /// directory.
+    private func startAutosaverForCurrentJob() {
+        autosaver?.stop()
+        autosaver = RecoveryCoordinator.startAutosaver(for: self)
+    }
+
+    /// Load the pending autosave (if any) into the session and clear the
+    /// artifact — the accepting action behind "Recover unsaved work?".
+    /// Returns false when there is nothing to recover.
+    @discardableResult
+    func recoverFromPendingAutosave() throws -> Bool {
+        guard let snapshot = pendingRecovery else { return false }
+        try openPackage(from: snapshot.url)
+        try? FileManager.default.removeItem(at: snapshot.url)
+        pendingRecovery = nil
+        return true
+    }
+
+    // AutosaveSessionLike — the live document + dirty flag the Autosaver reads.
+    var autosaveJob: Job { job }
+    var isAutosaveDirty: Bool { isDirty }
+
     init() {
         var job = Job(name: "Untitled Job")
         _ = job.ensureSingleSheet()
@@ -257,6 +291,10 @@ final class AppSession: ObservableObject {
         self.safetyAccepted = UserDefaults.standard.bool(forKey: "shop_pilot_safety_accepted")
         self.showSafetyDisclaimer = !self.safetyAccepted
         self.canvasOverlays = CanvasOverlayStore.load()
+        // SPK-1402a — wire the Autosaver: recovery writes for the current
+        // document, and record whether launch should offer recovery.
+        self.pendingRecovery = RecoveryCoordinator.latestSnapshot()
+        startAutosaverForCurrentJob()
     }
 
     // MARK: - Derived document access
@@ -396,6 +434,10 @@ final class AppSession: ObservableObject {
         packageURL = url
         markClean()
         clearUndoStack()
+        // SPK-1402a — an explicit save supersedes the recovery artifact, so
+        // launch no longer offers to recover this document.
+        try? FileManager.default.removeItem(at: RecoveryCoordinator.recoveryURL(for: job))
+        pendingRecovery = nil
         statusMessage = "Saved “\(job.name)”"
     }
 
@@ -432,6 +474,8 @@ final class AppSession: ObservableObject {
             lastToolpathSummary = "No toolpath generated"
         }
         selectedStage = .design
+        // SPK-1402a — the document was replaced; autosave follows the new job.
+        startAutosaverForCurrentJob()
     }
 
     private func syncLayerVectors(into job: inout Job) {
@@ -650,6 +694,8 @@ final class AppSession: ObservableObject {
         }
         markClean()
         clearUndoStack()
+        // SPK-1402a — recipe jobs replace the document; autosave follows.
+        startAutosaverForCurrentJob()
     }
 
     // MARK: - Layer mutations
