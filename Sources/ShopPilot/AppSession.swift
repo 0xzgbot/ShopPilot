@@ -13,7 +13,7 @@ import ShopPilotSerial
 /// the `isDirty` flag, and the undo/redo stack hooks. Stages read from this
 /// object instead of keeping parallel ad-hoc state.
 @MainActor
-final class AppSession: ObservableObject, AutosaveSessionLike {
+final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSession {
     @Published var selectedStage: Stage = .setup
     /// Active Design-stage create tool — lifted from the canvas so the left
     /// tool palette and the canvas share one source of truth.
@@ -237,7 +237,9 @@ final class AppSession: ObservableObject, AutosaveSessionLike {
     }
 
     /// Last saved/opened package URL (if any).
-    private(set) var packageURL: URL?
+    /// Internal setter: `SampleLoadingSession` conformance lets the sample
+    /// loader clear it (SPK-1403a).
+    var packageURL: URL?
 
     private let documentSaver = DocumentSaver()
     private let documentLoader = DocumentLoader()
@@ -295,6 +297,11 @@ final class AppSession: ObservableObject, AutosaveSessionLike {
     /// Full package for recovery (Bugbot High fix): autosave must carry
     /// toolpaths + doc vars + groups, not a Job-only payload.
     var autosavePayload: ShopPilotPackagePayload? { makePackagePayload() }
+
+    // SampleLoadingSession (SPK-1403a) — the hooks SampleProjectLoader drives.
+    func setStatusMessage(_ message: String) {
+        statusMessage = message
+    }
 
     init() {
         var job = Job(name: "Untitled Project")
@@ -4969,23 +4976,12 @@ final class AppSession: ObservableObject, AutosaveSessionLike {
         }
     }
 
-    // MARK: - Sample projects (SPK-1400a)
+    // MARK: - Sample projects (SPK-1400a / 1403a)
 
     /// Load a bundled sample project (from `SampleProjectsStore`) into this
-    /// session. Wraps the Core store's id → payload mapping plus
-    /// `applyPackagePayload`, which lands on the Design stage. Returns false
-    /// (and changes nothing) when the id is not a known sample.
+    /// session. SPK-1403a: the lifecycle is owned by `SampleProjectLoader`
+    /// (Core) — this facade just supplies the session hooks.
     func loadSampleProject(id: UUID) -> Bool {
-        guard let payload = SampleProjectsStore.payload(for: id) else { return false }
-        applyPackagePayload(payload)
-        // Sample load is a fresh in-memory document (Bugbot Medium fix):
-        // it must not look dirty, must not inherit the previous file's URL
-        // (Save would overwrite the old file), and must start a clean undo
-        // stack — mirroring openPackage/NewJob.
-        packageURL = nil
-        markClean()
-        clearUndoStack()
-        statusMessage = "Opened “\(payload.job.name)” — ready to design"
-        return true
+        SampleProjectLoader.load(id: id, into: self)
     }
 }

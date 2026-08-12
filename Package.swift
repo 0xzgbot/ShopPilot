@@ -1014,6 +1014,14 @@ let package = Package(
             path: "Sources/ShopPilotVerify1401h"
         ),
 
+        // AppSession split slice 1 (2026-08-12) — sample-load lifecycle
+        // extraction (SPK-1403a).
+        .executableTarget(
+            name: "ShopPilotVerify1403a",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1403a"
+        ),
+
         .target(
             name: "ShopPilotCore",
             path: "Sources/ShopPilotCore"
