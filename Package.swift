@@ -916,6 +916,24 @@ let package = Package(
             path: "Sources/ShopPilotVerifyAIImport"
         ),
 
+        // Phase O Wave 0 (2026-08-12) — pre-registered so worktree agents
+        // never touch Package.swift; they fill the stub mains only.
+        .executableTarget(
+            name: "ShopPilotVerify1401b",
+            dependencies: ["ShopPilotCore", "ShopPilotSerial"],
+            path: "Sources/ShopPilotVerify1401b"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1401d",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1401d"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1400a",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1400a"
+        ),
+
         .target(
             name: "ShopPilotCore",
             path: "Sources/ShopPilotCore"
