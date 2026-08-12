@@ -957,6 +957,29 @@ let package = Package(
             path: "Sources/ShopPilotVerify1402c"
         ),
 
+        // Phase O Wave 2 (2026-08-12) — jog newline+G90, status poll,
+        // corrupt sheets, coach tip card.
+        .executableTarget(
+            name: "ShopPilotVerify1401c",
+            dependencies: ["ShopPilotCore", "ShopPilotSerial"],
+            path: "Sources/ShopPilotVerify1401c"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1401f",
+            dependencies: ["ShopPilotCore", "ShopPilotSerial"],
+            path: "Sources/ShopPilotVerify1401f"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1402b",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1402b"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1400f",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1400f"
+        ),
+
         .target(
             name: "ShopPilotCore",
             path: "Sources/ShopPilotCore"
