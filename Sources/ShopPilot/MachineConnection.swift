@@ -228,7 +228,9 @@ public final class ConnectionManager: ObservableObject {
         addConsoleMessage(text: trimmed, type: .sent)
         
         do {
-            try await transport.write(Data(trimmed.utf8))
+            // SPK-1401c: GRBL only executes a line once its '\n' terminator
+            // arrives — guarantee it on every command written.
+            try await transport.write(Data(GCodeLine.sending(trimmed).utf8))
         } catch {
             addSystemMessage("Send error: \(error.localizedDescription)")
         }
