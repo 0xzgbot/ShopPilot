@@ -3,11 +3,14 @@ import ShopPilotCore
 
 // MARK: - Coach Panel View
 
-/// A contextual coaching strip under the canvas. SPK-1205: the message comes
-/// from the rule engine (`CoachRuleEngine`) — blocking issues > empty states
-/// > suggestions — with the static per-stage fallback when no rule matches
-/// (no dead air). The app builds a `CoachContext` from the live session and
-/// passes it in, so the strip reacts to what's actually on screen.
+/// A contextual coaching tip card under the canvas. SPK-1205: the message
+/// comes from the rule engine (`CoachRuleEngine`) — blocking issues > empty
+/// states > suggestions — with the static per-stage fallback when no rule
+/// matches (no dead air). The app builds a `CoachContext` from the live
+/// session and passes it in, so the card reacts to what's actually on screen.
+/// SPK-1400f: the strip became a real tip card — icon badge + message + an
+/// optional action `Button` when the resolved rule carries an `actionID`
+/// (same `CoachRuleEngine`, no second rule system).
 public struct CoachPanelView: View {
     @State private var dismissed = false
     @State private var lastActivityTime = Date.now
@@ -21,19 +24,33 @@ public struct CoachPanelView: View {
     /// SPK-1205 — the live session snapshot the rules evaluate against.
     let context: CoachContext
 
+    /// SPK-1400f — invoked when the tip card's action button is pressed;
+    /// receives the resolved rule so the caller can route by `actionID`.
+    /// Defaults to nil (callers that only show guidance don't need it; the
+    /// button is still rendered when a rule carries an action id).
+    let onAction: ((CoachRule) -> Void)?
+
     init(currentStage: Stage,
          followSourceMode: FollowSourceMode? = nil,
          activeFollowLinkCount: Int = 0,
-         context: CoachContext? = nil) {
+         context: CoachContext? = nil,
+         onAction: ((CoachRule) -> Void)? = nil) {
         self.currentStage = currentStage
         self.followSourceMode = followSourceMode
         self.activeFollowLinkCount = activeFollowLinkCount
         self.context = context ?? CoachContext(stage: currentStage.rawValue)
+        self.onAction = onAction
+    }
+
+    /// The single resolved rule — the card reads both the message and the
+    /// optional action from it, so the tip and its button always agree.
+    private var resolvedRule: CoachRule? {
+        CoachRuleEngine.resolve(rules: CoachRuleEngine.standardRules, context: context)
     }
 
     private var coachMessage: String {
         // SPK-1205 — rule engine first: blocking > empty > suggestion.
-        if let rule = CoachRuleEngine.resolve(rules: CoachRuleEngine.standardRules, context: context) {
+        if let rule = resolvedRule {
             return rule.message
         }
         // Fallback: the static per-stage copy (existing behavior).
@@ -74,21 +91,45 @@ public struct CoachPanelView: View {
 
     public var body: some View {
         if !dismissed {
-            // A quiet strip along the bottom of the canvas, not a floating
-            // card — guidance should sit under the work, not on top of it.
-            HStack(alignment: .top, spacing: SP.Space.s) {
+            // SPK-1400f — a quiet tip card under the canvas, not a floating
+            // overlay: icon badge + message + optional action Button when the
+            // resolved rule carries an action id. Guidance sits under the
+            // work, never on top of it; SF Symbols only, no extra chrome.
+            HStack(alignment: .center, spacing: SP.Space.m) {
                 Image(systemName: coachIcon)
-                    .font(.system(size: 11))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(Color.accentColor)
-                    .frame(height: 16)
+                    .frame(width: 26, height: 26)
+                    .background(
+                        Color.accentColor.opacity(0.12),
+                        in: RoundedRectangle(cornerRadius: SP.Radius.control, style: .continuous)
+                    )
+                    .accessibilityHidden(true)
 
-                Text(coachMessage)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Tip")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(Color.accentColor)
+
+                    Text(coachMessage)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
 
                 Spacer(minLength: SP.Space.s)
+
+                if let rule = resolvedRule, rule.actionID != nil {
+                    Button {
+                        onAction?(rule)
+                    } label: {
+                        Text(rule.actionTitle ?? "Learn more")
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .help(rule.actionTitle ?? "Learn more")
+                }
 
                 Button(action: dismiss) {
                     Image(systemName: "xmark")
@@ -104,8 +145,17 @@ public struct CoachPanelView: View {
             .padding(.horizontal, SP.Space.m)
             .padding(.vertical, SP.Space.s)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.quaternary.opacity(0.4))
-            .overlay(alignment: .top) { Divider() }
+            .background(
+                RoundedRectangle(cornerRadius: SP.Radius.panel, style: .continuous)
+                    .fill(.background)
+                    .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: SP.Radius.panel, style: .continuous)
+                    .strokeBorder(.quaternary, lineWidth: 1)
+            )
+            .padding(.horizontal, SP.Space.m)
+            .padding(.vertical, SP.Space.s)
         }
     }
 
