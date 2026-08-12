@@ -28,18 +28,41 @@ public struct StatusPoller {
     /// Interval between status queries, in nanoseconds.
     public let intervalNanoseconds: UInt64
 
-    public init(intervalNanoseconds: UInt64 = 500_000_000) {
+    /// SPK-1508 — when set and returning true, the poller goes quiet instead
+    /// of writing `?`. The ok-wait streamer and the status poller share the
+    /// wire; polling mid-stream would interleave `?` with the streamer's
+    /// command/ok exchange. The session wires this to its attached
+    /// streamer's `.streaming` state, so polling pauses for the stream
+    /// duration and resumes on complete/cancel — while staying live on
+    /// Idle/Hold (not streaming).
+    private let isStreaming: (() -> Bool)?
+
+    public init(intervalNanoseconds: UInt64 = 500_000_000,
+                isStreaming: (() -> Bool)? = nil) {
         self.intervalNanoseconds = intervalNanoseconds
+        self.isStreaming = isStreaming
     }
 
     /// Run the poll loop until the calling task is cancelled or the transport
-    /// rejects a write. Writes `?` immediately on entry, then on each tick.
+    /// rejects a write. Writes `?` immediately on entry, then on each tick —
+    /// unless the streaming gate says the streamer is mid-stream (SPK-1508).
     public func run(transport: MachineTransport) async {
         // Guard against a zero/absurd interval turning the loop into a
         // busy-write spin — never poll faster than 1 ms.
         let interval = max(intervalNanoseconds, 1_000_000)
 
         while !Task.isCancelled {
+            // SPK-1508 — quiet while streaming: sleep through the tick and
+            // re-check, so the streamer owns the wire for its whole run and
+            // polling resumes the moment the stream ends.
+            if isStreaming?() == true {
+                do {
+                    try await Task.sleep(nanoseconds: interval)
+                } catch {
+                    return
+                }
+                continue
+            }
             do {
                 try await transport.write(Data([Self.statusQueryByte]))
             } catch {

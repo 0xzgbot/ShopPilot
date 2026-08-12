@@ -64,8 +64,14 @@ public final class MachineSession: ObservableObject {
     // MARK: - Lifecycle
 
     public init(statusPollInterval: Duration = .milliseconds(500)) {
+        let box = StreamerStateBox()
+        self.streamStateBox = box
         self.statusPoller = StatusPoller(
-            intervalNanoseconds: Self.statusPollIntervalNanoseconds(statusPollInterval)
+            intervalNanoseconds: Self.statusPollIntervalNanoseconds(statusPollInterval),
+            // SPK-1508 — pause `?` while the attached streamer is mid-stream:
+            // the poller and the ok-wait streamer share the wire. Read through
+            // the box (not self) so the closure is init-safe.
+            isStreaming: { [weak box] in box?.streamer?.state == .streaming }
         )
     }
 
@@ -295,9 +301,18 @@ public final class MachineSession: ObservableObject {
 
     private var streamer: GCodeStreamer?
 
+    /// Weak box the poller's streaming gate reads (SPK-1508) — keeps the
+    /// gate closure free of `self` captures so `init` can build the poller
+    /// before the session is fully initialized.
+    private final class StreamerStateBox {
+        weak var streamer: GCodeStreamer?
+    }
+    private var streamStateBox: StreamerStateBox?
+
     /// Attach a streamer to this session for hold/resume/reset coordination.
     public func attachStreamer(_ streamer: GCodeStreamer) {
         self.streamer = streamer
+        streamStateBox?.streamer = streamer
     }
 }
 
