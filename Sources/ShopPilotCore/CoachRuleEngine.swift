@@ -70,14 +70,20 @@ public enum CoachRuleEngine {
         CoachRule(priority: 100, id: "blocking", message: "The export gate is blocking — fix the flagged toolpaths before saving.") {
             $0.hasBlockingIssue
         },
-        // Per-stage empty states (priority 50).
+        // Per-stage empty states (priority 50). SPK-1400j: the high-value
+        // ones carry a tip-card action the UI can run (Try a sample / Cut
+        // out / Connect) — same engine, actions are just data.
         CoachRule(priority: 50, id: "setup.empty", message: "Start with your stock: pick a material and set sheet dimensions.") {
             $0.stage == "setup" && !$0.hasSheets
         },
-        CoachRule(priority: 50, id: "design.empty", message: "Import an SVG/DXF or draw a shape — toolpaths need vectors.") {
+        CoachRule(priority: 50, id: "design.empty",
+                  message: "Import an SVG/DXF or draw a shape — toolpaths need vectors.",
+                  actionTitle: "Try a sample", actionID: "try_sample") {
             $0.stage == "design" && !$0.hasVectors
         },
-        CoachRule(priority: 50, id: "cut.empty", message: "Generate a toolpath from the Cut toolbar — your vectors are ready.") {
+        CoachRule(priority: 50, id: "cut.empty",
+                  message: "Generate a toolpath from the Cut toolbar — your vectors are ready.",
+                  actionTitle: "Cut out", actionID: "cut_out") {
             $0.stage == "cut" && $0.hasVectors && !$0.hasToolpaths
         },
         // Dirty-state suggestions (priority 40).
@@ -91,8 +97,10 @@ public enum CoachRuleEngine {
         CoachRule(priority: 30, id: "design.selection", message: "Right-click a vector for transform options; drag to move.") {
             $0.stage == "design" && $0.hasSelection
         },
-        // Machine-stage guidance (priority 50).
-        CoachRule(priority: 50, id: "machine.disconnected", message: "Pick a transport and connect — or use Simulator to dry-run.") {
+        // Machine-stage guidance (priority 50). SPK-1400j: connect action.
+        CoachRule(priority: 50, id: "machine.disconnected",
+                  message: "Pick a transport and connect — or use Simulator to dry-run.",
+                  actionTitle: "Connect", actionID: "connect_machine") {
             $0.stage == "machine" && !$0.isConnected
         },
         // Preview trust (priority 30).

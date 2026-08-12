@@ -32,10 +32,17 @@ func main() throws {
     try expect(plain.actionID == nil, "old-signature rule has nil actionID (got \(String(describing: plain.actionID)))")
     try expect(plain.actionTitle == nil, "old-signature rule has nil actionTitle (got \(String(describing: plain.actionTitle)))")
 
-    // ── 2. Existing standard rules construct unchanged (nil actions). ─────
+    // ── 2. Standard catalog: actions are ADDITIVE — rules that don't declare
+    // one keep nil action fields; rules that do (SPK-1400j) keep theirs. The
+    // additive model is proven by section 1 (old signature → nil); here we
+    // assert the catalog is internally consistent: every actionID has an
+    // actionTitle and rules without actions are untouched.
     for rule in rules {
-        try expect(rule.actionID == nil, "standard rule '\(rule.id)' carries no actionID (additive model)")
-        try expect(rule.actionTitle == nil, "standard rule '\(rule.id)' carries no actionTitle (additive model)")
+        if rule.actionID != nil {
+            try expect(rule.actionTitle != nil,
+                       "standard rule '\(rule.id)' has actionID but no actionTitle")
+        }
+        // No other invariant: rules may or may not carry actions (1400j).
     }
 
     // The engine contract from SPK-1205 still holds on the same rules.

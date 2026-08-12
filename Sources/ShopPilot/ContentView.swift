@@ -61,7 +61,25 @@ struct ContentView: View {
                                     hasBlockingIssue: session.toolpathTree.dirtyNodeCount > 0,
                                     hasSheets: !session.job.sheets.isEmpty,
                                     isConnected: session.machine.connection.connectionState == .connected
-                                )
+                                ),
+                                // SPK-1400j — run the tip card's action. The
+                                // rules carry only action IDs; routing stays in
+                                // the app so Core stays pure.
+                                onAction: { rule in
+                                    switch rule.actionID {
+                                    case "try_sample":
+                                        if let first = SampleProjectsStore.samples.first,
+                                           session.loadSampleProject(id: first.id) {
+                                            session.selectedStage = .design
+                                        }
+                                    case "cut_out":
+                                        session.generateProfileToolpath()
+                                    case "connect_machine":
+                                        session.selectedStage = .machine
+                                    default:
+                                        break
+                                    }
+                                }
                             )
                         }
                     }

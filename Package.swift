@@ -993,6 +993,14 @@ let package = Package(
             path: "Sources/ShopPilotVerify1400g"
         ),
 
+        // Phase O follow-up (2026-08-12) — coach tip-card actions on catalog
+        // rules (SPK-1400j).
+        .executableTarget(
+            name: "ShopPilotVerify1400j",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1400j"
+        ),
+
         .target(
             name: "ShopPilotCore",
             path: "Sources/ShopPilotCore"
