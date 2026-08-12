@@ -86,6 +86,20 @@ public enum CoachRuleEngine {
                   actionTitle: "Cut out", actionID: "cut_out") {
             $0.stage == "cut" && $0.hasVectors && !$0.hasToolpaths
         },
+        // SPK-1502 — the remaining empty states: Model and Preview had no
+        // guidance at all, and Setup got no next-step once sheets exist.
+        CoachRule(priority: 50, id: "model.empty",
+                  message: "Model needs a relief to shape — import an STL or image, or emboss text into a surface.") {
+            $0.stage == "model" && !$0.hasVectors
+        },
+        CoachRule(priority: 50, id: "preview.empty",
+                  message: "Generate a toolpath first — Preview simulates the cut, and there is nothing to simulate yet.") {
+            $0.stage == "preview" && !$0.hasToolpaths
+        },
+        CoachRule(priority: 40, id: "setup.next",
+                  message: "Stock is set — draw your design next, or open a bundled sample to get started.") {
+            $0.stage == "setup" && $0.hasSheets
+        },
         // Dirty-state suggestions (priority 40).
         CoachRule(priority: 40, id: "cut.dirty", message: "Some toolpaths are stale — Recalc All updates them in one click.") {
             $0.stage == "cut" && $0.isDirty && $0.hasToolpaths
@@ -102,6 +116,12 @@ public enum CoachRuleEngine {
                   message: "Pick a transport and connect — or use Simulator to dry-run.",
                   actionTitle: "Connect", actionID: "connect_machine") {
             $0.stage == "machine" && !$0.isConnected
+        },
+        // SPK-1502 — connected machine: the next step is zeroing + homing,
+        // not Connect (which the disconnected rule already covers).
+        CoachRule(priority: 40, id: "machine.connected",
+                  message: "Machine is connected — home it and set work zero before the first cut.") {
+            $0.stage == "machine" && $0.isConnected
         },
         // Preview trust (priority 30).
         CoachRule(priority: 30, id: "preview.hint", message: "Hover a cut layer to highlight its path; switch material to preview the finish.") {
