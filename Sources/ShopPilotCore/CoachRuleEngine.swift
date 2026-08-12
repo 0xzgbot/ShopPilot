@@ -33,14 +33,22 @@ public struct CoachRule: Sendable {
     public let priority: Int            // higher wins
     public let id: String
     public let message: String
+    /// Optional tip-card action: when `actionID` is non-nil the coach UI shows
+    /// a Button labelled `actionTitle`. SPK-1400f — additive: both default to
+    /// nil so existing rules (and their construction sites) are unaffected.
+    public let actionTitle: String?
+    public let actionID: String?
     /// Matches when the context satisfies this rule's conditions.
     public let matches: (CoachContext) -> Bool
 
     public init(priority: Int, id: String, message: String,
+                actionTitle: String? = nil, actionID: String? = nil,
                 matches: @escaping (CoachContext) -> Bool) {
         self.priority = priority
         self.id = id
         self.message = message
+        self.actionTitle = actionTitle
+        self.actionID = actionID
         self.matches = matches
     }
 }
