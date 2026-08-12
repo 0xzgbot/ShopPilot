@@ -1014,6 +1014,38 @@ let package = Package(
             path: "Sources/ShopPilotVerify1401h"
         ),
 
+        // Phase P (2026-08-12) — stream hygiene + coach + factory.
+        .executableTarget(
+            name: "ShopPilotVerify1504",
+            dependencies: ["ShopPilotCore", "ShopPilotSerial"],
+            path: "Sources/ShopPilotVerify1504"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1508",
+            dependencies: ["ShopPilotCore", "ShopPilotSerial"],
+            path: "Sources/ShopPilotVerify1508"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1502",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1502"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1509",
+            dependencies: ["ShopPilotCore", "ShopPilotSerial"],
+            path: "Sources/ShopPilotVerify1509"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1501",
+            dependencies: ["ShopPilotCore", "ShopPilotSerial"],
+            path: "Sources/ShopPilotVerify1501"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1506",
+            dependencies: ["ShopPilotCore", "ShopPilotSerial"],
+            path: "Sources/ShopPilotVerify1506"
+        ),
+
         // AppSession split slice 1 (2026-08-12) — sample-load lifecycle
         // extraction (SPK-1403a).
         .executableTarget(

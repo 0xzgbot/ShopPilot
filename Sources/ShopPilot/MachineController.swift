@@ -385,7 +385,10 @@ public final class MachineController: ObservableObject {
         }
 
         await MainActor.run { self.isStreamingJob = true }
-        await streamer.reset()
+        // SPK-1504 — Start must NOT write GRBL reset (0x18): a fresh job
+        // starts by streaming, not by resetting the controller. State-only
+        // reset clears progress/line counters without touching the wire.
+        streamer.resetStreamState()
         machineSession.attachStreamer(streamer)
 
         do {
@@ -404,6 +407,13 @@ public final class MachineController: ObservableObject {
             await finishStream(message: "Not connected — nothing streamed")
             return
         }
+
+        // SPK-1504 — the fallback path must attach the streamer exactly like
+        // the buffer path: Hold/Reset route through MachineSession →
+        // streamer coordination, so a fallback stream without an attached
+        // streamer would break single-writer realtime (1401e).
+        streamer.resetStreamState()
+        machineSession.attachStreamer(streamer)
 
         let resolved: [String]
         if !lines.isEmpty {
