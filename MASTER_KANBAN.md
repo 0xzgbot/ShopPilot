@@ -1,6 +1,6 @@
 # ShopPilot — Master Kanban (single source of truth)
 
-**Last updated:** 2026-08-01
+**Last updated:** 2026-08-12
 **Project root:** `~/Desktop/ShopPilot`  
 **Status:** Living board — agents work **only** from this file until ship  
 
@@ -1215,6 +1215,45 @@ Plan: `docs/planning/UI_OVERHAUL_PLAN.md`. DoD = Engine + UI + Persist + Verify 
 
 **Permanent scope lock (2026-08-10):** 3D-view vector editing / Fusion-style parametric 3D modeling is **never** in scope — ShopPilot is a 2.5D CAM tool, not a CAD app. The existing Model-stage relief editing (components/combine/sculpt) is unaffected. Matrix rows B02/B08/B09/E34 remain `[-]` forever.
 
+### Phase O — friendliness + live serial (2026-08-12)
+
+Plan + Wave 0 prompts: [`docs/planning/FRIENDLINESS_AND_SERIAL_PATH.md`](./docs/planning/FRIENDLINESS_AND_SERIAL_PATH.md).  
+Parents stay `[ ]` until children cover DoD. SPK-1312/1313/1324 stay `[x]` (engine-only); these children own the remaining product AC.
+
+**Track A — Friendliness** (`SPK-1400`) — UI only; no serial. Agent briefing in the plan (Mac creative app, rail, palettes, HIG, samples). Unpushed Design palette already started the pattern; Cut/Setup next.
+
+- [ ] **SPK-1400** **UX** Friendliness parent — Welcome samples + real Open/Import; Setup Advanced; friendly copy; Cut recipes; coach tip card; Hold/Reset unchanged. Deps: none. DoD on parent.
+- [ ] **SPK-1400a** **UX** Welcome samples + real Open/Import — `SampleProjectsStore` cards; `AppSession.loadSampleProject`; Open/Import use File/Import hub. Files: `WelcomeSheetView.swift`, `AppSession.swift` (load only). Verify: `ShopPilotVerify1313` + `ShopPilotVerify1400a`. // parallel-ok with 1401b, 1401d. Assignee: coder. 90m.
+- [ ] **SPK-1400b** **UX** Setup collapse — NewJob + Material first; rest under `DisclosureGroup("Advanced")`. Files: `ContentView.swift` `SetupStageView` only. Verify: `scripts/verify_1400b_setup.py` or `ShopPilotVerify1400b`. Serialize vs other ContentView cards. Assignee: coder. 60m.
+- [ ] **SPK-1400c** **UX** Friendly stage copy — `FriendlyCopy.swift` + `Stage.intent`. No ContentView. Verify: `ShopPilotVerify1400c`. // parallel-ok. Assignee: coder or spark. 45m.
+- [ ] **SPK-1400d** **UX** Design empty state — “tool on the left” + Try a sample (1400a API); Untitled Project chrome. Files: `ContentView.swift` Design empty overlay. Deps: 1400a. Serialize ContentView. Assignee: coder. 45m.
+- [ ] **SPK-1400e** **UX** Cut recipes — Cut out / Pocket / Engrave + More; Follow Source + Recalc stay. Files: `ContentView.swift` Cut toolbar. Out of scope: deleting engines; 1400h. Serialize ContentView. Assignee: coder. 90m.
+- [ ] **SPK-1400f** **UX** Coach tip card — icon + message + optional action; same `CoachRuleEngine`. Files: `CoachPanelView.swift`. Verify: `ShopPilotVerify1205` + `ShopPilotVerify1400f` if rules gain `actionTitle`. // parallel-ok vs ContentView. Assignee: coder. 60m.
+- [ ] **SPK-1400g** **UX** Inspector honesty — bind stock W/D/H or remove fakes; Model inspector not Studio3D-only; no UUID prefixes. Files: `InspectorShell.swift`. Assignee: coder. 60m.
+- [ ] **SPK-1400h** **UX** Cut left density — Layers/Tree + tool picker default; keep-outs/queue/plugins under More. Deps: 1400e preferred. Files: `ContentView.swift` Cut left. Assignee: coder. 60m.
+- [ ] **SPK-1400i** **HYGIENE** Dead UI — unused `RightPanelView`, `StageContentView`. Verify: `./scripts/swift_locked.sh build --target ShopPilot`. Assignee: spark or coder. 45m.
+
+**Track B — Live serial** (`SPK-1401`) — no UI friendliness. Do not mix into 1400 cards.
+
+- [ ] **SPK-1401** **MACHINE** Live serial parent — config+termios, jog `\\n`+G90, ALARM/timeout, single realtime writer, status `?`. Deps: none. DoD on parent.
+- [ ] **SPK-1401a** **MACHINE** Config reaches `open` — UI port/baud → `ShopPilotCore.SerialConfig` into `transport.open` + factory. Files: `MachineConnection.swift`, `App.swift`, `MachineSession.swift`. Verify: `ShopPilotVerify1401a`. Deps: 1401b preferred first. Assignee: coder. 60m.
+- [ ] **SPK-1401b** **MACHINE** termios baud — `configureSerial` applies 8N1 + baud; do not discard `baudRate`. Files: `RealSerialTransport.swift`. Verify: `ShopPilotVerify1401b`. // parallel-ok Wave 0. Assignee: coder. 60m.
+- [ ] **SPK-1401c** **MACHINE** Jog newline + G90 — `sendCommand` appends `\\n`; jog restores G90. Files: `MachineController.swift`, `ConnectionManager`. Verify: `ShopPilotVerify1401c`. Deps: 1401a. Assignee: coder. 60m.
+- [ ] **SPK-1401d** **MACHINE** waitForOk ALARM + timeout — throw on `ALARM:`/`error:`; 5s timeout. Files: `GCodeStreamer.swift`. Verify: `ShopPilotVerify1401d`. // parallel-ok Wave 0. Assignee: coder. 60m.
+- [ ] **SPK-1401e** **MACHINE** Single realtime writer — Hold/Reset write `!` / `0x18` once. Files: `MachineController.swift`, `MachineSession.swift`. Verify: `ShopPilotVerify1401e`. Assignee: coder. 45m.
+- [ ] **SPK-1401f** **MACHINE** Status poll sends `?`. Files: `MachineSession.swift`. Verify: `ShopPilotVerify1401f`. Assignee: coder. 45m.
+
+**Track C — Persist honesty** (`SPK-1402`) — not parallel with 1400a on `AppSession`.
+
+- [ ] **SPK-1402** **DOC** Persist parent — Autosaver started; corrupt sheets not silent; Metal check does not lie. Deps: none.
+- [ ] **SPK-1402a** **DOC** Wire Autosaver — start from `AppSession`; recovery offer. Verify: `ShopPilotVerify1402a` (or 1312 if it covers session start). Deps: 1400a done with AppSession. Assignee: coder. 60m.
+- [ ] **SPK-1402b** **DOC** Corrupt sheets fail open (or warn). Files: `DocumentLoader.swift`. Verify: `ShopPilotVerify1402b`. Assignee: coder. 45m.
+- [ ] **SPK-1402c** **HYGIENE** Metal honesty — real `MTLCreateSystemDefaultDevice` or stop claiming Metal. Files: `MetalPreview.swift`. Verify: `ShopPilotVerify1402c`. // parallel-ok. Assignee: spark or coder. 45m.
+
+**Wave 0 dispatch (start now, 3 coder):** `SPK-1401b`, `SPK-1401d`, `SPK-1400a`. Prompts in the plan. Commit/stash Design palette before 1400a (`AppSession.designTool`).
+
+**Out of Phase O:** AppSession split, `@Observable` migration, NavigationSplitView rewrite, Easy/Expert SKU, char-count streaming.
+
 ---
 
 ## 3. Kanban column mapping (for Hermes / UI boards)
@@ -1275,6 +1314,14 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 ---
 
 ## 12. Work log
+
+### 2026-08-12 — Phase O opened (friendliness + live serial)
+- Plan: `docs/planning/FRIENDLINESS_AND_SERIAL_PATH.md` (agent briefing, card catalog, Wave 0–2 prompts).
+- Board: SPK-1400 / 1401 / 1402 parents `[ ]` + children 1400a–i, 1401a–f, 1402a–c.
+- Honest reopen: 1313/1312/1324 stay `[x]` (engine-only); Phase O owns remaining product AC.
+- Wave 0 (start now, 3 coder, orthogonal files): **1401b** termios, **1401d** waitForOk ALARM, **1400a** Welcome samples. Commit/stash unpushed Design palette before 1400a.
+- UI doctrine on every 1400* card: Mac creative app, 6-stage rail, palettes+inspector, Hold/Reset, no auto-run; no NavigationSplitView rewrite; serial stays on 1401*.
+- Result: plan + board only — no app UI this pass.
 
 ### 2026-08-07 — SPK-0512/0513 document variables (evidence audit, Hermes coder)
 - **SPK-0512 [x] + SPK-0513 [x]** — both cards were stale-open: the panel (`DocumentVariablesPanelView`, add/edit/delete + categories), the model (`DocumentVariablesModel`, JSON persistence), and NewJobView's width/depth/height doc-var overrides were all shipped 2026-07-31 but had no CLT. Added `ShopPilotVerify0512` — CRUD, categories, save/load round-trip, the 0513 override contract (width 610 overrides 457.2, depth 900 overrides 609.6, missing height falls back), calc-box integration, legacy-safe fresh load — **PASS**. App debug build green.

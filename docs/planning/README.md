@@ -15,6 +15,7 @@ Archived product overview: [`README_MAC_NATIVE.md`](README_MAC_NATIVE.md)
 | [`SAFETY.md`](SAFETY.md) | Safety guidelines |
 | [`PACKAGING.md`](PACKAGING.md) | Packaging / distribution notes (personal use) |
 | [`FINISH_ROADMAP.md`](FINISH_ROADMAP.md) | Feature-completion roadmap (Tracks 1–6, all shipped) |
+| [`FRIENDLINESS_AND_SERIAL_PATH.md`](FRIENDLINESS_AND_SERIAL_PATH.md) | Phase O — UI friendliness + live-serial cards, Wave 0 prompts |
 | [`FEATURE_PARITY_MATRIX.md`](FEATURE_PARITY_MATRIX.md) | Reference V12 feature comparison (136/183 shipped) |
 | [`V2_SHIP_CHECKLIST.md`](V2_SHIP_CHECKLIST.md) | v2 feature-gate checklist (Phases I–N) |
 | [`BUILD_STATUS.md`](BUILD_STATUS.md) | Build/test ground truth (175-target sweep) |
