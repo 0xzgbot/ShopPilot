@@ -46,16 +46,11 @@ enum Stage: String, CaseIterable, Identifiable {
     }
 
     /// One-line statement of intent, shown under the stage title on the empty
-    /// canvas and as the rail's tooltip.
+    /// canvas and as the rail's tooltip. Friendly sentence-case copy lives in
+    /// Core (FriendlyCopy) so CLT verifies can assert it; raw values align
+    /// 1:1 with FriendlyCopyStage, so the fallback never fires.
     var intent: String {
-        switch self {
-        case .setup:      return "Stock, origin and machine"
-        case .design:     return "Draw and import 2D artwork"
-        case .model:      return "3D relief components"
-        case .cut:        return "Toolpath strategies"
-        case .preview:    return "Trust the cut before you make it"
-        case .machine:    return "Connect, zero and run"
-        }
+        FriendlyCopy.intent(for: FriendlyCopyStage(rawValue: rawValue) ?? .setup)
     }
 
     /// ⌘1…⌘6 — the rail is navigable without the mouse.
