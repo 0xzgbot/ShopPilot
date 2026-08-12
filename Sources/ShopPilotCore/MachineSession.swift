@@ -46,7 +46,16 @@ public final class MachineSession: ObservableObject {
     // MARK: - Private State
 
     private var transport: MachineTransport?
-    private var statusPollTask: Task<Void, Never>?
+
+    /// Consumes transport events and parses `<Idle|MPos:…>` status reports
+    /// into the published state.
+    private var eventTask: Task<Void, Never>?
+
+    /// Actively queries GRBL by writing `?` on an interval (SPK-1401f).
+    private var pollTask: Task<Void, Never>?
+
+    /// The poller that writes the GRBL status-query byte to the transport.
+    private let statusPoller: StatusPoller
 
     // MARK: - Computed Properties
 
@@ -54,10 +63,23 @@ public final class MachineSession: ObservableObject {
 
     // MARK: - Lifecycle
 
-    public init() {}
+    public init(statusPollInterval: Duration = .milliseconds(500)) {
+        self.statusPoller = StatusPoller(
+            intervalNanoseconds: Self.statusPollIntervalNanoseconds(statusPollInterval)
+        )
+    }
 
     deinit {
-        statusPollTask?.cancel()
+        eventTask?.cancel()
+        pollTask?.cancel()
+    }
+
+    /// Convert a `Duration` to whole nanoseconds for the poller's sleep.
+    private static func statusPollIntervalNanoseconds(_ interval: Duration) -> UInt64 {
+        let components = interval.components
+        let seconds = UInt64(max(0, components.seconds))
+        let attoseconds = UInt64(max(0, components.attoseconds))
+        return seconds * 1_000_000_000 + attoseconds / 1_000_000_000
     }
 
     // MARK: - Connection Management
@@ -92,8 +114,10 @@ public final class MachineSession: ObservableObject {
     }
 
     public func disconnect() async {
-        statusPollTask?.cancel()
-        statusPollTask = nil
+        eventTask?.cancel()
+        eventTask = nil
+        pollTask?.cancel()
+        pollTask = nil
         await transport?.close()
         transport = nil
         connectionState = .disconnected
@@ -106,8 +130,10 @@ public final class MachineSession: ObservableObject {
     /// external owner — e.g. `ConnectionManager` — manages the transport's
     /// lifecycle). Stops status polling and resets local state.
     public func detach() {
-        statusPollTask?.cancel()
-        statusPollTask = nil
+        eventTask?.cancel()
+        eventTask = nil
+        pollTask?.cancel()
+        pollTask = nil
         transport = nil
         connectionState = .disconnected
         machineState = "unknown"
@@ -118,7 +144,9 @@ public final class MachineSession: ObservableObject {
     // MARK: - Status Polling
 
     private func startStatusPolling(transport: MachineTransport) {
-        statusPollTask = Task { [weak self] in
+        // Reader: consume transport events and parse status reports into the
+        // published position/state the UI shows.
+        eventTask = Task { [weak self] in
             guard let self else { return }
             for await event in transport.events {
                 guard !Task.isCancelled else { break }
@@ -159,6 +187,15 @@ public final class MachineSession: ObservableObject {
                     }
                 }
             }
+        }
+
+        // Poller: actively ask GRBL for status by writing '?' on an interval.
+        // The poller is cancellable (disconnect()/detach() cancel this task)
+        // and stops writing the moment the task is cancelled or the transport
+        // rejects a write — the wire goes silent with the connection.
+        pollTask = Task { [weak self] in
+            guard let self else { return }
+            await self.statusPoller.run(transport: transport)
         }
     }
 
