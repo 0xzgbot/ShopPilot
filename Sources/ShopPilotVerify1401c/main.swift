@@ -62,6 +62,15 @@ func main() throws {
                "restore line is exactly G90")
 
     // ── 3. Recording transport: session send path. ─────────────────────────
+    // NOTE (post-1401f): MachineSession starts StatusPoller on connect, which
+    // legitimately writes the GRBL status-query byte '?' immediately and then
+    // on its interval. The deltas below therefore FILTER OUT the poller's '?'
+    // bytes before asserting the command bytes, so this card proves the line
+    // shaping while coexisting with the poll (1401f's own verify proves '?').
+    func withoutPollBytes(_ delta: String) -> String {
+        delta.filter { $0 != Character(UnicodeScalar(StatusPoller.statusQueryByte)) }
+    }
+
     try awaitBlocking {
         let sim = SimulatorTransport()
         let session = MachineSession()
@@ -71,14 +80,14 @@ func main() throws {
         // Non-jog command: newline-terminated, and NO G90 injected.
         let before1 = await sim.writtenBytesSnapshot
         try await session.sendCommand("G28")
-        let sent1 = String(decoding: (await sim.writtenBytesSnapshot).dropFirst(before1.count), as: UTF8.self)
+        let sent1 = withoutPollBytes(String(decoding: (await sim.writtenBytesSnapshot).dropFirst(before1.count), as: UTF8.self))
         try expect(sent1 == "G28\n", "session sendCommand('G28') writes 'G28\\n' (got \(sent1.debugDescription))")
         try expect(!sent1.contains("G90"), "non-jog sendCommand does NOT inject G90")
 
         // Already-terminated command stays single-terminated through the session.
         let before2 = await sim.writtenBytesSnapshot
         try await session.sendCommand("G91 G0 X5.000\n")
-        let sent2 = String(decoding: (await sim.writtenBytesSnapshot).dropFirst(before2.count), as: UTF8.self)
+        let sent2 = withoutPollBytes(String(decoding: (await sim.writtenBytesSnapshot).dropFirst(before2.count), as: UTF8.self))
         try expect(sent2 == "G91 G0 X5.000\n",
                    "pre-terminated command is written unchanged (got \(sent2.debugDescription))")
 
@@ -88,7 +97,7 @@ func main() throws {
         for line in jog {
             try await session.sendCommand(line)
         }
-        let sent3 = String(decoding: (await sim.writtenBytesSnapshot).dropFirst(before3.count), as: UTF8.self)
+        let sent3 = withoutPollBytes(String(decoding: (await sim.writtenBytesSnapshot).dropFirst(before3.count), as: UTF8.self))
         try expect(sent3 == "G91 G0 X5.000\nG90\n",
                    "jog sequence writes G91 block then G90 restore, newline-terminated (got \(sent3.debugDescription))")
 
