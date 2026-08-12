@@ -980,6 +980,19 @@ let package = Package(
             path: "Sources/ShopPilotVerify1400f"
         ),
 
+        // Phase O Wave 3 (2026-08-12) — single realtime writer, inspector
+        // honesty.
+        .executableTarget(
+            name: "ShopPilotVerify1401e",
+            dependencies: ["ShopPilotCore", "ShopPilotSerial"],
+            path: "Sources/ShopPilotVerify1401e"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1400g",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1400g"
+        ),
+
         .target(
             name: "ShopPilotCore",
             path: "Sources/ShopPilotCore"
