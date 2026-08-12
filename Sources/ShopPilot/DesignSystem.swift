@@ -113,45 +113,6 @@ extension View {
     }
 }
 
-// MARK: - Empty state
-
-/// Quiet first-run surface: one symbol, one sentence, one action. Deliberately
-/// not a dashboard — the UX plan calls for confidence, not statistics.
-struct EmptyStage: View {
-    let symbol: String
-    let title: String
-    let message: String
-    var actionTitle: String?
-    var action: (() -> Void)?
-
-    var body: some View {
-        VStack(spacing: SP.Space.m) {
-            Image(systemName: symbol)
-                .font(.system(size: 34, weight: .light))
-                .foregroundStyle(.tertiary)
-
-            VStack(spacing: SP.Space.xs) {
-                Text(title)
-                    .font(SP.Typography.stageTitle)
-
-                Text(message)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 340)
-            }
-
-            if let actionTitle, let action {
-                Button(actionTitle, action: action)
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(SP.Space.xl)
-    }
-}
-
 // MARK: - Machine chrome state
 
 /// Glanceable machine state for the global chrome. Mirrors the connection and
