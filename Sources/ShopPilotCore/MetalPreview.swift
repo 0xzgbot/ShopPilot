@@ -1,4 +1,5 @@
 import Foundation
+import Metal
 
 // MARK: - Viewport State
 
@@ -135,16 +136,17 @@ public final class MetalPreviewRenderer {
     /// Whether metal rendering is available and enabled.
     public var isMetalAvailable: Bool
     
-    init(configuration: MetalPreviewConfiguration, initialViewport: ViewportState) {
+    public init(configuration: MetalPreviewConfiguration, initialViewport: ViewportState) {
         self.configuration = configuration
         self.currentViewport = initialViewport
         self.isMetalAvailable = configuration.enableMetal && Self.checkMetalAvailability()
     }
-    
-    /// Check if metal rendering is available on this device.
-    private static func checkMetalAvailability() -> Bool {
-        // In a real implementation, this would query the MTLDevice
-        return true
+
+    /// Check if Metal rendering is actually available on this device by
+    /// querying the system default MTLDevice. Returns false in environments
+    /// without a Metal-capable GPU (e.g. some virtual machines).
+    public static func checkMetalAvailability() -> Bool {
+        MTLCreateSystemDefaultDevice() != nil
     }
     
     /// Update the viewport state (pan/zoom/rotate).
