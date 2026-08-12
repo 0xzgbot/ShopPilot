@@ -21,9 +21,22 @@ struct ContentView: View {
                 }
 
                 HSplitView {
-                    LeftPanelView(session: session)
-                        .frame(minWidth: 180, idealWidth: 220, maxWidth: 280)
+                    if session.selectedStage == .design {
+                        // Design stage: the left edge is the tool palette +
+                        // slim layers panel (Photoshop/Aspire/LightBurn model),
+                        // not the document tree.
+                        HStack(spacing: 0) {
+                            DesignToolPaletteView(tool: $session.designTool)
+                            Divider()
+                            LeftPanelView(session: session, compact: true)
+                        }
+                        .frame(minWidth: 208, idealWidth: 224, maxWidth: 236)
                         .spSidebar(edge: .trailing)
+                    } else {
+                        LeftPanelView(session: session)
+                            .frame(minWidth: 160, idealWidth: 190, maxWidth: 240)
+                            .spSidebar(edge: .trailing)
+                    }
 
                     VStack(spacing: 0) {
                         stageBody
@@ -526,127 +539,136 @@ private struct DesignStageView: View {
         }
     }
 
-    /// SPK-1101d: Design ops bar — Offset / Weld / Subtract / Intersect /
-    /// Join / Close / Trim, all routed through the session apply* methods
-    /// (undo-point + dirty + persist via syncLayerVectors).
+    /// Design ops — slim context bar (Aspire/LightBurn pattern). The wall of
+    /// text buttons is gone: boolean/transform/import ops live in grouped
+    /// menus, the active draw tool is a chip up front, and the left rail
+    /// (DesignToolPaletteView) owns tool selection.
     private var opsBar: some View {
         HStack(spacing: 8) {
-            Text("Ops:")
+            // Active tool chip + plain-English hint.
+            Label(session.designTool.label, systemImage: session.designTool.symbol)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(Color.accentColor)
+            Text(session.designTool.hint)
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            Button("Offset…") { showOffsetDialog = true }
-                .disabled(session.selectedShapeIndices.isEmpty)
-                .help("Offset selected vectors by a distance (positive = outward)")
-            Button("Weld") { _ = session.applyWeld() }
-                .disabled(session.selectedShapeIndices.count < 2)
-                .help("Union selected vectors into one region")
-            Button("Subtract") { _ = session.applySubtract() }
-                .disabled(session.selectedShapeIndices.count < 2)
-                .help("Subtract the 2nd..nth selected shapes from the first")
-            Button("Intersect") { _ = session.applyIntersect() }
-                .disabled(session.selectedShapeIndices.count < 2)
-                .help("Keep the overlap of all selected shapes")
-            Button("Join") { _ = session.applyJoin() }
-                .disabled(session.selectedShapeIndices.count < 2)
-                .help("Join selected lines/polylines that share endpoints")
-            Button("Close") { _ = session.applyClose() }
-                .disabled(session.selectedShapeIndices.isEmpty)
-                .help("Close selected open polylines")
-            Button("Trim") { _ = session.applyTrimToSelection() }
-                .disabled(session.selectedShapeIndices.count < 2)
-                .help("Clip open vectors to the selected closed shapes' bounds")
-            Button("Fillet…") { showFilletDialog = true }
-                .disabled(session.selectedShapeIndices.isEmpty)
-                .help("Round the corners of selected vectors")
-            // SPK-1301 — dogbone corner relief (joinery): add relief circles
-            // so a round bit reaches a rectangle pocket's square corners.
-            Button("Dogbone…") { showDogboneDialog = true }
-                .disabled(!session.hasSelectedRectangle)
-                .help("Add dogbone corner-relief circles to the selected rectangle pocket (joinery)")
-            Button("Extend…") { showExtendDialog = true }
-                .disabled(session.selectedShapeIndices.isEmpty)
-                .help("Extend the open ends of selected vectors")
-            Button("Fit Curves") { _ = session.applyFitCurves() }
-                .disabled(session.selectedShapeIndices.isEmpty)
-                .help("Smooth selected vectors into curves — corners sharper than 60° survive")
-            Button("Array…") { showArrayDialog = true }
-                .disabled(session.selectedShapeIndices.isEmpty)
-                .help("Copy the selection into a columns × rows grid")
-            Button("Circular…") { showCircularDialog = true }
-                .disabled(session.selectedShapeIndices.isEmpty)
-                .help("Copy the selection around its center")
-            Button("Nest…") { showNestDialog = true }
-                .disabled(session.shapes.isEmpty)
-                .help("Arrange copies of the selection (or all shapes) into the sheet with the guillotine nest engine")
-            Button("Tile…") { showTilingDialog = true }
-                .disabled(session.shapes.isEmpty)
-                .help("Repeat the selection (or all shapes) across the sheet in a rows × columns grid")
-            Button("Keyhole…") { showKeyholeDialog = true }
-                .help("Add a keyhole-slot vector for wall-hanging mounts")
-            Button("Text…") { showTextDialog = true }
-                .help("Add text as editable vector glyphs (ready for V-Carve)")
-            Button("Trace…") { session.traceBitmapFromPanel() }
-                .help("Trace a bitmap image into vector paths")
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .frame(maxWidth: 240, alignment: .leading)
+
+            Spacer(minLength: 8)
+
+            Menu {
+                Section("Combine") {
+                    Button("Weld") { _ = session.applyWeld() }
+                        .disabled(session.selectedShapeIndices.count < 2)
+                    Button("Subtract") { _ = session.applySubtract() }
+                        .disabled(session.selectedShapeIndices.count < 2)
+                    Button("Intersect") { _ = session.applyIntersect() }
+                        .disabled(session.selectedShapeIndices.count < 2)
+                    Button("Join") { _ = session.applyJoin() }
+                        .disabled(session.selectedShapeIndices.count < 2)
+                    Button("Close") { _ = session.applyClose() }
+                        .disabled(session.selectedShapeIndices.isEmpty)
+                    Button("Trim") { _ = session.applyTrimToSelection() }
+                        .disabled(session.selectedShapeIndices.count < 2)
+                }
+                Section("Edit") {
+                    Button("Offset…") { showOffsetDialog = true }
+                        .disabled(session.selectedShapeIndices.isEmpty)
+                    Button("Fillet…") { showFilletDialog = true }
+                        .disabled(session.selectedShapeIndices.isEmpty)
+                    Button("Dogbone…") { showDogboneDialog = true }
+                        .disabled(!session.hasSelectedRectangle)
+                    Button("Extend…") { showExtendDialog = true }
+                        .disabled(session.selectedShapeIndices.isEmpty)
+                    Button("Fit Curves") { _ = session.applyFitCurves() }
+                        .disabled(session.selectedShapeIndices.isEmpty)
+                }
+                Section("Copy") {
+                    Button("Array…") { showArrayDialog = true }
+                        .disabled(session.selectedShapeIndices.isEmpty)
+                    Button("Circular…") { showCircularDialog = true }
+                        .disabled(session.selectedShapeIndices.isEmpty)
+                    Button("Nest…") { showNestDialog = true }
+                        .disabled(session.shapes.isEmpty)
+                    Button("Tile…") { showTilingDialog = true }
+                        .disabled(session.shapes.isEmpty)
+                }
+            } label: {
+                Label("Modify", systemImage: "wand.and.stars")
+            }
+            .help("Boolean ops and shape edits on the selection")
+
+            Menu {
+                Button("Text…") { showTextDialog = true }
+                Button("Keyhole…") { showKeyholeDialog = true }
+                Button("Trace Bitmap…") { session.traceBitmapFromPanel() }
+            } label: {
+                Label("Add", systemImage: "plus.circle")
+            }
+
+            Menu {
+                Button("Nudge +1 mm") { _ = session.applyNudgeX() }
+                    .disabled(session.selectedShapeIndices.isEmpty)
+                Button("Flip Horizontal") { _ = session.applyFlipHorizontal() }
+                    .disabled(session.selectedShapeIndices.isEmpty)
+                Button("Rotate 90°") { _ = session.applyRotate90() }
+                    .disabled(session.selectedShapeIndices.isEmpty)
+                Button("Scale 1.1×") { _ = session.applyScale110() }
+                    .disabled(session.selectedShapeIndices.isEmpty)
+                Button("Set Size…") { showSetSizeDialog = true }
+                    .disabled(session.selectedShapeIndices.isEmpty)
+                Divider()
+                Button("Group") { _ = session.applyGroup() }
+                    .disabled(session.selectedShapeIndices.count < 2)
+                Button("Ungroup") { _ = session.applyUngroup() }
+                    .disabled(session.selectedShapeIndices.isEmpty)
+            } label: {
+                Label("Transform", systemImage: "arrow.up.left.and.arrow.down.right")
+            }
+
+            Menu {
+                Button("SVG / DXF / WebP…") { showImportHub = true }
+                Divider()
+                Section("Relief") {
+                    Button("STL Relief…") { session.importSTLHeightfieldFromPanel() }
+                    Button("OBJ Relief…") { session.importOBJHeightfieldFromPanel() }
+                    Button("3MF Relief…") { session.import3MFHeightfieldFromPanel() }
+                }
+                Section("Vector") {
+                    Button("EPS…") { session.importEPSFromPanel() }
+                    Button("PDF…") { session.importPDFFromPanel() }
+                    Button("AI…") { session.importAIFromPanel() }
+                    Button("DWG…") { session.importDWGFromPanel() }
+                }
+            } label: {
+                Label("Import", systemImage: "square.and.arrow.down")
+            }
+
             Button("Export DXF…") { exportDXF() }
                 .disabled(session.shapes.isEmpty)
                 .help("Export the design vectors as ASCII DXF (mm)")
+
             Divider().frame(height: 14)
-            // SPK-1101f: transforms — one-shot, selection-gated, undo+dirty.
-            Button("Nudge X+1") { _ = session.applyNudgeX() }
-                .disabled(session.selectedShapeIndices.isEmpty)
-                .help("Move selected vectors +1 mm in X")
-            Button("Flip H") { _ = session.applyFlipHorizontal() }
-                .disabled(session.selectedShapeIndices.isEmpty)
-                .help("Mirror selected vectors across the selection centerline")
-            Button("Rotate 90°") { _ = session.applyRotate90() }
-                .disabled(session.selectedShapeIndices.isEmpty)
-                .help("Rotate selected vectors 90° CCW around the selection centroid")
-            Button("Scale 1.1×") { _ = session.applyScale110() }
-                .disabled(session.selectedShapeIndices.isEmpty)
-                .help("Scale selected vectors 1.1× about the selection centroid")
-            Button("Set Size…") { showSetSizeDialog = true }
-                .disabled(session.selectedShapeIndices.isEmpty)
-                .help("Scale the selection's bounding box to an exact width/height")
-            Button("Group ⌘G") { _ = session.applyGroup() }
-                .disabled(session.selectedShapeIndices.count < 2)
-                .help("Group selected vectors so they move, scale and rotate together")
-            Button("Ungroup ⇧⌘G") { _ = session.applyUngroup() }
-                .disabled(session.selectedShapeIndices.isEmpty)
-                .help("Dissolve groups touching the selection")
-            Divider().frame(height: 14)
-            // SPK-0211+0212: Vector Preflight Doctor — run before Cut.
-            // SPK-UI605: Import is opt-in once the canvas has geometry.
-            Button("Import…") { showImportHub = true }
-                .help("Import SVG / DXF into the current job")
-            Button("Check Vectors") {
+
+            Button {
                 _ = session.runPreflight()
                 session.preflightPanelVisible = true
+            } label: {
+                Label("Check", systemImage: "checkmark.seal")
             }
-            .help("Detect open vectors, self-intersections, degenerate shapes and gaps — with fix actions (before cutting)")
-            Button("Validate All") {
+            .help("Detect open vectors, self-intersections and gaps before cutting")
+
+            Button {
                 _ = session.runVectorValidation()
                 showValidationPanel = true
+            } label: {
+                Label("Validate", systemImage: "magnifyingglass")
             }
-            .help("SPK-0806: run the expanded batch validator (topology/geometry/precision, fix actions) over every vector")
-            Divider().frame(height: 14)
-            // SPK-3D-spine-a: import an STL relief as a heightfield.
-            Button("STL Relief…") { session.importSTLHeightfieldFromPanel() }
-                .help("Import an ASCII STL model as a heightfield relief")
-            // Tier-2 import breadth: OBJ / 3MF reliefs + EPS vectors.
-            Button("OBJ Relief…") { session.importOBJHeightfieldFromPanel() }
-                .help("Import an OBJ mesh as a heightfield relief")
-            Button("3MF Relief…") { session.import3MFHeightfieldFromPanel() }
-                .help("Import a 3MF model as a heightfield relief")
-            Button("EPS…") { session.importEPSFromPanel() }
-                .help("Import an EPS drawing as vectors")
-            Button("PDF…") { session.importPDFFromPanel() }
-                .help("Import a PDF's vector content streams as vectors")
-            Button("AI…") { session.importAIFromPanel() }
-                .help("Import an Illustrator file (EPS or PDF flavor) as vectors")
-            Button("DWG…") { session.importDWGFromPanel() }
-                .help("Import an R12 (AC1009) DWG as vectors (LINE/CIRCLE/ARC/POINT)")
-            Spacer()
-            Text("\(session.selectedShapeIndices.count) selected")
+            .help("Run the expanded batch validator over every vector")
+
+            Text(session.selectedShapeIndices.count.formatted() + " selected")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

@@ -20,8 +20,14 @@ struct BrowserDivider: View {
 /// Left browser panel showing document structure tree — wired to AppSession.
 /// Layers get full CRUD: add, rename (double-click / context menu), visibility,
 /// lock, reorder (up/down chevrons), and delete (context menu).
+///
+/// `compact` mode (used on the Design stage, where the left edge is the tool
+/// palette): only the per-sheet Layers CRUD, no job/sheet/toolpath rows —
+/// those are inert filler there (the Cut stage owns toolpaths; Setup owns
+/// sheets).
 struct LeftPanelView: View {
     @ObservedObject var session: AppSession
+    var compact: Bool = false
     @State private var selectedItemID: String? = nil
     @State private var editingLayerID: UUID? = nil
     @State private var renameDraft = ""
@@ -29,7 +35,7 @@ struct LeftPanelView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            SidebarHeader(title: "Document") {
+            SidebarHeader(title: compact ? "Layers" : "Document") {
                 if session.isDirty {
                     Image(systemName: "circle.fill")
                         .font(.system(size: 5))
@@ -42,39 +48,47 @@ struct LeftPanelView: View {
 
             ScrollView {
                 LazyVStack(spacing: 0) {
-                    // Job root
-                    treeItem(
-                        id: "job",
-                        title: session.job.name.isEmpty ? "Untitled" : session.job.name,
-                        icon: "folder.fill",
-                        isExpanded: true,
-                        selectedItemID: $selectedItemID
-                    )
-
-                    // Sheets + their interactive layer lists
-                    ForEach(session.job.sheets, id: \.id) { sheet in
+                    if compact {
+                        // Design stage: the document tree is noise here; the
+                        // layers CRUD is the only part that earns the width.
+                        ForEach(Array(session.job.sheets.enumerated()), id: \.offset) { _, sheet in
+                            layerSection(sheet)
+                        }
+                    } else {
+                        // Job root
                         treeItem(
-                            id: "sheet_\(sheet.id.uuidString)",
-                            title: sheet.name,
-                            icon: "doc.fill",
+                            id: "job",
+                            title: session.job.name.isEmpty ? "Untitled" : session.job.name,
+                            icon: "folder.fill",
                             isExpanded: true,
                             selectedItemID: $selectedItemID
                         )
 
-                        layerSection(sheet)
-                    }
-
-                    // Toolpaths section
-                    if !session.toolpaths.isEmpty {
-                        ForEach(session.toolpaths, id: \.id) { tp in
+                        // Sheets + their interactive layer lists
+                        ForEach(session.job.sheets, id: \.id) { sheet in
                             treeItem(
-                                id: "tp_\(tp.id.uuidString)",
-                                title: tp.name + (tp.isDirty ? " ⚠" : ""),
-                                icon: "scissors",
-                                isExpanded: false,
-                                selectedItemID: $selectedItemID,
-                                indentLevel: 0
+                                id: "sheet_\(sheet.id.uuidString)",
+                                title: sheet.name,
+                                icon: "doc.fill",
+                                isExpanded: true,
+                                selectedItemID: $selectedItemID
                             )
+
+                            layerSection(sheet)
+                        }
+
+                        // Toolpaths section
+                        if !session.toolpaths.isEmpty {
+                            ForEach(session.toolpaths, id: \.id) { tp in
+                                treeItem(
+                                    id: "tp_\(tp.id.uuidString)",
+                                    title: tp.name + (tp.isDirty ? " ⚠" : ""),
+                                    icon: "scissors",
+                                    isExpanded: false,
+                                    selectedItemID: $selectedItemID,
+                                    indentLevel: 0
+                                )
+                            }
                         }
                     }
                 }
@@ -99,7 +113,7 @@ struct LeftPanelView: View {
             .buttonStyle(.plain)
             .help("Add Layer")
         }
-        .padding(.horizontal, CGFloat(12 + 16))
+        .padding(.horizontal, CGFloat(compact ? 10 : 28))
         .padding(.vertical, 4)
 
         ForEach(Array(sheet.layers.enumerated()), id: \.element.id) { index, layer in
@@ -149,9 +163,11 @@ struct LeftPanelView: View {
 
             Spacer(minLength: 2)
 
-            Text("\(layer.vectors.count)")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+            if !compact {
+                Text("\(layer.vectors.count)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
 
             // Reorder up
             Button {
@@ -175,7 +191,7 @@ struct LeftPanelView: View {
             .disabled(index == count - 1)
             .help("Move layer down")
         }
-        .padding(.horizontal, CGFloat(12 + 16))
+        .padding(.horizontal, CGFloat(compact ? 10 : 28))
         .padding(.vertical, 3)
         .background { sidebarSelection(isSelected: selectedItemID == id) }
         .contentShape(Rectangle())

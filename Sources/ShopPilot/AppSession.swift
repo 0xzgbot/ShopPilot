@@ -15,6 +15,9 @@ import ShopPilotSerial
 @MainActor
 final class AppSession: ObservableObject {
     @Published var selectedStage: Stage = .setup
+    /// Active Design-stage create tool — lifted from the canvas so the left
+    /// tool palette and the canvas share one source of truth.
+    @Published var designTool: CanvasCreateTool = .select
     @Published var job: Job
     @Published var shapes: [VectorShape] = []
 

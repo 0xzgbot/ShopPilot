@@ -57,7 +57,9 @@ struct DesignCanvasView: View {
     @State private var offset: CGSize = .zero
     @State private var selectedIndex: Int?
     @State private var dragStart: CGPoint?
-    @State private var tool: CanvasCreateTool = .select
+    /// Active create tool — owned by the session so the left tool palette
+    /// and the canvas share it; the canvas only reads it.
+    private var tool: CanvasCreateTool { session.designTool }
 
     // Create-tool draft state (design/model coordinates).
     @State private var draftStart: CGPoint?
@@ -125,19 +127,6 @@ struct DesignCanvasView: View {
 
     private var toolbar: some View {
         HStack(spacing: 10) {
-            Text("Design Canvas")
-                .font(.headline)
-            Picker("Tool", selection: $tool) {
-                ForEach(CanvasCreateTool.allCases) { t in
-                    Label(t.label, systemImage: t.symbol).tag(t)
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .frame(maxWidth: 480)
-            .help("Canvas create tool")
-            .onChange(of: tool) { _, _ in resetDraft() }
-
             if tool == .polyline, polylinePoints.count >= 2 {
                 Button("Finish (\(polylinePoints.count))") { commitPolyline() }
                     .help("Commit the polyline")
@@ -200,6 +189,7 @@ struct DesignCanvasView: View {
                 .foregroundStyle(.secondary)
         }
         .padding(8)
+        .onChange(of: session.designTool) { _, _ in resetDraft() }
     }
 
     // MARK: - Layers
