@@ -287,44 +287,60 @@ private struct DotLabelStyle: LabelStyle {
 
 private struct SetupStageView: View {
     @ObservedObject var session: AppSession
+    /// SPK-1400b — the six pro panels live under one Advanced disclosure,
+    /// collapsed by default so first-run sees Stock & Material only.
+    @State private var advancedExpanded = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
+                // First-run priority: stock & material (the two things a new
+                // job actually needs). Everything else is one disclosure away.
                 NewJobView(docVars: session.docVars) { job in
                     session.replaceJob(job)
                 }
-                // SPK-0800 — multi-sheet management: add / remove / switch
-                // sheets. Session-backed so every change is undoable + dirty
-                // and the design surface + toolpath stock follow the active
-                // sheet.
-                SheetListView(
-                    sheets: Binding(
-                        get: { session.job.sheets },
-                        set: { session.job.sheets = $0 }
-                    ),
-                    selectedSheetId: Binding(
-                        get: { session.activeSheetID ?? session.job.sheets.first?.id },
-                        set: { id in
-                            guard let id else { return }
-                            session.selectSheet(id: id)
-                        }
-                    ),
-                    onAddSheet: {
-                        session.addSheet() ?? Sheet(name: "Sheet 1")
-                    },
-                    onRemoveSheet: { id in
-                        _ = session.removeSheet(id: id)
-                    }
-                )
-                .frame(minHeight: 160)
-                DoubleSidedSetupView(session: session)
-                RotarySetupView(session: session)
                 MaterialSetupView(session: session)
-                DocumentVariablesPanelView(model: session.docVars)
-                    .frame(minHeight: 240)
-                DrivenDimensionsPanelView(session: session)
-                GoldenJobsPanelView(session: session)
+
+                // SPK-1400b — advanced setup: multi-sheet, double-sided,
+                // rotary, document variables, driven dimensions, golden jobs.
+                // Collapsed by default (progressive disclosure); nothing was
+                // deleted — every panel is still here, one click away.
+                DisclosureGroup("Advanced", isExpanded: $advancedExpanded) {
+                    VStack(alignment: .leading, spacing: 16) {
+                        // SPK-0800 — multi-sheet management: add / remove /
+                        // switch sheets. Session-backed so every change is
+                        // undoable + dirty and the design surface + toolpath
+                        // stock follow the active sheet.
+                        SheetListView(
+                            sheets: Binding(
+                                get: { session.job.sheets },
+                                set: { session.job.sheets = $0 }
+                            ),
+                            selectedSheetId: Binding(
+                                get: { session.activeSheetID ?? session.job.sheets.first?.id },
+                                set: { id in
+                                    guard let id else { return }
+                                    session.selectSheet(id: id)
+                                }
+                            ),
+                            onAddSheet: {
+                                session.addSheet() ?? Sheet(name: "Sheet 1")
+                            },
+                            onRemoveSheet: { id in
+                                _ = session.removeSheet(id: id)
+                            }
+                        )
+                        .frame(minHeight: 160)
+                        DoubleSidedSetupView(session: session)
+                        RotarySetupView(session: session)
+                        DocumentVariablesPanelView(model: session.docVars)
+                            .frame(minHeight: 240)
+                        DrivenDimensionsPanelView(session: session)
+                        GoldenJobsPanelView(session: session)
+                    }
+                    .padding(.top, 8)
+                }
+                .font(.headline)
             }
             .padding()
         }
