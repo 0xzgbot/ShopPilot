@@ -242,7 +242,9 @@ public final class MachineSession: ObservableObject {
         guard isConnected else {
             throw MachineSessionError.notConnected
         }
-        let data = (command + "\n").data(using: .utf8) ?? Data()
+        // SPK-1401c: append '\n' if missing (never double-terminate) so every
+        // GRBL command line carries its line terminator.
+        let data = GCodeLine.sending(command).data(using: .utf8) ?? Data()
         try await transport?.write(data)
     }
 

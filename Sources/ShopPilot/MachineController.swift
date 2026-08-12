@@ -239,9 +239,13 @@ public final class MachineController: ObservableObject {
 
     public func jog(axis: String, direction: Int) {
         let distance = Double(direction) * jogStepSize
-        let cmd = "G91 G0 \(axis)\(String(format: "%.3f", distance))" // Relative rapid move
+        // SPK-1401c: relative rapid move, then restore absolute mode so the
+        // machine does not stay in G91 after jogging.
+        let lines = JogCommandFormatter.lines(axis: axis, distanceMm: distance)
         Task {
-            await connection.sendCommand(cmd)
+            for line in lines {
+                await connection.sendCommand(line)
+            }
             connection.addSystemMessage("Jog \(axis) \(direction > 0 ? "+" : "")\(distance)mm")
         }
     }
