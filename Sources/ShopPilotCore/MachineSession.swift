@@ -62,14 +62,16 @@ public final class MachineSession: ObservableObject {
 
     // MARK: - Connection Management
 
-    public func connect(transport: MachineTransport) async throws {
+    public func connect(transport: MachineTransport, config: SerialConfig = SerialConfig()) async throws {
         guard !isConnected else { return }
 
         self.transport = transport
         connectionState = .connecting
 
         do {
-            try await transport.open(config: SerialConfig())
+            // SPK-1401a: the caller's config (UI port/baud) must reach the
+            // transport — never open with a fresh default that discards it.
+            try await transport.open(config: config)
             connectionState = .connected
             startStatusPolling(transport: transport)
         } catch {
