@@ -228,8 +228,11 @@ public final class MachineSession: ObservableObject {
     public func hold() async {
         guard isConnected else { return }
         guard let transport = transport else { return }
-        // Pause the streamer if it is streaming
-        await streamer?.pause()
+        // Pause the stream loop state WITHOUT a second wire write — the `!`
+        // below is the ONE realtime byte for this action (SPK-1401e single
+        // realtime writer: the session owns the write; the streamer's own
+        // pause() would write a duplicate `!`).
+        streamer?.setPaused(true)
         do {
             try await transport.write(Data("!".utf8))
         } catch {
@@ -241,7 +244,7 @@ public final class MachineSession: ObservableObject {
     public func resume() async {
         guard isConnected else { return }
         guard let transport = transport else { return }
-        await streamer?.resume()
+        streamer?.setPaused(false)
         do {
             try await transport.write(Data("~".utf8))
         } catch {
@@ -254,7 +257,10 @@ public final class MachineSession: ObservableObject {
         // Reset must work from the alarm/error banner too — that is its job.
         // Only bail when there is no transport at all.
         guard let transport = transport else { return }
-        await streamer?.reset()
+        // Reset the streamer's state WITHOUT a second 0x18 write — the byte
+        // below is the ONE reset byte for this action (SPK-1401e single
+        // realtime writer).
+        streamer?.resetStreamState()
         do {
             try await transport.write(Data([0x18]))
             // Refresh status so the UI reports Idle once the alarm clears

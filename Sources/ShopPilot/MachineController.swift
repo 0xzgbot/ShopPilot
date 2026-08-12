@@ -199,10 +199,13 @@ public final class MachineController: ObservableObject {
     // MARK: - Safety actions
 
     /// Hold: pause motion. Reachable from the window chrome on any stage.
+    /// Single realtime writer (SPK-1401e): the session owns the transport —
+    /// it writes the one `!` and pauses the attached streamer's loop. The
+    /// controller no longer calls streamer.pause() (which would put a
+    /// second `!` on the wire).
     public func hold() {
         Task {
             await machineSession.hold()
-            await streamer.pause()
             connection.addSystemMessage("Hold sent — machine paused")
         }
     }
@@ -211,7 +214,6 @@ public final class MachineController: ObservableObject {
     public func resume() {
         Task {
             await machineSession.resume()
-            await streamer.resume()
             connection.addSystemMessage("Resume sent — machine resuming")
         }
     }
@@ -224,7 +226,6 @@ public final class MachineController: ObservableObject {
         jobTask = nil
         Task {
             await machineSession.reset()
-            await streamer.reset()
             await MainActor.run {
                 self.isStreamingJob = false
                 self.preflightPassed = false

@@ -329,4 +329,24 @@ public final class GCodeStreamer: ObservableObject {
             lastError = error.localizedDescription
         }
     }
+
+    /// State-only pause coordination (SPK-1401e): flips the pause flag the
+    /// stream loop checks and the published state WITHOUT writing to the
+    /// transport. The session writes the single realtime `!` byte — the
+    /// streamer must not double-write through its own `pause()`.
+    public func setPaused(_ paused: Bool) {
+        isPaused = paused
+        state = paused ? .paused : .streaming
+    }
+
+    /// State-only reset (SPK-1401e): clears the pause flag, stream state,
+    /// progress and line counter WITHOUT writing 0x18. The session writes
+    /// the single reset byte; `reset()` above remains the direct
+    /// buffer-reset API (0x18) for stream owners that want it.
+    public func resetStreamState() {
+        isPaused = false
+        state = .idle
+        progress = 0.0
+        currentLine = 0
+    }
 }
