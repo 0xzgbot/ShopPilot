@@ -934,6 +934,29 @@ let package = Package(
             path: "Sources/ShopPilotVerify1400a"
         ),
 
+        // Phase O Wave 1 (2026-08-12) — config reaches open, friendly copy,
+        // Autosaver wiring, Metal honesty.
+        .executableTarget(
+            name: "ShopPilotVerify1401a",
+            dependencies: ["ShopPilotCore", "ShopPilotSerial"],
+            path: "Sources/ShopPilotVerify1401a"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1400c",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1400c"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1402a",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1402a"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1402c",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1402c"
+        ),
+
         .target(
             name: "ShopPilotCore",
             path: "Sources/ShopPilotCore"
