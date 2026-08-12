@@ -1001,6 +1001,19 @@ let package = Package(
             path: "Sources/ShopPilotVerify1400j"
         ),
 
+        // Phase O follow-up (2026-08-12) — custom baud via IOSSIOSPEED
+        // (SPK-1401g) and serialized writes (SPK-1401h).
+        .executableTarget(
+            name: "ShopPilotVerify1401g",
+            dependencies: ["ShopPilotCore", "ShopPilotSerial"],
+            path: "Sources/ShopPilotVerify1401g"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1401h",
+            dependencies: ["ShopPilotCore", "ShopPilotSerial"],
+            path: "Sources/ShopPilotVerify1401h"
+        ),
+
         .target(
             name: "ShopPilotCore",
             path: "Sources/ShopPilotCore"

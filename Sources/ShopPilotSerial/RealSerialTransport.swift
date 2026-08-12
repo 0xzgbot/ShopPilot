@@ -208,6 +208,12 @@ public final class RealSerialTransport: MachineTransport, @unchecked Sendable {
         guard tcsetattr(handle.fileDescriptor, TCSANOW, &t) == 0 else {
             throw RealSerialTransportError.termiosError("tcsetattr failed")
         }
+
+        // SPK-1401g — custom baud rates (e.g. 250000) have no termios speed
+        // constant; apply them via the Darwin IOSSIOSPEED ioctl so the
+        // transport actually runs at the requested rate instead of silently
+        // falling back to B9600. No-op for standard rates.
+        settings.applyCustomBaud(to: handle.fileDescriptor)
     }
     
     // MARK: - Data Monitoring

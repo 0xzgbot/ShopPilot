@@ -14,7 +14,15 @@ public struct SerialTermiosSettings: Sendable, Equatable {
     public let baudRate: Int
 
     /// Darwin termios speed constant (B9600 … B115200) for `baudRate`.
+    /// Meaningless when `customBaud` is set (IOSSIOSPEED path).
     public let speedConstant: speed_t
+
+    /// Non-nil when the requested baud has no termios speed constant but IS a
+    /// supported custom rate (SPK-1401g): applied via the Darwin
+    /// `IOSSIOSPEED` ioctl instead of a cfsetspeed constant. This is how GRBL
+    /// boards that run at 250000 actually get 250000 — silently mapping to
+    /// B9600 would be a lie.
+    public let customBaud: Int?
 
     /// c_cflag bits that must be SET for an 8N1 frame: 8 data bits (CS8),
     /// receiver enabled (CREAD), modem lines ignored (CLOCAL).
@@ -33,6 +41,11 @@ public struct SerialTermiosSettings: Sendable, Equatable {
         (9600, speed_t(B9600)),
     ]
 
+    /// Custom baud rates with no termios constant, applied via the Darwin
+    /// IOSSIOSPEED ioctl. 250000 is the common GRBL/FluidNC "fast USB"
+    /// rate — the UI already offers it, so the transport must honor it.
+    public static let customSupported: Set<Int> = [250_000]
+
     /// Deterministic fallback for unsupported baud rates — 9600, the most
     /// widely compatible GRBL/FluidNC default.
     public static let fallbackBaud: Int = 9600
@@ -40,9 +53,21 @@ public struct SerialTermiosSettings: Sendable, Equatable {
     /// Map a requested baud rate to termios 8N1 settings.
     /// Unsupported rates resolve deterministically to the fallback.
     public static func make(baud: Int) -> SerialTermiosSettings {
-        let match = supported.first { $0.baud == baud }
-        let resolved = match ?? (fallbackBaud, speed_t(B9600))
-        return SerialTermiosSettings(baudRate: resolved.baud, speedConstant: resolved.speed)
+        if let match = supported.first(where: { $0.baud == baud }) {
+            return SerialTermiosSettings(baudRate: match.baud,
+                                         speedConstant: match.speed,
+                                         customBaud: nil)
+        }
+        if customSupported.contains(baud) {
+            // SPK-1401g — a real custom rate: the speed constant field is
+            // unused; the transport applies IOSSIOSPEED with `baud`.
+            return SerialTermiosSettings(baudRate: baud,
+                                         speedConstant: 0,
+                                         customBaud: baud)
+        }
+        return SerialTermiosSettings(baudRate: fallbackBaud,
+                                     speedConstant: speed_t(B9600),
+                                     customBaud: nil)
     }
 
     /// Apply this settings' 8N1 frame + baud to a Darwin termios struct in
@@ -52,7 +77,31 @@ public struct SerialTermiosSettings: Sendable, Equatable {
     public func apply8N1(to t: inout termios) {
         t.c_cflag &= ~SerialTermiosSettings.cflag8N1Clear
         t.c_cflag |= SerialTermiosSettings.cflag8N1Set
-        t.c_ispeed = speedConstant
-        t.c_ospeed = speedConstant
+        if customBaud == nil {
+            t.c_ispeed = speedConstant
+            t.c_ospeed = speedConstant
+        }
     }
+
+    /// Apply a custom baud (no termios constant) to an open file descriptor
+    /// via the Darwin IOSSIOSPEED ioctl. No-op when `customBaud` is nil (the
+    /// cfsetspeed path handles those). `RealSerialTransport.configureSerial`
+    /// calls this right after tcsetattr when the settings carry a custom rate.
+    public func applyCustomBaud(to fileDescriptor: Int32) {
+        guard let baud = customBaud else { return }
+        var rate = baud
+        _ = Darwin.ioctl(fileDescriptor, Self.iosSIOSpeedRequest, &rate)
+    }
+
+    /// The Darwin `IOSSIOSPEED` ioctl request: `_IOW('t', 2, speed_t)`.
+    /// Not exported by the SDK headers, so we compute it from the standard
+    /// ioctl encoding (IOC_IN | type<<8 | nr | size<<16) — the same value
+    /// ORSSerialPort uses to set non-termios baud rates on macOS.
+    private static let iosSIOSpeedRequest: UInt = {
+        let iocIn: UInt = 0x8000_0000
+        let typeByte = UInt(UnicodeScalar("t").value) << 8
+        let number: UInt = 2
+        let sizeBits = UInt(MemoryLayout<speed_t>.size) << 16
+        return iocIn | typeByte | number | sizeBits
+    }()
 }
