@@ -843,67 +843,90 @@ private struct CutStageView: View {
             }
 
             HStack {
-                // SPK-1102d: all four v1 strategies add real tree ops from Cut.
+                // SPK-1400e: recipe-first Cut row. The three things a
+                // first-timer actually wants are one click; every other
+                // strategy + file/machine actions live under "More". Nothing
+                // was deleted — the engines and their entries are all in the
+                // More menu (Photo V-Carve included, but NOT a top-level
+                // button wall).
+                Button("Cut out") { session.generateProfileToolpath() }
+                    .help("Cut along the vectors (on/out/in) — profile toolpath")
+                Button("Pocket") { session.generatePocketToolpath() }
+                    .help("Clear the inside of closed vectors — pocket toolpath")
+                Button("Engrave") { session.generateVCarveToolpath() }
+                    .help("Engrave vectors with a V-bit — V-carve toolpath")
+
                 Menu {
-                    Button("Profile") { session.generateProfileToolpath() }
-                        .help("Cut along the vectors (on/out/in)")
-                    Button("Pocket") { session.generatePocketToolpath() }
-                        .help("Clear the inside of closed vectors")
-                    Button("Drill") { session.generateDrillToolpath() }
-                        .help("Peck-drill holes at the centers of closed vectors")
-                    Button("Drill Bank") { session.generateDrillBankToolpath() }
-                        .help("A W×H grid of uniquely-numbered holes (through or brad-point)")
-                    Button("V-Carve") { session.generateVCarveToolpath() }
-                        .help("Engrave vectors with a V-bit")
+                    Section("More strategies") {
+                        Button("Drill") { session.generateDrillToolpath() }
+                            .help("Peck-drill holes at the centers of closed vectors")
+                        Button("Drill Bank") { session.generateDrillBankToolpath() }
+                            .help("A W×H grid of uniquely-numbered holes (through or brad-point)")
+                        Button("Wrapped Fluting") { session.generateWrappedFluting() }
+                            .help("Flute lines around the rotary axis (X axial, Y wraps to A degrees)")
+                        Button("Prism") { session.generatePrismToolpath() }
+                            .help("Parallel V-grooves across closed vectors (prismatic sign effect)")
+                        Button("Fluting") { session.generateFlutingToolpath() }
+                            .help("Grooves along the selected vectors (draw parallel lines for a ribbed board)")
+                        Button("Chamfer") { session.generateChamferToolpath() }
+                            .help("V-bevel the selected edges")
+                        Button("Inlay Pocket") { session.generateInlayToolpath(variant: .pocket) }
+                            .help("Female half of a V-inlay: flat-bottom recess with sloped walls")
+                        Button("Inlay Plug") { session.generateInlayToolpath(variant: .plug) }
+                            .help("Male half of a V-inlay: cut around the shape at inlay depth")
+                        Button("Quick Engrave") { session.generateQuickEngraveToolpath() }
+                            .help("Single-pass V-bit engraving along vectors — fast sign lettering")
+                        Button("Drag Knife") { session.generateDragKnifeToolpath() }
+                            .help("Blade-offset cutting with corner pivots (drag knife)")
+                        Button("Photo V-Carve") { session.generatePhotoVCarveToolpath() }
+                            .help("Fine V-bit raster over the imported image/STL relief (brightness → depth)")
+                        Button("Sketch Carve") { session.generateSketchCarveToolpath() }
+                            .help("Edge-gated V-bit raster — only strong brightness transitions carve (sketch look)")
+                        Button("Texture") { session.generateTextureToolpath() }
+                            .help("Parallel or crosshatch grooves clipped inside closed vectors")
+                        Button("Rotary Wrap") { session.generateRotaryWrapToolpath() }
+                            .help("Wrap the selected vectors around a rotary axis (X → A degrees, Y stays axial)")
+                        Button("Thread Mill") { session.generateThreadMillingToolpath() }
+                            .help("Cut a thread inside the selected closed vector with one helical pass (real G2 helix)")
+                    }
+                    Section("3D relief (needs an STL)") {
+                        Button("Rough 3D") { session.generateRough3DToolpath() }
+                            .help("Z-level rough the imported STL relief (needs a relief)")
+                        Button("Finish 3D") { session.generateFinish3DToolpath() }
+                            .help("Surface-following finish of the imported STL relief (needs a relief)")
+                        Button("Rest Machine") { session.generateRestMachiningToolpath() }
+                            .help("Clear leftover material the rough pass left behind (needs a relief)")
+                    }
+                    Section("Copy & combine") {
+                        Button("Array Copy…") { showArrayCopyDialog = true }
+                            .help("Copy the selected toolpath operation in a linear row (real G-code transform)")
+                        Button("Circular Array…") { showCircularArrayDialog = true }
+                            .help("Copy the selected toolpath operation around a circle")
+                        Button("Merge All Ops") { session.generateMergedToolpath() }
+                            .help("Concatenate every computed operation into one program (markers preserved)")
+                    }
                     Divider()
-                    Button("Wrapped Fluting") { session.generateWrappedFluting() }
-                        .help("Flute lines around the rotary axis (X axial, Y wraps to A degrees)")
-                    // SPK-0900/0802 lean slices: specialty strategies.
-                    Button("Prism") { session.generatePrismToolpath() }
-                        .help("Parallel V-grooves across closed vectors (prismatic sign effect)")
-                    Button("Fluting") { session.generateFlutingToolpath() }
-                        .help("Grooves along the selected vectors (draw parallel lines for a ribbed board)")
-                    Button("Chamfer") { session.generateChamferToolpath() }
-                        .help("V-bevel the selected edges")
-                    Button("Inlay Pocket") { session.generateInlayToolpath(variant: .pocket) }
-                        .help("Female half of a V-inlay: flat-bottom recess with sloped walls")
-                    Button("Inlay Plug") { session.generateInlayToolpath(variant: .plug) }
-                        .help("Male half of a V-inlay: cut around the shape at inlay depth")
-                    Button("Quick Engrave") { session.generateQuickEngraveToolpath() }
-                        .help("Single-pass V-bit engraving along vectors — fast sign lettering")
-                    Button("Drag Knife") { session.generateDragKnifeToolpath() }
-                        .help("Blade-offset cutting with corner pivots (drag knife)")
-                    Button("Photo V-Carve") { session.generatePhotoVCarveToolpath() }
-                        .help("Fine V-bit raster over the imported image/STL relief (brightness → depth)")
-                    Button("Sketch Carve") { session.generateSketchCarveToolpath() }
-                        .help("Edge-gated V-bit raster — only strong brightness transitions carve (sketch look)")
-                    Button("Texture") { session.generateTextureToolpath() }
-                        .help("Parallel or crosshatch grooves clipped inside closed vectors")
-                    Button("Rotary Wrap") { session.generateRotaryWrapToolpath() }
-                        .help("Wrap the selected vectors around a rotary axis (X → A degrees, Y stays axial)")
-                    Button("Thread Mill") { session.generateThreadMillingToolpath() }
-                        .help("Cut a thread inside the selected closed vector with one helical pass (real G2 helix)")
-                    Divider()
-                    // SPK-0803 — array-copy + merge the selected operation's G-code.
-                    Button("Array Copy…") { showArrayCopyDialog = true }
-                        .help("Copy the selected toolpath operation in a linear row (real G-code transform)")
-                    Button("Circular Array…") { showCircularArrayDialog = true }
-                        .help("Copy the selected toolpath operation around a circle")
-                    Button("Merge All Ops") { session.generateMergedToolpath() }
-                        .help("Concatenate every computed operation into one program (markers preserved)")
-                    Divider()
-                    // SPK-3D-spine-b: relief strategies (need an imported STL).
-                    Button("Rough 3D") { session.generateRough3DToolpath() }
-                        .help("Z-level rough the imported STL relief (needs a relief)")
-                    Button("Finish 3D") { session.generateFinish3DToolpath() }
-                        .help("Surface-following finish of the imported STL relief (needs a relief)")
-                    Button("Rest Machine") { session.generateRestMachiningToolpath() }
-                        .help("Clear leftover material the rough pass left behind (needs a relief)")
+                    Section("File & machine") {
+                        Button("Load Fixture / Built-in G-code") { session.loadFixtureGCodeIfNeeded() }
+                        Button("Job Sheet…") { exportJobSheet() }
+                            .help("Export an A4 HTML job sheet (rendered to PDF) with job, tool and toolpath details")
+                        Button("Post Studio…") { showPostStudio = true }
+                            .help("Create and edit post templates with $variable blocks")
+                        Button("Enqueue") {
+                            let gcode = session.allToolpathGCode
+                            guard !gcode.isEmpty else {
+                                session.statusMessage = "Queue: no G-code to enqueue — generate toolpaths first"
+                                return
+                            }
+                            session.jobQueue.enqueue(name: session.job.name, gcode: gcode)
+                            session.statusMessage = "Queued “\(session.job.name)” (\(gcode.count) lines) — \(session.jobQueue.programs.count) program(s) in queue"
+                        }
+                        .help("Add the current cut plan to the multi-file run queue")
+                    }
                 } label: {
-                    Label("Add Toolpath", systemImage: "plus.circle")
+                    Label("More", systemImage: "ellipsis.circle")
                 }
                 .menuStyle(.button)
-                .buttonStyle(.borderedProminent)
 
                 // SPK-0319 lite: optional Follow-source link mode (default
                 // OFF). When ON, editing vectors marks linked toolpaths dirty
@@ -930,10 +953,6 @@ private struct CutStageView: View {
                 .disabled(session.toolpathTree.dirtyNodeCount == 0)
                 .help("Regenerate dirty Profile toolpaths (out-of-scope ops stay dirty)")
 
-                Button("Load Fixture / Built-in G-code") {
-                    session.loadFixtureGCodeIfNeeded()
-                }
-
                 Button("Send to Machine Stage") {
                     session.sendToMachineStage()
                 }
@@ -946,34 +965,6 @@ private struct CutStageView: View {
                     Label("Save Toolpaths…", systemImage: "square.and.arrow.up")
                 }
                 .help("Export GRBL G-code to a file")
-                Button {
-                    exportJobSheet()
-                } label: {
-                    Label("Job Sheet…", systemImage: "doc.text")
-                }
-                .help("Export an A4 HTML job sheet (rendered to PDF) with job, tool and toolpath details")
-                // SPK-1000 — Post Studio: manage user post templates + the
-                // document-variable blocks they resolve at export.
-                Button {
-                    showPostStudio = true
-                } label: {
-                    Label("Post Studio…", systemImage: "text.badge.plus")
-                }
-                .help("Create and edit post templates with $variable blocks")
-                // SPK-1008 — multi-file job queue: enqueue the current cut
-                // plan as one program in the sequential run queue.
-                Button {
-                    let gcode = session.allToolpathGCode
-                    guard !gcode.isEmpty else {
-                        session.statusMessage = "Queue: no G-code to enqueue — generate toolpaths first"
-                        return
-                    }
-                    session.jobQueue.enqueue(name: session.job.name, gcode: gcode)
-                    session.statusMessage = "Queued “\(session.job.name)” (\(gcode.count) lines) — \(session.jobQueue.programs.count) program(s) in queue"
-                } label: {
-                    Label("Enqueue", systemImage: "list.number")
-                }
-                .help("Add the current cut plan to the multi-file run queue")
             }
 
             HSplitView {
