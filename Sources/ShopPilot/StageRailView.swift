@@ -96,20 +96,4 @@ private struct StageSegment: View {
     }
 }
 
-// MARK: - Stage Content View (placeholder — switches based on selected stage)
-
-/// Placeholder content view that displays a message for the active stage.
-/// Real stage-specific views will be wired in as each stage is implemented.
-struct StageContentView: View {
-    let stage: Stage
-
-    var body: some View {
-        EmptyStage(
-            symbol: stage.icon,
-            title: stage.title,
-            message: stage.intent
-        )
-    }
-}
-
 // Note: #Preview requires Xcode's PreviewsMacros plugin; not available in CLI builds.
