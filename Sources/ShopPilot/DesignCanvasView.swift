@@ -162,6 +162,16 @@ struct DesignCanvasView: View {
             .buttonStyle(.borderless)
             .help("Measure: click two points to read the distance")
 
+            // SPK-1800a: snap toggle — snap create/move to grid intersections.
+            Button {
+                snapToGridOn.toggle()
+            } label: {
+                Image(systemName: snapToGridOn ? "grid.circle.fill" : "grid.circle")
+                    .foregroundStyle(snapToGridOn ? Color.accentColor : .secondary)
+            }
+            .buttonStyle(.borderless)
+            .help(snapToGridOn ? "Snap: ON — shapes snap to grid" : "Snap: OFF — free placement")
+
             // UI-polish cluster: visibility chips (Vec / Keep-outs / Toolpaths).
             Divider().frame(height: 14)
             ForEach(0..<CanvasOverlayOptions.chips.count, id: \.self) { i in
@@ -508,8 +518,13 @@ struct DesignCanvasView: View {
 
     private func selectDragEnded(_ value: DragGesture.Value) {
         if let idx = selectedIndex, session.shapes.indices.contains(idx) {
-            let dx = Double(value.translation.width / scale)
-            let dy = Double(-value.translation.height / scale)
+            var dx = Double(value.translation.width / scale)
+            var dy = Double(-value.translation.height / scale)
+            // SPK-1800a: snap the move delta to grid multiples when snap is on.
+            if snapToGridOn {
+                dx = round(dx / Double(canvasGridStep)) * Double(canvasGridStep)
+                dy = round(dy / Double(canvasGridStep)) * Double(canvasGridStep)
+            }
             session.moveShape(at: idx, by: dx, dy: dy)
         }
         dragStart = nil
@@ -643,7 +658,8 @@ struct DesignCanvasView: View {
     }
 
     private func handlePolylineTap(at screenPoint: CGPoint) {
-        let point = model(screenPoint)
+        // SPK-1800a: snap the tapped point to the grid when snap is on.
+        let point = snapToGrid(model(screenPoint))
         // Clicking near the first vertex closes the loop and commits.
         if let first = polylinePoints.first,
            hypot(point.x - first.x, point.y - first.y) < 10 / scale {
@@ -669,10 +685,13 @@ struct DesignCanvasView: View {
             return
         }
         let shape: VectorShape
+        // SPK-1800a: snap both endpoints to the grid when snap is on.
+        let s = snapToGrid(start)
+        let c = snapToGrid(current)
         switch tool {
-        case .rect: shape = CreateShapes.rect(from: vp(start), to: vp(current))
-        case .circle: shape = CreateShapes.circle(center: vp(start), through: vp(current))
-        default: shape = CreateShapes.line(from: vp(start), to: vp(current))
+        case .rect: shape = CreateShapes.rect(from: vp(s), to: vp(c))
+        case .circle: shape = CreateShapes.circle(center: vp(s), through: vp(c))
+        default: shape = CreateShapes.line(from: vp(s), to: vp(c))
         }
         session.addShapes([shape])
         resetDraft()
@@ -763,6 +782,31 @@ struct DesignCanvasView: View {
             height: size.height / 2 + CGFloat((minY + maxY) / 2) * scale
         )
     }
+}
+
+/// World-coordinate grid step shared by `gridLayer` and the snap helper
+/// (20 world units). Create tools and select-move snap to these intersections.
+private let canvasGridStep: CGFloat = 20
+
+/// SPK-1800a: snap math — pure helper so the CLT can test it without SwiftUI.
+enum CanvasSnap {
+    /// Round a world-coordinate point to the nearest grid intersection.
+    /// When `on` is false, returns `p` unchanged.
+    static func snap(_ p: CGPoint, gridStep: CGFloat, on: Bool) -> CGPoint {
+        guard on else { return p }
+        return CGPoint(
+            x: round(p.x / gridStep) * gridStep,
+            y: round(p.y / gridStep) * gridStep
+        )
+    }
+}
+
+/// SPK-1800a: snap toggle state — persists via @AppStorage.
+@AppStorage("shop_pilot_canvas_snap") private var snapToGridOn: Bool = false
+
+/// SPK-1800a: instance wrapper around the pure snap helper.
+private func snapToGrid(_ p: CGPoint) -> CGPoint {
+    CanvasSnap.snap(p, gridStep: canvasGridStep, on: snapToGridOn)
 }
 
 /// In-flight vertex drag for node-edit mode (SPK-1101b): which vertex of which
