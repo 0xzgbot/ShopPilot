@@ -8,6 +8,12 @@ struct InspectorShell: View {
     @ObservedObject var session: AppSession
     @Binding var currentStage: Stage
 
+    /// SPK-1607 — millimetre formatting for the selection geometry readout
+    /// (1 decimal; 3 for sub-mm values).
+    private static func mm(_ value: Double) -> String {
+        value >= 1 ? String(format: "%.1f", value) : String(format: "%.3f", value)
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             SidebarHeader(title: currentStage.title) {
@@ -216,6 +222,26 @@ struct InspectorShell: View {
 
     private var designInspector: some View {
         VStack(alignment: .leading, spacing: 12) {
+            // SPK-1607 — selected-vector geometry: exactly one selected
+            // shape shows its bounding box X/Y/W/H (mm); none hides the
+            // block; multi shows the count (the selectionInfo badge above
+            // already handles the count).
+            if session.selectedShapeIndices.count == 1,
+               let index = session.selectedShapeIndices.first,
+               session.shapes.indices.contains(index) {
+                let rect = session.shapes[index].boundingRect
+                VStack(alignment: .leading, spacing: 4) {
+                    SectionLabel("Selection")
+                    HStack(spacing: 10) {
+                        PropertyRow(label: "X", value: Self.mm(rect.minX))
+                        PropertyRow(label: "Y", value: Self.mm(rect.minY))
+                        PropertyRow(label: "W", value: Self.mm(rect.width))
+                        PropertyRow(label: "H", value: Self.mm(rect.height))
+                    }
+                }
+                .padding(.horizontal, 12)
+            }
+
             SectionLabel("Layers")
 
             if session.layers.isEmpty {
