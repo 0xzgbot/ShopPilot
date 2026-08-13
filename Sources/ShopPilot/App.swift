@@ -63,6 +63,27 @@ struct ShopPilotApp: App {
                 .keyboardShortcut(shortcut("file.saveAs"))
             }
 
+            // SPK-1606 — Edit menu Undo/Redo call the session stack (the
+            // 1403b snapshot undo). Placed before the default group so the
+            // session's stack is what ⌘Z / ⇧⌘Z drive.
+            CommandGroup(before: .undoRedo) {
+                Button("Undo") {
+                    if session.undo() {
+                        session.statusMessage = "Undo"
+                    }
+                }
+                .keyboardShortcut(shortcut("edit.undo"))
+                .disabled(!session.canUndo)
+
+                Button("Redo") {
+                    if session.redo() {
+                        session.statusMessage = "Redo"
+                    }
+                }
+                .keyboardShortcut(shortcut("edit.redo"))
+                .disabled(!session.canRedo)
+            }
+
             CommandGroup(after: .undoRedo) {
                 Button("Group") {
                     _ = session.applyGroup()

@@ -383,12 +383,18 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
         return true
     }
 
+    /// SPK-1606 — Edit menu enabled state.
+    var canUndo: Bool { undoManager.canUndo }
+
     @discardableResult
     func redo() -> Bool {
         guard undoManager.canRedo else { return false }
         undoManager.redo()
         return true
     }
+
+    /// SPK-1606 — Edit menu enabled state.
+    var canRedo: Bool { undoManager.canRedo }
 
     func clearUndoStack() {
         undoManager.removeAllActions()

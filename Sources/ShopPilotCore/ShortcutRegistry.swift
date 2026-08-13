@@ -60,6 +60,9 @@ public final class ShortcutRegistry: ObservableObject, @unchecked Sendable {
         ShortcutBinding(id: "file.save", title: "Save", defaultKey: "s", defaultModifiers: ["command"]),
         ShortcutBinding(id: "file.saveAs", title: "Save As…", defaultKey: "s", defaultModifiers: ["command", "shift"]),
         ShortcutBinding(id: "palette", title: "Command Palette…", defaultKey: "k", defaultModifiers: ["command"]),
+        // SPK-1606 — Edit Undo/Redo (⌘Z / ⇧⌘Z) drive the session undo stack.
+        ShortcutBinding(id: "edit.undo", title: "Undo", defaultKey: "z", defaultModifiers: ["command"]),
+        ShortcutBinding(id: "edit.redo", title: "Redo", defaultKey: "z", defaultModifiers: ["command", "shift"]),
         ShortcutBinding(id: "edit.group", title: "Group", defaultKey: "g", defaultModifiers: ["command"]),
         ShortcutBinding(id: "edit.ungroup", title: "Ungroup", defaultKey: "g", defaultModifiers: ["command", "shift"]),
         ShortcutBinding(id: "prefs", title: "Preferences…", defaultKey: ",", defaultModifiers: ["command"]),
