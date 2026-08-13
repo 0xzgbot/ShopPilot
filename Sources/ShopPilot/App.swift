@@ -33,7 +33,9 @@ struct ShopPilotApp: App {
         .commands {
             CommandGroup(replacing: .newItem) {
                 Button("New Job") {
-                    session.selectedStage = .setup
+                    // SPK-1601 — File New replaces the session (blank
+                    // Untitled + Setup), not a stage-only switch.
+                    _ = session.newJob()
                 }
                 .keyboardShortcut(shortcut("file.new"))
 

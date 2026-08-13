@@ -702,6 +702,31 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
         startAutosaverForCurrentJob()
     }
 
+    // MARK: - New Job (SPK-1601)
+
+    /// File New Job: discard the current document and start a blank Untitled
+    /// project. SPK-1601 — this REPLACES the session (shapes/toolpaths/tree
+    /// cleared via `replaceJob`), not just a stage switch. Dirty documents
+    /// get a confirm-discard alert (no save prompt — Save is ⌘S / 1600).
+    /// Returns false when the user cancelled the dirty-confirm.
+    @discardableResult
+    func newJob() -> Bool {
+        if isDirty {
+            let alert = NSAlert()
+            alert.messageText = "Discard unsaved changes?"
+            alert.informativeText = "Start a new Untitled Project and discard the current design?"
+            alert.alertStyle = .warning
+            alert.addButton(withTitle: "Discard")
+            alert.addButton(withTitle: "Cancel")
+            guard alert.runModal() == .alertFirstButtonReturn else { return false }
+        }
+        replaceJob(Job(name: "Untitled Project"))
+        // New Job lands on Setup (replaceJob itself selects Design for recipe
+        // jobs — File New is a blank start, so Setup is the first step).
+        selectedStage = .setup
+        return true
+    }
+
     // MARK: - Layer mutations
 
     @discardableResult
@@ -4678,7 +4703,8 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
     func handleCommand(_ id: CommandID) {
         switch id {
         case .newJob:
-            selectedStage = .setup
+            // SPK-1601 — File New replaces the session (not stage-only).
+            newJob()
         case .saveJob:
             // SPK-1600 — the command palette Save routes to the same File
             // Save path (prompt on first save, packageURL re-save after).
