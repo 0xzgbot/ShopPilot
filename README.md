@@ -13,7 +13,7 @@
 
 ## Screenshots
 
-Gallery files live in [`docs/screenshots/`](docs/screenshots/README.md). **Current** shots below are from the 0.05 UI (Welcome samples, stage rail, Cut recipes, **filled Preview heightfield**). Preview is a SwiftUI **2.5D heightfield** (filled raster + playhead) — not Metal chip simulation. Laser is **not** a product.
+Gallery files live in [`docs/screenshots/`](docs/screenshots/README.md). **Current** shots below are from the 0.05 UI (Welcome samples, stage rail, Cut recipes). **Preview** is a SwiftUI **2.5D heightfield** (wireframe + material samples) — not Metal chip simulation. Laser is **not** a product. After Preview playback (SPK-1700) ships, Hermes replaces these with the named pack (`welcome.png`, `2d-pocket-stepover.png`, `3d-relief-sim.png`, …).
 
 | Setup & recipes | Design & vectors | Cut & toolpaths |
 | --- | --- | --- |
@@ -23,7 +23,7 @@ Gallery files live in [`docs/screenshots/`](docs/screenshots/README.md). **Curre
 | --- | --- | --- |
 | ![Model stage 3D relief](docs/screenshots/04-model.png) | ![Machine stage simulator Hold Reset](docs/screenshots/05-machine.png) | ![Preview heightfield not Metal](docs/screenshots/06-preview.png) |
 
-**Preview playback (SPK-1700)** — filled raster, playhead, bit-radius stamp:
+**Hermes drop-in (SPK-1700d)** — capture when filled raster + playhead exist:
 
 | Shot | Alt / caption |
 | --- | --- |

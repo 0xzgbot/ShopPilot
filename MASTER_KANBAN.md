@@ -1,6 +1,6 @@
 # ShopPilot — Master Kanban (single source of truth)
 
-**Last updated:** 2026-08-12
+**Last updated:** 2026-08-13
 **Project root:** `~/Desktop/ShopPilot`  
 **Status:** Living board — agents work **only** from this file until ship  
 
@@ -942,13 +942,12 @@ A (parallel from day 0)
   - Out of scope: none (UI-only).
   - worklog: 2026-08-13 — Hermes coder (after SPK-UI-BUG-01 [x]). SetupStageView Advanced disclosure (ContentView.swift:387): kept `DisclosureGroup("Advanced", isExpanded:)` (verify_1400b anchors on that form), added `.accessibilityLabel("Advanced")` + `.accessibilityAddTraits(.isButton)` + `.accessibilityIdentifier("setup.advanced")` on the group so the header is a findable/pressable AX control; AC3 — collapsed inner panels no longer leak: `.accessibilityHidden(!advancedExpanded)` on the content VStack (exposure follows state; all six pro panels kept in place). Six pro panels untouched, BUG-01 sample-button label untouched, Cut "More" disclosure out of scope. **Verify:** `verify_1400b_setup.py` PASS, `verify_1400d_design.py` PASS (regression), grep `DisclosureGroup("Advanced"` → `.accessibilityLabel("Advanced")` nearby (:432), `./scripts/swift_locked.sh build --target ShopPilot` → complete (16.25s). Parent SPK-0623 left `[ ]`. Live AX re-check deferred to next `ui_drive_full.sh` run.
 
-- [x] **SPK-UI-BUG-03** **BUG** Cut "Cut out" runs toolpath generation on the main thread — AX server blackout ~35s (app-wide freeze)
+- [ ] **SPK-UI-BUG-03** **BUG** Cut "Cut out" runs toolpath generation on the main thread — AX server blackout ~35s (app-wide freeze)
   - Found by: SPK-0623b live walk #2 (2026-08-13, rebuilt binary with BUG-01/02 fixes)
   - Symptom: with the bundled Sign sample loaded, pressing **Cut out** (`ContentView.swift:950` → `AppSession.generateProfileToolpath()` → `ProfileToolpathGenerator.generateProfile(on:)` → `ProfileToolpathEngine.compute` on the main thread) blocks the app's main thread for ~35s. During that window the AX server answers NOTHING — every `ax_act` query returns `no windows` (timeout). The UI drive's `press_step` read this as NOT FOUND and its `dump_save` mislabeled it "AX denied" (exit 4). A human sees the whole window beachball/freeze for the duration; AT users lose the app entirely.
   - Evidence: live repro (2026-08-13, 14:0x): 8 consecutive AX queries failed after Cut out, ~4.5s each, then recovery; `/tmp/shoppilot-ui-drive-full-dumps/miss-Pocket.txt` (23 bytes: "no windows / AX denied" — the mislabel), dump after recovery shows "Profile: 474 lines, ~2970s, 9 depth pass(es)". `ProfileToolpathGenerator.swift:60` — `ProfileToolpathEngine.compute(...)` is called synchronously.
   - Suggested fix: route `generateProfileToolpath()` through the existing SPK-1314 async pattern (`recalculateDirtyToolpathsAsync` — background `computeDirtyToolpathResults` + main-actor apply, AppSession.swift:2905). The generator protocol (SPK-1403c) may need an async witness; keep `ShopPilotVerify1403c` source-contract checks passing.
   - Driver mitigation (landed in this card's walk): `ax_act.swift` now distinguishes real TCC denial (`AXIsProcessTrusted()` false → "AX DENIED") from a busy app ("no windows (app busy or none)") — busy is never exit 4; `ui_drive_full.sh` `press_step` gained a ~60s busy-patience poll before declaring NOT FOUND.
-  - worklog: 2026-08-13 — Hermes coder. **AC met.** `AppSession` gains an off-main single-op generate pipeline: `generateToolpathAsync(compute:apply:)` (background `DispatchQueue.global(qos: .userInitiated)` engine compute on VALUE snapshots + main-actor apply) + `@Published isGeneratingToolpath`. `generateProfileToolpath` now delegates to the new Core async witness `ProfileToolpathGenerator.generateProfileAsync(on:completion:)` (same SPK-1403c orchestration — guards, undo, node, params JSON, layer guard — with the ~35s `ProfileToolpathEngine.compute` off the main thread); the sync `generateProfile(on:)` stays for CLTs/tests. **All 20 sibling Cut-stage generates** (Pocket, V-Carve [preflight gate stays sync], Drill, Drill Bank, Wrapped Fluting, Prism, Fluting, Chamfer, Inlay ×2, Quick Engrave, Photo V-Carve, Drag Knife, Texture, Sketch Carve, Rotary Wrap, Rough 3D, Finish 3D, Rest Machine [nothing-to-clear → no node], Thread Mill) route through the same helper — no engine compute left on the button path (array copies + merge + laser-held left sync, documented). Cut row shows a spinner + disables the top buttons while generating. **Verify:** new `ShopPilotVerifyBUG03` PASS (source contract: helper + `DispatchQueue.global(qos: .userInitiated)` + async delegate, no sync `generateProfile(on: self)` in AppSession, 20 helper usages; behavior: async completion lands node + summary on a fake session, empty-vectors guard completes synchronously). `ShopPilotVerify1403c` source-contract updated for the async delegate → PASS. `./scripts/swift_locked.sh build --target ShopPilot` → complete. 1103e regression runs with the 1700a slice.
   - Out of scope: engine perf tuning, changing generator semantics.
   - **P0 — do FIRST** in `docs/planning/PREVIEW_PLAYBACK_HERMES.md` before SPK-1700a–d. Laser held. Do not stamp SPK-0623.
 
@@ -1462,7 +1461,9 @@ Phase O/P/1403 **CLOSED**. Laser/LightBurn **HELD**. Do not reopen. Unlisted P0/
 
 **STOP (Phase Q chrome):** do not start DocumentGroup, laser/LightBurn, SPK-0623 rubber-stamp, AppSession full rewrite, or NavigationSplitView.
 
-**Next Ready (CAM first-hour UI):** **SPK-1800** — see below. Laser held. Prompt: `docs/planning/CAM_UI_FIRST_HOUR_HERMES.md`.
+**Next Ready (Preview honesty):** **SPK-1700** + **SPK-UI-BUG-03** — see below. Laser held. Prompt: `docs/planning/PREVIEW_PLAYBACK_HERMES.md`.
+
+**Also Ready (CAM first-hour UI, parallel-ok with 1700 except 1800h):** **SPK-1800** — snap / marquee / canvas DRO / sheet origin / CAM inspector / tabs-leads overlay / Machine DRO / Model orbit. Prompt: `docs/planning/CAM_UI_FIRST_HOUR_HERMES.md`. **Do not block 1800a on BUG-03 or 1700.** Serialize `DesignCanvasView.swift` for 1800a–d. **1800h:** if SPK-1700 still `[ ]`, Model stage only (`ModelStageView` / `ReliefCanvasView`) — do not share `ToolpathPreviewView`.
 
 ---
 
@@ -1470,41 +1471,128 @@ Phase O/P/1403 **CLOSED**. Laser/LightBurn **HELD**. Do not reopen. Unlisted P0/
 
 **DoD on parent:** Engine (dense heightmap + bit-radius stamp) + UI (filled raster in `ToolpathPreviewView`, playhead) + Persist (N/A / session-only) + Verify (`ShopPilotVerify1103e` + `ShopPilotVerify1700*`) + screenshot pack in `docs/screenshots/`. **BUG-03 first.** Simulator only. **Do not mark SPK-0623 `[x]`.**
 
-- [x] **SPK-1700** **PREV** Parent — filled heightfield raster + playhead + circular bit stamp + screenshot pack // P0 — **SHIPPED 2026-08-13 (worktree spk-1700)**
-  - worklog: 2026-08-13 — Hermes coder. All four slices `[x]` and independently verified: 1700a (filled raster, stride-1), 1700b (playhead + prefix-sim scrub), 1700c (flat-endmill disk stamp), 1700d (7 PNGs captured, README wired). DoD audited against code: dense heightmap (`materialSimulation` stride-1 default), full-heightmap render in `ToolpathPreviewView`, playhead/slider + cancellable prefix-sim, disk stamp at G1 points, screenshot pack in `docs/screenshots/`. All verifies PASS: 1700a, 1700b, 1700c, 1103e. AC met → `[x]`.
+- [ ] **SPK-1700** **PREV** Parent — filled heightfield raster + playhead + circular bit stamp + GitHub screenshot pack // P0
+  - deps: SPK-1103e `[x]`; **SPK-UI-BUG-03 must `[x]` before 1700d capture** (do BUG-03 before 1700a–d in the Hermes run)
+  - AC: Preview shows a filled sheet heightmap (not `/40` dots); slider/playhead over sim time; endmill-radius stamp so pocket stepover matches tool; 2D pocket + 3D rough/finish shots in `docs/screenshots/`
+  - Out of scope: Metal chips; laser; live serial; SPK-0623 stamp
+  - Verify: `./scripts/verify_locked.sh ShopPilotVerify1103e` + `ShopPilotVerify1700a`/`b`/`c`; PNGs per `docs/screenshots/README.md`
+  - worktree: required; assignee: coder; 45–90m slices (outer Hermes run may be long)
+  - all swift via `swift_locked.sh`; never `rm -rf .build`; worktree-only Sources
+  - UI doctrine: stage rail, Hold/Reset when connected, no auto-run
 
-- [x] **SPK-1700a** **PREV** Draw full heightmap as filled image in ToolpathPreviewView; drop `/40` display stride // P0 — **SHIPPED 2026-08-13**
+- [ ] **SPK-1700a** **PREV** Draw full heightmap as filled image in ToolpathPreviewView; drop `/40` display stride // P0
   - parent: SPK-1700
   - AC: Simulate path uses stride 1 (or equivalent full grid); Preview heightfield/combined is a filled raster/image tinted by material palette; 1103e still PASS
   - Out of scope: playhead, bit stamp, screenshots
   - Verify: `./scripts/verify_locked.sh ShopPilotVerify1700a` then `./scripts/verify_locked.sh ShopPilotVerify1103e`
   - worktree: required; assignee: coder; 90m
   - Files: `ToolpathSimulator.swift`, `ToolpathPreviewView.swift`, `Package.swift` + `Sources/ShopPilotVerify1700a`
-  - worklog: 2026-08-13 — Hermes coder. **AC met.** Core: `ToolpathSimulator.materialSimulation` display stride default `0`→**1** (every cell; `simulateHeightmap` added returning the FULL dense `Heightmap`, no stride); `DirtyRegionManager.performResimulationHeightmap` added (same partial/full-tree contract, returns the heightmap). UI: `ToolpathPreviewView` replaces the 4×4-ellipse `/40` dot scatter with a filled raster — one-pixel-per-cell `CGImage` built from the heightmap tinted by the SPK-1202 material palette, drawn at cell size under the same 2.5D projection as the wireframe (top/iso/front consistent via a concatenated affine; front edge-on skips). Palette change re-tints via `.onChange(of: materialPaletteName)`. Sim status now reports cells. **Verify:** new `ShopPilotVerify1700a` PASS (default-stride samples == 200×100 = 20,000 not the old 800; heightmap 200×100; two G1 passes carve two CONTIGUOUS full rows 0…199 — no scattered dots, rows between intact; explicit coarse stride 40 still yields the 15-cell draft). `ShopPilotVerify1103e` PASS (cancel, sheet-aware, full-tree, draft regression). App build `--target ShopPilot` complete. (1700c's stamp landed in the same run — 1700a passes `toolRadiusMm: 0.01` to isolate density/contiguity from bit width.)
 
-- [x] **SPK-1700b** **PREV** Playhead/slider over sim time // P0
+- [ ] **SPK-1700b** **PREV** Playhead/slider over sim time // P0
   - parent: SPK-1700; deps: 1700a
   - AC: Preview slider (optional Play) shows heightfield for toolpath prefix; t=0 stock, t=1 full sim
   - Out of scope: bit stamp; screenshot pack; Metal
   - Verify: `./scripts/verify_locked.sh ShopPilotVerify1700b` + regression 1103e
   - worktree: required; assignee: coder; 90m
-  - worklog: 2026-08-13 — Hermes coder. **AC met.** Preview toolbar gains a Play/Pause + 0…1 slider (enabled once a sim exists) over G-code progress. Scrubbing runs a **cancellable prefix-sim** (`scrubToPlayhead` → `ToolpathSimulator.simulateHeightmap` on `Array(lines.prefix(count))` with `shouldCancel: { Task.isCancelled }`, stale tasks cancelled); playhead 1 reuses the cached full sim (`fullSimHeightmap`) without re-running. Wireframe still shows the full path in combined mode; status reports "Playhead N% · n/lines". Playback sweeps 0→1 in ~18s. **Verify:** new `ShopPilotVerify1700b` PASS — t=0 == stock top everywhere; removal monotone across prefixes of an exactly-3-line cut (0 ≤ 0 ≤ 9 ≤ 39 cells); t=1 (all lines) == full sim; prefix shape is a real trench. Regression `ShopPilotVerify1103e` PASS. App build complete.
 
-- [x] **SPK-1700c** **PREV** Circular bit-radius stamp on G1 removal // P0
+- [ ] **SPK-1700c** **PREV** Circular bit-radius stamp on G1 removal // P0
   - parent: SPK-1700; deps: 1700a
   - AC: each interpolated cut point stamps a disk of tool radius; pocket stepover ridges match tool, not 1-cell needles
   - Out of scope: ball-nose cusps; laser; screenshots
   - Verify: `./scripts/verify_locked.sh ShopPilotVerify1700c` + regression 1103e
   - worktree: required; assignee: coder; 90m
-  - worklog: 2026-08-13 — Hermes coder. **AC met.** `ToolpathSimulator.simulate` now stamps a **flat-endmill disk** at every interpolated G1 point (cells whose center is within `toolRadiusMm` are lowered to `min(current, cutter Z)`; nil → documented 1.5mm fallback). `toolRadiusMm` threaded through `simulate`/`materialSimulation`/`simulateHeightmap`/`DirtyRegion.performResimulation(Heightmap)`; the preview passes `session.previewToolRadiusMm` (largest assigned tool diameter/2 from the tool DATABASE across tree nodes). Raster stepover ridges now match the tool: trench width ≈ 2R, and 8mm-stepover leaves a stock ridge while 6mm (== diameter) clears a continuous pocket. **Verify:** new `ShopPilotVerify1700c` PASS — R=3 pass clears a ~6mm band (rows 7…13, NOT a 1-cell line); 8mm stepover ridge intact; 6mm stepover no ridge; nil fallback = ~3mm band. Regression `ShopPilotVerify1103e` PASS (its raster probes sit ≥5mm off the cut lines — outside the 1.5mm fallback band). App build complete.
 
-- [x] **SPK-1700d** **QA** Screenshot pack — 2D pocket + 3D relief sim + chrome // P0 — **SHIPPED 2026-08-13**
-  - parent: SPK-1700; deps: 1700a, 1700b, 1700c, SPK-UI-BUG-03
+- [ ] **SPK-1700d** **QA** Screenshot pack — 2D pocket + 3D relief sim + chrome // P0
+  - parent: SPK-1700; deps: 1700a, 1700b, 1700c, **SPK-UI-BUG-03**
   - AC: capture via `scripts/capture_window.swift` into `docs/screenshots/`: `2d-pocket-stepover.png`, `2d-playhead.png`, `3d-relief-sim.png`, `welcome.png`, `design.png`, `cut.png`, `machine-sim.png` (composition in `docs/screenshots/README.md`); update root README image markdown; Simulator only; Hold/Reset on machine shot
   - Out of scope: implementing playback (that's a–c); SPK-0623; laser
   - Verify: PNGs exist and >20KB; `./scripts/verify_locked.sh ShopPilotVerify1103e`
   - worktree: required; assignee: coder; 90m
-  - worklog: 2026-08-13 — Hermes coder. **AC met.** All 7 required PNGs captured via `scripts/capture_window.swift` (1.0–1.3MB each, 2696×1736, Simulator-only): `welcome.png`, `design.png`, `cut.png`, `2d-pocket-stepover.png`, `2d-playhead.png`, `3d-relief-sim.png`, `machine-sim.png`. Root `README.md` Screenshots section wired — dropped the "after SPK-1700 ships" caveat, added Preview playback table. `docs/screenshots/README.md` updated — required pack marked as landed, `06-preview.png` relabeled as post-1700a filled raster. `ShopPilotVerify1103e` PASS (regression). Parent SPK-1700 AC met → `[x]`.
+
+---
+
+# PHASE R — CAM first-hour UI (SPK-1800)
+
+**DoD on parent:** Engine (snap math + origin enum + tab/lead overlay geometry) + UI (Design canvas, InspectorShell F/S/Z, Machine DRO, Model orbit) + Persist (snap on/off + sheet origin corner/center) + Verify (`ShopPilotVerify1800*` and/or `scripts/verify_1800_*.py`). Simulator only. **Do not mark SPK-0623 `[x]`.** Laser held.
+
+**Concurrency:** Serialize **1800a → 1800b → 1800c → 1800d** on `DesignCanvasView.swift`. After **1800a** `[x]`, **1800e** (`InspectorShell.swift`), **1800g** (`MachineConnection.swift`), **1800h** (`ModelStageView.swift`) may run in parallel if those files stay distinct. **1800f** overlays on Design (`toolpathOverlayLayer`) while 1700 owns Preview; do not edit `ToolpathPreviewView` until 1700a–c `[x]`.
+
+**BUG-03 / 1700:** If still `[ ]`, **do not block 1800a snap**. Prefer BUG-03 then 1700 for Preview honesty, but Phase R Design/Inspector/Machine cards are Ready now. **1800h after 1700a only if sharing Preview** — current board: 1700 still `[ ]` → **1800h = Model orbit only**.
+
+- [ ] **SPK-1800** **UI** Parent — first-hour CAM chrome: snap, marquee, canvas XY DRO, sheet origin, inspector F/S/Z, tabs/leads overlay, Machine DRO, Model orbit // P0
+  - deps: none for children a–g; 1800h deps below
+  - AC: eight children `[x]` with slice Verify; pan/zoom still work; Design origin documented as not Machine WCS
+  - Out of scope: Fusion 3D; merging WCS into Design; laser; SPK-0623 stamp; Metal chip sim
+  - Verify: parent stays `[ ]` until 1800a–h `[x]`
+  - worktree: required; assignee: coder; 45–90m slices
+  - all swift via `swift_locked.sh`; never `rm -rf .build`; worktree-only Sources
+  - UI doctrine: 6-stage rail Setup → Design → Model → Cut → Preview → Machine; palettes + inspector; ≤12 icons/stage; no NavigationSplitView rewrite; Hold/Reset when connected; no auto-run
+  - Prompt: `docs/planning/CAM_UI_FIRST_HOUR_HERMES.md`
+
+- [ ] **SPK-1800a** **DES** Grid snap — draw/move/create snaps to the existing Design grid // P0
+  - parent: SPK-1800; **Ready now even if BUG-03 and 1700 are `[ ]`**
+  - AC: toggle Snap (toolbar or inspector); create + move land on grid intersections matching `gridLayer` step; pinch-zoom and existing pan still work
+  - Out of scope: marquee, DRO, origin picker, Preview
+  - Verify: `scripts/verify_1800a_snap.py` and/or `./scripts/verify_locked.sh ShopPilotVerify1800a`
+  - Files: `Sources/ShopPilot/DesignCanvasView.swift` (+ persist flag on job/session)
+  - worktree: required; assignee: coder; 60m
+
+- [ ] **SPK-1800b** **DES** Marquee select — rubber-band on empty drag in Select tool // P0
+  - parent: SPK-1800; deps: 1800a (serialize DesignCanvasView)
+  - AC: Select + empty-space drag draws a marquee and selects intersecting shapes; **pan = Space+drag** (document in toolbar hint; optional middle-button same as Space); do not use empty-drag-as-pan anymore
+  - Out of scope: lasso; node-edit rewrite; WCS
+  - Verify: `scripts/verify_1800b_marquee.py` and/or `ShopPilotVerify1800b`
+  - Files: `DesignCanvasView.swift` only
+  - worktree: required; assignee: coder; 60m
+
+- [ ] **SPK-1800c** **DES** Cursor XY DRO on Design canvas // P0
+  - parent: SPK-1800; deps: 1800b
+  - AC: hover (and drag) shows live X/Y in sheet mm, same mapping as `model(_:)`; units follow job; does not steal pan/zoom
+  - Out of scope: Machine DRO (1800g); Z on 2D canvas
+  - Verify: `scripts/verify_1800c_dro.py` and/or `ShopPilotVerify1800c`
+  - Files: `DesignCanvasView.swift`
+  - worktree: required; assignee: coder; 45m
+
+- [ ] **SPK-1800d** **DES** Sheet origin control — corner vs center, not only (0,0) crosshair // P0
+  - parent: SPK-1800; deps: 1800c
+  - AC: user can set Design datum to sheet **corner** or **center**; grid + snap + canvas DRO use that datum; persist on job/sheet; **docs comment in UI + this card: Design origin ≠ Machine WCS / mPos** — do not merge WCS into Design
+  - Out of scope: G54–G59, Machine zero UI, live serial
+  - Verify: `scripts/verify_1800d_origin.py` and/or `ShopPilotVerify1800d`
+  - Files: `DesignCanvasView.swift` + sheet/job model persist
+  - worktree: required; assignee: coder; 60m
+
+- [ ] **SPK-1800e** **CUT** CAM inspector — selected toolpath F / S / Z in InspectorShell // P0
+  - parent: SPK-1800; deps: none (file: InspectorShell; parallel-ok after 1800a if DesignCanvasView not touched)
+  - AC: when a toolpath/operation is selected, Inspector shows feed (F), spindle (S), cut depth (Z) from existing `ToolpathTreeNode.paramFeedRate` / `paramSpindleRpm` / `paramCutDepth` (and selectedDetail in Cut is not the only place)
+  - Out of scope: rewriting ProfileParamsForm; laser
+  - Verify: `scripts/verify_1800e_inspector.py` and/or `ShopPilotVerify1800e`
+  - Files: `Sources/ShopPilot/InspectorShell.swift` (read-only params; Cut `selectedDetail` in ContentView stays)
+  - worktree: required; assignee: coder; 45m
+
+- [ ] **SPK-1800f** **DES** Tabs and leads drawn on Design path overlay // P0
+  - parent: SPK-1800; deps: 1800d if sharing DesignCanvasView; **do not edit ToolpathPreviewView while 1700 is `[ ]`**
+  - AC: profile tabs and lead-in/out visible on Design `toolpathOverlayLayer` (distinct stroke from rapid/cut); uses existing profile params / G-code comments — not a new CAM engine
+  - Out of scope: changing tab generation math; Preview playback; 1700 raster
+  - Verify: `scripts/verify_1800f_tabs.py` and/or `ShopPilotVerify1800f`
+  - Files: `DesignCanvasView.swift` overlay (+ optional small Core helper)
+  - worktree: required; assignee: coder; 90m
+
+- [ ] **SPK-1800g** **MACH** Large Machine DRO — X/Y/Z from parsed mPos // P0
+  - parent: SPK-1800; // parallel-ok (MachineConnection.swift)
+  - AC: Machine stage shows large monospaced X Y Z from `MachineSession.mPosX/Y/Z` (StatusParser); updates with simulator `?` reports; Hold/Reset remain visible when connected
+  - Out of scope: merging into Design origin; WCS editor; live serial jobs
+  - Verify: `scripts/verify_1800g_machine_dro.py` and/or `ShopPilotVerify1800g`
+  - Files: `Sources/ShopPilot/MachineConnection.swift` (`MachineConnectionView`)
+  - worktree: required; assignee: coder; 45m
+
+- [ ] **SPK-1800h** **3D** Relief orbit — Model heightfield 2.5D orbit (not Fusion) // P0
+  - parent: SPK-1800
+  - deps: **if SPK-1700 still `[ ]` (current): no Preview file overlap** — implement on `ModelStageView` / `ReliefCanvasView` only. If 1700a `[x]` and you must touch Preview, wait until 1700a–c `[x]` or serialize Preview.
+  - AC: Model relief can orbit/tilt (SceneKit textured plane **or** 2.5D better orbit of the existing heightfield — thin). Not a CAD viewport. Sculpt pan/zoom still work in sculpt mode; Fit still works
+  - Out of scope: Fusion-style 3D; Metal chip sim; 1700 filled raster
+  - Verify: `scripts/verify_1800h_orbit.py` and/or `ShopPilotVerify1800h`
+  - Files: `Sources/ShopPilot/ModelStageView.swift` only while 1700 open
+  - worktree: required; assignee: coder; 90m
 
 ---
 
@@ -1570,6 +1658,10 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 ---
 
 ## 12. Work log
+
+### 2026-08-13 — SPK-1800 CAM first-hour UI queued (docs)
+- Board: Phase R parent **SPK-1800** `[ ]` + children **1800a–h** `[ ]` Ready. Serialize DesignCanvasView for a–d. 1800e/g/h parallel-ok after 1800a if files differ. **BUG-03 / 1700 do not block 1800a.** **1800h = ModelStageView only** while 1700 `[ ]`. Laser held. **SPK-0623 left `[ ]`**.
+- Prompt: `docs/planning/CAM_UI_FIRST_HOUR_HERMES.md`. No Sources this pass.
 
 ### 2026-08-13 — SPK-1700 Preview playback queued (docs)
 - Board: parent **SPK-1700** `[ ]` + children **1700a** raster, **1700b** playhead, **1700c** bit stamp, **1700d** screenshot pack. **SPK-UI-BUG-03 remains P0 `[ ]` — Hermes must do BUG-03 FIRST** then 1700a–d.
