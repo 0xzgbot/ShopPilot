@@ -210,12 +210,14 @@ struct ToolpathPreviewView: View {
                 .controlSize(.small)
                 .frame(width: 120)
                 .help("Surface material for the heightfield preview (SPK-1202)")
-                // SPK-1008 — webcam overlay toggle (watch the stock while the
-                // sim runs). Camera availability degrades gracefully.
+                // SPK-1008 — optional camera overlay. SPK-1507: the copy is
+                // honest — it is a separate overlay window over the sim, not
+                // part of the cut simulation itself (and it may show nothing
+                // when no camera is available).
                 Toggle("Camera", isOn: $showCamera)
                     .toggleStyle(.switch)
                     .controlSize(.small)
-                    .help("Show the live webcam feed over the preview (SPK-1008)")
+                    .help("Show a camera view over the sim as a reference — the cut sim itself is the wireframe below (SPK-1008)")
                 Button("Continue to Machine") {
                     session.loadFixtureGCodeIfNeeded()
                     session.selectedStage = .machine

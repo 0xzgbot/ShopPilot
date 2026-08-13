@@ -1,9 +1,19 @@
 import Foundation
 import Metal
 
+// MARK: - Legacy preview scaffolding (SPK-1507)
+
+// NOTE (SPK-1507): the LIVE Preview stage is a SwiftUI Canvas wireframe /
+// heightfield simulation (ToolpathPreviewView) — it does NOT use a Metal
+// renderer. This file is legacy scaffolding from the earlier renderer plan;
+// the names below say "Metal" but nothing in the app consumes them, and
+// there is no GPU preview anywhere in the product. They are kept for source
+// compatibility and relabeled so no one reads "metal-backed preview" as a
+// claim about the shipped app.
+
 // MARK: - Viewport State
 
-/// Stable viewport state for metal-backed preview rendering.
+/// Stable viewport state for the heightfield preview.
 public struct ViewportState {
     
     /// Center X coordinate in world space.
@@ -50,12 +60,13 @@ public struct ViewportState {
     }
 }
 
-// MARK: - Metal Preview Configuration
+// MARK: - Legacy Preview Configuration
 
-/// Configuration for metal-backed preview rendering.
+/// Configuration for the legacy heightfield preview scaffolding.
+/// Not consumed by the live SwiftUI Canvas Preview stage (SPK-1507).
 public struct MetalPreviewConfiguration {
     
-    /// Whether to use metal acceleration.
+    /// Whether to use metal acceleration (legacy — unused by the live app).
     public var enableMetal: Bool
     
     /// Maximum frame rate for preview updates.
@@ -124,9 +135,10 @@ public struct PreviewRenderCommand {
     }
 }
 
-// MARK: - Metal Preview Renderer
+// MARK: - Legacy Preview Renderer
 
-/// Manages metal-backed preview rendering with stable viewport state.
+/// Manages the legacy heightfield preview render loop with stable viewport
+/// state. Not consumed by the live SwiftUI Canvas Preview stage (SPK-1507).
 public final class MetalPreviewRenderer {
     
     private let configuration: MetalPreviewConfiguration
