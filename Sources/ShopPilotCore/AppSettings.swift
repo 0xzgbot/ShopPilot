@@ -11,14 +11,21 @@ public enum AppSettings {
     /// The theme string as stored by PreferencesView.
     public static let themeKey = "shop_pilot_theme"
 
-    /// Resolve the stored theme string ("light" / "dark" / "system") to a
-    /// SwiftUI-friendly value. `system` → nil (follow the OS), the default
-    /// when the key is absent or unknown.
-    public static func resolvedTheme(_ stored: String?) -> ColorScheme? {
+    /// Resolved appearance — UI layers map this to their own color-scheme
+    /// type (SwiftUI ColorScheme at the call site; Core stays UI-free).
+    public enum Appearance: String {
+        case light
+        case dark
+        case system
+    }
+
+    /// Resolve the stored theme string ("light" / "dark" / "system") to the
+    /// Appearance enum. Unknown/absent → `.system` (follow the OS).
+    public static func resolvedTheme(_ stored: String?) -> Appearance {
         switch stored {
         case "light": return .light
         case "dark": return .dark
-        default: return nil // "system" + unknown → follow the OS
+        default: return .system
         }
     }
 

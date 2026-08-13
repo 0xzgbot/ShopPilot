@@ -31,7 +31,7 @@ def main() -> int:
     settings = (ROOT / "Sources" / "ShopPilotCore" / "AppSettings.swift").read_text(encoding="utf-8")
 
     # 1. preferredColorScheme on the window root, from the live preference.
-    must(".preferredColorScheme(AppSettings.resolvedTheme(themePreference))" in content,
+    must(".preferredColorScheme(scheme(for: AppSettings.resolvedTheme(themePreference)))" in content,
          "ContentView applies preferredColorScheme via AppSettings.resolvedTheme")
     must('@AppStorage("shop_pilot_theme")' in content,
          "ContentView mirrors the shop_pilot_theme preference (live updates)")
@@ -39,9 +39,9 @@ def main() -> int:
     # 2. Core resolver semantics.
     must('case "light": return .light' in settings
          and 'case "dark": return .dark' in settings,
-         "AppSettings maps light/dark to color schemes")
-    must("default: return nil" in settings,
-         "system/unknown → nil (follow the OS)")
+         "AppSettings maps light/dark to appearances")
+    must("default: return .system" in settings,
+         "system/unknown → .system (follow the OS)")
 
     # 3. Preferences picker still writes the same key.
     must('@AppStorage("shop_pilot_theme")' in prefs
