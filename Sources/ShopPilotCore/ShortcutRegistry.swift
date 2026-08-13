@@ -59,6 +59,8 @@ public final class ShortcutRegistry: ObservableObject, @unchecked Sendable {
         // SPK-1600 — File Save (⌘S) / Save As (⇧⌘S).
         ShortcutBinding(id: "file.save", title: "Save", defaultKey: "s", defaultModifiers: ["command"]),
         ShortcutBinding(id: "file.saveAs", title: "Save As…", defaultKey: "s", defaultModifiers: ["command", "shift"]),
+        // SPK-1610 — File Export G-code (⇧⌘E).
+        ShortcutBinding(id: "file.export", title: "Export G-code…", defaultKey: "e", defaultModifiers: ["command", "shift"]),
         ShortcutBinding(id: "palette", title: "Command Palette…", defaultKey: "k", defaultModifiers: ["command"]),
         // SPK-1606 — Edit Undo/Redo (⌘Z / ⇧⌘Z) drive the session undo stack.
         ShortcutBinding(id: "edit.undo", title: "Undo", defaultKey: "z", defaultModifiers: ["command"]),

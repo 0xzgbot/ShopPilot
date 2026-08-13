@@ -61,6 +61,14 @@ struct ShopPilotApp: App {
                     session.savePackageFromPanel(isSaveAs: true)
                 }
                 .keyboardShortcut(shortcut("file.saveAs"))
+
+                // SPK-1610 — File Export G-code → the SAME save-panel path
+                // the Cut toolbar's Save Toolpaths uses (post picker + unit
+                // override), via the palette command.
+                Button("Export G-code…") {
+                    session.handleCommand(.exportGcode)
+                }
+                .keyboardShortcut(shortcut("file.export"))
             }
 
             // SPK-1606 — Edit menu Undo/Redo call the session stack (the

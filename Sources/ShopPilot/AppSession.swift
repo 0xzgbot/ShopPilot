@@ -4740,8 +4740,9 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
             loadFixtureGCodeIfNeeded()
             selectedStage = .machine
         case .exportGcode:
-            loadFixtureGCodeIfNeeded()
-            statusMessage = "G-code ready (\(gcodeLines.count) lines) — use Machine stage to stream"
+            // SPK-1610 — the palette Export routes to the same save-panel
+            // path as File Export and Cut Save Toolpaths.
+            exportGcodeFromPanel()
         case .importSVG:
             importSVGFromPanel()
         case .importSTLRelief:
@@ -4912,6 +4913,10 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
         return docs.appendingPathComponent("\(safeName).shoppilot")
     }
 
+    /// SPK-1610 — post template selected for export (shared by the File
+    /// Export and Cut Save Toolpaths panels). Defaults to the shipped GRBL mm.
+    var exportPostTemplateID: String = "grbl-mm"
+
     /// SPK-1600 — File Save / Save As. `isSaveAs` forces the panel; plain
     /// Save writes to `packageURL` when one exists (re-save), else prompts.
     /// The panel filters to `.shoppilot` and the URL becomes the new
@@ -4937,6 +4942,77 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
             try savePackage(to: url)
         } catch {
             statusMessage = "Save failed: \(error.localizedDescription)"
+        }
+    }
+
+    /// SPK-1610 — File Export G-code: the SAME save-panel path the Cut
+    /// stage's "Save Toolpaths" uses (post-template picker accessory + unit
+    /// preference override). Shared so File menu, ⌘K palette and Cut all
+    /// export identically.
+    func exportGcodeFromPanel() {
+        let gcode = allToolpathGCode
+        guard !gcode.isEmpty else {
+            statusMessage = "No G-code to save — generate a toolpath first"
+            return
+        }
+
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.plainText]
+        panel.nameFieldStringValue = "job.gcode"
+        panel.canCreateDirectories = true
+        panel.title = "Export G-code"
+
+        // SPK-1134 + SPK-1000: post picker accessory (shipped GRBL set +
+        // user Post Studio templates).
+        let postPicker = PostTemplatePickerView(
+            templates: postTemplateStore.allTemplates,
+            selectedID: exportPostTemplateID
+        ) { id in
+            self.exportPostTemplateID = id
+        }
+        let accessory = NSHostingView(rootView: postPicker)
+        accessory.frame = NSRect(x: 0, y: 0, width: 420, height: 240)
+        panel.accessoryView = accessory
+
+        guard panel.runModal() == .OK, let destinationURL = panel.url else {
+            return // User cancelled
+        }
+
+        let profile = machineProfiles.profiles.first ?? MachineProfile.simulatorProfile
+        do {
+            let postTemplate = postTemplateStore.template(byID: exportPostTemplateID)
+            let result = try CutToMachineBridge.export(
+                gcodeLines: gcode,
+                toolInfo: nil,
+                machineProfile: profile,
+                fileName: destinationURL.deletingPathExtension().lastPathComponent,
+                postTemplate: postTemplate,
+                postVariables: postTemplateVariables,
+                // SPK-1609 — the Preferences unit choice overrides the
+                // profile for export (inch → G20 + scaled coordinates).
+                unitsOverride: AppSettings().isInches ? .inch : .millimeter
+            )
+
+            if let errorMessage = result.errorMessage {
+                statusMessage = "Export failed: \(errorMessage)"
+                return
+            }
+            guard let exportedURL = result.outputFileURL else {
+                statusMessage = "Export failed: bridge produced no output file"
+                return
+            }
+
+            // The bridge writes post-processed G-code to its temp export
+            // directory; copy it to the user-chosen destination and report
+            // the line count actually on disk.
+            let data = try Data(contentsOf: exportedURL)
+            try data.write(to: destinationURL, options: .atomic)
+            let writtenText = String(data: data, encoding: .utf8) ?? ""
+            let writtenLineCount = writtenText.split(whereSeparator: \.isNewline).count
+            statusMessage = "Exported \(destinationURL.lastPathComponent) (\(writtenLineCount) lines)"
+            lastToolpathSummary = "\(result.postProcessorType.displayName) — \(writtenLineCount) lines"
+        } catch {
+            statusMessage = "Export failed: \(error.localizedDescription)"
         }
     }
 

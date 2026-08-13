@@ -888,8 +888,6 @@ private struct CutStageView: View {
     /// Blocker instance whose expert override is confirmed via the dirty-toolpath alert.
     @State private var exportBlocker: ExportBlocker?
     @State private var showExportBlockAlert = false
-    /// SPK-1134 — post template applied on Save Toolpaths (nil = legacy post).
-    @State private var selectedPostTemplateID: String = "grbl-mm"
     /// SPK-1000 — Post Studio sheet (template editor + variable blocks).
     @State private var showPostStudio = false
     /// SPK-1201 — cut overview mode: Layers table (default) or Tree.
@@ -1230,80 +1228,12 @@ private struct CutStageView: View {
         saveToolpaths()
     }
 
-    /// Present the save panel, post-process the session G-code through
-    /// CutToMachineBridge (optionally through the SPK-1134 post template
-    /// selected in the post picker), and write the GRBL file to the URL.
+    /// Present the save panel and export the session's toolpaths as G-code.
+    /// SPK-1610 — shared export panel (post-template picker + unit
+    /// preference override) owned by the session, so the Cut toolbar, File
+    /// Export and ⌘K palette all use one path.
     private func saveToolpaths() {
-        let gcode = session.allToolpathGCode
-        guard !gcode.isEmpty else {
-            session.statusMessage = "No G-code to save — generate a toolpath first"
-            return
-        }
-
-        let panel = NSSavePanel()
-        panel.allowedContentTypes = [.plainText]
-        panel.nameFieldStringValue = "job.gcode"
-        panel.canCreateDirectories = true
-        panel.title = "Save Toolpaths"
-
-        // SPK-1134 + SPK-1000: post picker accessory — choose the post
-        // template applied on export (shipped GRBL set + user Post Studio
-        // templates). The accessory also carries a summary of each template.
-        let postPicker = PostTemplatePickerView(
-            templates: session.postTemplateStore.allTemplates,
-            selectedID: selectedPostTemplateID
-        ) { id in
-            selectedPostTemplateID = id
-        }
-        let accessory = NSHostingView(rootView: postPicker)
-        accessory.frame = NSRect(x: 0, y: 0, width: 420, height: 240)
-        panel.accessoryView = accessory
-
-        guard panel.runModal() == .OK, let destinationURL = panel.url else {
-            return // User cancelled
-        }
-
-        do {
-            let postTemplate = session.postTemplateStore.template(byID: selectedPostTemplateID)
-            let result = try CutToMachineBridge.export(
-                gcodeLines: gcode,
-                toolInfo: nil,
-                machineProfile: activeMachineProfile,
-                fileName: destinationURL.deletingPathExtension().lastPathComponent,
-                postTemplate: postTemplate,
-                postVariables: session.postTemplateVariables,
-                // SPK-1609 — the Preferences unit choice overrides the
-                // profile for export (inch → G20 + scaled coordinates).
-                unitsOverride: AppSettings().isInches ? .inch : .millimeter
-            )
-
-            if let errorMessage = result.errorMessage {
-                session.statusMessage = "Save failed: \(errorMessage)"
-                return
-            }
-            guard let exportedURL = result.outputFileURL else {
-                session.statusMessage = "Save failed: bridge produced no output file"
-                return
-            }
-
-            // The bridge writes post-processed G-code to its temp export
-            // directory; copy it to the user-chosen destination.
-            let data = try Data(contentsOf: exportedURL)
-            try data.write(to: destinationURL, options: .atomic)
-
-            // Report the line count actually written to disk (the bridge's
-            // lineCount counts post-processor output rows, which can differ
-            // from the file's newline count).
-            let writtenText = String(data: data, encoding: .utf8) ?? ""
-            let writtenLineCount = writtenText.split(whereSeparator: \.isNewline).count
-
-            session.statusMessage =
-                "Saved \(destinationURL.lastPathComponent) (\(writtenLineCount) lines)"
-            session.lastToolpathSummary =
-                "\(result.postProcessorType.displayName) — \(writtenLineCount) lines"
-        } catch {
-            session.statusMessage = "Save failed: \(error.localizedDescription)"
-        }
+        session.exportGcodeFromPanel()
     }
 
     /// SPK-1135 — export the job sheet: fill the bundled A4 HTML template
