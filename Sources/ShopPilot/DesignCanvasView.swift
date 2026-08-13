@@ -35,7 +35,7 @@ enum CanvasCreateTool: String, CaseIterable, Identifiable {
     var hint: String {
         switch self {
         case .select:
-            return "Click to select, drag a shape to move, drag empty space to pan"
+            return "Click to select, drag a shape to move, drag empty space to marquee-select, hold Space to pan"
         case .rect:
             return "Drag corner-to-corner to draw a rectangle"
         case .circle:
@@ -76,6 +76,13 @@ struct DesignCanvasView: View {
     @State private var measureA: CGPoint?
     @State private var measureB: CGPoint?
 
+    // SPK-1800b: marquee select state.
+    @State private var isMarqueeDragging = false
+    @State private var marqueeStart: CGPoint?
+    @State private var marqueeEnd: CGPoint?
+    // SPK-1800b: Space key tracker for Space+drag pan.
+    @State private var spaceKeyDown = false
+
     private let doubleTapWindow: TimeInterval = 0.35
 
     var body: some View {
@@ -89,6 +96,7 @@ struct DesignCanvasView: View {
                     keepOutLayer
                     shapesLayer
                     toolpathOverlayLayer
+                    marqueeLayer
                     draftLayer
                     nodeEditLayer
                     measureLayer
@@ -109,6 +117,15 @@ struct DesignCanvasView: View {
                             scaleBeforePinch = scale
                         }
                 )
+                .onKeyPress(.space) { _ in
+                    // SPK-1800b: track Space for Space+drag pan.
+                    spaceKeyDown = true
+                    return .ignored
+                }
+                .onKeyPress(.init(" ")) { _ in
+                    spaceKeyDown = true
+                    return .ignored
+                }
                 .onContinuousHover { phase in
                     guard tool == .polyline else { return }
                     switch phase {
@@ -119,6 +136,10 @@ struct DesignCanvasView: View {
                     }
                 }
                 .onAppear { fitContent(in: geo.size) }
+                .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignMainNotification)) { _ in
+                    // SPK-1800b: release Space if window loses focus mid-press.
+                    spaceKeyDown = false
+                }
             }
         }
     }
@@ -321,6 +342,23 @@ struct DesignCanvasView: View {
         }
     }
 
+    /// SPK-1800b: rubber-band marquee rectangle while marquee-selecting.
+    @ViewBuilder
+    private var marqueeLayer: some View {
+        if isMarqueeDragging, let start = marqueeStart, let end = marqueeEnd {
+            Canvas { context, _ in
+                let rect = CGRect(
+                    x: min(start.x, end.x),
+                    y: min(start.y, end.y),
+                    width: abs(end.x - start.x),
+                    height: abs(end.y - start.y)
+                )
+                context.fill(Path(rect), with: .color(Color.accentColor.opacity(0.1)))
+                context.stroke(Path(rect), with: .color(Color.accentColor), lineWidth: 1.5)
+            }
+        }
+    }
+
     @ViewBuilder
     private var draftLayer: some View {
         if let draft = draftShape {
@@ -461,8 +499,8 @@ struct DesignCanvasView: View {
         case .select:
             return AnyGesture(
                 DragGesture(minimumDistance: 0)
-                    .onChanged(selectDragChanged)
-                    .onEnded(selectDragEnded)
+                    .onChanged { value in handleSelectDrag(value) }
+                    .onEnded { value in handleSelectEnd(value) }
             )
         case .rect, .circle, .line:
             return AnyGesture(
@@ -484,23 +522,22 @@ struct DesignCanvasView: View {
         }
     }
 
-    private func selectDragChanged(_ value: DragGesture.Value) {
+    /// SPK-1800b: select gesture — drag on a shape moves it, drag on empty
+    /// canvas marquee-selects, Space+drag (or middle-button) pans.
+    private func handleSelectDrag(_ value: DragGesture.Value) {
         if dragStart == nil {
             dragStart = value.startLocation
             selectedIndex = hitTest(value.startLocation)
-            // Publish to the session so Design ops act on the canvas selection
-            // (SPK-1101d). ⌘/⇧-click toggles membership for multi-shape ops
-            // (Weld/Subtract/Intersect/Join); plain click replaces; clicking
-            // empty space clears.
+            marqueeStart = nil
+            marqueeEnd = nil
+            isMarqueeDragging = false
+
             let flags = NSEvent.modifierFlags
             let isMulti = flags.contains(.command) || flags.contains(.shift)
             if let idx = selectedIndex {
                 if isMulti {
                     session.selectedShapeIndices.formSymmetricDifference([idx])
                 } else {
-                    // SPK-1203 — smart part selection: a plain click grabs
-                    // the whole connected part (touching/overlapping closed
-                    // shapes), not just the one shape under the cursor.
                     _ = session.smartSelectPart(containing: idx)
                 }
             } else if !isMulti {
@@ -508,19 +545,48 @@ struct DesignCanvasView: View {
             }
         }
         guard let idx = selectedIndex, session.shapes.indices.contains(idx) else {
-            offset = CGSize(
-                width: offset.width + value.translation.width * 0.02,
-                height: offset.height + value.translation.height * 0.02
-            )
+            // Drag on empty canvas → marquee or pan.
+            let isPan = spaceKeyDown || NSEvent.pressedMouseButtons.contains(.secondary)
+            if isPan {
+                isMarqueeDragging = false
+                offset = CGSize(
+                    width: offset.width + value.translation.width,
+                    height: offset.height + value.translation.height
+                )
+            } else {
+                // SPK-1800b: rubber-band marquee.
+                isMarqueeDragging = true
+                if marqueeStart == nil { marqueeStart = value.startLocation }
+                marqueeEnd = value.location
+            }
             return
         }
     }
 
-    private func selectDragEnded(_ value: DragGesture.Value) {
+    /// SPK-1800b: select end — commit move (snapped if 18000a on) or marquee hit-test.
+    private func handleSelectEnd(_ value: DragGesture.Value) {
+        if isMarqueeDragging {
+            // Commit marquee selection.
+            if let start = marqueeStart, let end = marqueeEnd {
+                let rect = CGRect(
+                    x: min(start.x, end.x),
+                    y: min(start.y, end.y),
+                    width: abs(end.x - start.x),
+                    height: abs(end.y - start.y)
+                )
+                if rect.width > 3 || rect.height > 3 {
+                    commitMarqueeSelection(rect)
+                }
+            }
+            isMarqueeDragging = false
+            marqueeStart = nil
+            marqueeEnd = nil
+            dragStart = nil
+            return
+        }
         if let idx = selectedIndex, session.shapes.indices.contains(idx) {
             var dx = Double(value.translation.width / scale)
             var dy = Double(-value.translation.height / scale)
-            // SPK-1800a: snap the move delta to grid multiples when snap is on.
             if snapToGridOn {
                 dx = round(dx / Double(canvasGridStep)) * Double(canvasGridStep)
                 dy = round(dy / Double(canvasGridStep)) * Double(canvasGridStep)
@@ -528,6 +594,33 @@ struct DesignCanvasView: View {
             session.moveShape(at: idx, by: dx, dy: dy)
         }
         dragStart = nil
+    }
+
+    /// SPK-1800b: select all shapes whose bounds intersect the marquee rect.
+    private func commitMarqueeSelection(_ rect: CGRect) {
+        let flags = NSEvent.modifierFlags
+        let isMulti = flags.contains(.command) || flags.contains(.shift)
+        if !isMulti {
+            session.selectedShapeIndices = []
+        }
+        var count = 0
+        for (idx, shape) in session.shapes.enumerated() {
+            guard session.isShapeVisible(at: idx), session.isShapeEditable(at: idx) else { continue }
+            let pts = GeometryBridge.toCorePaths([shape]).first?.points ?? []
+            let bbox = pts.reduce(into: CGRect?.none) { acc, pt in
+                let s = screen(pt.x, pt.y)
+                if let r = acc {
+                    acc = r.union(CGRect(x: s.x, y: s.y, width: 0, height: 0))
+                } else {
+                    acc = CGRect(x: s.x, y: s.y, width: 0, height: 0)
+                }
+            }
+            if let b = bbox, b.intersects(rect) {
+                session.selectedShapeIndices.insert(idx)
+                count += 1
+            }
+        }
+        session.statusMessage = count == 0 ? "Marquee: no shapes" : "Marquee: \(count) shape\(count == 1 ? "" : "s")"
     }
 
     // MARK: - Node-edit logic (SPK-1101b)
