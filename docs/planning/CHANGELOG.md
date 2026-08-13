@@ -6,6 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [0.05] — built on request (universal)
+
+### Added — Phase O (friendliness + live serial + persist-honesty, SPK-1400…1402)
+- Welcome sheet: 4 bundled sample projects (one click → Design), real Open Job / Import paths
+- Setup stage: Stock & Material first; Sheets/Double-sided/Rotary/Document Variables/Driven Dimensions/Golden Jobs under one Advanced disclosure
+- Friendly, sentence-case stage copy; "Untitled Project" chrome
+- Cut recipes: Cut out / Pocket / Engrave + More (all other strategies, Fixture G-code, Post Studio, Enqueue, Job Sheet)
+- Coach strip as a tip card with runnable actions (Try a sample / Cut out / Connect) + empty-state rules for Model/Preview/Setup/Machine
+- Inspector honesty: W/D/H bound to the active sheet; no Studio3D-only claims; clean selection names
+- Live serial: UI port/baud → `open(config:)`, termios 8N1 at real baud, 250000 via IOSSIOSPEED, jog `\n` + G90 restore, `waitForOk` ALARM/timeout, single realtime writer (`!`/`~`/0x18 once), status `?` poll that pauses while streaming, one-writer write gate
+- Autosave with recovery sheet ("Recover unsaved work?"), full-package payload (toolpaths survive crash), corrupt sheets surface instead of silent skip, honest Metal check
+- Machine stage density: run controls under More; dead UI removed; one TransportFactory (Core)
+
+### Added — Phase P (stream hygiene + AppSession split, SPK-1500…1509, 1403)
+- Stream start never writes 0x18; fallback path attaches the streamer
+- File menu Open Job… (⌘O) routes to the same session path as Welcome
+- Simulator soft-limit follows the machine profile's travel (legacy 500 default)
+- Preview copy honesty (wireframe sim, not Metal GPU; camera = reference overlay)
+- AppSession split: sample-load lifecycle, snapshot undo, Cut-out generate, and fixture G-code facade extracted into Core/Geometry with CLT-verified delegates (facade + bindings unchanged)
+
+### Fixed
+- Bugbot review: autosave now persists the full package (toolpaths/groups/doc vars), sample load starts clean (no Save-over-previous), Welcome Open shows the real file picker
+
+---
+
 ## [0.04] — unreleased (build on request)
 
 ### Added — Phase L (UX overhaul, SPK-1201…1210)

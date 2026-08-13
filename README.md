@@ -118,7 +118,7 @@ Release build (used by the packaging script):
 
 ```bash
 swift build -c release --product ShopPilot
-./scripts/package_app.sh          # → dist/ShopPilot-0.04-macOS.zip (universal)
+./scripts/package_app.sh          # → dist/ShopPilot-0.05-macOS.zip (universal)
 ```
 
 > ⚠️ Use `./scripts/swift_locked.sh build` when multiple agents/terminals may build simultaneously — it serializes Swift invocations.
@@ -144,7 +144,7 @@ Full walkthrough: [`docs/planning/TUTORIAL_FIRST_CUT.md`](docs/planning/TUTORIAL
 | [`docs/planning/TUTORIAL_FIRST_CUT.md`](docs/planning/TUTORIAL_FIRST_CUT.md) | **End-user first-cut tutorial** |
 | [`docs/planning/README_MAC_NATIVE.md`](docs/planning/README_MAC_NATIVE.md) | Product overview (planning archive) |
 | [`MASTER_KANBAN.md`](MASTER_KANBAN.md) | **Only task board** — claim SPK cards here |
-| [`docs/planning/CHANGELOG.md`](docs/planning/CHANGELOG.md) | Release history (0.01 → 0.04) |
+| [`docs/planning/CHANGELOG.md`](docs/planning/CHANGELOG.md) | Release history (0.01 → 0.05) |
 | [`docs/planning/V2_SHIP_CHECKLIST.md`](docs/planning/V2_SHIP_CHECKLIST.md) | v2 feature-gate checklist (Phases I–N) |
 | [`AGENTS.md`](AGENTS.md) | Agent protocol + safety rules |
 
@@ -161,7 +161,7 @@ export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 
 - Finish definition = **Engine + UI + Persist + Verify** per card (no stub estimators).
 - Every code card `[x]` through Phase N; remaining open items are human-triggered (`[!]` SPK-0419 live air-cut) or permanently deferred (`[-]` — commercial-era cards, out of scope).
-- A release **0.04** package (all Phases L–N + visual wave) is built on request via `scripts/package_app.sh`.
+- A release **0.05** package (Phases O + P, live serial, persist honesty) is built on request via `scripts/package_app.sh`.
 
 ## Stack
 
