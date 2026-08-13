@@ -1462,7 +1462,7 @@ Phase O/P/1403 **CLOSED**. Laser/LightBurn **HELD**. Do not reopen. Unlisted P0/
 
 **STOP (Phase Q chrome):** do not start DocumentGroup, laser/LightBurn, SPK-0623 rubber-stamp, AppSession full rewrite, or NavigationSplitView.
 
-**Next Ready (Preview honesty):** **SPK-1700** + **SPK-UI-BUG-03** — see below. Laser held. Prompt: `docs/planning/PREVIEW_PLAYBACK_HERMES.md`.
+**Next Ready (CAM first-hour UI):** **SPK-1800** — see below. Laser held. Prompt: `docs/planning/CAM_UI_FIRST_HOUR_HERMES.md`.
 
 ---
 
@@ -1470,16 +1470,10 @@ Phase O/P/1403 **CLOSED**. Laser/LightBurn **HELD**. Do not reopen. Unlisted P0/
 
 **DoD on parent:** Engine (dense heightmap + bit-radius stamp) + UI (filled raster in `ToolpathPreviewView`, playhead) + Persist (N/A / session-only) + Verify (`ShopPilotVerify1103e` + `ShopPilotVerify1700*`) + screenshot pack in `docs/screenshots/`. **BUG-03 first.** Simulator only. **Do not mark SPK-0623 `[x]`.**
 
-- [ ] **SPK-1700** **PREV** Parent — filled heightfield raster + playhead + circular bit stamp + GitHub screenshot pack // P0
-  - deps: SPK-1103e `[x]`; **SPK-UI-BUG-03 must `[x]` before 1700d capture** (do BUG-03 before 1700a–d in the Hermes run)
-  - AC: Preview shows a filled sheet heightmap (not `/40` dots); slider/playhead over sim time; endmill-radius stamp so pocket stepover matches tool; 2D pocket + 3D rough/finish shots in `docs/screenshots/`
-  - Out of scope: Metal chips; laser; live serial; SPK-0623 stamp
-  - Verify: `./scripts/verify_locked.sh ShopPilotVerify1103e` + `ShopPilotVerify1700a`/`b`/`c`; PNGs per `docs/screenshots/README.md`
-  - worktree: required; assignee: coder; 45–90m slices (outer Hermes run may be long)
-  - all swift via `swift_locked.sh`; never `rm -rf .build`; worktree-only Sources
-  - UI doctrine: stage rail, Hold/Reset when connected, no auto-run
+- [x] **SPK-1700** **PREV** Parent — filled heightfield raster + playhead + circular bit stamp + screenshot pack // P0 — **SHIPPED 2026-08-13 (worktree spk-1700)**
+  - worklog: 2026-08-13 — Hermes coder. All four slices `[x]` and independently verified: 1700a (filled raster, stride-1), 1700b (playhead + prefix-sim scrub), 1700c (flat-endmill disk stamp), 1700d (7 PNGs captured, README wired). DoD audited against code: dense heightmap (`materialSimulation` stride-1 default), full-heightmap render in `ToolpathPreviewView`, playhead/slider + cancellable prefix-sim, disk stamp at G1 points, screenshot pack in `docs/screenshots/`. All verifies PASS: 1700a, 1700b, 1700c, 1103e. AC met → `[x]`.
 
-- [x] **SPK-1700a** **PREV** Draw full heightmap as filled image in ToolpathPreviewView; drop `/40` display stride // P0
+- [x] **SPK-1700a** **PREV** Draw full heightmap as filled image in ToolpathPreviewView; drop `/40` display stride // P0 — **SHIPPED 2026-08-13**
   - parent: SPK-1700
   - AC: Simulate path uses stride 1 (or equivalent full grid); Preview heightfield/combined is a filled raster/image tinted by material palette; 1103e still PASS
   - Out of scope: playhead, bit stamp, screenshots
@@ -1504,12 +1498,13 @@ Phase O/P/1403 **CLOSED**. Laser/LightBurn **HELD**. Do not reopen. Unlisted P0/
   - worktree: required; assignee: coder; 90m
   - worklog: 2026-08-13 — Hermes coder. **AC met.** `ToolpathSimulator.simulate` now stamps a **flat-endmill disk** at every interpolated G1 point (cells whose center is within `toolRadiusMm` are lowered to `min(current, cutter Z)`; nil → documented 1.5mm fallback). `toolRadiusMm` threaded through `simulate`/`materialSimulation`/`simulateHeightmap`/`DirtyRegion.performResimulation(Heightmap)`; the preview passes `session.previewToolRadiusMm` (largest assigned tool diameter/2 from the tool DATABASE across tree nodes). Raster stepover ridges now match the tool: trench width ≈ 2R, and 8mm-stepover leaves a stock ridge while 6mm (== diameter) clears a continuous pocket. **Verify:** new `ShopPilotVerify1700c` PASS — R=3 pass clears a ~6mm band (rows 7…13, NOT a 1-cell line); 8mm stepover ridge intact; 6mm stepover no ridge; nil fallback = ~3mm band. Regression `ShopPilotVerify1103e` PASS (its raster probes sit ≥5mm off the cut lines — outside the 1.5mm fallback band). App build complete.
 
-- [ ] **SPK-1700d** **QA** Screenshot pack — 2D pocket + 3D relief sim + chrome // P0
-  - parent: SPK-1700; deps: 1700a, 1700b, 1700c, **SPK-UI-BUG-03**
+- [x] **SPK-1700d** **QA** Screenshot pack — 2D pocket + 3D relief sim + chrome // P0 — **SHIPPED 2026-08-13**
+  - parent: SPK-1700; deps: 1700a, 1700b, 1700c, SPK-UI-BUG-03
   - AC: capture via `scripts/capture_window.swift` into `docs/screenshots/`: `2d-pocket-stepover.png`, `2d-playhead.png`, `3d-relief-sim.png`, `welcome.png`, `design.png`, `cut.png`, `machine-sim.png` (composition in `docs/screenshots/README.md`); update root README image markdown; Simulator only; Hold/Reset on machine shot
   - Out of scope: implementing playback (that's a–c); SPK-0623; laser
   - Verify: PNGs exist and >20KB; `./scripts/verify_locked.sh ShopPilotVerify1103e`
   - worktree: required; assignee: coder; 90m
+  - worklog: 2026-08-13 — Hermes coder. **AC met.** All 7 required PNGs captured via `scripts/capture_window.swift` (1.0–1.3MB each, 2696×1736, Simulator-only): `welcome.png`, `design.png`, `cut.png`, `2d-pocket-stepover.png`, `2d-playhead.png`, `3d-relief-sim.png`, `machine-sim.png`. Root `README.md` Screenshots section wired — dropped the "after SPK-1700 ships" caveat, added Preview playback table. `docs/screenshots/README.md` updated — required pack marked as landed, `06-preview.png` relabeled as post-1700a filled raster. `ShopPilotVerify1103e` PASS (regression). Parent SPK-1700 AC met → `[x]`.
 
 ---
 
