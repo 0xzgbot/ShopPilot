@@ -734,67 +734,71 @@ public struct MachineConnectionView: View {
         }
     }
 
-    // MARK: - Run controls (SPK-1302/1303/1304)
+    // MARK: - Run controls (SPK-1302/1303/1304 / 1503)
 
     /// Live machine controls that only make sense while connected: feed
     /// override, spindle on/off, touch-off probing, work-offset switching.
+    /// SPK-1503 — the fine-tune cluster lives under one collapsed "More"
+    /// disclosure (feed/spindle/probe/offsets are occasional), while Jog,
+    /// Hold/Resume/Reset, Run/Stop and the alarm banner stay in the main
+    /// chrome.
     private var runControlsPanel: some View {
         Group {
             if connectionManager.connectionState.isConnected {
                 VStack(alignment: .leading, spacing: SP.Space.s) {
-                    SectionLabel("Run Controls")
-
-                    // Feed override + spindle.
-                    HStack(spacing: SP.Space.m) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Feed \(Int(controller.feedOverride.multiplier * 100))%")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                            Slider(
-                                value: Binding(
-                                    get: { controller.feedOverride.multiplier },
-                                    set: { controller.feedOverride = FeedRateOverride(multiplier: $0) }
-                                ),
-                                in: 0.1...2.0
-                            )
-                            .frame(width: 160)
-                            .help("Feed-rate override: 10%…200% (sends a scaled F word)")
-                        }
-                        Button("Apply") { controller.applyFeedOverride() }
-                            .controlSize(.small)
-
-                        Spacer()
-
-                        Button("Spindle ON") { controller.spindleOn() }
-                            .controlSize(.small)
-                        Button("Spindle OFF") { controller.spindleOff() }
-                            .controlSize(.small)
-                    }
-
-                    // Touch-off probe + work offsets.
-                    HStack(spacing: SP.Space.m) {
-                        Button {
-                            controller.touchOffZ(plateThickness: 3.0)
-                        } label: {
-                            Label("Touch-Off (3mm plate)", systemImage: "point.topleft.down.curvedto.point.bottomright.up")
-                        }
-                        .controlSize(.small)
-                        .help("Probe Z with a 3mm touch plate, then zero at the plate top")
-
-                        Spacer()
-
-                        Picker("Offset", selection: Binding(
-                            get: { controller.workOffsets.activeIndex },
-                            set: { controller.selectWorkOffset($0) }
-                        )) {
-                            ForEach(Array(controller.workOffsets.offsets.enumerated()), id: \.element.id) { index, offset in
-                                Text("\(offset.name) (\(offset.gcode))").tag(index)
+                    DisclosureGroup("More") {
+                        // Feed override + spindle.
+                        HStack(spacing: SP.Space.m) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Feed \(Int(controller.feedOverride.multiplier * 100))%")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                Slider(
+                                    value: Binding(
+                                        get: { controller.feedOverride.multiplier },
+                                        set: { controller.feedOverride = FeedRateOverride(multiplier: $0) }
+                                    ),
+                                    in: 0.1...2.0
+                                )
+                                .frame(width: 160)
+                                .help("Feed-rate override: 10%…200% (sends a scaled F word)")
                             }
+                            Button("Apply") { controller.applyFeedOverride() }
+                                .controlSize(.small)
+
+                            Spacer()
+
+                            Button("Spindle ON") { controller.spindleOn() }
+                                .controlSize(.small)
+                            Button("Spindle OFF") { controller.spindleOff() }
+                                .controlSize(.small)
                         }
-                        .pickerStyle(.menu)
-                        .controlSize(.small)
-                        .frame(width: 150)
-                        .help("Switch the active work offset (G54–G59)")
+
+                        // Touch-off probe + work offsets.
+                        HStack(spacing: SP.Space.m) {
+                            Button {
+                                controller.touchOffZ(plateThickness: 3.0)
+                            } label: {
+                                Label("Touch-Off (3mm plate)", systemImage: "point.topleft.down.curvedto.point.bottomright.up")
+                            }
+                            .controlSize(.small)
+                            .help("Probe Z with a 3mm touch plate, then zero at the plate top")
+
+                            Spacer()
+
+                            Picker("Offset", selection: Binding(
+                                get: { controller.workOffsets.activeIndex },
+                                set: { controller.selectWorkOffset($0) }
+                            )) {
+                                ForEach(Array(controller.workOffsets.offsets.enumerated()), id: \.element.id) { index, offset in
+                                    Text("\(offset.name) (\(offset.gcode))").tag(index)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            .controlSize(.small)
+                            .frame(width: 150)
+                            .help("Switch the active work offset (G54–G59)")
+                        }
                     }
                 }
                 .padding(.horizontal, SP.Space.m)
