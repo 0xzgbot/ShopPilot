@@ -210,6 +210,21 @@ struct ContentView: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
+
+            // SPK-1603 — "Start Making" can return after first-run: a small
+            // chrome control re-presents the same WelcomeSheetView. The gate
+            // reset IS the persist (the sheet would re-open on next launch);
+            // dismiss still acknowledges it away.
+            Button {
+                FirstRunGate.reset()
+                showWelcome = true
+            } label: {
+                Label("Start Making", systemImage: "sparkles")
+                    .font(.caption2)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .help("Re-open the Start Making welcome sheet (samples + open/import)")
         }
         .padding(.horizontal, SP.Space.m)
         .frame(height: 24)
