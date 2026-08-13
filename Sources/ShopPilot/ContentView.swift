@@ -1271,7 +1271,10 @@ private struct CutStageView: View {
                 machineProfile: activeMachineProfile,
                 fileName: destinationURL.deletingPathExtension().lastPathComponent,
                 postTemplate: postTemplate,
-                postVariables: session.postTemplateVariables
+                postVariables: session.postTemplateVariables,
+                // SPK-1609 — the Preferences unit choice overrides the
+                // profile for export (inch → G20 + scaled coordinates).
+                unitsOverride: AppSettings().isInches ? .inch : .millimeter
             )
 
             if let errorMessage = result.errorMessage {
@@ -1375,7 +1378,9 @@ private struct CutStageView: View {
                     gcodeLines: group.gcode,
                     toolInfo: nil,
                     machineProfile: activeMachineProfile,
-                    fileName: fileName
+                    fileName: fileName,
+                    // SPK-1609 — split export follows the unit preference too.
+                    unitsOverride: AppSettings().isInches ? .inch : .millimeter
                 )
                 if let errorMessage = result.errorMessage {
                     session.statusMessage = "Split failed: \(errorMessage)"

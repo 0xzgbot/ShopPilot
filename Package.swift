@@ -1052,6 +1052,11 @@ let package = Package(
             dependencies: ["ShopPilotCore", "ShopPilotSerial"],
             path: "Sources/ShopPilotVerify1608"
         ),
+        .executableTarget(
+            name: "ShopPilotVerify1609",
+            dependencies: ["ShopPilotCore", "ShopPilotSerial"],
+            path: "Sources/ShopPilotVerify1609"
+        ),
 
         // AppSession split slices (2026-08-12) — sample-load (1403a), undo
         // stack (1403b), profile generate (1403c), machine facade (1403d).

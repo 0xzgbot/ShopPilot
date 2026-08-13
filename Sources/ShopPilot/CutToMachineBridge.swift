@@ -53,7 +53,8 @@ public final class CutToMachineBridge {
         machineProfile: MachineProfile,
         fileName: String = "job",
         postTemplate: PostTemplate? = nil,
-        postVariables: [String: String] = [:]
+        postVariables: [String: String] = [:],
+        unitsOverride: GCodeUnits? = nil
     ) throws -> CutToMachineBridgeResult {
         
         // Validate input
@@ -69,16 +70,19 @@ public final class CutToMachineBridge {
         
         // Select post-processor based on machine profile (SPK-0415: the
         // profile's machine type picks GRBL vs Universal, and its units pick
-        // G21 vs G20).
+        // G21 vs G20). SPK-1609: the Preferences unit choice OVERRIDES the
+        // profile when set — and inch mode also scales the coordinates
+        // (G20 with mm numbers would move 25.4× too far).
+        let units = unitsOverride ?? machineProfile.units
         let postProcessor: GRBLPostProcessor
         let postType: PostProcessorType
         
         switch machineProfile.autoPostProcessorType {
         case .grbl:
-            postProcessor = GRBLPostProcessor.grbl(machineName: machineProfile.name, units: machineProfile.units)
+            postProcessor = GRBLPostProcessor.grbl(machineName: machineProfile.name, units: units)
             postType = .grbl
         case .universal:
-            postProcessor = GRBLPostProcessor.universal(machineName: machineProfile.name, units: machineProfile.units)
+            postProcessor = GRBLPostProcessor.universal(machineName: machineProfile.name, units: units)
             postType = .universal
         }
         

@@ -225,11 +225,18 @@ public struct GRBLPostProcessor {
         var lineNumber = 0
         
         for line in gcodeLines {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            var trimmed = line.trimmingCharacters(in: .whitespaces)
             
             // Skip empty lines and comments from input (we'll add our own)
             if trimmed.isEmpty || trimmed.hasPrefix("(") || trimmed.hasPrefix("%") || trimmed.hasPrefix("O=") {
                 continue
+            }
+            
+            // SPK-1609 — inch mode must scale the COORDINATES, not just emit
+            // G20: "G20 with mm numbers" would move 25.4× too far. Scale the
+            // numeric coordinate tokens (X/Y/Z/I/J/K/R) from mm to inches.
+            if !configuration.millimeterUnits {
+                trimmed = GCodeUnitConverter.scaleToInches(trimmed)
             }
             
             // Add line number if enabled
@@ -244,7 +251,12 @@ public struct GRBLPostProcessor {
         // Add cleanup G-code
         processedLines.append("")
         processedLines.append("M9 ; Coolant off")
-        processedLines.append("G0 Z\(String(format: "%.1f", configuration.safeZHeight)) ; Rapid to safe height")
+        // SPK-1609 — the safe-Z header must follow the output units too
+        // (mm mode: 5.0; inch mode: 5.0/25.4).
+        let safeZ = configuration.millimeterUnits
+            ? String(format: "%.1f", configuration.safeZHeight)
+            : String(format: "%.4f", configuration.safeZHeight / GCodeUnitConverter.mmPerInch)
+        processedLines.append("G0 Z\(safeZ) ; Rapid to safe height")
         processedLines.append("M2 ; Program end")
         processedLines.append("%")
         
@@ -260,6 +272,64 @@ public struct GRBLPostProcessor {
     public func process(gcodeString: String) -> PostProcessedOutput {
         let lines = gcodeString.components(separatedBy: "\n")
         return process(gcodeLines: lines)
+    }
+}
+
+// MARK: - GCodeUnitConverter (SPK-1609)
+
+/// Scales G-code coordinate tokens between unit systems. Inch output must
+/// not be "G20 with mm numbers" — every coordinate word (X/Y/Z/I/J/K/R) is
+/// divided by 25.4 so the controller moves the same physical distance.
+public enum GCodeUnitConverter {
+
+    /// Millimetres per inch.
+    public static let mmPerInch = 25.4
+
+    /// Coordinate word letters whose numbers are lengths (mm → inch).
+    private static let coordinateLetters: Set<Character> = ["X", "Y", "Z", "I", "J", "K", "R"]
+
+    /// Scale a g-code line's coordinate tokens from mm to inches.
+    public static func scaleToInches(_ line: String) -> String {
+        scale(line, by: 1.0 / mmPerInch)
+    }
+
+    /// Scale every coordinate token in `line` by `factor` (mm→inch uses
+    /// 1/25.4). Non-coordinate words (G/M/S/F/T, comments) pass through
+    /// untouched. Handles "X1.5" and "X-0.25" forms with optional signs.
+    public static func scale(_ line: String, by factor: Double) -> String {
+        var result = ""
+        var index = line.startIndex
+        while index < line.endIndex {
+            let ch = line[index]
+            if coordinateLetters.contains(ch) {
+                result.append(ch)
+                index = line.index(after: index)
+                // Preserve the optional sign, then parse the number.
+                var sign = ""
+                if index < line.endIndex, line[index] == "-" || line[index] == "+" {
+                    sign = String(line[index])
+                    index = line.index(after: index)
+                }
+                var numberEnd = index
+                while numberEnd < line.endIndex, line[numberEnd].isNumber || line[numberEnd] == "." {
+                    numberEnd = line.index(after: numberEnd)
+                }
+                if index < numberEnd,
+                   let value = Double(String(line[index..<numberEnd])) {
+                    let scaled = value * factor
+                    result.append(sign)
+                    result.append(String(format: "%.4f", scaled))
+                    index = numberEnd
+                    continue
+                }
+                // No number after the letter — copy the sign back as-is.
+                result.append(sign)
+                continue
+            }
+            result.append(ch)
+            index = line.index(after: index)
+        }
+        return result
     }
 }
 
