@@ -1336,6 +1336,66 @@ Phase O parents 1400/1401/1402 `[x]`. Only open non-H–K / non-`[!]` / non-App-
 
 **Out of Phase P:** SPK-0623, Phase H–K, App Store/notarize, live air-cut SPK-0419 `[!]`, `@Observable`, NavigationSplitView, Easy/Expert, char-count streaming, full AppSession rewrite.
 
+**SCOPE LOCK (2026-08-12) — laser / LightBurn HOLD.** Do **not** queue or claim LightBurn-style laser product work (device library, frame, per-layer power, raster, camera align, `$32`, new laser epic). Laser is a lean **non-goal** ([`LEAN_CNC_SCOPE.md`](./docs/planning/LEAN_CNC_SCOPE.md): dual-side / rotary / laser remain post-lean). Existing Phase J laser cards stay as shipped history — do not expand them. Do **not** mark SPK-0623. Phase P is **closed** (parent SPK-1403 `[x]`, HEAD `3a3efd7`).
+
+### Phase Q — Mac chrome honesty (2026-08-12)
+
+Phase O/P/1403 **CLOSED**. Laser/LightBurn **HELD**. Do not reopen. Unlisted P0/P1 gaps re-verified in tree 2026-08-12 (still true):
+
+| Gap | Evidence |
+| --- | --- |
+| P0 File Save / Save As missing | `App.swift` File group is New Job + Open Job only; `handleCommand(.saveJob)` → `savePackageToDefaultLocation()` (Documents/`name.shoppilot`, no NSSavePanel); no Save As |
+| P0 New Job does not `replaceJob` | File **New Job** sets `selectedStage = .setup` only; palette `.newJob` same. Recipe `NewJobView` *does* `replaceJob` (ContentView) — File/⌘N does not |
+| P0 Units pref does not convert | `shop_pilot_units` lives in Preferences + `AppSettings` only; no other readers; post G20/G21 still profile-driven (`ShopPilotVerify0415`) |
+| P1 one window | `Window("ShopPilot")` — **skip DocumentGroup** (`[-]` SPK-1612) |
+| P1 Undo not in Edit menu | `CommandGroup(after: .undoRedo)` adds Group/Ungroup only; no Undo/Redo → `session.undo()` |
+| P1 no vector XYWH inspector | `InspectorShell.selectionInfo` is count/badge; Design inspector has no X/Y/W/H fields |
+| P1 Home is G28 not `$H` | `MachineController.softHomeAll()` sends `"G28"` |
+| P1 appearance unused | `shop_pilot_theme` picker; no `preferredColorScheme` on `ContentView` / `App.swift` |
+| P1 Welcome never returns | `FirstRunGate.acknowledge()` on dismiss; `reset()` exists for tests only; no UI re-entry |
+| P1 preview fidelity | not a rewrite — **do not card** |
+| P2 File export / Open Recent / Help | no File Export, no `NSDocumentController` recent, no Help `CommandGroup` |
+| P2 README 0.03 vs 0.05 | Download link `dist/ShopPilot-0.03-macOS.zip`; package script / CHANGELOG say 0.05 |
+
+**UI doctrine (every Q card):** Mac creative CNC app; six-stage rail Setup→Design→Model→Cut→Preview→Machine; palettes + inspector; Hold/Resume/Reset always visible while connected; no auto-run on open; no laser product; no NavigationSplitView; no `@Observable` AppSession rewrite; no SPK-0623.
+
+**Serialize:** all `App.swift` File/Edit/Help cards sequential (1600 → 1601 → 1605 → 1606 → 1610 → 1611). `AppSession` for New Job / save. Units (1609) may touch Core post + Preferences — serialize vs 1602 on `PreferencesView`.
+
+**Wave 0 (orthogonal files, 3 coder):** **SPK-1600** (`App.swift` + `FileOperations.swift` + `AppSession.swift`), **SPK-1604** (`README.md` only), **SPK-1603** (`WelcomeSheetView.swift` + `FirstRunGate.swift` + `ContentView.swift` present/re-show — **not** App.swift). Do **not** start 1602 in Wave 0 (`ContentView`/`PreferencesView` collide with 1603).
+
+- [ ] **SPK-1620** **UX** Phase Q parent — File Save/Save As + New Job replace + units convert + appearance wired + Welcome re-entry + Help + Undo menu + XYWH inspector + `$H` home + README 0.05 + File export + Open Recent. Deps: none. DoD on parent. Out of scope: DocumentGroup, preview rewrite, laser, App Store, SPK-0623, AppSession full split, NavigationSplitView.
+
+- [ ] **SPK-1600** **DOC** File Save / Save As — File menu **Save** (⌘S) and **Save As…** (⇧⌘S) call session save with NSSavePanel when `packageURL == nil` or Save As; overwrite when URL known. Wire `handleCommand(.saveJob)` to the same path (stop silent Documents dump as the only Save). Files: `Sources/ShopPilot/App.swift`, `FileOperations.swift` (panel helper OK), `AppSession.swift` (`savePackage` already exists). AC: File menu has Save + Save As; first save prompts; subsequent Save uses `packageURL`; Save As updates `packageURL`. Out of scope: Open Recent, Export, New Job replace, DocumentGroup. Verify: `scripts/verify_1600_file_save.py` (App.swift Save/Save As + `savePackage` / panel; AppSession no longer Save-only-default). Assignee: coder. 90m. **MUST be first File/`App.swift` card.** // serialize vs 1601/1605/1606/1610/1611.
+
+- [ ] **SPK-1601** **DOC** New Job replaces session — File **New Job** / `.newJob` must `replaceJob` (or equivalent blank `Job()` + tree clear), not only `selectedStage = .setup`. Dirty → confirm discard or save (reuse existing dirty chrome if any; else simple alert). Files: `App.swift`, `AppSession.swift` (`handleCommand(.newJob)`). AC: ⌘N / File New yields empty Untitled job (shapes/toolpaths cleared); Setup still selected; recipe `NewJobView` path unchanged. Out of scope: DocumentGroup multi-window; Save As (1600). Verify: `scripts/verify_1601_new_job.py` (New Job → `replaceJob` or `handleCommand(.newJob)` not stage-only). Assignee: coder. 60m. Deps: 1600. // serialize App.swift + AppSession.
+
+- [ ] **SPK-1602** **UX** Appearance picker actually tints — bind `shop_pilot_theme` to window `preferredColorScheme` (light/dark/nil system) on `ContentView` (and Settings if easy). Files: `PreferencesView.swift`, `ContentView.swift` (and/or `App.swift` Window root — **wait until File cards not editing App.swift**). AC: Light/Dark/System in Preferences changes the main window; System = nil scheme. Out of scope: custom accent redesign; NavigationSplitView. Verify: `scripts/verify_1602_appearance.py` (`preferredColorScheme` reads theme / `AppSettings.resolvedTheme`). Assignee: coder. 45m. Deps: 1603 done if sharing ContentView. // serialize vs 1603 ContentView; vs 1609 PreferencesView.
+
+- [ ] **SPK-1603** **UX** Welcome can return — after first-run ack, user can show **Start Making** again (ContentView chrome or Setup control — **not** App.swift Help). Call `FirstRunGate.reset()` and set existing `showWelcome = true`. Files: `WelcomeSheetView.swift`, `Sources/ShopPilotCore/FirstRunGate.swift` (API already has `reset`), `ContentView.swift`. AC: dismiss still acknowledges; a visible control re-presents the same `WelcomeSheetView`; gate reset is the persist. Out of scope: App.swift Help menu (1605); AppSession rewrite; changing sample catalog. Verify: `./scripts/verify_locked.sh ShopPilotVerifyUXPolish` (gate still) + `scripts/verify_1603_welcome.py` (re-show call site + `FirstRunGate.reset`). Assignee: coder. 45m. // Wave 0 parallel-ok vs 1600/1604.
+
+- [x] **SPK-1604** **DOC** README version 0.05 — Download link and any 0.03 zip path → `dist/ShopPilot-0.05-macOS.zip` (or “built on request” if zip untracked); keep CHANGELOG 0.05 consistent. Files: `README.md` only. AC: no user-facing 0.03 download as current. Out of scope: packaging script rewrite; screenshots. Verify: `scripts/verify_1604_readme.py` (README has 0.05, not 0.03 as current download). Assignee: coder (spark-ok). 45m. // Wave 0 parallel-ok.
+  - worklog: 2026-08-12 — Hermes coder. README Download section now links `dist/ShopPilot-0.05-macOS.zip` (with a "or build with package_app.sh" note — the zip is rebuilt on request, not committed); the stale 0.03 download line is gone; CHANGELOG 0.05 entry was already in place from the release pass. Verify `scripts/verify_1604_readme.py` PASS (0.05 present, 0.03 absent, changelog consistent).
+
+- [ ] **SPK-1605** **UX** Help menu — `CommandGroup(replacing: .help)` or `CommandMenu("Help")`: Safety notice (existing `showSafetyDisclaimer`), README/LEAN scope URL or in-app Safety, optional Welcome (if 1603 did not add Help). Files: `App.swift` only. AC: Help menu exists; Safety reachable. Out of scope: in-app HTML help book; laser docs. Verify: `scripts/verify_1605_help.py`. Assignee: coder. 45m. Deps: 1601 (App.swift free). // serialize App.swift.
+
+- [ ] **SPK-1606** **UX** Undo/Redo in Edit menu — File/Edit **Undo** / **Redo** call `session.undo()` / `session.redo()` (or `handleCommand`); keep Group/Ungroup after. Files: `App.swift` only. AC: Edit menu Undo/Redo present; same session stack as 1403b. Out of scope: NSUndoManager document architecture; Inspector. Verify: `scripts/verify_1606_undo_menu.py`. Assignee: coder. 45m. Deps: 1605. // serialize App.swift.
+
+- [ ] **SPK-1607** **UX** Vector XYWH inspector — Design inspector shows selected vector bbox X/Y/W/H (mm); optional edit via existing `applySetSize` / move — read-only OK if AC says display. Files: `InspectorShell.swift` only. AC: one selected shape → numeric X Y W H; none → hide; multi → count only. Out of scope: full transform panel; node editor. Verify: `scripts/verify_1607_xywh.py` or `ShopPilotVerify1607`. Assignee: coder. 60m. // parallel-ok vs App.swift cards.
+
+- [ ] **SPK-1608** **MACHINE** Home sends `$H` — GRBL homing cycle is `$H`, not G28 (G28 is return-to-predefined). `softHomeAll()` (or Home button path) writes `$H\n` via existing `sendCommand`. Files: `Sources/ShopPilot/MachineController.swift` (label copy if it says G28). AC: Home → `$H`; G28 not used for that button. Out of scope: G28 as a separate “go to machine zero” command; live air-cut. Verify: `./scripts/verify_locked.sh ShopPilotVerify1608` (recording transport: home → `$H` with newline; not G28). Assignee: coder. 45m. // parallel-ok vs File/UI cards.
+
+- [ ] **SPK-1609** **CAM** Units preference converts — `shop_pilot_units` == `inch` → post/export uses G20 and inch-scaled moves (or documented conversion at export); `mm` → G21. Do not emit G20 while coordinates stay mm. Files: Preferences read path + Core post (`GRBLPostProcessor` / `CutToMachineBridge` / profile units sync). AC: inch pref → G20 + converted numbers on a known 25.4mm move; mm pref → G21 unchanged; `ShopPilotVerify0415` still PASS for profile units. Out of scope: rewriting every inspector label; laser. Verify: `./scripts/verify_locked.sh ShopPilotVerify1609` (+ regression 0415). Assignee: coder. 90m. Deps: 1602 preferred (Preferences free). // serialize vs 1602 PreferencesView; may touch AppSession export — not parallel with 1600/1601.
+
+- [ ] **SPK-1610** **DOC** File Export G-code — File menu **Export G-code…** → existing Cut `saveToolpaths()` / `handleCommand(.exportGcode)` with NSSavePanel (today palette export only loads fixture + status). Files: `App.swift` + thin `AppSession` if `.exportGcode` must call `saveToolpaths` equivalent. AC: File Export opens save panel path used by Cut Save Toolpaths (or shared helper). Out of scope: split-files R019 rewrite. Verify: `scripts/verify_1610_export.py`. Assignee: coder. 45m. Deps: 1606. // serialize App.swift.
+
+- [ ] **SPK-1611** **DOC** Open Recent — remember last N `.shoppilot` URLs on successful open/save; File **Open Recent** submenu. Files: `App.swift` + small store (UserDefaults) — new file OK to keep App.swift thin. AC: after Open/Save, URL appears; picking it calls `openPackage(from:)`. Out of scope: full `NSDocumentController` / DocumentGroup. Verify: `scripts/verify_1611_recent.py`. Assignee: coder. 60m. Deps: 1610. // serialize App.swift; AppSession open/save hooks — after 1600/1601.
+
+- [-] **SPK-1612** **PLAT** DocumentGroup / multi-window — **skip**. One `Window("ShopPilot")` is OK. Do not start.
+
+**STOP:** queue empty, or next work would be DocumentGroup, laser/LightBurn, SPK-0623, AppSession full rewrite, or NavigationSplitView.
+
+**Out of Phase Q:** laser, App Store/notarize, SPK-0623, `@Observable`, NavigationSplitView, Easy/Expert, char-count streaming, preview Metal rewrite, Phase H–K.
+
 ---
 
 ## 3. Kanban column mapping (for Hermes / UI boards)
@@ -1396,6 +1456,12 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 ---
 
 ## 12. Work log
+
+### 2026-08-12 — Phase Q queued (Mac chrome honesty SPK-1600+)
+- Board only: SPK-1620 parent `[ ]` + 1600–1611 Ready; 1612 DocumentGroup `[-]`; Wave 0 = 1600 / 1604 / 1603. No Sources.
+
+### 2026-08-12 — laser / LightBurn HOLD (scope lock)
+- Board only: Phase P closed at `3a3efd7` (SPK-1403 `[x]`). Agents must not start laser/LightBurn product work; see Phase P SCOPE LOCK + LEAN_CNC_SCOPE (laser post-lean). No Sources.
 
 ### 2026-08-12 — Phase P queued (stream hygiene + AppSession 1403b–d)
 - Board only: SPK-1504/1508/1506/1509/1500/1501/1502/1507/1503 `[ ]` + AppSession slices 1403b–d `[ ]`; parent 1403 stays `[ ]`. No Sources this pass.
