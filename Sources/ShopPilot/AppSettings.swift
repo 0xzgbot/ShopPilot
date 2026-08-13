@@ -42,6 +42,17 @@ struct AppSettings {
         }
     }
 
+    /// SPK-1602 — env-free resolver for the window root (no EnvironmentValues
+    /// in a modifier chain): light → .light, dark → .dark, system/unknown →
+    /// nil (follow the OS).
+    var resolvedScheme: ColorScheme? {
+        switch theme {
+        case "light":  return .light
+        case "dark":   return .dark
+        default:       return nil
+        }
+    }
+
     // MARK: - Pro-skip (beginner coach)
 
     /// When `true`, the beginner coach is skipped on first run.

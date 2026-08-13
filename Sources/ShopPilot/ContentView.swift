@@ -110,9 +110,8 @@ struct ContentView: View {
         .animation(SP.Motion.state, value: session.showCommandPalette)
         // SPK-1602 — Appearance preference actually tints the window:
         // Preferences writes shop_pilot_theme ("light"/"dark"/"system");
-        // AppSettings resolves it, and the mapping to ColorScheme lives here
-        // (Core stays UI-free). .system → nil = follow the OS.
-        .preferredColorScheme(scheme(for: AppSettings.resolvedTheme(themePreference)))
+        // the app's AppSettings resolves it (system → nil = follow the OS).
+        .preferredColorScheme(appSettings.resolvedScheme)
         // SPK-visual — brand accent: warm wood-shop amber everywhere controls
         // inherit the environment accent (buttons, selection, focus rings).
         .tint(SP.Tint.brand)
@@ -168,18 +167,10 @@ struct ContentView: View {
     @State private var showRecoveryOffer = false
 
     /// SPK-1602 — the Appearance preference ("light"/"dark"/"system"),
-    /// resolved to a color scheme on the window root. Mirrors Preferences'
-    /// @AppStorage so the live value drives preferredColorScheme.
-    @AppStorage("shop_pilot_theme") private var themePreference = "system"
-
-    /// Map the Core Appearance to a SwiftUI ColorScheme (nil = follow OS).
-    private func scheme(for appearance: AppSettings.Appearance) -> ColorScheme? {
-        switch appearance {
-        case .light: return .light
-        case .dark: return .dark
-        case .system: return nil
-        }
-    }
+    /// resolved to a color scheme on the window root. The @AppStorage-backed
+    /// AppSettings mirrors Preferences' key so the live value drives
+    /// preferredColorScheme.
+    private let appSettings = AppSettings()
 
     @ViewBuilder
     private var stageBody: some View {

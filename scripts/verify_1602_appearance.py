@@ -28,20 +28,20 @@ def must(cond: bool, msg: str) -> None:
 def main() -> int:
     content = (ROOT / "Sources" / "ShopPilot" / "ContentView.swift").read_text(encoding="utf-8")
     prefs = (ROOT / "Sources" / "ShopPilot" / "PreferencesView.swift").read_text(encoding="utf-8")
-    settings = (ROOT / "Sources" / "ShopPilotCore" / "AppSettings.swift").read_text(encoding="utf-8")
+    settings = (ROOT / "Sources" / "ShopPilot" / "AppSettings.swift").read_text(encoding="utf-8")
 
     # 1. preferredColorScheme on the window root, from the live preference.
-    must(".preferredColorScheme(scheme(for: AppSettings.resolvedTheme(themePreference)))" in content,
-         "ContentView applies preferredColorScheme via AppSettings.resolvedTheme")
-    must('@AppStorage("shop_pilot_theme")' in content,
-         "ContentView mirrors the shop_pilot_theme preference (live updates)")
+    must(".preferredColorScheme(appSettings.resolvedScheme)" in content,
+         "ContentView applies preferredColorScheme via AppSettings.resolvedScheme")
+    must("private let appSettings = AppSettings()" in content,
+         "ContentView holds the @AppStorage-backed AppSettings (live updates)")
 
-    # 2. Core resolver semantics.
-    must('case "light": return .light' in settings
-         and 'case "dark": return .dark' in settings,
-         "AppSettings maps light/dark to appearances")
-    must("default: return .system" in settings,
-         "system/unknown → .system (follow the OS)")
+    # 2. Resolver semantics (app's AppSettings).
+    must('case "light":  return .light' in settings
+         and 'case "dark":   return .dark' in settings,
+         "AppSettings maps light/dark to color schemes")
+    must("default:       return nil" in settings,
+         "system/unknown → nil (follow the OS)")
 
     # 3. Preferences picker still writes the same key.
     must('@AppStorage("shop_pilot_theme")' in prefs
