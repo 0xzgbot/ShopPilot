@@ -49,12 +49,20 @@ public struct SerialConfig: Codable, Identifiable, Sendable {
     /// Optional so legacy stored configs decode unchanged.
     public let simulationDelayNanoseconds: UInt64?
 
+    /// SPK-1509 — simulated soft-limit travel envelope (mm). `nil` = the
+    /// legacy default 500mm. Carried from a `MachineProfile` (travelXMM/
+    /// travelYMM) through `open(config:)` so the simulator's soft limit
+    /// matches the configured machine.
+    public let travelLimitMM: Double?
+
     public init(baudRate: Int = 115200, portName: String = "/dev/ttyUSB0", isSimulator: Bool = false,
-                simulationDelayNanoseconds: UInt64? = nil) {
+                simulationDelayNanoseconds: UInt64? = nil,
+                travelLimitMM: Double? = nil) {
         self.baudRate = baudRate
         self.portName = portName
         self.isSimulator = isSimulator
         self.simulationDelayNanoseconds = simulationDelayNanoseconds
+        self.travelLimitMM = travelLimitMM
     }
 
     // Custom CodingKeys to exclude computed `id` from JSON encoding.
@@ -63,6 +71,7 @@ public struct SerialConfig: Codable, Identifiable, Sendable {
         case portName
         case isSimulator
         case simulationDelayNanoseconds
+        case travelLimitMM
     }
 }
 
@@ -149,6 +158,9 @@ public final class SimulatorTransport: MachineTransport {
     public func open(config: SerialConfig) async throws {
         try await actor.open()
         await actor.setSimulationDelay(config.simulationDelayNanoseconds)
+        // SPK-1509 — the profile's travel envelope becomes the soft limit
+        // (nil keeps the legacy 500mm default).
+        await actor.setTravelLimit(config.travelLimitMM)
         fanOut.yield(.connected)
     }
 
@@ -223,10 +235,16 @@ private actor TransportActor {
     private var simulationDelayNanoseconds: UInt64 = 50_000_000
 
     /// Simulated travel envelope (mm) for soft-limit detection.
-    private let travelLimitMM: Double = 500
+    /// SPK-1509 — settable from the MachineProfile's travel; defaults to the
+    /// legacy 500mm.
+    private var travelLimitMM: Double = 500
 
     func setSimulationDelay(_ ns: UInt64?) {
         simulationDelayNanoseconds = ns ?? 50_000_000
+    }
+
+    func setTravelLimit(_ mm: Double?) {
+        travelLimitMM = mm ?? 500
     }
 
     func simulationDelay() -> UInt64 {

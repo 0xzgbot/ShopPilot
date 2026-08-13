@@ -178,9 +178,15 @@ struct ContentView: View {
         case .machine:
             // SPK-1104b: hand off the FULL toolpath tree (all ops, tree
             // order), not the last single-op gcodeLines overwrite.
+            // SPK-1509: the simulator's soft-limit envelope follows the
+            // active profile's travel (min of X/Y — the sim enforces one
+            // limit against every axis); MachineConnectionView.init applies
+            // it to the controller.
+            let profile = session.machineProfiles.profiles.first ?? MachineProfile.simulatorProfile
             MachineConnectionView(
                 pendingGCode: session.allToolpathGCode,
-                controller: session.machine
+                controller: session.machine,
+                simTravelLimitMM: min(profile.travelXMM, profile.travelYMM)
             )
         }
     }

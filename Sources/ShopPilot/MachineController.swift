@@ -42,6 +42,11 @@ public final class MachineController: ObservableObject {
     @Published public var serialBaudRate: Int = 115200
     public static let validBaudRates = [9600, 19200, 38400, 57600, 115200, 250000]
 
+    /// SPK-1509 — simulator soft-limit envelope (mm), sourced from the active
+    /// MachineProfile's travel (the Machine stage sets it before Connect).
+    /// Defaults to the legacy 500mm envelope.
+    @Published public var simTravelLimitMM: Double = 500
+
     /// Jog step in millimetres.
     @Published public var jogStepSize: Double = 1.0
 
@@ -170,9 +175,19 @@ public final class MachineController: ObservableObject {
 
     public func connect() async {
         latchedAlarm = nil
-        let serialConfig = transportType == .serial
-            ? ShopPilotCore.SerialConfig(baudRate: serialBaudRate, portName: serialPortName, isSimulator: false)
-            : nil
+        let serialConfig: ShopPilotCore.SerialConfig?
+        switch transportType {
+        case .serial:
+            serialConfig = ShopPilotCore.SerialConfig(baudRate: serialBaudRate, portName: serialPortName, isSimulator: false)
+        case .simulator:
+            // SPK-1509 — the simulator's soft limit follows the active
+            // MachineProfile's travel (set by the Machine stage before
+            // Connect); nil would keep the legacy 500mm envelope.
+            serialConfig = ShopPilotCore.SerialConfig(
+                isSimulator: true,
+                travelLimitMM: simTravelLimitMM
+            )
+        }
         await connection.connect(to: transportType, serialConfig: serialConfig)
         // Wire up MachineSession transport after connection so hold/resume/reset
         // realtime commands (!, ~, 0x18) reach the connected transport.

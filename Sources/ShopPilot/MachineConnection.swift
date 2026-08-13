@@ -276,11 +276,18 @@ public struct MachineConnectionView: View {
         }
     }
 
-    public init(pendingGCode: [String] = [], controller: MachineController) {
+    public init(pendingGCode: [String] = [], controller: MachineController,
+                simTravelLimitMM: Double? = nil) {
         self.pendingGCode = pendingGCode
         self.controller = controller
         self.connectionManager = controller.connection
         self.streamer = controller.streamer
+        // SPK-1509 — the stage hands the profile's travel envelope to the
+        // controller before Connect so the sim soft limit matches the
+        // configured machine (nil keeps the controller's 500 default).
+        if let simTravelLimitMM {
+            controller.simTravelLimitMM = simTravelLimitMM
+        }
     }
     
     public var body: some View {

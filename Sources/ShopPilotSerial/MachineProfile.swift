@@ -112,6 +112,16 @@ public struct MachineProfile: Identifiable, Codable, Sendable {
     /// no drift check).
     public var measuredThicknessMm: Double?
 
+    /// Simulated travel envelope — the machine's usable X travel in mm.
+    /// SPK-1509: `SimulatorTransport` enforces this as its soft limit instead
+    /// of the hardcoded 500. Legacy-safe: profiles saved before this field
+    /// decode as 500 (the previous hardcoded envelope).
+    public var travelXMM: Double
+
+    /// Simulated travel envelope — the machine's usable Y travel in mm.
+    /// SPK-1509 (see `travelXMM`). Legacy decode → 500.
+    public var travelYMM: Double
+
     public var createdAt: Date
     public var updatedAt: Date
 
@@ -133,6 +143,8 @@ public struct MachineProfile: Identifiable, Codable, Sendable {
         units: GCodeUnits = .millimeter,
         vacuumHoldDown: Bool = false,
         measuredThicknessMm: Double? = nil,
+        travelXMM: Double = 500,
+        travelYMM: Double = 500,
         createdAt: Date = .now,
         updatedAt: Date = .now
     ) {
@@ -144,6 +156,8 @@ public struct MachineProfile: Identifiable, Codable, Sendable {
         self.units = units
         self.vacuumHoldDown = vacuumHoldDown
         self.measuredThicknessMm = measuredThicknessMm
+        self.travelXMM = travelXMM
+        self.travelYMM = travelYMM
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
@@ -153,7 +167,7 @@ public struct MachineProfile: Identifiable, Codable, Sendable {
 
     private enum CodingKeys: String, CodingKey {
         case id, name, config, isSimulator, machineType, units, vacuumHoldDown,
-             measuredThicknessMm, createdAt, updatedAt
+             measuredThicknessMm, travelXMM, travelYMM, createdAt, updatedAt
     }
 
     public init(from decoder: Decoder) throws {
@@ -166,6 +180,10 @@ public struct MachineProfile: Identifiable, Codable, Sendable {
         units = try c.decodeIfPresent(GCodeUnits.self, forKey: .units) ?? .millimeter
         vacuumHoldDown = try c.decodeIfPresent(Bool.self, forKey: .vacuumHoldDown) ?? false
         measuredThicknessMm = try c.decodeIfPresent(Double.self, forKey: .measuredThicknessMm)
+        // SPK-1509 — legacy profiles (no travel fields) keep the previous
+        // hardcoded 500mm envelope.
+        travelXMM = try c.decodeIfPresent(Double.self, forKey: .travelXMM) ?? 500
+        travelYMM = try c.decodeIfPresent(Double.self, forKey: .travelYMM) ?? 500
         createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? .now
         updatedAt = try c.decodeIfPresent(Date.self, forKey: .updatedAt) ?? .now
     }
@@ -180,6 +198,8 @@ public struct MachineProfile: Identifiable, Codable, Sendable {
         try c.encode(units, forKey: .units)
         try c.encode(vacuumHoldDown, forKey: .vacuumHoldDown)
         try c.encodeIfPresent(measuredThicknessMm, forKey: .measuredThicknessMm)
+        try c.encode(travelXMM, forKey: .travelXMM)
+        try c.encode(travelYMM, forKey: .travelYMM)
         try c.encode(createdAt, forKey: .createdAt)
         try c.encode(updatedAt, forKey: .updatedAt)
     }
