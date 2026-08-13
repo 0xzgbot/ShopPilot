@@ -108,6 +108,10 @@ struct ContentView: View {
             }
         }
         .animation(SP.Motion.state, value: session.showCommandPalette)
+        // SPK-1602 — Appearance preference actually tints the window:
+        // Preferences writes shop_pilot_theme ("light"/"dark"/"system");
+        // this maps it to preferredColorScheme (nil = follow the OS).
+        .preferredColorScheme(AppSettings.resolvedTheme(themePreference))
         // SPK-visual — brand accent: warm wood-shop amber everywhere controls
         // inherit the environment accent (buttons, selection, focus rings).
         .tint(SP.Tint.brand)
@@ -161,6 +165,11 @@ struct ContentView: View {
     @State private var showWelcome = false
     /// SPK-1402d — launch-time "Recover unsaved work?" offer.
     @State private var showRecoveryOffer = false
+
+    /// SPK-1602 — the Appearance preference ("light"/"dark"/"system"),
+    /// resolved to a color scheme on the window root. Mirrors Preferences'
+    /// @AppStorage so the live value drives preferredColorScheme.
+    @AppStorage("shop_pilot_theme") private var themePreference = "system"
 
     @ViewBuilder
     private var stageBody: some View {
