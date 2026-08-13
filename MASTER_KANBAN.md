@@ -882,7 +882,7 @@ A (parallel from day 0)
   - **DEFERRED 2026-08-04:** personal-use only — private repo tip is the distribute path. Public GitHub Release / DMG not required.
   - worklog: 2026-07-28 — `.github/workflows/release.yml` (3.2KB) present and verified. CI build+test on push to main, release packaging with app bundle creation and changelog extraction.
   - deps: SPK-0600, SPK-0601, SPK-0602, SPK-0610, SPK-0620  
-- [x] **SPK-0623** **QA** Personal-use ship gate (sim acceptance + safety)
+- [ ] **SPK-0623** **QA** Personal-use ship gate (sim acceptance + safety)
   - **Personal-use exit (2026-08-04):** NOT a public/App Store ship. Mark `[x]` only when ALL of:
     1. Tracks 1–5 code + CLTs already green (done).
     2. **UI acceptance driver** completes G1/G2 sim walks (`docs/planning/UI_ACCEPTANCE_DRIVER.md`) — agent+vision+computer-control OK; file bugs as new SPK cards; **do not rubber-stamp**.
@@ -909,6 +909,35 @@ A (parallel from day 0)
   - max-runtime: 60m
   - deps: SPK-0623 (parent DoD stays owner-gated)
   - worklog: 2026-08-13 — Hermes coder. `scripts/ui_drive_smoke.sh` built: bash driver using ONLY `scripts/ax_act.swift` + `scripts/capture_window.swift` (no XCUITest/cliclick/new Swift). Launches `.build/debug/ShopPilot` (or `$SHOPPILOT_APP`, incl. bundle), dumps AX, walks the UI_AGENT_DRIVE table: `V-Carve Greeting` (Welcome) or rail `Design` → `Try a sample` (empty state) → `Cut` → `Cut out` → `Preview` → `Continue to Machine`/`Send to Machine Stage` → `Simulator` (never Serial) → `Connect` → assert `Hold. Pause machine motion`+`Reset. Stop and clear the machine`+`Idle` → `Confirm pre-flight checklist`/`I've checked all of these` → `Run job. Start cutting`/`Run Job` → `Hold. Pause machine motion` → `Resume. Continue machine motion`; screenshots `/tmp/shoppilot-ui-drive-*` (best-effort); exits 0 PASS / 3 NOT FOUND / 4 AX denied (TCC hint; never fakes PASS); terminates pre-existing instances, kills its own on exit; never builds, never `rm -rf .build`, never touches live serial. All press substrings verified against Sources (rail labels, MachineConnection preflight/Run, DesignSystem Hold/Reset accessibilityLabels, sample store names). **AC verify PASS:** `bash -n` + `--self-check` (exit 0, prints press list, no GUI). Live on this Mac: launch→window→AX dump (120 lines)→screenshot-01 all verified (AX + Screen Recording TCC granted); press plumbing + honest exit-3 proven live; full end-to-end PASS walk aborted by a machine crash mid-run (script reported NOT FOUND, did NOT fake PASS; app-exit detection added so a crashed app exits 1, never a misleading 3). Rerun anytime: `scripts/ui_drive_smoke.sh`.
+
+- [x] **SPK-0623b** **QA** Full AX UI drive (every stage + File/Help/Preferences + sheet dismiss)
+  - Parent: SPK-0623 (parent stays `[ ]` — owner/human; do **not** rubber-stamp)
+  - AC:
+    - `scripts/ui_drive_full.sh` uses only `scripts/ax_act.swift` + `scripts/capture_window.swift` (menu bar + window close in AX dump/press)
+    - `--self-check` prints the full press plan, no GUI, exit 0; default walk: Welcome/File New-Open-Save (Cancel panels)/Setup Advanced/Design tools+CTAs/Cut out-Pocket-Engrave-More/Preview/Machine sim Connect/Preferences **close**/Help Safety/preflight/Run/Hold/Resume; after every sheet/alert assert dismiss; screenshots `/tmp/shoppilot-ui-drive-full-*`
+    - Exits: 0 PASS, 2 binary missing (`swift_locked.sh build --product ShopPilot`, do not compile in the GUI walk), 3 NOT FOUND, 4 AX denied STOP, 5 DIALOG STUCK; continue after 3/5; never live serial; never `rm -rf .build`
+  - Out of scope: laser expansion, XCUITest, cliclick/osascript click-at, flipping SPK-0623, live USB
+  - Verify: `bash -n scripts/ui_drive_full.sh && scripts/ui_drive_full.sh --self-check`
+  - worktree: assigned worktree; all swift via `./scripts/swift_locked.sh`; never `rm -rf .build`; worktree-only Sources edits (this card should not need Sources)
+  - assignee: coder
+  - max-runtime: 90m
+  - deps: SPK-0623a
+  - worklog: 2026-08-13 — Cursor. Inventory of ShopPilot sheets/alerts/menus in `docs/planning/UI_AGENT_DRIVE.md` (Full walk). Script `scripts/ui_drive_full.sh`. `ax_act.swift` now dumps/presses menubar + `AXCloseButton`. Parent 0623 left `[ ]`. **Verify:** `bash -n` + `--self-check` (this card’s AC). Live GUI walk is for a local Hermes job with Accessibility TCC — paste prompt in UI_AGENT_DRIVE.md.
+  - worklog: 2026-08-13 — Hermes coder. **Live catalog run on owner's Mac (Aqua, AX + Screen Recording TCC granted).** Driver hardened through 6 iterations: (1) ax_act CF-cast compile fix (`as? AXUIElement` → optional-bind + `as!`); (2) press mode scoped `window|menu` + role filter — the Services submenu's "File Activity" item was shadowing top-level "File" (triggered a real Instruments dead-service alert mid-walk); (3) depth-limited menubar collect (depth 3 reaches menu items; the dead service lives at depth 5 — unbounded collect deadlocked the app's AX handler in mach_msg, `sample`-confirmed); (4) `r="$(press_attempt ...)"` subshell bug — press_attempt communicates via exit code, the `$()` capture read empty stdout so EVERY step misread as NOT FOUND; fixed to `press_attempt ...; r=$?`; (5) dismiss/modal checks scoped to the window part of the dump (menubar items "Safety Notice"/"Close" were false-flagging STUCK); (6) `closewin` mode + "Settings…"/"Preferences…" naming; Connect press role-filtered (was hitting the "Connect, zero and run" subtitle text); chrome labels updated to current build ("Reset. Stop the machine and clear the controller"). **Result: exit 3, STUCK=0 — NO force-quit/dialog-stuck bugs found.** Proven live: Import-hub sheet opens + Cancel dismisses; Machine sim: Simulator → Connect → Idle + Hold/Reset chrome → preflight → Run Job → Hold → Resume all ok (fixture calibration_square.nc loaded, 14 lines). 3s: sample CTAs + Setup Advanced disclosure not AX-exposed (→ SPK-UI-BUG-01/02); File/Open/Save/Preferences/Safety menu steps env-blocked (app cannot take focus from a background Hermes session — osascript + NSRunningApplication.activate both refused; NOT a product bug); Cut out/Pocket targets absent because `.build/debug` is stale vs the 1400e Sources ("Add Toolpath" menu in binary) — rebuild before re-running the Cut row. Parent SPK-0623 left `[ ]`. Rerun: `scripts/ui_drive_full.sh`.
+
+- [ ] **SPK-UI-BUG-01** **BUG** Design empty-state "Try a sample" button not exposed to Accessibility
+  - Found by: SPK-0623b live walk (2026-08-13)
+  - Symptom: fresh job → Design stage empty canvas renders "Import Artwork…" (AX-visible) but NOT "Try a sample" — the button is compiled (ContentView.swift:510, `if let firstSample = SampleProjectsStore.samples.first`, store is code-embedded non-empty) yet absent from the AX tree entirely. AX users / the UI drive cannot reach the bundled sample from the empty state (only via the Welcome sheet on first launch or the Setup recipe picker).
+  - Evidence: `/tmp/shoppilot-ui-drive-full-dumps/miss-sample.txt` (Design stage: "Import Artwork…" present, no "Try a sample" anywhere), `dismiss-after-sample.txt`, shot `/tmp/shoppilot-ui-drive-full-02-sample.png`
+  - Suggested fix: add `.accessibilityLabel("Try a sample")` (or verify SwiftUI exposure); re-run `scripts/ui_drive_smoke.sh` / full walk sample step.
+  - Out of scope: none (UI-only).
+
+- [ ] **SPK-UI-BUG-02** **BUG** Setup "Advanced" DisclosureGroup header not exposed to Accessibility
+  - Found by: SPK-0623b live walk (2026-08-13)
+  - Symptom: Setup stage `DisclosureGroup("Advanced", isExpanded:)` (ContentView.swift:384) has NO AX element — no AXDisclosureTriangle/button titled "Advanced" in the tree (grep of the full dump: zero), while its collapsed content (Add Driven Dimension, Seed Default Calibration, …) still appears in the AX tree. Keyboard/AT users cannot find or expand the disclosure; the UI drive cannot exercise the six pro panels.
+  - Evidence: `/tmp/shoppilot-ui-drive-full-dumps/miss-Advanced_open.txt`, `04-advanced-open.txt`
+  - Suggested fix: give the DisclosureGroup an explicit accessibility label/traits (`.accessibilityLabel("Advanced")` + `.accessibilityAddTraits(.isButton)` on the label) or replace with a Button+chevron; re-run the walk's Advanced step.
+  - Out of scope: none (UI-only).
 
 **Phase G exit:** SPK-0623 `[x]` = personal-use sim acceptance + safety gates (not notarized public ship). Then agents may open Phase H+ per LEAN.
 
@@ -1482,6 +1511,9 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 ---
 
 ## 12. Work log
+
+### 2026-08-13 — SPK-0623b Full AX UI drive
+- Card **SPK-0623b** `[ ]` (Ready): `scripts/ui_drive_full.sh` + inventory/Full walk in `docs/planning/UI_AGENT_DRIVE.md`. Parent **SPK-0623** remains `[ ]` (human). Verify: `bash -n` + `--self-check`. Live catalog run = local Hermes + Accessibility TCC (not this pass).
 
 ### 2026-08-13 — UI agent drive plan (SPK-0623a)
 - Docs only: `docs/planning/UI_AGENT_DRIVE.md` (AX primary, CLT backup, TCC, label table). Card **SPK-0623a** `[ ]` — wrap existing `ax_act.swift` into a smoke walk. No Sources.

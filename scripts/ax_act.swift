@@ -1,12 +1,14 @@
 import Foundation
 import ApplicationServices
+import AppKit
 
 // Swift AX driver — dump / press-by-description / setvalue, with timeouts.
 // Usage:
 //   swift ax_act.swift <pid> dump [maxDepth] [roleFilter]
-//   swift ax_act.swift <pid> press <descSubstring>
+//   swift ax_act.swift <pid> press <descSubstring> [window|menu] [role]
 //   swift ax_act.swift <pid> setvalue <descSubstring> <value>
 //   swift ax_act.swift <pid> presspos <x> <y>   (press element at position)
+//   swift ax_act.swift <pid> closewin <index>   (press window N's close button)
 
 func attr(_ el: AXUIElement, _ key: String) -> CFTypeRef? {
     var out: CFTypeRef?
@@ -39,6 +41,33 @@ func collect(_ el: AXUIElement) {
     allElements.append(el)
     if let children = attr(el, kAXChildrenAttribute) as? [AXUIElement] {
         for c in children { collect(c) }
+    }
+}
+
+/// Depth-limited collect — the menu bar's Services submenu can hang the app's
+/// AX handler when the service provider (e.g. Instruments' "File Activity")
+/// is not responding, so presses must never descend past top-level menu items
+/// and their direct submenu items (depth 2).
+func collectLimited(_ el: AXUIElement, depth: Int, maxDepth: Int) {
+    guard depth <= maxDepth else { return }
+    allElements.append(el)
+    if let children = attr(el, kAXChildrenAttribute) as? [AXUIElement] {
+        for c in children { collectLimited(c, depth: depth + 1, maxDepth: maxDepth) }
+    }
+}
+
+/// Window close/cancel buttons — needed for Settings-window dismiss (the
+/// "no Cancel in the form" bug class). Menubar collection happens separately
+/// so presses can be scoped (window vs menu) — the Services submenu's
+/// "File Activity" item must never shadow the top-level "File" menu.
+func collectWindowChrome(_ windows: [AXUIElement]) {
+    for w in windows {
+        if let close = attr(w, kAXCloseButtonAttribute) {
+            collect(close as! AXUIElement)
+        }
+        if let cancel = attr(w, kAXCancelButtonAttribute) {
+            collect(cancel as! AXUIElement)
+        }
     }
 }
 
@@ -75,20 +104,41 @@ if mode == "dump" {
     print("== windows: \(windows.count)")
     var lines: [String] = []
     for (i, win) in windows.enumerated() {
-        print("-- window \(i + 1): \(strAttr(win, kAXTitleAttribute))")
+        var closeInfo = "close=none"
+        if let closeRaw = attr(win, kAXCloseButtonAttribute) {
+            let close = closeRaw as! AXUIElement
+            let (cx, cy) = posOf(close)
+            closeInfo = "close=d=\(strAttr(close, kAXDescriptionAttribute))|t=\(strAttr(close, kAXTitleAttribute))|p=\(cx),\(cy)"
+        }
+        print("-- window \(i + 1): \(strAttr(win, kAXTitleAttribute)) [\(closeInfo)]")
         walk(win, depth: 1, maxDepth: maxDepth, filter: filter, lines: &lines)
     }
+    if let mb = attr(app, kAXMenuBarAttribute) {
+        print("-- menubar")
+        walk(mb as! AXUIElement, depth: 1, maxDepth: min(maxDepth, 4), filter: filter, lines: &lines)
+    }
     print(lines.joined(separator: "\n"))
-} else if mode == "press" || mode == "setvalue" {
+} else if mode == "press" {
     let target = args[3]
-    let newValue = args.count > 4 ? args[4] : ""
+    let scope = args.count > 4 ? args[4] : nil
+    let roleFilter = args.count > 5 ? args[5] : nil
     guard let windows = attr(app, kAXWindowsAttribute) as? [AXUIElement] else {
         print("no windows"); exit(1)
     }
     allElements = []
-    for w in windows { collect(w) }
+    if scope != "menu" {
+        for w in windows { collect(w) }
+        collectWindowChrome(windows)
+    }
+    if scope != "window", let mb = attr(app, kAXMenuBarAttribute) {
+        // depth 3 reaches every menu item (menu bar item -> AXMenu -> item);
+        // the Services submenu items ("File Activity", dead provider) sit at
+        // depth 5 and must never be collected.
+        collectLimited(mb as! AXUIElement, depth: 0, maxDepth: 3)
+    }
     var hit: AXUIElement? = nil
     for el in allElements {
+        if let roleFilter, strAttr(el, kAXRoleAttribute) != roleFilter { continue }
         let desc = strAttr(el, kAXDescriptionAttribute)
         let title = strAttr(el, kAXTitleAttribute)
         let value = strAttr(el, kAXValueAttribute)
@@ -104,10 +154,55 @@ if mode == "dump" {
     if mode == "press" {
         let err = AXUIElementPerformAction(el, kAXPressAction as CFString)
         print(err == .success ? "PRESSED" : "PRESS FAILED: \(err.rawValue)")
-    } else {
-        let err = AXUIElementSetAttributeValue(el, kAXValueAttribute as CFString, newValue as CFTypeRef)
-        print(err == .success ? "SET" : "SET FAILED: \(err.rawValue)")
     }
+} else if mode == "setvalue" {
+    let target = args[3]
+    let newValue = args.count > 4 ? args[4] : ""
+    guard let windows = attr(app, kAXWindowsAttribute) as? [AXUIElement] else {
+        print("no windows"); exit(1)
+    }
+    allElements = []
+    for w in windows { collect(w) }
+    collectWindowChrome(windows)
+    var hit: AXUIElement? = nil
+    for el in allElements {
+        let desc = strAttr(el, kAXDescriptionAttribute)
+        let title = strAttr(el, kAXTitleAttribute)
+        let value = strAttr(el, kAXValueAttribute)
+        if desc.contains(target) || title.contains(target) || value.contains(target) {
+            hit = el; break
+        }
+    }
+    guard let el = hit else {
+        print("NOT FOUND: \(target)"); exit(3)
+    }
+    let err = AXUIElementSetAttributeValue(el, kAXValueAttribute as CFString, newValue as CFTypeRef)
+    print(err == .success ? "SET" : "SET FAILED: \(err.rawValue)")
+} else if mode == "activate" {
+    guard let pid = pid_t(args[1]) else { exit(2) }
+    guard let app = NSRunningApplication(processIdentifier: pid) else {
+        print("NO APP"); exit(3)
+    }
+    print(app.activate(options: []) ? "ACTIVATED" : "ACTIVATE FAILED")
+} else if mode == "frontmost" {
+    guard let pid = pid_t(args[1]) else { exit(2) }
+    let front = NSWorkspace.shared.frontmostApplication?.processIdentifier
+    print(front == pid ? "FRONTMOST" : "NOT FRONTMOST")
+} else if mode == "closewin" {
+    guard args.count >= 4, let idx = Int(args[3]) else {
+        print("usage: ax_act <pid> closewin <index>"); exit(2)
+    }
+    guard let windows = attr(app, kAXWindowsAttribute) as? [AXUIElement] else {
+        print("no windows"); exit(1)
+    }
+    guard idx >= 1, idx <= windows.count else {
+        print("NO WINDOW \(idx) of \(windows.count)"); exit(3)
+    }
+    guard let close = attr(windows[idx - 1], kAXCloseButtonAttribute) else {
+        print("NO CLOSE BUTTON"); exit(3)
+    }
+    let err = AXUIElementPerformAction(close as! AXUIElement, kAXPressAction as CFString)
+    print(err == .success ? "CLOSED" : "CLOSE FAILED: \(err.rawValue)")
 } else if mode == "presspos" {
     guard args.count >= 5, let x = Int(args[3]), let y = Int(args[4]) else { exit(2) }
     guard let windows = attr(app, kAXWindowsAttribute) as? [AXUIElement] else { print("no windows"); exit(1) }
