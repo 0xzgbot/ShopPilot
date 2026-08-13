@@ -896,6 +896,20 @@ A (parallel from day 0)
   - worklog: 2026-08-04 — Cursor: personal-use scope — deferred 0614/0615/0621/0622/1009; redefined 0623 exit to sim UI acceptance + safety (see UI_ACCEPTANCE_DRIVER.md).
   - worklog: 2026-08-09 — Hermes coder. **AC met.** Human sign-off: sim acceptance + safety gates sufficient for personal-use ship. All Tracks 1–5 green (429/429 tests, 78/78 CLT sweep, 28/28 import-torture). Safety: dirty export block (0603), V-Carve open-vector block (0604), Hold/Reset visible (0606), no auto-run on load (SHAKEg). Phase H+ unblocked.
 
+- [x] **SPK-0623a** **QA** AX smoke driver wrap (Welcome sample → Cut out → Preview → Machine sim Hold/Resume)
+  - Parent: SPK-0623
+  - AC:
+    - `scripts/ui_drive_smoke.sh` launches `.build/debug/ShopPilot` (or `$SHOPPILOT_APP`), uses existing `scripts/ax_act.swift` + `scripts/capture_window.swift` only (no XCUITest, no cliclick required)
+    - Walk presses AX substrings from `docs/planning/UI_AGENT_DRIVE.md` (sample **Sign — V-Carve Greeting** or Design **Try a sample** → **Cut** → **Cut out** → **Preview** → **Continue to Machine** or **Send to Machine Stage** → picker **Simulator** → **Connect** → assert Hold/Reset → **I've checked all of these** → **Run Job** → **Hold** → **Resume**); screenshots under `/tmp/shoppilot-ui-drive-*`
+    - Exit codes: 0 PASS, 3 control NOT FOUND, 4 AX denied (print TCC hint, do not fake PASS); never connect live serial
+  - Out of scope: G1-C/G1-D pointer selection, XCUITest/Xcode.app, Cursor cloud computer-use, flipping SPK-0623, new Core CLTs, `rm -rf .build`
+  - Verify: `bash -n scripts/ui_drive_smoke.sh` and `scripts/ui_drive_smoke.sh --self-check` (asserts `ax_act.swift` exists, prints the press list, does **not** require a GUI if `--self-check`)
+  - worktree: assigned worktree; all swift via `./scripts/swift_locked.sh`; never `rm -rf .build`; worktree-only Sources edits (this card should not need Sources)
+  - assignee: coder
+  - max-runtime: 60m
+  - deps: SPK-0623 (parent DoD stays owner-gated)
+  - worklog: 2026-08-13 — Hermes coder. `scripts/ui_drive_smoke.sh` built: bash driver using ONLY `scripts/ax_act.swift` + `scripts/capture_window.swift` (no XCUITest/cliclick/new Swift). Launches `.build/debug/ShopPilot` (or `$SHOPPILOT_APP`, incl. bundle), dumps AX, walks the UI_AGENT_DRIVE table: `V-Carve Greeting` (Welcome) or rail `Design` → `Try a sample` (empty state) → `Cut` → `Cut out` → `Preview` → `Continue to Machine`/`Send to Machine Stage` → `Simulator` (never Serial) → `Connect` → assert `Hold. Pause machine motion`+`Reset. Stop and clear the machine`+`Idle` → `Confirm pre-flight checklist`/`I've checked all of these` → `Run job. Start cutting`/`Run Job` → `Hold. Pause machine motion` → `Resume. Continue machine motion`; screenshots `/tmp/shoppilot-ui-drive-*` (best-effort); exits 0 PASS / 3 NOT FOUND / 4 AX denied (TCC hint; never fakes PASS); terminates pre-existing instances, kills its own on exit; never builds, never `rm -rf .build`, never touches live serial. All press substrings verified against Sources (rail labels, MachineConnection preflight/Run, DesignSystem Hold/Reset accessibilityLabels, sample store names). **AC verify PASS:** `bash -n` + `--self-check` (exit 0, prints press list, no GUI). Live on this Mac: launch→window→AX dump (120 lines)→screenshot-01 all verified (AX + Screen Recording TCC granted); press plumbing + honest exit-3 proven live; full end-to-end PASS walk aborted by a machine crash mid-run (script reported NOT FOUND, did NOT fake PASS; app-exit detection added so a crashed app exits 1, never a misleading 3). Rerun anytime: `scripts/ui_drive_smoke.sh`.
+
 **Phase G exit:** SPK-0623 `[x]` = personal-use sim acceptance + safety gates (not notarized public ship). Then agents may open Phase H+ per LEAN.
 
 ---
@@ -1468,6 +1482,9 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 ---
 
 ## 12. Work log
+
+### 2026-08-13 — UI agent drive plan (SPK-0623a)
+- Docs only: `docs/planning/UI_AGENT_DRIVE.md` (AX primary, CLT backup, TCC, label table). Card **SPK-0623a** `[ ]` — wrap existing `ax_act.swift` into a smoke walk. No Sources.
 
 ### 2026-08-12 — Phase Q queued (Mac chrome honesty SPK-1600+)
 - Board only: SPK-1620 parent `[ ]` + 1600–1611 Ready; 1612 DocumentGroup `[-]`; Wave 0 = 1600 / 1604 / 1603. No Sources.
