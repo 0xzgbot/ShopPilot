@@ -87,7 +87,7 @@
 
 Grab the prebuilt app — no build required:
 
-1. Download [`dist/ShopPilot-0.03-macOS.zip`](dist/ShopPilot-0.03-macOS.zip) (universal: Apple Silicon + Intel, ad-hoc signed).
+1. Download [`dist/ShopPilot-0.05-macOS.zip`](dist/ShopPilot-0.05-macOS.zip) (universal: Apple Silicon + Intel, ad-hoc signed) — or build it yourself with `scripts/package_app.sh`.
 2. Unzip and drag **ShopPilot.app** into your Applications folder.
 3. First launch from another Mac: **right-click → Open** (Gatekeeper), or run:
    ```bash
