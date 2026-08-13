@@ -266,11 +266,14 @@ public final class MachineController: ObservableObject {
         }
     }
 
-    /// Soft home (G28 — return all axes to machine zero).
+    /// Home all axes — GRBL homing cycle (`$H`), not a soft G28 return.
+    /// SPK-1608: $H runs the machine's homing switches so the controller
+    /// knows true machine zero; G28 only returned to the previous zero
+    /// without homing. Requires the machine to be idle + not in alarm.
     public func softHomeAll() {
         Task {
-            await connection.sendCommand("G28")
-            connection.addSystemMessage("Soft home sent — G28")
+            await connection.sendCommand("$H")
+            connection.addSystemMessage("Homing sent — $H (wait for the machine to finish)")
         }
     }
 

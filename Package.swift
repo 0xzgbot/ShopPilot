@@ -1046,6 +1046,13 @@ let package = Package(
             path: "Sources/ShopPilotVerify1506"
         ),
 
+        // Phase Q (2026-08-12) — Home uses $H, not G28.
+        .executableTarget(
+            name: "ShopPilotVerify1608",
+            dependencies: ["ShopPilotCore", "ShopPilotSerial"],
+            path: "Sources/ShopPilotVerify1608"
+        ),
+
         // AppSession split slices (2026-08-12) — sample-load (1403a), undo
         // stack (1403b), profile generate (1403c), machine facade (1403d).
         .executableTarget(
