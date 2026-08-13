@@ -13,7 +13,7 @@ import ShopPilotSerial
 /// the `isDirty` flag, and the undo/redo stack hooks. Stages read from this
 /// object instead of keeping parallel ad-hoc state.
 @MainActor
-final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSession, SnapshotSession {
+final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSession, SnapshotSession, ProfileGeneratingSession {
     @Published var selectedStage: Stage = .setup
     /// Active Design-stage create tool — lifted from the canvas so the left
     /// tool palette and the canvas share one source of truth.
@@ -401,7 +401,9 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
         SessionUndoStack.capture(from: self)
     }
 
-    private func registerUndoPoint() {
+    /// SPK-1403c — internal (not private) as the `ProfileGeneratingSession`
+    /// witness. Behavior unchanged.
+    func registerUndoPoint() {
         let snapshot = captureSnapshot()
         undoManager.registerUndo(withTarget: self) { target in
             target.performUndoRestore(snapshot)
@@ -2782,42 +2784,21 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
         return true
     }
 
+    // MARK: - Profile generation (SPK-1403c)
+
+    /// Generate a Cut-out (Profile) toolpath. SPK-1403c: the orchestration is
+    /// owned by `ProfileToolpathGenerator` (Core) — this facade just supplies
+    /// the session hooks. Same G-code/status/undo/dirty as before.
     func generateProfileToolpath() {
-        guard !vectors.isEmpty else {
-            statusMessage = "No vectors — import SVG or add a demo shape first"
-            return
-        }
-        // Snapshot layer membership before the op — Profile must not reshuffle
-        // shapes across layers (SPK-UI603a).
-        let layerIDsBefore = shapeLayerIDs
-        registerUndoPoint()
-        // SPK-UI603: route through addToolpathNode so the strategy default tool
-        // is assigned (was "No tool" when this path called addOperation bare).
-        // Stock height comes from the sheet — matches Pocket/Drill/V-Carve.
-        let params = ProfileToolpathParams()
-        let stockHeight = activeSheet?.height ?? 6.0
-        let result = ProfileToolpathEngine.compute(
-            vectors: vectors,
-            params: params,
-            material: nil,
-            stockHeightMm: stockHeight
-        )
-        let node = addToolpathNode(
-            named: "Profile \(toolpathTree.allNodes.count)",
-            gcode: result.gcodeLines,
-            estimatedTime: result.estimatedTimeSeconds
-        )
-        node.paramsJSON = encodeParams(params)
-        // SPK-UI603c: form "Finish passes" ≠ engine depth/Z passes — label clearly.
-        lastToolpathSummary =
-            "Profile: \(result.gcodeLines.count) lines, ~\(Int(result.estimatedTimeSeconds))s, " +
-            "\(result.passCount) depth pass(es), \(params.finishPasses) finish pass(es)"
-        statusMessage = lastToolpathSummary
-        // SPK-UI603a: Profile must not reshuffle shape→layer membership.
-        if shapeLayerIDs != layerIDsBefore {
-            shapeLayerIDs = layerIDsBefore
-            statusMessage = "Profile created — restored layer membership after unexpected reshuffle"
-        }
+        ProfileToolpathGenerator.generateProfile(on: self)
+    }
+
+    // ProfileGeneratingSession (SPK-1403c).
+    var activeSheetHeightMm: Double { activeSheet?.height ?? 6.0 }
+    var toolpathNodeCount: Int { toolpathTree.allNodes.count }
+    func setLastToolpathSummary(_ text: String) {
+        lastToolpathSummary = text
+        statusMessage = text
     }
 
     /// Apply Profile params to an operation: store them on the node and
@@ -2857,7 +2838,8 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
         return true
     }
 
-    private func encodeParams<T: Encodable>(_ params: T) -> String? {
+    /// SPK-1403c — internal for the generator protocol witness.
+    func encodeParams<T: Encodable>(_ params: T) -> String? {
         guard let data = try? JSONEncoder().encode(params) else { return nil }
         return String(data: data, encoding: .utf8)
     }
@@ -2956,7 +2938,10 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
     /// Add a computed toolpath node to the tree, refresh the session G-code
     /// buffer from the tree, select the node, jump to Cut, mark dirty.
     @discardableResult
-    private func addToolpathNode(
+    /// SPK-1403c — internal (not private) so `ProfileGeneratingSession`
+    /// conformance can witness the node-creation hook for the extracted
+    /// generator. Behavior unchanged.
+    func addToolpathNode(
         named name: String,
         gcode: [String],
         estimatedTime: Double
