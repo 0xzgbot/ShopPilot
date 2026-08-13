@@ -56,6 +56,9 @@ public final class ShortcutRegistry: ObservableObject, @unchecked Sendable {
         // SPK-1500 — File menu Open Job… (same ⌘O the command palette uses
         // for CommandID.openJob), remappable like every other menu binding.
         ShortcutBinding(id: "file.open", title: "Open Job…", defaultKey: "o", defaultModifiers: ["command"]),
+        // SPK-1600 — File Save (⌘S) / Save As (⇧⌘S).
+        ShortcutBinding(id: "file.save", title: "Save", defaultKey: "s", defaultModifiers: ["command"]),
+        ShortcutBinding(id: "file.saveAs", title: "Save As…", defaultKey: "s", defaultModifiers: ["command", "shift"]),
         ShortcutBinding(id: "palette", title: "Command Palette…", defaultKey: "k", defaultModifiers: ["command"]),
         ShortcutBinding(id: "edit.group", title: "Group", defaultKey: "g", defaultModifiers: ["command"]),
         ShortcutBinding(id: "edit.ungroup", title: "Ungroup", defaultKey: "g", defaultModifiers: ["command", "shift"]),

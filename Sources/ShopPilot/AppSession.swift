@@ -4680,7 +4680,9 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
         case .newJob:
             selectedStage = .setup
         case .saveJob:
-            savePackageToDefaultLocation()
+            // SPK-1600 — the command palette Save routes to the same File
+            // Save path (prompt on first save, packageURL re-save after).
+            savePackageFromPanel()
         case .openJob:
             openPackageFromPanel()
         case .undo:
@@ -4878,9 +4880,29 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
         return docs.appendingPathComponent("\(safeName).shoppilot")
     }
 
-    private func savePackageToDefaultLocation() {
+    /// SPK-1600 — File Save / Save As. `isSaveAs` forces the panel; plain
+    /// Save writes to `packageURL` when one exists (re-save), else prompts.
+    /// The panel filters to `.shoppilot` and the URL becomes the new
+    /// `packageURL` via `savePackage(to:)` (markClean + clearUndo included).
+    func savePackageFromPanel(isSaveAs: Bool = false) {
+        if !isSaveAs, let packageURL {
+            do {
+                try savePackage(to: packageURL)
+            } catch {
+                statusMessage = "Save failed: \(error.localizedDescription)"
+            }
+            return
+        }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.init(filenameExtension: "shoppilot")].compactMap { $0 }
+        panel.nameFieldStringValue = "\(job.name.replacingOccurrences(of: "/", with: "-")).shoppilot"
+        panel.canCreateDirectories = true
+        panel.title = isSaveAs ? "Save As…" : "Save"
+        guard panel.runModal() == .OK, let url = panel.url else {
+            return // cancelled
+        }
         do {
-            try savePackage(to: defaultPackageURL())
+            try savePackage(to: url)
         } catch {
             statusMessage = "Save failed: \(error.localizedDescription)"
         }

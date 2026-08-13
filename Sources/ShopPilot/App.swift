@@ -46,6 +46,19 @@ struct ShopPilotApp: App {
                     session.handleCommand(.openJob)
                 }
                 .keyboardShortcut(shortcut("file.open"))
+
+                // SPK-1600 — File Save / Save As. Plain Save re-saves to
+                // packageURL when known, else prompts; Save As always prompts
+                // and updates packageURL (same session path as ⌘K Save).
+                Button("Save") {
+                    session.savePackageFromPanel()
+                }
+                .keyboardShortcut(shortcut("file.save"))
+
+                Button("Save As…") {
+                    session.savePackageFromPanel(isSaveAs: true)
+                }
+                .keyboardShortcut(shortcut("file.saveAs"))
             }
 
             CommandGroup(after: .undoRedo) {
