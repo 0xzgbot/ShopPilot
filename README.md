@@ -13,23 +13,37 @@
 
 ## Screenshots
 
+Gallery files live in [`docs/screenshots/`](docs/screenshots/README.md). **Current** shots below are from the 0.05 UI (Welcome samples, stage rail, Cut recipes). **Preview** is a SwiftUI **2.5D heightfield** (wireframe + material samples) — not Metal chip simulation. Laser is **not** a product. After Preview playback (SPK-1700) ships, Hermes replaces these with the named pack (`welcome.png`, `2d-pocket-stepover.png`, `3d-relief-sim.png`, …).
+
 | Setup & recipes | Design & vectors | Cut & toolpaths |
 | --- | --- | --- |
-| ![Setup](docs/screenshots/01-setup.png) | ![Design](docs/screenshots/02-design-signage.png) | ![Cut](docs/screenshots/03-cut.png) |
+| ![Setup stage with recipes](docs/screenshots/01-setup.png) | ![Design canvas and layers](docs/screenshots/02-design-signage.png) | ![Cut stage toolpath tree](docs/screenshots/03-cut.png) |
 
-| Model & 3D | Machine & safety | Preview & sim |
+| Model (relief) | Machine (simulator) | Preview (heightfield) |
 | --- | --- | --- |
-| ![Model](docs/screenshots/04-model.png) | ![Machine](docs/screenshots/05-machine.png) | ![Preview](docs/screenshots/06-preview.png) |
+| ![Model stage 3D relief](docs/screenshots/04-model.png) | ![Machine stage simulator Hold Reset](docs/screenshots/05-machine.png) | ![Preview heightfield not Metal](docs/screenshots/06-preview.png) |
+
+**Hermes drop-in (SPK-1700d)** — capture when filled raster + playhead exist:
+
+| Shot | Alt / caption |
+| --- | --- |
+| `docs/screenshots/welcome.png` | Welcome / Start Making with bundled samples |
+| `docs/screenshots/design.png` | Design stage, vectors on canvas |
+| `docs/screenshots/cut.png` | Cut stage, pocket or profile recipe |
+| `docs/screenshots/2d-pocket-stepover.png` | Preview: filled 2D pocket, bit-radius stepover |
+| `docs/screenshots/2d-playhead.png` | Preview: playhead mid-sim |
+| `docs/screenshots/3d-relief-sim.png` | Preview: Rough 3D / plaque heightfield sim |
+| `docs/screenshots/machine-sim.png` | Machine + Simulator; Hold and Reset visible |
 
 ---
 
 ## Why ShopPilot?
 
 - **Native, not a VM.** SwiftUI + CoreGraphics on Apple Silicon and Intel. No Parallels, no Boot Camp, no Windows license.
-- **A real 2.5D CAM suite.** Vectors, boolean ops, layers, 17 toolpath strategies including V-Carve, 3D relief (rough/finish/rest), rotary wrap, laser, and inlay — with a sheet-aware simulation you trust before you cut.
-- **Machine control built in.** Jog, set work zero, touch-off probe, feed override, work offsets (G54–G59), spindle control, and G-code streaming over serial to GRBL/FluidNC — or rehearse every job in the included simulator first.
+- **A 2.5D CAM suite.** Vectors, boolean ops, layers, Profile / Pocket / Drill / V-Carve, and **3D rough/finish** from an STL or plaque **heightfield**. Preview is a **sheet-aware heightfield sim** (filled raster + playhead in progress) — not a Metal chip renderer.
+- **Welcome samples + stage rail + Cut recipes.** First launch offers bundled jobs (sign, box, keychain, plaque). Six stages: Setup → Design → Model → Cut → Preview → Machine. Cut uses recipe/strategy buttons (not a laser product).
+- **Machine control built in.** Jog, set work zero, touch-off probe, feed override, work offsets (G54–G59), spindle control, and G-code streaming over serial to GRBL/FluidNC — or rehearse every job in the **simulator** first.
 - **Safety by design.** Preflight checklist before Run, always-visible **Hold / Resume / Reset**, dirty-toolpath export blocking, no auto-run on load.
-- **Mac-native polish.** Custom app icon, brand accent, design-anchored canvas grid, material swatches, context menus, command palette, and a six-stage rail that walks a job from stock to chip.
 
 ---
 
@@ -37,8 +51,8 @@
 
 ### Job & setup
 - **Job setup** — single- or double-sided stock with sheet presets, custom material, mm/inch units, document variables (expression-backed dimension fields), driven dimensions.
-- **Recipes** — one-click Signage, Decorative Panel, and Portrait Relief jobs that pre-build the design and toolpath tree; JSON recipe format + plugin API.
-- **Sample projects** — bundled sign, box, keychain, and plaque files on first launch.
+- **Recipes** — one-click Signage, Decorative Panel, and Portrait Relief jobs that pre-build the design and toolpath tree.
+- **Sample projects** — Welcome / Start Making: bundled sign, box, keychain, and plaque (and re-open Welcome after first run).
 - **Documents** — save/open `.shoppilot` packages (vectors + layers + toolpaths + params), 5-minute autosave with crash recovery, full undo/redo.
 - **Job sheets** — print/export an A4 job sheet (HTML → PDF) from the Cut stage.
 
@@ -60,12 +74,12 @@
 - **Pocket** — offset/raster fill, multi-tool clearance, allowance, ramping, pass control.
 - **Drill** — peck cycles (fixed/relative retract, visualized), dwell, plunge feeds.
 - **V-Carve** — per-vector depth shading, V-bit presets, flat-depth mode, clearance-tool pass, corner sharpen; **inlay** recipes (30/45/60/90°).
-- **Specialty** — Quick Engrave, Drag Knife, Photo V-Carve, Texture, Fluting, Prism, Chamfer, Sketch Carve, **Thread milling**, rotary wrap/spiral, laser cut/fill/picture.
+- **Specialty (engine / later)** — extra strategies exist in the tree (engrave, texture, etc.). **Laser is held** — not a shipping product surface. Rotary wrap is not the lean north star.
 - **Tool database** — 13 tool classes, 17 strategy defaults, 3-part cut-data linkage (geometry/material/machine), **manufacturer catalogs** (Amana, Whiteside).
 - **Tree & safety** — toolpath tree with status dots, per-op params, **async recalc** (no UI freeze), keep-out zones, **acceleration-aware time estimates**, toolpath templates, group-by-tool export, dirty-export blocking.
 
 ### Preview
-- Full-tree wireframe overlay with hover highlighting, sheet-aware stock block, surface-color material simulation (wood/acrylic), peck-drill visualization, dirty-region resimulation — cancellable and non-blocking.
+- Full-tree **wireframe** + sheet-aware **heightfield** material sim (cancellable, non-blocking). Display today can still be coarse samples; **SPK-1700** is the Vectric-like filled raster, playhead, and bit-radius stamp (not Metal chips).
 
 ### Machine control
 - **Transports** — built-in simulator plus real serial (GRBL/FluidNC) with **port/baud pickers**.
@@ -76,8 +90,7 @@
 - **Stage rail** — Setup → Design → Model → Cut → Preview → Machine, CNC-meaningful icons, ≤12 icons per stage.
 - **⌘K command palette**, context menus, stage-aware coach strip.
 - **Editable keyboard shortcuts** (Preferences → Menu Shortcuts).
-- **Post Studio** — user post templates with `$variable` blocks.
-- **Plugin ABI** — sandboxed child-process plugins (bundled sample: dot-grid engrave).
+- **Post templates** — GRBL-oriented posts (`$variable` blocks) for export.
 
 > Scope (permanent): personal-use only, never for sale. **No 3D-view vector editing, no Fusion-style parametric modeling** — ShopPilot is a 2.5D CAM tool. Model-stage relief editing stays.
 
@@ -130,7 +143,7 @@ swift build -c release --product ShopPilot
 1. **Setup** — pick a recipe (Signage, Decorative Panel, Portrait Relief) or a sample project, or set your own stock + material (swatch chips make it visual).
 2. **Design** — draw with Rect / Circle / Line / Polyline, add text, or import **SVG / DXF / STL / EPS / PDF / AI / DWG**.
 3. **Cut** — add Profile, Pocket, Drill, or V-Carve toolpaths. Edit art → toolpath goes **dirty** → recalculate before export (async — no freeze).
-4. **Preview** — simulate the cut (wireframe / heightfield / combined) before you ever touch the machine.
+4. **Preview** — simulate the cut (wireframe / 2.5D heightfield / combined) before you ever touch the machine.
 5. **Machine** — connect to the **Simulator** first, pass the preflight checklist, run. Then do the same on real hardware via serial (pick your port + baud).
 
 Full walkthrough: [`docs/planning/TUTORIAL_FIRST_CUT.md`](docs/planning/TUTORIAL_FIRST_CUT.md)
@@ -146,13 +159,14 @@ Full walkthrough: [`docs/planning/TUTORIAL_FIRST_CUT.md`](docs/planning/TUTORIAL
 | [`MASTER_KANBAN.md`](MASTER_KANBAN.md) | **Only task board** — claim SPK cards here |
 | [`docs/planning/CHANGELOG.md`](docs/planning/CHANGELOG.md) | Release history (0.01 → 0.05) |
 | [`docs/planning/V2_SHIP_CHECKLIST.md`](docs/planning/V2_SHIP_CHECKLIST.md) | v2 feature-gate checklist (Phases I–N) |
-| [`AGENTS.md`](AGENTS.md) | Agent protocol + safety rules |
+| [`docs/planning/PREVIEW_PLAYBACK_HERMES.md`](docs/planning/PREVIEW_PLAYBACK_HERMES.md) | Hermes prompt: filled preview + playhead + bit stamp + shots |
+| [`docs/screenshots/README.md`](docs/screenshots/README.md) | Screenshot pack filenames and composition |
 
 ---
 
 ## Status (honest)
 
-**Current:** all Phases I–N feature cards are `[x]` on the board. The full regression sweep runs **175 verify targets** green — **175 PASS / 0 FAIL / 0 WARN** (last run 2026-08-11):
+**Current:** personal-use **0.05** zip. Lean bar is router CAM (design → toolpaths → 2.5D preview → simulator/serial). **Open:** SPK-UI-BUG-03 (async Cut generate), SPK-1700 Preview playback, SPK-0623 UI acceptance (human). Laser held. Regression CLTs live under `ShopPilotVerify*`.
 
 ```bash
 export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
@@ -160,8 +174,8 @@ export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 ```
 
 - Finish definition = **Engine + UI + Persist + Verify** per card (no stub estimators).
-- Every code card `[x]` through Phase N; remaining open items are human-triggered (`[!]` SPK-0419 live air-cut) or permanently deferred (`[-]` — commercial-era cards, out of scope).
-- A release **0.05** package (Phases O + P, live serial, persist honesty) is built on request via `scripts/package_app.sh`.
+- Remaining open items include Preview playback (SPK-1700), BUG-03, human `[!]` live air-cut (SPK-0419), and permanently deferred `[-]` commercial/laser cards.
+- Current package: **0.05** — [`dist/ShopPilot-0.05-macOS.zip`](dist/ShopPilot-0.05-macOS.zip) via `scripts/package_app.sh`. Preview playback (SPK-1700) and SPK-0623 personal UI acceptance are **open**; do not treat this README as a ship-gate stamp.
 
 ## Stack
 

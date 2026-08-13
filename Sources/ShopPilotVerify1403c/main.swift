@@ -135,13 +135,18 @@ func main() throws {
     try expect(ruffling.summaries.last?.contains("restored layer membership") == true,
                "restore note published (got \(ruffling.summaries.last ?? "nil"))")
 
-    // ── 4. Source contract: one-line delegate. ────────────────────────────
+    // ── 4. Source contract: async one-line delegate (SPK-UI-BUG-03). ──────
+    // The Cut button path must dispatch through the async witness (off-main
+    // engine compute); the sync `generateProfile(on:)` stays in Core for
+    // tests/CLTs but must NOT be on the AppSession button path anymore.
     let sourceURL = URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent().deletingLastPathComponent()
         .appendingPathComponent("ShopPilot/AppSession.swift")
     let source = try String(contentsOf: sourceURL, encoding: .utf8)
-    try expect(source.contains("ProfileToolpathGenerator.generateProfile(on: self)"),
-               "AppSession.generateProfileToolpath delegates to Core")
+    try expect(source.contains("ProfileToolpathGenerator.generateProfileAsync(on: self)"),
+               "AppSession.generateProfileToolpath delegates to Core async witness")
+    try expect(!source.contains("ProfileToolpathGenerator.generateProfile(on: self)"),
+               "sync generateProfile is no longer on the Cut button path")
     try expect(source.contains("ProfileGeneratingSession"),
                "AppSession conforms to ProfileGeneratingSession")
 

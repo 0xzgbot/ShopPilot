@@ -11,6 +11,8 @@
 - Never connect live serial / start a real cut. Simulator only.
 - Never claim license / notarize / App Store work.
 
+**How to click the native app on a CLT Mac** (AX harness, TCC, label table): [`UI_AGENT_DRIVE.md`](./UI_AGENT_DRIVE.md).
+
 ---
 
 ## Hermes paste prompt

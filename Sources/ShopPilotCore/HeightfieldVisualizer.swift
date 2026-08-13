@@ -9,15 +9,20 @@ public struct HeightfieldVisualizer {
 
     /// 0…1 normalized height at a grid cell (peak → 1, floor → 0).
     /// Outside the grid → 0. Uses the cell-center sample convention.
+    /// `maxHeight` is a hoisted scan (see below) — pass it in so per-cell
+    /// calls stay O(1): `HeightfieldData.maxHeight` is itself an O(n) scan
+    /// and calling it per cell makes whole-grid passes quadratic.
     public static func normalizedHeight(
         _ hf: HeightfieldData,
         xCell: Int,
-        yCell: Int
+        yCell: Int,
+        maxHeight: Double? = nil
     ) -> Double {
-        guard hf.maxHeight > 1e-9,
+        let peak = maxHeight ?? hf.maxHeight
+        guard peak > 1e-9,
               xCell >= 0, xCell < hf.width,
               yCell >= 0, yCell < hf.height else { return 0 }
-        return hf.heights[yCell * hf.width + xCell] / hf.maxHeight
+        return hf.heights[yCell * hf.width + xCell] / peak
     }
 
     /// Grayscale RGBA row-major pixels for the whole grid: 255 = peak,
@@ -30,11 +35,12 @@ public struct HeightfieldVisualizer {
         let w = max(1, hf.width * max(1, pixelSize))
         let h = max(1, hf.height * max(1, pixelSize))
         var pixels = [UInt8](repeating: 0, count: w * h * 4)
+        let peak = hf.maxHeight   // ONE O(n) scan, not one per pixel
         for j in 0..<h {
             let yCell = j / max(1, pixelSize)
             for i in 0..<w {
                 let xCell = i / max(1, pixelSize)
-                let v = UInt8((normalizedHeight(hf, xCell: xCell, yCell: yCell) * 255).rounded())
+                let v = UInt8((normalizedHeight(hf, xCell: xCell, yCell: yCell, maxHeight: peak) * 255).rounded())
                 let idx = (j * w + i) * 4
                 pixels[idx] = v       // R
                 pixels[idx + 1] = v   // G
@@ -54,11 +60,12 @@ public struct HeightfieldVisualizer {
         levels: Int = 5
     ) -> [Int] {
         guard levels > 0 else { return [] }
+        let peak = hf.maxHeight   // ONE O(n) scan — was one per cell (quadratic)
         return (1...levels).map { level in
             let t = Double(level) / Double(levels)
             var count = 0
             for j in 0..<hf.height {
-                for i in 0..<hf.width where normalizedHeight(hf, xCell: i, yCell: j) >= t {
+                for i in 0..<hf.width where normalizedHeight(hf, xCell: i, yCell: j, maxHeight: peak) >= t {
                     count += 1
                 }
             }

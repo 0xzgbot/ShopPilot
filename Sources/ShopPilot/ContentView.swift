@@ -418,8 +418,20 @@ private struct SetupStageView: View {
                         GoldenJobsPanelView(session: session)
                     }
                     .padding(.top, 8)
+                    // SPK-UI-BUG-02 — collapsed panels must not leak into the
+                    // AX tree as always-on pressables (driver couldn't tell the
+                    // pro panels from real buttons). Exposure follows state:
+                    // hidden while collapsed, fully exposed once expanded.
+                    .accessibilityHidden(!advancedExpanded)
                 }
                 .font(.headline)
+                // SPK-UI-BUG-02 — the string-label header had NO AX element, so
+                // AT users / the UI drive could not find or expand Advanced.
+                // Explicit label + button trait make the header itself the
+                // pressable control; stable identifier for driver targeting.
+                .accessibilityLabel("Advanced")
+                .accessibilityAddTraits(.isButton)
+                .accessibilityIdentifier("setup.advanced")
             }
             .padding()
         }
@@ -515,6 +527,12 @@ private struct DesignStageView: View {
                                     }
                                     .buttonStyle(.bordered)
                                     .controlSize(.large)
+                                    // SPK-UI-BUG-01 — give the CTA an explicit AX
+                                    // identity (label + button trait) so AT users
+                                    // and the UI drive can reach the bundled
+                                    // sample from the empty state.
+                                    .accessibilityLabel("Try a sample")
+                                    .accessibilityAddTraits(.isButton)
                                 }
                             }
                             .padding(SP.Space.xl)
@@ -931,10 +949,20 @@ private struct CutStageView: View {
                 // button wall).
                 Button("Cut out") { session.generateProfileToolpath() }
                     .help("Cut along the vectors (on/out/in) — profile toolpath")
+                    .disabled(session.isGeneratingToolpath)
                 Button("Pocket") { session.generatePocketToolpath() }
                     .help("Clear the inside of closed vectors — pocket toolpath")
+                    .disabled(session.isGeneratingToolpath)
                 Button("Engrave") { session.generateVCarveToolpath() }
                     .help("Engrave vectors with a V-bit — V-carve toolpath")
+                    .disabled(session.isGeneratingToolpath)
+                // SPK-UI-BUG-03 — generates now compute off the main thread;
+                // the spinner makes the in-flight state visible.
+                if session.isGeneratingToolpath {
+                    ProgressView()
+                        .controlSize(.small)
+                        .help("Generating toolpath…")
+                }
 
                 Menu {
                     Section("More strategies") {

@@ -82,4 +82,57 @@ public enum ProfileToolpathGenerator {
         }
         return true
     }
+
+    /// SPK-UI-BUG-03 — async witness of `generateProfile(on:)`: the heavy
+    /// `ProfileToolpathEngine.compute` runs on a background queue (pure pass,
+    /// value inputs only — the ~35s Sign-sample compute no longer blocks the
+    /// main thread / AX server), then the node wiring + summary + layer guard
+    /// apply on the main actor. Same orchestration and result as the sync
+    /// path; `completion` fires on the main actor with the same Bool.
+    public static func generateProfileAsync(
+        on session: ProfileGeneratingSession,
+        completion: @escaping (Bool) -> Void
+    ) {
+        guard !session.vectors.isEmpty else {
+            session.setLastToolpathSummary("No vectors — import SVG or add a demo shape first")
+            completion(false)
+            return
+        }
+        // Snapshot every input the engine reads — value types only, captured
+        // here on the main thread so the background closure never touches
+        // session state.
+        let vectorsSnapshot = session.vectors
+        let stockHeight = session.activeSheetHeightMm
+        let nodeCount = session.toolpathNodeCount
+        let layerIDsBefore = session.shapeLayerIDs
+        session.registerUndoPoint()
+        DispatchQueue.global(qos: .userInitiated).async {
+            let params = ProfileToolpathParams()
+            let result = ProfileToolpathEngine.compute(
+                vectors: vectorsSnapshot,
+                params: params,
+                material: nil,
+                stockHeightMm: stockHeight
+            )
+            let paramsJSON = (try? JSONEncoder().encode(params)).flatMap { String(data: $0, encoding: .utf8) }
+            let summary =
+                "Profile: \(result.gcodeLines.count) lines, ~\(Int(result.estimatedTimeSeconds))s, " +
+                "\(result.passCount) depth pass(es), \(params.finishPasses) finish pass(es)"
+            DispatchQueue.main.async {
+                let node = session.addToolpathNode(
+                    named: "Profile \(nodeCount)",
+                    gcode: result.gcodeLines,
+                    estimatedTime: result.estimatedTimeSeconds
+                )
+                node.paramsJSON = paramsJSON
+                session.setLastToolpathSummary(summary)
+                // Profile must not reshuffle shape→layer membership.
+                if session.shapeLayerIDs != layerIDsBefore {
+                    session.shapeLayerIDs = layerIDsBefore
+                    session.setLastToolpathSummary("Profile created — restored layer membership after unexpected reshuffle")
+                }
+                completion(true)
+            }
+        }
+    }
 }

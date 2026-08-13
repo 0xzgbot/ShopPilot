@@ -147,20 +147,26 @@ public final class ToolpathSimulator {
         toolpathGcode: [String],
         zeroPlane: ZeroPlane? = nil
     ) -> SimulationResult {
-        simulate(toolpathGcode: toolpathGcode, zeroPlane: zeroPlane, shouldCancel: { false })
+        simulate(toolpathGcode: toolpathGcode, zeroPlane: zeroPlane, toolRadiusMm: nil, shouldCancel: { false })
     }
 
     /// Simulate a toolpath on the heightmap, polling `shouldCancel` before
     /// every line so an in-flight draft preview can abort promptly (SPK-0310a).
     /// A cancelled run returns the partial heightmap with `isCancelled` set.
+    /// `toolRadiusMm` (SPK-1700c) — the cutter's radius; each interpolated
+    /// cut point stamps a FLAT-ENDMILL disk of that radius instead of a
+    /// single cell. Nil falls back to 1.5mm (a 3mm endmill) — documented in
+    /// ShopPilotVerify1700c.
     public func simulate(
         toolpathGcode: [String],
         zeroPlane: ZeroPlane? = nil,
+        toolRadiusMm: Double? = nil,
         shouldCancel: () -> Bool
     ) -> SimulationResult {
         let startTime = Date()
         
         var workingHeightmap = initialHeightmap
+        let toolRadius = max(toolRadiusMm ?? 1.5, 0.01)
         
         // Apply zero plane Z offset to initial height if provided
         if let zp = zeroPlane {
@@ -243,14 +249,34 @@ public final class ToolpathSimulator {
                 let dy = ey - startY
                 let dist = (dx * dx + dy * dy).squareRoot()
                 let steps = max(1, Int(ceil(dist / workingHeightmap.cellSizeMm)))
+                // SPK-1700c — disk stamp: cells whose CENTER lies within the
+                // tool radius of an interpolated cutter point are lowered to
+                // min(current, cutter Z) — a flat endmill, not a 1-cell
+                // needle. Sweeping the disk along the segment makes the
+                // trench width ≈ tool diameter and raster stepover ridges
+                // match the real tool.
+                let radiusCells = Int(ceil(toolRadius / workingHeightmap.cellSizeMm))
                 for i in 0...steps {
                     let t = Double(i) / Double(steps)
                     let wx = startX + dx * t
                     let wy = startY + dy * t
-                    let gridPos = workingHeightmap.gridPosition(wx, wy)
-                    let currentHeight = workingHeightmap.getHeight(gridPos.x, gridPos.y)
-                    if currentZ < currentHeight {
-                        workingHeightmap.setHeight(currentZ, gridPos.x, gridPos.y)
+                    let center = workingHeightmap.gridPosition(wx, wy)
+                    for oy in -radiusCells...radiusCells {
+                        for ox in -radiusCells...radiusCells {
+                            let cx = center.x + ox
+                            let cy = center.y + oy
+                            guard cx >= 0, cx < workingHeightmap.width,
+                                  cy >= 0, cy < workingHeightmap.height else { continue }
+                            let cellWorld = workingHeightmap.worldPosition(cx, cy)
+                            let ddx = cellWorld.x - wx
+                            let ddy = cellWorld.y - wy
+                            if ddx * ddx + ddy * ddy <= toolRadius * toolRadius {
+                                let currentHeight = workingHeightmap.getHeight(cx, cy)
+                                if currentZ < currentHeight {
+                                    workingHeightmap.setHeight(currentZ, cx, cy)
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -293,20 +319,61 @@ public final class ToolpathSimulator {
 
     /// SPK-1103e — sheet-aware material simulation of the FULL toolpath tree.
     /// Sizes the stock grid from the job sheet (width/depth/thickness), runs the
-    /// cancellable material-removal sim, and returns coarse samples for the
-    /// preview canvas. Polls `shouldCancel` before every G-code line; a
-    /// cancelled run returns the partial heightmap with `isCancelled` set, so
-    /// the UI stays responsive and can abort a long sim mid-flight.
+    /// cancellable material-removal sim, and returns height samples for the
+    /// preview canvas. SPK-1700a: the display stride now defaults to **1**
+    /// (every cell — a filled raster, not the old `/40` dot scatter); a
+    /// caller may still pass a larger stride for a coarse draft pass. Polls
+    /// `shouldCancel` before every G-code line; a cancelled run returns the
+    /// partial heightmap with `isCancelled` set, so the UI stays responsive
+    /// and can abort a long sim mid-flight.
     public static func materialSimulation(
         from gcodeLines: [String],
         sheetWidthMm: Double,
         sheetDepthMm: Double,
         stockTopMm: Double,
         cellSizeMm: Double = 1.0,
-        sampleStride: Int = 0,
+        sampleStride: Int = 1,
         zeroPlane: ZeroPlane? = nil,
+        toolRadiusMm: Double? = nil,
         shouldCancel: () -> Bool = { false }
     ) -> (samples: [(x: Double, y: Double, z: Double)], seconds: Double, isCancelled: Bool) {
+        let outcome = simulateHeightmap(
+            from: gcodeLines,
+            sheetWidthMm: sheetWidthMm,
+            sheetDepthMm: sheetDepthMm,
+            stockTopMm: stockTopMm,
+            cellSizeMm: cellSizeMm,
+            zeroPlane: zeroPlane,
+            toolRadiusMm: toolRadiusMm,
+            shouldCancel: shouldCancel
+        )
+        let hm = outcome.heightmap
+        let step = max(1, sampleStride)
+        var samples: [(x: Double, y: Double, z: Double)] = []
+        for gy in stride(from: 0, to: hm.height, by: step) {
+            for gx in stride(from: 0, to: hm.width, by: step) {
+                let world = hm.worldPosition(gx, gy)
+                samples.append((world.x, world.y, hm.getHeight(gx, gy)))
+            }
+        }
+        return (samples, outcome.seconds, outcome.isCancelled)
+    }
+
+    /// SPK-1700a — the FULL dense material sim as a `Heightmap` (every cell,
+    /// no stride subsampling). Same engine/cancellation contract as
+    /// `materialSimulation`; the preview draws this as a filled raster at
+    /// cell size instead of a sparse dot scatter. The heightmap grid spans
+    /// the sheet footprint `[0, width] × [0, depth]` at `cellSizeMm` cells.
+    public static func simulateHeightmap(
+        from gcodeLines: [String],
+        sheetWidthMm: Double,
+        sheetDepthMm: Double,
+        stockTopMm: Double,
+        cellSizeMm: Double = 1.0,
+        zeroPlane: ZeroPlane? = nil,
+        toolRadiusMm: Double? = nil,
+        shouldCancel: () -> Bool = { false }
+    ) -> (heightmap: Heightmap, seconds: Double, isCancelled: Bool) {
         let width = max(1, Int(sheetWidthMm / cellSizeMm))
         let depth = max(1, Int(sheetDepthMm / cellSizeMm))
         let heightmap = Heightmap(
@@ -318,17 +385,8 @@ public final class ToolpathSimulator {
             initialHeight: stockTopMm
         )
         let sim = ToolpathSimulator(initialHeightmap: heightmap)
-        let result = sim.simulate(toolpathGcode: gcodeLines, zeroPlane: zeroPlane, shouldCancel: shouldCancel)
-        let hm = result.finalHeightmap
-        let step = sampleStride > 0 ? sampleStride : max(1, hm.width / 40)
-        var samples: [(x: Double, y: Double, z: Double)] = []
-        for gy in stride(from: 0, to: hm.height, by: step) {
-            for gx in stride(from: 0, to: hm.width, by: step) {
-                let world = hm.worldPosition(gx, gy)
-                samples.append((world.x, world.y, hm.getHeight(gx, gy)))
-            }
-        }
-        return (samples, result.simulationTimeSeconds, result.isCancelled)
+        let result = sim.simulate(toolpathGcode: gcodeLines, zeroPlane: zeroPlane, toolRadiusMm: toolRadiusMm, shouldCancel: shouldCancel)
+        return (result.finalHeightmap, result.simulationTimeSeconds, result.isCancelled)
     }
 }
 

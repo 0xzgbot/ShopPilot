@@ -12,11 +12,13 @@ ShopPilot is a professional-grade Computer-Aided Manufacturing (CAM) application
 
 ## Screenshots
 
-| Design & layers | Toolpaths & dirty gating | Machine control & safety |
+Files in [`../screenshots/`](../screenshots/README.md). Current numbered PNGs are 0.05 UI. Preview is **2.5D heightfield**, not Metal. Laser is not a product. Hermes SPK-1700d will add `welcome.png`, `2d-pocket-stepover.png`, `3d-relief-sim.png`, etc.
+
+| Design & layers | Toolpaths | Machine (simulator) |
 | --- | --- | --- |
 | ![Design](../screenshots/02-design-signage.png) | ![Cut](../screenshots/03-cut.png) | ![Machine](../screenshots/05-machine.png) |
 
-| Setup & recipes | Preview & simulation | Model & 3D |
+| Setup & recipes | Preview (heightfield) | Model (relief) |
 | --- | --- | --- |
 | ![Setup](../screenshots/01-setup.png) | ![Preview](../screenshots/06-preview.png) | ![Model](../screenshots/04-model.png) |
 
@@ -47,9 +49,9 @@ Connect your CNC machine directly from ShopPilot — jog axes, set work zero, to
 |----------|----------|
 | **Design** | Draw/edit vectors, import SVG/DXF/EPS/PDF/AI/DWG/WebP/STL, offset, boolean ops (weld/subtract/intersect), join/close/trim/fillet, dogbone corner relief, vector boundary, nest, layers, undo/redo, smart selection + dimension handles |
 | **Model** | STL/bitmap → relief heightfield, 3D text relief, components, mirror modes, sculpt strokes |
-| **Toolpaths** | Profile, Pocket, Drill, V-Carve (+ clearance), inlay recipes, 3D rough/finish/rest, thread milling, rotary wrap, laser, drag knife, photo V-Carve, texture, fluting, prism, chamfer, sketch carve, quick engrave — with dirty-gating and async recalc |
+| **Toolpaths** | Profile, Pocket, Drill, V-Carve (+ clearance), 3D rough/finish/rest from heightfield, dirty-gating and async recalc. Laser **held** (not product). |
+| **Preview** | SwiftUI wireframe + sheet-aware **heightfield** (not Metal chips). Filled raster / playhead / bit stamp = SPK-1700. |
 | **Machine** | Serial (port/baud pickers) + simulator, jog/zero, touch-off probing, feed override, spindle control, work offsets, G-code streaming, Hold/Reset safety controls |
-| **Preview** | Heightfield + wireframe + combined simulation, sheet-aware stock, material surfaces, peck-drill viz, cancellable draft sim |
 | **Tools** | 13 tool classes, 17 strategy defaults, manufacturer catalogs (Amana/Whiteside), toolpath templates, accel-aware time estimates |
 | **Export** | GRBL-compatible G-code, design PDF export, job sheets (HTML→PDF), Post Studio templates, `.shoppilot` job packages |
 | **UX** | Custom app icon + brand accent, stage rail (≤12 icons), ⌘K command palette, context menus, coach strip, editable shortcuts, material swatches, sample projects, autosave + crash recovery |

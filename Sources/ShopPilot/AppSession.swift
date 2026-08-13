@@ -93,6 +93,18 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
     /// delta when the change was partial.
     let dirtyRegionManager = DirtyRegionManager()
 
+    /// SPK-1700c — the cutter radius the material sim should stamp with:
+    /// the largest assigned tool's diameter/2 across the toolpath tree
+    /// (nil when no tool is assigned → the simulator's documented 1.5mm
+    /// fallback). Resolved from the tool DATABASE, not parsed params.
+    var previewToolRadiusMm: Double? {
+        let diameters = toolpathTree.allNodes.compactMap { node -> Double? in
+            guard let toolID = node.toolID else { return nil }
+            return toolDatabase.tool(withID: toolID)?.diameter
+        }
+        return diameters.max().map { $0 / 2 }
+    }
+
     /// Session tool database — the tool picker reads and assigns from here.
     @Published var toolDatabase = ToolDatabase()
 
@@ -205,6 +217,9 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
     @Published private(set) var isDirty = false
     /// SPK-1314 — a background recalc is in flight (UI shows a spinner).
     @Published var isRecalculating = false
+    /// SPK-UI-BUG-03 — a single-op Cut generate is computing off the main
+    /// thread (UI shows a spinner + disables the generate buttons).
+    @Published var isGeneratingToolpath = false
 
     /// Undo/redo stack hooks for document mutations.
     let undoManager = UndoManager()
@@ -370,6 +385,11 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
 
     func markDirty() {
         isDirty = true
+        // SPK-0315 — any document change invalidates the material sim; the
+        // Preview Simulate button re-simulates from the fresh tree. (The
+        // manager was previously never marked from the app — Simulate
+        // short-circuited with 0 cells.)
+        dirtyRegionManager.markFullTreeDirty()
     }
 
     func markClean() {
@@ -2055,7 +2075,7 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
             shapeType: shapeType,
             params: params,
             width: sheet.width,
-            height: sheet.height,
+            height: sheet.depth,   // sheet.depth = Y footprint; sheet.height is THICKNESS (was passing thickness — relief came out a 6mm strip)
             cellSizeMm: 1.0,
             maxHeight: min(sheet.height, 10.0)
         )
@@ -2833,9 +2853,15 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
 
     /// Generate a Cut-out (Profile) toolpath. SPK-1403c: the orchestration is
     /// owned by `ProfileToolpathGenerator` (Core) — this facade just supplies
-    /// the session hooks. Same G-code/status/undo/dirty as before.
+    /// the session hooks. SPK-UI-BUG-03: routed through the async witness so
+    /// the ~35s engine compute runs off the main thread; the result still
+    /// lands on the toolpath tree + G-code buffer, and the UI (stage rail,
+    /// Cancel, AX) stays responsive during generate.
     func generateProfileToolpath() {
-        ProfileToolpathGenerator.generateProfile(on: self)
+        isGeneratingToolpath = true
+        ProfileToolpathGenerator.generateProfileAsync(on: self) { [weak self] _ in
+            self?.isGeneratingToolpath = false
+        }
     }
 
     // ProfileGeneratingSession (SPK-1403c).
@@ -2885,6 +2911,60 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
 
     /// SPK-1403c — internal for the generator protocol witness.
     func encodeParams<T: Encodable>(_ params: T) -> String? {
+        guard let data = try? JSONEncoder().encode(params) else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    // MARK: - SPK-UI-BUG-03 — off-main single-op generate
+
+    /// A single-op generate produced by a background engine compute and
+    /// applied on the main actor (mirrors the SPK-1314 recalc compute/apply
+    /// split). `paramsJSON` is encoded on the background queue from the value
+    /// (pure JSONEncoder work — no session state).
+    private struct AsyncGenerateResult {
+        var nodeName: String
+        var gcode: [String]
+        var estimatedTime: Double
+        var summary: String
+        var paramsJSON: String?
+        /// When false the node is NOT added (e.g. rest-machining found
+        /// nothing to clear) — only the summary is published.
+        var addNode: Bool = true
+    }
+
+    /// Run a single-op engine compute OFF the main thread, then wire the
+    /// node + publish the summary on the main actor. `compute` must only
+    /// touch VALUE snapshots taken on the main thread (never session state);
+    /// `apply` runs on the main actor and may touch the session. Cut-stage
+    /// generation no longer blocks the main thread (SPK-UI-BUG-03: Profile
+    /// was ~35s on the Sign sample, freezing the whole app + AX server).
+    private func generateToolpathAsync(
+        compute: @escaping () -> AsyncGenerateResult,
+        apply: @escaping (AsyncGenerateResult) -> Void = { _ in }
+    ) {
+        isGeneratingToolpath = true
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self else { return }
+            let result = compute()
+            DispatchQueue.main.async {
+                self.finishGenerateToolpath(result, apply: apply)
+            }
+        }
+    }
+
+    /// Apply an async-generate result on the main actor and refresh UI state.
+    private func finishGenerateToolpath(_ result: AsyncGenerateResult, apply: (AsyncGenerateResult) -> Void) {
+        if result.addNode {
+            apply(result)
+        }
+        lastToolpathSummary = result.summary
+        statusMessage = result.summary
+        isGeneratingToolpath = false
+    }
+
+    /// JSON-encode an op's params to a string for the node — pure, so the
+    /// background generate queue can call it without touching session state.
+    private static func encodeParamsValue<T: Encodable>(_ params: T) -> String? {
         guard let data = try? JSONEncoder().encode(params) else { return nil }
         return String(data: data, encoding: .utf8)
     }
@@ -3076,30 +3156,40 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
     }
 
     /// Generate a Pocket toolpath from the closed session vectors (zigzag
-    /// default) and add it to the tree.
+    /// default) and add it to the tree. SPK-UI-BUG-03: engine compute runs
+    /// off the main thread; node wiring applies on the main actor.
     func generatePocketToolpath() {
         guard !vectors.isEmpty else {
             statusMessage = "No vectors — import SVG or add a demo shape first"
             return
         }
+        let vectorsSnapshot = vectors
+        let stockHeight = activeSheet?.height ?? 25.0
+        let nodeCount = toolpathTree.allNodes.count
         registerUndoPoint()
-        let result = PocketToolpathEngine.compute(
-            vectors: vectors,
-            params: PocketToolpathParams(),
-            material: nil,
-            stockHeightMm: activeSheet?.height ?? 25.0
-        )
-        let node = addToolpathNode(
-            named: "Pocket \(toolpathTree.allNodes.count)",
-            gcode: result.gcodeLines,
-            estimatedTime: result.estimatedTimeSeconds
-        )
-        node.paramsJSON = encodeParams(PocketToolpathParams())
-        lastToolpathSummary =
-            "Pocket: \(result.gcodeLines.count) lines, ~\(Int(result.estimatedTimeSeconds))s"
-        statusMessage = result.isTooSmall
-            ? "Pocket: region too small for the tool — no cut generated"
-            : lastToolpathSummary
+        generateToolpathAsync(compute: {
+            let params = PocketToolpathParams()
+            let result = PocketToolpathEngine.compute(
+                vectors: vectorsSnapshot,
+                params: params,
+                material: nil,
+                stockHeightMm: stockHeight
+            )
+            let summary = result.isTooSmall
+                ? "Pocket: region too small for the tool — no cut generated"
+                : "Pocket: \(result.gcodeLines.count) lines, ~\(Int(result.estimatedTimeSeconds))s"
+            return AsyncGenerateResult(
+                nodeName: "Pocket \(nodeCount)",
+                gcode: result.gcodeLines,
+                estimatedTime: result.estimatedTimeSeconds,
+                summary: summary,
+                paramsJSON: Self.encodeParamsValue(params),
+                addNode: !result.isTooSmall
+            )
+        }) { result in
+            let node = self.addToolpathNode(named: result.nodeName, gcode: result.gcode, estimatedTime: result.estimatedTime)
+            node.paramsJSON = result.paramsJSON
+        }
     }
 
     /// Apply Pocket params to an operation: store them on the node and
@@ -3142,6 +3232,7 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
 
     /// Generate a Drill toolpath at the center of every closed vector
     /// (bounding-box centroid, default peck cycle) and add it to the tree.
+    /// SPK-UI-BUG-03: engine compute runs off the main thread.
     func generateDrillToolpath() {
         let depth = -min(activeSheet?.height ?? 25.0, 10.0)
         let points: [DrillPoint] = vectors.compactMap { path in
@@ -3158,22 +3249,29 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
             statusMessage = "Drill needs a closed vector — holes are placed at shape centers"
             return
         }
+        let stockHeight = activeSheet?.height ?? 25.0
+        let nodeCount = toolpathTree.allNodes.count
         registerUndoPoint()
-        let result = DrillToolpathEngine.compute(
-            points: points,
-            params: DrillToolpathParams(),
-            material: nil,
-            stockHeightMm: activeSheet?.height ?? 25.0
-        )
-        let node = addToolpathNode(
-            named: "Drill \(toolpathTree.allNodes.count)",
-            gcode: result.gcodeLines,
-            estimatedTime: result.estimatedTimeSeconds
-        )
-        node.paramsJSON = encodeParams(DrillToolpathParams())
-        lastToolpathSummary =
-            "Drill: \(result.pointCount) hole(s), \(result.gcodeLines.count) lines"
-        statusMessage = lastToolpathSummary
+        generateToolpathAsync(compute: {
+            let params = DrillToolpathParams()
+            let result = DrillToolpathEngine.compute(
+                points: points,
+                params: params,
+                material: nil,
+                stockHeightMm: stockHeight
+            )
+            let summary = "Drill: \(result.pointCount) hole(s), \(result.gcodeLines.count) lines"
+            return AsyncGenerateResult(
+                nodeName: "Drill \(nodeCount)",
+                gcode: result.gcodeLines,
+                estimatedTime: result.estimatedTimeSeconds,
+                summary: summary,
+                paramsJSON: Self.encodeParamsValue(params)
+            )
+        }) { result in
+            let node = self.addToolpathNode(named: result.nodeName, gcode: result.gcode, estimatedTime: result.estimatedTime)
+            node.paramsJSON = result.paramsJSON
+        }
     }
 
     /// Apply Drill params to an operation: store them on the node and
@@ -3235,22 +3333,29 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
     /// bank lands on the part.
     func generateDrillBankToolpath() {
         let params = DrillBankToolpathParams()
-        registerUndoPoint()
         let points = drillBankPoints(centeredOn: params)
-        let result = DrillBankToolpathEngine.compute(
-            points: points,
-            params: params,
-            stockHeightMm: activeSheet?.height ?? 25.0
-        )
-        let node = addToolpathNode(
-            named: "Drill Bank \(toolpathTree.allNodes.count)",
-            gcode: result.gcodeLines,
-            estimatedTime: result.estimatedTimeSeconds
-        )
-        node.paramsJSON = encodeParams(params)
-        lastToolpathSummary =
-            "Drill Bank: \(result.pointCount) hole(s) (\(params.gridCols)×\(params.gridRows) grid), \(result.gcodeLines.count) lines"
-        statusMessage = lastToolpathSummary
+        let stockHeight = activeSheet?.height ?? 25.0
+        let nodeCount = toolpathTree.allNodes.count
+        registerUndoPoint()
+        generateToolpathAsync(compute: {
+            let result = DrillBankToolpathEngine.compute(
+                points: points,
+                params: params,
+                stockHeightMm: stockHeight
+            )
+            let summary =
+                "Drill Bank: \(result.pointCount) hole(s) (\(params.gridCols)×\(params.gridRows) grid), \(result.gcodeLines.count) lines"
+            return AsyncGenerateResult(
+                nodeName: "Drill Bank \(nodeCount)",
+                gcode: result.gcodeLines,
+                estimatedTime: result.estimatedTimeSeconds,
+                summary: summary,
+                paramsJSON: Self.encodeParamsValue(params)
+            )
+        }) { result in
+            let node = self.addToolpathNode(named: result.nodeName, gcode: result.gcode, estimatedTime: result.estimatedTime)
+            node.paramsJSON = result.paramsJSON
+        }
     }
 
     /// SPK-H04 — wrapped fluting: flute straight lines around the rotary axis
@@ -3263,9 +3368,9 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
         if let cfg = job.rotaryConfig {
             params.wrapDiameterMm = cfg.diameter
         }
-        registerUndoPoint()
         // Flute lines: use selected open polylines' segments; else a single
-        // default flute along the job width.
+        // default flute along the job width. (Both read only session state
+        // on the main thread — the engine gets value snapshots.)
         let selected = selectedShapeIndices.compactMap { shapes.indices.contains($0) ? shapes[$0] : nil }
         var flutePoints: [VectorPoint] = []
         if let first = selected.first, case .freehand(let pts) = first, pts.count >= 2 {
@@ -3274,16 +3379,23 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
             let w = activeSheet?.width ?? 100.0
             flutePoints = [VectorPoint(x: 0, y: 0), VectorPoint(x: w, y: 0)]
         }
-        let result = WrappedFlutingToolpathEngine.compute(points: flutePoints, params: params)
-        let node = addToolpathNode(
-            named: "Wrapped Fluting \(toolpathTree.allNodes.count)",
-            gcode: result.gcode,
-            estimatedTime: TimeInterval(result.moveCount) * 0.02
-        )
-        node.paramsJSON = encodeParams(params)
-        lastToolpathSummary =
-            "Wrapped Fluting: \(result.moveCount) move(s) around Ø\(String(format: "%.1f", params.wrapDiameterMm))mm, \(result.gcode.count) lines"
-        statusMessage = lastToolpathSummary
+        let nodeCount = toolpathTree.allNodes.count
+        registerUndoPoint()
+        generateToolpathAsync(compute: {
+            let result = WrappedFlutingToolpathEngine.compute(points: flutePoints, params: params)
+            let summary =
+                "Wrapped Fluting: \(result.moveCount) move(s) around Ø\(String(format: "%.1f", params.wrapDiameterMm))mm, \(result.gcode.count) lines"
+            return AsyncGenerateResult(
+                nodeName: "Wrapped Fluting \(nodeCount)",
+                gcode: result.gcode,
+                estimatedTime: TimeInterval(result.moveCount) * 0.02,
+                summary: summary,
+                paramsJSON: Self.encodeParamsValue(params)
+            )
+        }) { result in
+            let node = self.addToolpathNode(named: result.nodeName, gcode: result.gcode, estimatedTime: result.estimatedTime)
+            node.paramsJSON = result.paramsJSON
+        }
     }
 
     /// Apply Drill Bank params to an operation: store them on the node and
@@ -3334,7 +3446,9 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
     }
 
     /// Generate a V-Carve toolpath from the session vectors (V-bit, default
-    /// params) and add it to the tree.
+    /// params) and add it to the tree. SPK-UI-BUG-03: the (heavy) engine
+    /// compute runs off the main thread; the open-vector preflight gate stays
+    /// synchronous on the main actor (it only inspects shapes).
     func generateVCarveToolpath() {
         guard !vectors.isEmpty else {
             statusMessage = "No vectors — import SVG or add a demo shape first"
@@ -3350,63 +3464,83 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
             selectedStage = .design
             return
         }
+        let vectorsSnapshot = vectors
+        let stockHeight = activeSheet?.height ?? 25.0
+        let nodeCount = toolpathTree.allNodes.count
         registerUndoPoint()
-        let result = VCarveEngine.compute(
-            vectors: vectors,
-            params: VCarveParams(),
-            stockHeightMm: activeSheet?.height ?? 25.0
-        )
-        let node = addToolpathNode(
-            named: "V-Carve \(toolpathTree.allNodes.count)",
-            gcode: result.gcodeLines,
-            estimatedTime: result.estimatedTimeSeconds
-        )
-        node.paramsJSON = encodeParams(VCarveParams())
-        lastToolpathSummary =
-            "V-Carve: \(result.gcodeLines.count) lines, \(result.passCount) pass(es)"
-        statusMessage = lastToolpathSummary
+        generateToolpathAsync(compute: {
+            let params = VCarveParams()
+            let result = VCarveEngine.compute(
+                vectors: vectorsSnapshot,
+                params: params,
+                stockHeightMm: stockHeight
+            )
+            let summary = "V-Carve: \(result.gcodeLines.count) lines, \(result.passCount) pass(es)"
+            return AsyncGenerateResult(
+                nodeName: "V-Carve \(nodeCount)",
+                gcode: result.gcodeLines,
+                estimatedTime: result.estimatedTimeSeconds,
+                summary: summary,
+                paramsJSON: Self.encodeParamsValue(params)
+            )
+        }) { result in
+            let node = self.addToolpathNode(named: result.nodeName, gcode: result.gcode, estimatedTime: result.estimatedTime)
+            node.paramsJSON = result.paramsJSON
+        }
     }
 
     /// Generate a 3D ROUGH toolpath (z-level clearing) from the imported STL
-    /// relief and add it to the tree (SPK-3D-spine-b).
+    /// relief and add it to the tree (SPK-3D-spine-b). SPK-UI-BUG-03: the
+    /// heightfield engine runs off the main thread.
     func generateRough3DToolpath() {
         guard let hf = job.stlHeightfield else {
             statusMessage = "No STL relief — import one via Design → STL Relief… first"
             return
         }
+        let nodeCount = toolpathTree.allNodes.count
         registerUndoPoint()
-        let params = HeightfieldRoughParams()
-        let result = HeightfieldRoughEngine.compute(heightfield: hf, params: params)
-        let node = addToolpathNode(
-            named: "Rough 3D \(toolpathTree.allNodes.count)",
-            gcode: result.gcodeLines,
-            estimatedTime: result.estimatedTimeSeconds
-        )
-        node.paramsJSON = encodeParams(params)
-        lastToolpathSummary =
-            "Rough 3D: \(result.gcodeLines.count) lines, \(result.passCount) z-levels"
-        statusMessage = lastToolpathSummary
+        generateToolpathAsync(compute: {
+            let params = HeightfieldRoughParams()
+            let result = HeightfieldRoughEngine.compute(heightfield: hf, params: params)
+            let summary = "Rough 3D: \(result.gcodeLines.count) lines, \(result.passCount) z-levels"
+            return AsyncGenerateResult(
+                nodeName: "Rough 3D \(nodeCount)",
+                gcode: result.gcodeLines,
+                estimatedTime: result.estimatedTimeSeconds,
+                summary: summary,
+                paramsJSON: Self.encodeParamsValue(params)
+            )
+        }) { result in
+            let node = self.addToolpathNode(named: result.nodeName, gcode: result.gcode, estimatedTime: result.estimatedTime)
+            node.paramsJSON = result.paramsJSON
+        }
     }
 
     /// Generate a 3D FINISH toolpath (surface-following) from the imported STL
-    /// relief and add it to the tree (SPK-3D-spine-b).
+    /// relief and add it to the tree (SPK-3D-spine-b). SPK-UI-BUG-03: the
+    /// heightfield engine runs off the main thread.
     func generateFinish3DToolpath() {
         guard let hf = job.stlHeightfield else {
             statusMessage = "No STL relief — import one via Design → STL Relief… first"
             return
         }
+        let nodeCount = toolpathTree.allNodes.count
         registerUndoPoint()
-        let params = HeightfieldFinishParams()
-        let result = HeightfieldFinishEngine.compute(heightfield: hf, params: params)
-        let node = addToolpathNode(
-            named: "Finish 3D \(toolpathTree.allNodes.count)",
-            gcode: result.gcodeLines,
-            estimatedTime: result.estimatedTimeSeconds
-        )
-        node.paramsJSON = encodeParams(params)
-        lastToolpathSummary =
-            "Finish 3D: \(result.gcodeLines.count) lines, \(result.passCount) rows"
-        statusMessage = lastToolpathSummary
+        generateToolpathAsync(compute: {
+            let params = HeightfieldFinishParams()
+            let result = HeightfieldFinishEngine.compute(heightfield: hf, params: params)
+            let summary = "Finish 3D: \(result.gcodeLines.count) lines, \(result.passCount) rows"
+            return AsyncGenerateResult(
+                nodeName: "Finish 3D \(nodeCount)",
+                gcode: result.gcodeLines,
+                estimatedTime: result.estimatedTimeSeconds,
+                summary: summary,
+                paramsJSON: Self.encodeParamsValue(params)
+            )
+        }) { result in
+            let node = self.addToolpathNode(named: result.nodeName, gcode: result.gcode, estimatedTime: result.estimatedTime)
+            node.paramsJSON = result.paramsJSON
+        }
     }
 
     // MARK: - SPK-0711 Zero plane + boundary
@@ -3503,97 +3637,137 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
 
     /// Generate a Prism toolpath: parallel V-grooves across every closed
     /// vector (the prismatic sign effect) and add it to the tree.
+    /// SPK-UI-BUG-03: engine compute runs off the main thread.
     func generatePrismToolpath() {
         guard !vectors.isEmpty else {
             statusMessage = "No vectors — import SVG or add a demo shape first"
             return
         }
+        let vectorsSnapshot = vectors
+        let stockHeight = activeSheet?.height ?? 25.0
+        let nodeCount = toolpathTree.allNodes.count
         registerUndoPoint()
-        let params = PrismToolpathParams()
-        let result = PrismToolpathEngine.compute(
-            paths: vectors,
-            params: params,
-            stockHeightMm: activeSheet?.height ?? 25.0
-        )
-        let node = addToolpathNode(
-            named: "Prism \(toolpathTree.allNodes.count)",
-            gcode: result.gcodeLines,
-            estimatedTime: result.estimatedTimeSeconds
-        )
-        node.paramsJSON = encodeParams(params)
-        statusMessage = result.featureCount > 0
-            ? "Prism: \(result.featureCount) groove(s), ~\(Int(result.estimatedTimeSeconds))s"
-            : "Prism: no closed vectors — the grooves raster needs closed shapes"
+        generateToolpathAsync(compute: {
+            let params = PrismToolpathParams()
+            let result = PrismToolpathEngine.compute(
+                paths: vectorsSnapshot,
+                params: params,
+                stockHeightMm: stockHeight
+            )
+            let summary = result.featureCount > 0
+                ? "Prism: \(result.featureCount) groove(s), ~\(Int(result.estimatedTimeSeconds))s"
+                : "Prism: no closed vectors — the grooves raster needs closed shapes"
+            return AsyncGenerateResult(
+                nodeName: "Prism \(nodeCount)",
+                gcode: result.gcodeLines,
+                estimatedTime: result.estimatedTimeSeconds,
+                summary: summary,
+                paramsJSON: Self.encodeParamsValue(params)
+            )
+        }) { result in
+            let node = self.addToolpathNode(named: result.nodeName, gcode: result.gcode, estimatedTime: result.estimatedTime)
+            node.paramsJSON = result.paramsJSON
+        }
     }
 
     /// Generate a Fluting toolpath: the selected vectors ARE the flutes
     /// (draw parallel lines for a ribbed board), cut in step-down passes.
+    /// SPK-UI-BUG-03: engine compute runs off the main thread.
     func generateFlutingToolpath() {
         guard !vectors.isEmpty else {
             statusMessage = "No vectors — draw flute lines first"
             return
         }
+        let vectorsSnapshot = vectors
+        let stockHeight = activeSheet?.height ?? 25.0
+        let nodeCount = toolpathTree.allNodes.count
         registerUndoPoint()
-        let params = FlutingToolpathParams()
-        let result = FlutingToolpathEngine.compute(
-            paths: vectors,
-            params: params,
-            stockHeightMm: activeSheet?.height ?? 25.0
-        )
-        let node = addToolpathNode(
-            named: "Fluting \(toolpathTree.allNodes.count)",
-            gcode: result.gcodeLines,
-            estimatedTime: result.estimatedTimeSeconds
-        )
-        node.paramsJSON = encodeParams(params)
-        statusMessage = result.featureCount > 0
-            ? "Fluting: \(result.featureCount) flute(s), ~\(Int(result.estimatedTimeSeconds))s"
-            : "Fluting: no usable vectors (need ≥ 2 points)"
+        generateToolpathAsync(compute: {
+            let params = FlutingToolpathParams()
+            let result = FlutingToolpathEngine.compute(
+                paths: vectorsSnapshot,
+                params: params,
+                stockHeightMm: stockHeight
+            )
+            let summary = result.featureCount > 0
+                ? "Fluting: \(result.featureCount) flute(s), ~\(Int(result.estimatedTimeSeconds))s"
+                : "Fluting: no usable vectors (need ≥ 2 points)"
+            return AsyncGenerateResult(
+                nodeName: "Fluting \(nodeCount)",
+                gcode: result.gcodeLines,
+                estimatedTime: result.estimatedTimeSeconds,
+                summary: summary,
+                paramsJSON: Self.encodeParamsValue(params)
+            )
+        }) { result in
+            let node = self.addToolpathNode(named: result.nodeName, gcode: result.gcode, estimatedTime: result.estimatedTime)
+            node.paramsJSON = result.paramsJSON
+        }
     }
 
     /// Generate a Chamfer toolpath: V-bevel on the selected edges.
+    /// SPK-UI-BUG-03: engine compute runs off the main thread.
     func generateChamferToolpath() {
         guard !vectors.isEmpty else {
             statusMessage = "No vectors — select edges to chamfer"
             return
         }
+        let vectorsSnapshot = vectors
+        let stockHeight = activeSheet?.height ?? 25.0
+        let nodeCount = toolpathTree.allNodes.count
         registerUndoPoint()
-        let params = ChamferToolpathParams()
-        let result = ChamferToolpathEngine.compute(
-            paths: vectors,
-            params: params,
-            stockHeightMm: activeSheet?.height ?? 25.0
-        )
-        let node = addToolpathNode(
-            named: "Chamfer \(toolpathTree.allNodes.count)",
-            gcode: result.gcodeLines,
-            estimatedTime: result.estimatedTimeSeconds
-        )
-        node.paramsJSON = encodeParams(params)
-        statusMessage = result.featureCount > 0
-            ? "Chamfer: \(result.featureCount) edge(s), ~\(Int(result.estimatedTimeSeconds))s"
-            : "Chamfer: no usable vectors"
+        generateToolpathAsync(compute: {
+            let params = ChamferToolpathParams()
+            let result = ChamferToolpathEngine.compute(
+                paths: vectorsSnapshot,
+                params: params,
+                stockHeightMm: stockHeight
+            )
+            let summary = result.featureCount > 0
+                ? "Chamfer: \(result.featureCount) edge(s), ~\(Int(result.estimatedTimeSeconds))s"
+                : "Chamfer: no usable vectors"
+            return AsyncGenerateResult(
+                nodeName: "Chamfer \(nodeCount)",
+                gcode: result.gcodeLines,
+                estimatedTime: result.estimatedTimeSeconds,
+                summary: summary,
+                paramsJSON: Self.encodeParamsValue(params)
+            )
+        }) { result in
+            let node = self.addToolpathNode(named: result.nodeName, gcode: result.gcode, estimatedTime: result.estimatedTime)
+            node.paramsJSON = result.paramsJSON
+        }
     }
 
     /// Generate the female (pocket) or male (plug) half of a V-inlay.
+    /// SPK-UI-BUG-03: engine compute runs off the main thread.
     func generateInlayToolpath(variant: InlayToolpathParams.Variant) {
         guard !vectors.isEmpty else {
             statusMessage = "No vectors — select the inlay shape"
             return
         }
+        let vectorsSnapshot = vectors
+        let stockHeight = activeSheet?.height ?? 25.0
+        let nodeCount = toolpathTree.allNodes.count
         registerUndoPoint()
-        var params = InlayToolpathParams()
-        params.variant = variant
-        let result: SpecialtyResult = variant == .pocket
-            ? InlayToolpathEngine.computePocket(paths: vectors, params: params, stockHeightMm: activeSheet?.height ?? 25.0)
-            : InlayToolpathEngine.computePlug(paths: vectors, params: params, stockHeightMm: activeSheet?.height ?? 25.0)
-        let node = addToolpathNode(
-            named: "Inlay \(variant == .pocket ? "Pocket" : "Plug") \(toolpathTree.allNodes.count)",
-            gcode: result.gcodeLines,
-            estimatedTime: result.estimatedTimeSeconds
-        )
-        node.paramsJSON = encodeParams(params)
-        statusMessage = "Inlay \(variant == .pocket ? "pocket" : "plug"): \(result.gcodeLines.count) lines, ~\(Int(result.estimatedTimeSeconds))s"
+        generateToolpathAsync(compute: {
+            var params = InlayToolpathParams()
+            params.variant = variant
+            let result: SpecialtyResult = variant == .pocket
+                ? InlayToolpathEngine.computePocket(paths: vectorsSnapshot, params: params, stockHeightMm: stockHeight)
+                : InlayToolpathEngine.computePlug(paths: vectorsSnapshot, params: params, stockHeightMm: stockHeight)
+            let summary = "Inlay \(variant == .pocket ? "pocket" : "plug"): \(result.gcodeLines.count) lines, ~\(Int(result.estimatedTimeSeconds))s"
+            return AsyncGenerateResult(
+                nodeName: "Inlay \(variant == .pocket ? "Pocket" : "Plug") \(nodeCount)",
+                gcode: result.gcodeLines,
+                estimatedTime: result.estimatedTimeSeconds,
+                summary: summary,
+                paramsJSON: Self.encodeParamsValue(params)
+            )
+        }) { result in
+            let node = self.addToolpathNode(named: result.nodeName, gcode: result.gcode, estimatedTime: result.estimatedTime)
+            node.paramsJSON = result.paramsJSON
+        }
     }
 
     /// Apply Prism params to an operation: store + regenerate with the REAL
@@ -3700,25 +3874,35 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
 
     /// Generate a Quick Engrave toolpath: single-pass V-bit engraving along
     /// the selected vectors (the sign-shop "just engrave it" op).
+    /// SPK-UI-BUG-03: engine compute runs off the main thread.
     func generateQuickEngraveToolpath() {
         guard !vectors.isEmpty else {
             statusMessage = "No vectors — draw or import text/shapes first"
             return
         }
+        let vectorsSnapshot = vectors
+        let stockHeight = activeSheet?.height ?? 25.0
+        let nodeCount = toolpathTree.allNodes.count
         registerUndoPoint()
-        let params = QuickEngraveToolpathParams()
-        let result = QuickEngraveToolpathEngine.compute(
-            paths: vectors, params: params, stockHeightMm: activeSheet?.height ?? 25.0
-        )
-        let node = addToolpathNode(
-            named: "Quick Engrave \(toolpathTree.allNodes.count)",
-            gcode: result.gcodeLines,
-            estimatedTime: result.estimatedTimeSeconds
-        )
-        node.paramsJSON = encodeParams(params)
-        statusMessage = result.featureCount > 0
-            ? "Quick Engrave: \(result.featureCount) vector(s), ~\(Int(result.estimatedTimeSeconds))s"
-            : "Quick Engrave: no usable vectors"
+        generateToolpathAsync(compute: {
+            let params = QuickEngraveToolpathParams()
+            let result = QuickEngraveToolpathEngine.compute(
+                paths: vectorsSnapshot, params: params, stockHeightMm: stockHeight
+            )
+            let summary = result.featureCount > 0
+                ? "Quick Engrave: \(result.featureCount) vector(s), ~\(Int(result.estimatedTimeSeconds))s"
+                : "Quick Engrave: no usable vectors"
+            return AsyncGenerateResult(
+                nodeName: "Quick Engrave \(nodeCount)",
+                gcode: result.gcodeLines,
+                estimatedTime: result.estimatedTimeSeconds,
+                summary: summary,
+                paramsJSON: Self.encodeParamsValue(params)
+            )
+        }) { result in
+            let node = self.addToolpathNode(named: result.nodeName, gcode: result.gcode, estimatedTime: result.estimatedTime)
+            node.paramsJSON = result.paramsJSON
+        }
     }
 
     @discardableResult
@@ -3749,21 +3933,29 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
     /// Generate a Photo V-Carve op: a fine V-bit raster over the imported
     /// relief (image or STL), brightness → depth. Dark pixels carve deep,
     /// bright pixels stay high — the classic sign-shop photo carve.
+    /// SPK-UI-BUG-03: the raster engine runs off the main thread.
     func generatePhotoVCarveToolpath() {
         guard let hf = job.stlHeightfield else {
             statusMessage = "No relief — import an image (Model → Image Relief…) or STL first"
             return
         }
+        let nodeCount = toolpathTree.allNodes.count
         registerUndoPoint()
-        let params = PhotoVCarveToolpathParams()
-        let result = PhotoVCarveToolpathEngine.compute(heightfield: hf, params: params)
-        let node = addToolpathNode(
-            named: "Photo V-Carve \(toolpathTree.allNodes.count)",
-            gcode: result.gcodeLines,
-            estimatedTime: result.estimatedTimeSeconds
-        )
-        node.paramsJSON = encodeParams(params)
-        statusMessage = "Photo V-Carve: \(result.gcodeLines.count) lines, \(result.featureCount) passes, ~\(Int(result.estimatedTimeSeconds))s"
+        generateToolpathAsync(compute: {
+            let params = PhotoVCarveToolpathParams()
+            let result = PhotoVCarveToolpathEngine.compute(heightfield: hf, params: params)
+            let summary = "Photo V-Carve: \(result.gcodeLines.count) lines, \(result.featureCount) passes, ~\(Int(result.estimatedTimeSeconds))s"
+            return AsyncGenerateResult(
+                nodeName: "Photo V-Carve \(nodeCount)",
+                gcode: result.gcodeLines,
+                estimatedTime: result.estimatedTimeSeconds,
+                summary: summary,
+                paramsJSON: Self.encodeParamsValue(params)
+            )
+        }) { result in
+            let node = self.addToolpathNode(named: result.nodeName, gcode: result.gcode, estimatedTime: result.estimatedTime)
+            node.paramsJSON = result.paramsJSON
+        }
     }
 
     /// Apply Photo V-Carve params to an operation: store + regenerate with the
@@ -3793,23 +3985,33 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
 
     /// Generate a Drag Knife op: spindle-center path offset by the blade
     /// offset with corner pivots — the classic drag-knife toolpath.
+    /// SPK-UI-BUG-03: engine compute runs off the main thread.
     func generateDragKnifeToolpath() {
         guard !vectors.isEmpty else {
             statusMessage = "No vectors — draw or import shapes first"
             return
         }
+        let vectorsSnapshot = vectors
+        let stockHeight = activeSheet?.height ?? 25.0
+        let nodeCount = toolpathTree.allNodes.count
         registerUndoPoint()
-        let params = DragKnifeToolpathParams()
-        let result = DragKnifeToolpathEngine.compute(
-            paths: vectors, params: params, stockHeightMm: activeSheet?.height ?? 25.0
-        )
-        let node = addToolpathNode(
-            named: "Drag Knife \(toolpathTree.allNodes.count)",
-            gcode: result.gcodeLines,
-            estimatedTime: result.estimatedTimeSeconds
-        )
-        node.paramsJSON = encodeParams(params)
-        statusMessage = "Drag Knife: \(result.featureCount) path(s), ~\(Int(result.estimatedTimeSeconds))s"
+        generateToolpathAsync(compute: {
+            let params = DragKnifeToolpathParams()
+            let result = DragKnifeToolpathEngine.compute(
+                paths: vectorsSnapshot, params: params, stockHeightMm: stockHeight
+            )
+            let summary = "Drag Knife: \(result.featureCount) path(s), ~\(Int(result.estimatedTimeSeconds))s"
+            return AsyncGenerateResult(
+                nodeName: "Drag Knife \(nodeCount)",
+                gcode: result.gcodeLines,
+                estimatedTime: result.estimatedTimeSeconds,
+                summary: summary,
+                paramsJSON: Self.encodeParamsValue(params)
+            )
+        }) { result in
+            let node = self.addToolpathNode(named: result.nodeName, gcode: result.gcode, estimatedTime: result.estimatedTime)
+            node.paramsJSON = result.paramsJSON
+        }
     }
 
     @discardableResult
@@ -3839,23 +4041,33 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
 
     /// Generate a Texture op: parallel or crosshatch grooves clipped inside
     /// the selected closed vectors (SPK-0900 texture slice).
+    /// SPK-UI-BUG-03: engine compute runs off the main thread.
     func generateTextureToolpath() {
         guard !vectors.isEmpty else {
             statusMessage = "No vectors — select a closed boundary first"
             return
         }
+        let vectorsSnapshot = vectors
+        let stockHeight = activeSheet?.height ?? 25.0
+        let nodeCount = toolpathTree.allNodes.count
         registerUndoPoint()
-        let params = TextureToolpathParams()
-        let result = TextureToolpathEngine.compute(
-            paths: vectors, params: params, stockHeightMm: activeSheet?.height ?? 25.0
-        )
-        let node = addToolpathNode(
-            named: "Texture \(toolpathTree.allNodes.count)",
-            gcode: result.gcodeLines,
-            estimatedTime: result.estimatedTimeSeconds
-        )
-        node.paramsJSON = encodeParams(params)
-        statusMessage = "Texture: \(result.featureCount) groove(s), ~\(Int(result.estimatedTimeSeconds))s"
+        generateToolpathAsync(compute: {
+            let params = TextureToolpathParams()
+            let result = TextureToolpathEngine.compute(
+                paths: vectorsSnapshot, params: params, stockHeightMm: stockHeight
+            )
+            let summary = "Texture: \(result.featureCount) groove(s), ~\(Int(result.estimatedTimeSeconds))s"
+            return AsyncGenerateResult(
+                nodeName: "Texture \(nodeCount)",
+                gcode: result.gcodeLines,
+                estimatedTime: result.estimatedTimeSeconds,
+                summary: summary,
+                paramsJSON: Self.encodeParamsValue(params)
+            )
+        }) { result in
+            let node = self.addToolpathNode(named: result.nodeName, gcode: result.gcode, estimatedTime: result.estimatedTime)
+            node.paramsJSON = result.paramsJSON
+        }
     }
 
     @discardableResult
@@ -3886,21 +4098,29 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
     /// Generate a Sketch Carve op: a V-bit raster gated by the image's EDGES
     /// (Sobel gradient), so only strong brightness transitions carve — the
     /// hand-sketched line-art look (SPK-0901 remainder).
+    /// SPK-UI-BUG-03: the raster engine runs off the main thread.
     func generateSketchCarveToolpath() {
         guard let hf = job.stlHeightfield else {
             statusMessage = "No relief — import an image (Model → Image Relief…) or STL first"
             return
         }
+        let nodeCount = toolpathTree.allNodes.count
         registerUndoPoint()
-        let params = SketchCarveToolpathParams()
-        let result = SketchCarveToolpathEngine.compute(heightfield: hf, params: params)
-        let node = addToolpathNode(
-            named: "Sketch Carve \(toolpathTree.allNodes.count)",
-            gcode: result.gcodeLines,
-            estimatedTime: result.estimatedTimeSeconds
-        )
-        node.paramsJSON = encodeParams(params)
-        statusMessage = "Sketch Carve: \(result.featureCount) edge cells, \(result.gcodeLines.count) lines, ~\(Int(result.estimatedTimeSeconds))s"
+        generateToolpathAsync(compute: {
+            let params = SketchCarveToolpathParams()
+            let result = SketchCarveToolpathEngine.compute(heightfield: hf, params: params)
+            let summary = "Sketch Carve: \(result.featureCount) edge cells, \(result.gcodeLines.count) lines, ~\(Int(result.estimatedTimeSeconds))s"
+            return AsyncGenerateResult(
+                nodeName: "Sketch Carve \(nodeCount)",
+                gcode: result.gcodeLines,
+                estimatedTime: result.estimatedTimeSeconds,
+                summary: summary,
+                paramsJSON: Self.encodeParamsValue(params)
+            )
+        }) { result in
+            let node = self.addToolpathNode(named: result.nodeName, gcode: result.gcode, estimatedTime: result.estimatedTime)
+            node.paramsJSON = result.paramsJSON
+        }
     }
 
     /// Apply Sketch Carve params to an operation: store + regenerate with the
@@ -3930,27 +4150,37 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
 
     /// Generate a Rotary Wrap op: wrap the selected vectors around a rotary
     /// axis (X → A degrees, Y stays the axis dimension) — SPK-0904 slice.
+    /// SPK-UI-BUG-03: engine compute runs off the main thread.
     func generateRotaryWrapToolpath() {
         guard !vectors.isEmpty else {
             statusMessage = "No vectors — draw or import shapes first"
             return
         }
-        registerUndoPoint()
         var params = RotaryWrapToolpathParams()
         // SPK-0903: job-level rotary setup supplies the stock Ø default.
         if let cfg = job.rotaryConfig {
             params.diameterMm = cfg.diameter
         }
-        let result = RotaryWrapToolpathEngine.compute(
-            paths: vectors, params: params, stockHeightMm: activeSheet?.height ?? 25.0
-        )
-        let node = addToolpathNode(
-            named: "Rotary Wrap \(toolpathTree.allNodes.count)",
-            gcode: result.gcodeLines,
-            estimatedTime: result.estimatedTimeSeconds
-        )
-        node.paramsJSON = encodeParams(params)
-        statusMessage = "Rotary Wrap: \(result.featureCount) path(s), ~\(Int(result.estimatedTimeSeconds))s"
+        let vectorsSnapshot = vectors
+        let stockHeight = activeSheet?.height ?? 25.0
+        let nodeCount = toolpathTree.allNodes.count
+        registerUndoPoint()
+        generateToolpathAsync(compute: {
+            let result = RotaryWrapToolpathEngine.compute(
+                paths: vectorsSnapshot, params: params, stockHeightMm: stockHeight
+            )
+            let summary = "Rotary Wrap: \(result.featureCount) path(s), ~\(Int(result.estimatedTimeSeconds))s"
+            return AsyncGenerateResult(
+                nodeName: "Rotary Wrap \(nodeCount)",
+                gcode: result.gcodeLines,
+                estimatedTime: result.estimatedTimeSeconds,
+                summary: summary,
+                paramsJSON: Self.encodeParamsValue(params)
+            )
+        }) { result in
+            let node = self.addToolpathNode(named: result.nodeName, gcode: result.gcode, estimatedTime: result.estimatedTime)
+            node.paramsJSON = result.paramsJSON
+        }
     }
 
     /// True when the selection contains a rectangle (dogbone target).
@@ -4007,35 +4237,49 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
     /// The remaining-depth grid comes from the heightfield (cells where the
     /// relief is higher than the target floor), the planner computes the
     /// layers, and each pass becomes a zigzag clearing raster at that Z.
+    /// SPK-UI-BUG-03: the planner runs off the main thread; the
+    /// nothing-to-clear case publishes the summary without adding a node.
     func generateRestMachiningToolpath(stepDown: Double = 2.0, minRemaining: Double = 0.3) {
         guard let hf = job.stlHeightfield else {
             statusMessage = "No relief — import an image (Model → Image Relief…) or STL first"
             return
         }
+        let nodeCount = toolpathTree.allNodes.count
         registerUndoPoint()
-        // Remaining depth per cell: height above the relief's floor.
-        // (A flat stock yields all-zero remaining → no rest passes needed.)
-        let floor = hf.heights.min() ?? 0
-        let remaining = hf.heights.map { max(0, $0 - floor) }
-        let passes = RestRoughing.planRestPasses(
-            remainingDepthGrid: remaining,
-            gridWidth: hf.width,
-            stepDown: stepDown,
-            minRemaining: minRemaining
-        )
-        guard !passes.isEmpty else {
-            statusMessage = "Rest Machining: nothing left to clear (rough pass already cleaned the relief)"
-            return
+        generateToolpathAsync(compute: {
+            // Remaining depth per cell: height above the relief's floor.
+            // (A flat stock yields all-zero remaining → no rest passes needed.)
+            let floor = hf.heights.min() ?? 0
+            let remaining = hf.heights.map { max(0, $0 - floor) }
+            let passes = RestRoughing.planRestPasses(
+                remainingDepthGrid: remaining,
+                gridWidth: hf.width,
+                stepDown: stepDown,
+                minRemaining: minRemaining
+            )
+            guard !passes.isEmpty else {
+                return AsyncGenerateResult(
+                    nodeName: "Rest Machine \(nodeCount)",
+                    gcode: [],
+                    estimatedTime: 0,
+                    summary: "Rest Machining: nothing left to clear (rough pass already cleaned the relief)",
+                    paramsJSON: Self.encodeParamsValue(RestMachiningParams(stepDown: stepDown, minRemaining: minRemaining)),
+                    addNode: false
+                )
+            }
+            let gcode = self.restMachiningGCode(passes: passes, heightfield: hf)
+            let summary = "Rest Machining: \(passes.count) pass(es), \(gcode.count) lines"
+            return AsyncGenerateResult(
+                nodeName: "Rest Machine \(nodeCount)",
+                gcode: gcode,
+                estimatedTime: TimeEstimator.estimate(gcodeLines: gcode).cuttingTimeSeconds,
+                summary: summary,
+                paramsJSON: Self.encodeParamsValue(RestMachiningParams(stepDown: stepDown, minRemaining: minRemaining))
+            )
+        }) { result in
+            let node = self.addToolpathNode(named: result.nodeName, gcode: result.gcode, estimatedTime: result.estimatedTime)
+            node.paramsJSON = result.paramsJSON
         }
-        let gcode = restMachiningGCode(passes: passes, heightfield: hf)
-        let node = addToolpathNode(
-            named: "Rest Machine \(toolpathTree.allNodes.count)",
-            gcode: gcode,
-            estimatedTime: TimeEstimator.estimate(gcodeLines: gcode).cuttingTimeSeconds
-        )
-        let params = RestMachiningParams(stepDown: stepDown, minRemaining: minRemaining)
-        node.paramsJSON = encodeParams(params)
-        statusMessage = "Rest Machining: \(passes.count) pass(es), \(gcode.count) lines"
     }
 
     /// Zigzag clearing rasters per rest pass, over the cells that still hold
@@ -4378,26 +4622,36 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
 
     /// Generate a thread-mill op on the FIRST selected closed vector (its
     /// bounding-box center is the hole center; the hole Ø is derived from the
-    /// vector size). Uses the real helical engine.
+    /// vector size). Uses the real helical engine. SPK-UI-BUG-03: engine
+    /// compute runs off the main thread.
     func generateThreadMillingToolpath() {
         guard let target = selectedClosedShapeBBoxCenter() else {
             statusMessage = "Thread Mill: select a closed vector (the hole) first"
             return
         }
+        let centerX = target.center.x
+        let centerY = target.center.y
+        let nodeCount = toolpathTree.allNodes.count
         registerUndoPoint()
-        let params = ThreadMillParams()
-        let result = ThreadMillingToolpathEngine.compute(
-            centerX: target.center.x,
-            centerY: target.center.y,
-            params: params
-        )
-        let node = addToolpathNode(
-            named: "Thread Mill \(toolpathTree.allNodes.count)",
-            gcode: result.gcodeLines,
-            estimatedTime: result.estimatedTimeSeconds
-        )
-        node.paramsJSON = encodeParams(params)
-        statusMessage = "Thread Mill: M\(String(format: "%.2f", result.threadPitchMm)) pitch, \(result.helixCount) helical pass(es), \(result.gcodeLines.count) lines"
+        generateToolpathAsync(compute: {
+            let params = ThreadMillParams()
+            let result = ThreadMillingToolpathEngine.compute(
+                centerX: centerX,
+                centerY: centerY,
+                params: params
+            )
+            let summary = "Thread Mill: M\(String(format: "%.2f", result.threadPitchMm)) pitch, \(result.helixCount) helical pass(es), \(result.gcodeLines.count) lines"
+            return AsyncGenerateResult(
+                nodeName: "Thread Mill \(nodeCount)",
+                gcode: result.gcodeLines,
+                estimatedTime: result.estimatedTimeSeconds,
+                summary: summary,
+                paramsJSON: Self.encodeParamsValue(params)
+            )
+        }) { result in
+            let node = self.addToolpathNode(named: result.nodeName, gcode: result.gcode, estimatedTime: result.estimatedTime)
+            node.paramsJSON = result.paramsJSON
+        }
     }
 
     /// Recompute a thread-mill op with new params (form Apply).
@@ -4431,31 +4685,42 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
 
     /// Generate an Inlay op from a named V-Carve recipe preset (SPK-0802
     /// remainder): the recipe sets angle/depth/feeds on the real engine.
+    /// SPK-UI-BUG-03: engine compute runs off the main thread.
     func generateInlayToolpath(variant: InlayToolpathParams.Variant, recipeName: String? = nil) {
         guard !vectors.isEmpty else {
             statusMessage = "No vectors — select the inlay shape"
             return
         }
+        let vectorsSnapshot = vectors
+        let stockHeight = activeSheet?.height ?? 25.0
+        let nodeCount = toolpathTree.allNodes.count
         registerUndoPoint()
-        var params: InlayToolpathParams
-        if let name = recipeName, let recipe = VCarveInlayRecipe.preset(named: name) {
-            params = recipe.params(variant: variant)
-            statusMessage = "Inlay \(variant == .pocket ? "pocket" : "plug") [\(recipe.name)]:"
-        } else {
-            params = InlayToolpathParams()
-            params.variant = variant
-            statusMessage = "Inlay \(variant == .pocket ? "pocket" : "plug"):"
+        generateToolpathAsync(compute: {
+            var params: InlayToolpathParams
+            var summaryPrefix: String
+            if let name = recipeName, let recipe = VCarveInlayRecipe.preset(named: name) {
+                params = recipe.params(variant: variant)
+                summaryPrefix = "Inlay \(variant == .pocket ? "pocket" : "plug") [\(recipe.name)]:"
+            } else {
+                params = InlayToolpathParams()
+                params.variant = variant
+                summaryPrefix = "Inlay \(variant == .pocket ? "pocket" : "plug"):"
+            }
+            let result: SpecialtyResult = variant == .pocket
+                ? InlayToolpathEngine.computePocket(paths: vectorsSnapshot, params: params, stockHeightMm: stockHeight)
+                : InlayToolpathEngine.computePlug(paths: vectorsSnapshot, params: params, stockHeightMm: stockHeight)
+            let summary = "\(summaryPrefix) \(result.gcodeLines.count) lines, ~\(Int(result.estimatedTimeSeconds))s"
+            return AsyncGenerateResult(
+                nodeName: "Inlay \(variant == .pocket ? "Pocket" : "Plug") \(nodeCount)",
+                gcode: result.gcodeLines,
+                estimatedTime: result.estimatedTimeSeconds,
+                summary: summary,
+                paramsJSON: Self.encodeParamsValue(params)
+            )
+        }) { result in
+            let node = self.addToolpathNode(named: result.nodeName, gcode: result.gcode, estimatedTime: result.estimatedTime)
+            node.paramsJSON = result.paramsJSON
         }
-        let result: SpecialtyResult = variant == .pocket
-            ? InlayToolpathEngine.computePocket(paths: vectors, params: params, stockHeightMm: activeSheet?.height ?? 25.0)
-            : InlayToolpathEngine.computePlug(paths: vectors, params: params, stockHeightMm: activeSheet?.height ?? 25.0)
-        let node = addToolpathNode(
-            named: "Inlay \(variant == .pocket ? "Pocket" : "Plug") \(toolpathTree.allNodes.count)",
-            gcode: result.gcodeLines,
-            estimatedTime: result.estimatedTimeSeconds
-        )
-        node.paramsJSON = encodeParams(params)
-        statusMessage += " \(result.gcodeLines.count) lines, ~\(Int(result.estimatedTimeSeconds))s"
     }
 
     // MARK: - Level mirror modes (SPK-0908)

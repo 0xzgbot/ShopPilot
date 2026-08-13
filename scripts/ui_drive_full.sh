@@ -12,8 +12,11 @@
 #   0  PASS
 #   1  generic (app died)
 #   2  ShopPilot binary not built (prints swift_locked recipe; does not compile)
-#   3  NOT FOUND (a catalog control missing)
-#   4  AX denied — STOP (never fake PASS)
+#   3  NOT FOUND (a catalog control missing — after busy-patience has run)
+#   4  AX denied — STOP (never fake PASS). Only a REAL TCC denial prints
+#      "AX DENIED" (ax_act checks AXIsProcessTrusted). An app whose main
+#      thread is busy (toolpath gen) answers "no windows (app busy or none)"
+#      and is retried with patience — it is NOT exit 4 (SPK-UI-BUG-03).
 #   5  DIALOG STUCK — AX found no dismiss (Cancel/Done/Close/Esc-equivalent)
 #
 # After a non-fatal fail the walk LOGS and CONTINUES. Worst code wins at exit.
@@ -84,7 +87,7 @@ dump_save() {
     local tag="$1"
     mkdir -p "$DUMP_DIR"
     ax dump 7
-    if [ "$ax_rc" -eq 1 ] && printf '%s' "$ax_out" | grep -q 'AX denied'; then
+    if [ "$ax_rc" -eq 1 ] && printf '%s' "$ax_out" | grep -q 'AX DENIED'; then
         printf '%s\n' "$ax_out" > "$DUMP_DIR/${tag}.txt"
         die 4 "AX denied — dump: $DUMP_DIR/${tag}.txt"
     fi
@@ -125,7 +128,7 @@ press_attempt() {
             return 3
             ;;
         3) return 2 ;;
-        1) printf '%s' "$ax_out" | grep -q 'AX denied' && return 4
+        1) printf '%s' "$ax_out" | grep -q 'AX DENIED' && return 4
            printf '%s' "$ax_out" | grep -q 'no windows' && return 3
            die 1 "ax_act tool failure: $(printf '%s' "$ax_out" | head -1)" ;;
         *) return 3 ;;
@@ -140,8 +143,11 @@ press_once() {
 }
 
 # press_step: poll; on miss record 3 and continue (unless AX denied).
+# A BUSY app (main thread generating toolpaths, SPK-UI-BUG-03) answers no
+# AX queries for tens of seconds — that is not NOT FOUND and not AX denied.
+# When the last failure says "app busy", keep polling for up to ~60s.
 press_step() {
-    local label="$1" primary="$2" fb="${3:-}" scope="${4:-}" role="${5:-}" i r
+    local label="$1" primary="$2" fb="${3:-}" scope="${4:-}" role="${5:-}" i r busy
     note "  [$label] press \"$primary\"${fb:+ (fallback \"$fb\")}"
     for i in $(seq 1 6); do
         press_attempt "$primary" "$scope" "$role"; r=$?
@@ -156,6 +162,17 @@ press_step() {
         fi
         sleep 0.8
     done
+    # App is alive but silent → patience phase (main-thread toolpath gen etc.)
+    if printf '%s' "$ax_out" | grep -q 'app busy'; then
+        note "    (app busy — main thread working; polling up to ~60s)"
+        for i in $(seq 1 20); do
+            press_attempt "$primary" "$scope" "$role"; r=$?
+            [ "$r" = 0 ] && note "    ok (after busy wait)" && return 0
+            [ "$r" = 4 ] && die 4 "AX denied while pressing \"$primary\""
+            kill -0 "$APP_PID" 2>/dev/null || die 1 "app exited during \"$label\" — log: $APP_LOG"
+            sleep 3
+        done
+    fi
     note "    FAIL [3] NOT FOUND: $label — last ax_act: $(printf '%s' "$ax_out" | tail -1) — dump $DUMP_DIR/last.txt"
     dump_save "miss-${label// /_}"
     record_rc 3
@@ -385,7 +402,7 @@ wait_for_window() {
         if [ "$ax_rc" -eq 0 ] && printf '%s' "$ax_out" | grep -q '== windows: [1-9]'; then
             return 0
         fi
-        if printf '%s' "$ax_out" | grep -q 'AX denied'; then
+        if printf '%s' "$ax_out" | grep -q 'AX DENIED'; then
             die 4 "AX denied / no window (last: $(printf '%s' "$ax_out" | head -1))"
         fi
         if [ "$ax_rc" -ne 0 ] && ! printf '%s' "$ax_out" | grep -q 'no windows'; then

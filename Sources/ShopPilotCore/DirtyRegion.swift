@@ -123,6 +123,7 @@ public final class DirtyRegionManager: ObservableObject {
         sheetDepthMm: Double,
         stockTopMm: Double,
         cellSizeMm: Double,
+        toolRadiusMm: Double? = nil,
         shouldCancel: (() -> Bool)? = nil
     ) async -> ([(x: Double, y: Double, z: Double)], isPartial: Bool) {
         guard needsResimulation else {
@@ -155,10 +156,61 @@ public final class DirtyRegionManager: ObservableObject {
             sheetDepthMm: sheetDepthMm,
             stockTopMm: stockTopMm,
             cellSizeMm: cellSizeMm,
+            toolRadiusMm: toolRadiusMm,
             shouldCancel: shouldCancel ?? { false }
         )
         clearDirtyRegions()
         return (outcome.samples, isPartial: partial)
+    }
+
+    /// SPK-1700a — same selective resimulation contract as
+    /// `performResimulation` but returns the FULL dense `Heightmap` (every
+    /// cell — the preview draws a filled raster, not a dot scatter).
+    public func performResimulationHeightmap(
+        partialLines: [String],
+        fullLines: [String],
+        sheetWidthMm: Double,
+        sheetDepthMm: Double,
+        stockTopMm: Double,
+        cellSizeMm: Double,
+        toolRadiusMm: Double? = nil,
+        shouldCancel: (() -> Bool)? = nil
+    ) async -> (Heightmap?, isPartial: Bool) {
+        guard needsResimulation else {
+            return (nil, isPartial: false)
+        }
+
+        let isFullTree = dirtyRegions.contains { region in
+            if case .fullTree = region { return true }
+            if case .keepOutZoneChanged = region { return true }
+            return false
+        }
+
+        let lines: [String]
+        let partial: Bool
+        if isFullTree || partialLines.isEmpty {
+            lines = fullLines
+            partial = false
+        } else {
+            lines = partialLines
+            partial = true
+        }
+        guard !lines.isEmpty else {
+            clearDirtyRegions()
+            return (nil, isPartial: partial)
+        }
+
+        let outcome = await ToolpathSimulator.simulateHeightmap(
+            from: lines,
+            sheetWidthMm: sheetWidthMm,
+            sheetDepthMm: sheetDepthMm,
+            stockTopMm: stockTopMm,
+            cellSizeMm: cellSizeMm,
+            toolRadiusMm: toolRadiusMm,
+            shouldCancel: shouldCancel ?? { false }
+        )
+        clearDirtyRegions()
+        return (outcome.heightmap, isPartial: partial)
     }
 
     /// Perform full resimulation regardless of dirty state.

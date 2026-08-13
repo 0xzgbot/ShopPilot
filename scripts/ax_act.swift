@@ -99,7 +99,12 @@ if mode == "dump" {
     let maxDepth = args.count > 3 ? Int(args[3]) ?? 8 : 8
     let filter = args.count > 4 ? args[4] : nil
     guard let windows = attr(app, kAXWindowsAttribute) as? [AXUIElement] else {
-        print("no windows / AX denied"); exit(1)
+        // Only a genuinely untrusted process is "AX denied". A trusted
+        // client querying a BUSY app (main thread generating toolpaths)
+        // also gets nil here — that is NOT a TCC denial and must never
+        // be labeled as one (SPK-UI-BUG-03 / driver hardening).
+        if !AXIsProcessTrusted() { print("AX DENIED"); exit(1) }
+        print("no windows (app busy or none)"); exit(1)
     }
     print("== windows: \(windows.count)")
     var lines: [String] = []
@@ -123,7 +128,8 @@ if mode == "dump" {
     let scope = args.count > 4 ? args[4] : nil
     let roleFilter = args.count > 5 ? args[5] : nil
     guard let windows = attr(app, kAXWindowsAttribute) as? [AXUIElement] else {
-        print("no windows"); exit(1)
+        if !AXIsProcessTrusted() { print("AX DENIED"); exit(1) }
+        print("no windows (app busy or none)"); exit(1)
     }
     allElements = []
     if scope != "menu" {
@@ -176,7 +182,9 @@ if mode == "dump" {
     guard let el = hit else {
         print("NOT FOUND: \(target)"); exit(3)
     }
-    let err = AXUIElementSetAttributeValue(el, kAXValueAttribute as CFString, newValue as CFTypeRef)
+    // Sliders expect a numeric AXValue (CFNumber), not a string.
+    let cfValue: CFTypeRef = Double(newValue).map(NSNumber.init) ?? (newValue as CFTypeRef)
+    let err = AXUIElementSetAttributeValue(el, kAXValueAttribute as CFString, cfValue)
     print(err == .success ? "SET" : "SET FAILED: \(err.rawValue)")
 } else if mode == "activate" {
     guard let pid = pid_t(args[1]) else { exit(2) }
@@ -221,4 +229,35 @@ if mode == "dump" {
     print("presspos hit: \(strAttr(el, kAXRoleAttribute)) d=\(strAttr(el, kAXDescriptionAttribute)) t=\(strAttr(el, kAXTitleAttribute)) v=\(strAttr(el, kAXValueAttribute)) p=\(posOf(el))")
     let err = AXUIElementPerformAction(el, kAXPressAction as CFString)
     print(err == .success ? "PRESSED" : "PRESS FAILED: \(err.rawValue)")
+} else if mode == "setvaluepos" {
+    // setvaluepos <x> <y> <value> — hit-test the element at (x,y) (like
+    // presspos) and set its AXValue. Needed for sliders, which expose no
+    // description/title to match by substring.
+    guard args.count >= 6, let x = Int(args[3]), let y = Int(args[4]) else { exit(2) }
+    let newValue = args[5]
+    guard let windows = attr(app, kAXWindowsAttribute) as? [AXUIElement] else { print("no windows"); exit(1) }
+    allElements = []
+    for w in windows { collect(w) }
+    var best: AXUIElement? = nil
+    var bestDist = Int.max
+    for el in allElements {
+        let (px, py) = posOf(el); let (sx, sy) = sizeOf(el)
+        if px <= x && py <= y && px + sx >= x && py + sy >= y {
+            let d = (x - px) + (y - py)
+            if d < bestDist { bestDist = d; best = el }
+        }
+    }
+    guard let el = best else { print("NO ELEMENT AT \(x),\(y)"); exit(3) }
+    print("setvaluepos hit: \(strAttr(el, kAXRoleAttribute)) d=\(strAttr(el, kAXDescriptionAttribute)) t=\(strAttr(el, kAXTitleAttribute)) v=\(strAttr(el, kAXValueAttribute)) p=\(posOf(el))")
+    // Sliders expect a numeric AXValue (CFNumber), not a string.
+    var err: AXError = .illegalArgument
+    if let d = Double(newValue) {
+        var v = d
+        if let num = CFNumberCreate(kCFAllocatorDefault, .doubleType, &v) {
+            err = AXUIElementSetAttributeValue(el, kAXValueAttribute as CFString, num)
+        }
+    } else {
+        err = AXUIElementSetAttributeValue(el, kAXValueAttribute as CFString, newValue as CFTypeRef)
+    }
+    print(err == .success ? "SET" : "SET FAILED: \(err.rawValue)")
 }

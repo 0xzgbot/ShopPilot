@@ -924,20 +924,33 @@ A (parallel from day 0)
   - deps: SPK-0623a
   - worklog: 2026-08-13 — Cursor. Inventory of ShopPilot sheets/alerts/menus in `docs/planning/UI_AGENT_DRIVE.md` (Full walk). Script `scripts/ui_drive_full.sh`. `ax_act.swift` now dumps/presses menubar + `AXCloseButton`. Parent 0623 left `[ ]`. **Verify:** `bash -n` + `--self-check` (this card’s AC). Live GUI walk is for a local Hermes job with Accessibility TCC — paste prompt in UI_AGENT_DRIVE.md.
   - worklog: 2026-08-13 — Hermes coder. **Live catalog run on owner's Mac (Aqua, AX + Screen Recording TCC granted).** Driver hardened through 6 iterations: (1) ax_act CF-cast compile fix (`as? AXUIElement` → optional-bind + `as!`); (2) press mode scoped `window|menu` + role filter — the Services submenu's "File Activity" item was shadowing top-level "File" (triggered a real Instruments dead-service alert mid-walk); (3) depth-limited menubar collect (depth 3 reaches menu items; the dead service lives at depth 5 — unbounded collect deadlocked the app's AX handler in mach_msg, `sample`-confirmed); (4) `r="$(press_attempt ...)"` subshell bug — press_attempt communicates via exit code, the `$()` capture read empty stdout so EVERY step misread as NOT FOUND; fixed to `press_attempt ...; r=$?`; (5) dismiss/modal checks scoped to the window part of the dump (menubar items "Safety Notice"/"Close" were false-flagging STUCK); (6) `closewin` mode + "Settings…"/"Preferences…" naming; Connect press role-filtered (was hitting the "Connect, zero and run" subtitle text); chrome labels updated to current build ("Reset. Stop the machine and clear the controller"). **Result: exit 3, STUCK=0 — NO force-quit/dialog-stuck bugs found.** Proven live: Import-hub sheet opens + Cancel dismisses; Machine sim: Simulator → Connect → Idle + Hold/Reset chrome → preflight → Run Job → Hold → Resume all ok (fixture calibration_square.nc loaded, 14 lines). 3s: sample CTAs + Setup Advanced disclosure not AX-exposed (→ SPK-UI-BUG-01/02); File/Open/Save/Preferences/Safety menu steps env-blocked (app cannot take focus from a background Hermes session — osascript + NSRunningApplication.activate both refused; NOT a product bug); Cut out/Pocket targets absent because `.build/debug` is stale vs the 1400e Sources ("Add Toolpath" menu in binary) — rebuild before re-running the Cut row. Parent SPK-0623 left `[ ]`. Rerun: `scripts/ui_drive_full.sh`.
+  - worklog: 2026-08-13 — Hermes coder, run #2 (rebuilt binary w/ BUG-01/02 fixes). **Driver mislabel fixed + busy-patience added:** run #1 of this session exit-4'd mid-walk at "Pocket" — the "AX denied" was FALSE (AXIsProcessTrusted()==true, 25+ steps had worked, tree healthy after). Root cause: **SPK-UI-BUG-03** — Cut out runs `ProfileToolpathEngine.compute` on the MAIN thread (~35s on the Sign sample), during which the AX server answers nothing; `ax_act` printed "no windows / AX denied" for ANY window-query failure, and `dump_save` grepped that string → fake exit 4. Fixes: ax_act.swift now distinguishes real TCC denial (`AXIsProcessTrusted()` false → "AX DENIED") from a busy app ("no windows (app busy or none)") in dump+press; ui_drive_full.sh greps only `AX DENIED`, and `press_step` gained a ~60s busy-patience poll (6 fast attempts + up to 20×3s) before declaring NOT FOUND. **Run #2: exit 3, STUCK=0, NOTFOUND=1 (env menu skips only).** Live-verified: BUG-01 sample CTA pressable ("Try a sample" + Welcome "V-Carve Greeting" both hit), BUG-02 Advanced open/close ok (29 `d=Advanced` AX controls when expanded), Design tools ok, Import hub → Cancel ok, **Cut out → Pocket → Engrave → More all ok** (busy-patience absorbed the ~35s freeze; dump after shows "Profile: 474 lines, ~2970s, 9 depth pass(es)"), Preview ok, Machine: Continue to Machine → Simulator → Connect → Idle + Hold/Reset chrome ok → preflight → Run job → Hold → Resume ok (final dump: Machine state: Idle, Hold/Resume buttons present). Remaining 3s are ONLY File/New/Open/Save + Preferences + Help menu steps, all env-blocked: `activate()` fails (ACTIVATED but never FRONTMOST — Hermes is frontmost; `activateIgnoringOtherApps` + AX frontmost attribute both no-op) — same focus/TCC diagnosis as run #1, NOT a product card. SPK-UI-BUG-03 filed [ ] with driver mitigation landed. Parent SPK-0623 left `[ ]`. Evidence: `/tmp/shoppilot-ui-drive-full-dumps/` (miss-Pocket.txt = 23-byte mislabel), shots `-03-setup` … `-11-final`.
 
-- [ ] **SPK-UI-BUG-01** **BUG** Design empty-state "Try a sample" button not exposed to Accessibility
+- [x] **SPK-UI-BUG-01** **BUG** Design empty-state "Try a sample" button not exposed to Accessibility
   - Found by: SPK-0623b live walk (2026-08-13)
   - Symptom: fresh job → Design stage empty canvas renders "Import Artwork…" (AX-visible) but NOT "Try a sample" — the button is compiled (ContentView.swift:510, `if let firstSample = SampleProjectsStore.samples.first`, store is code-embedded non-empty) yet absent from the AX tree entirely. AX users / the UI drive cannot reach the bundled sample from the empty state (only via the Welcome sheet on first launch or the Setup recipe picker).
   - Evidence: `/tmp/shoppilot-ui-drive-full-dumps/miss-sample.txt` (Design stage: "Import Artwork…" present, no "Try a sample" anywhere), `dismiss-after-sample.txt`, shot `/tmp/shoppilot-ui-drive-full-02-sample.png`
   - Suggested fix: add `.accessibilityLabel("Try a sample")` (or verify SwiftUI exposure); re-run `scripts/ui_drive_smoke.sh` / full walk sample step.
   - Out of scope: none (UI-only).
+  - worklog: 2026-08-13 — Hermes coder. ContentView.swift empty overlay: `.accessibilityLabel("Try a sample")` + `.accessibilityAddTraits(.isButton)` on the sample `Button` (was label-collapsed; "Import Artwork…" untouched). Load wiring unchanged (`SampleProjectsStore.samples.first` + `loadSampleProject(id:)`). **Verify:** `python3 scripts/verify_1400d_design.py` → PASS; grep confirms label on Button (ContentView.swift:522) not a Text; `./scripts/swift_locked.sh build --target ShopPilot` → complete (23.28s). Parent SPK-0623 left `[ ]`. Live AX re-check deferred to next `ui_drive_full.sh` run.
 
-- [ ] **SPK-UI-BUG-02** **BUG** Setup "Advanced" DisclosureGroup header not exposed to Accessibility
+- [x] **SPK-UI-BUG-02** **BUG** Setup "Advanced" DisclosureGroup header not exposed to Accessibility
   - Found by: SPK-0623b live walk (2026-08-13)
   - Symptom: Setup stage `DisclosureGroup("Advanced", isExpanded:)` (ContentView.swift:384) has NO AX element — no AXDisclosureTriangle/button titled "Advanced" in the tree (grep of the full dump: zero), while its collapsed content (Add Driven Dimension, Seed Default Calibration, …) still appears in the AX tree. Keyboard/AT users cannot find or expand the disclosure; the UI drive cannot exercise the six pro panels.
   - Evidence: `/tmp/shoppilot-ui-drive-full-dumps/miss-Advanced_open.txt`, `04-advanced-open.txt`
   - Suggested fix: give the DisclosureGroup an explicit accessibility label/traits (`.accessibilityLabel("Advanced")` + `.accessibilityAddTraits(.isButton)` on the label) or replace with a Button+chevron; re-run the walk's Advanced step.
   - Out of scope: none (UI-only).
+  - worklog: 2026-08-13 — Hermes coder (after SPK-UI-BUG-01 [x]). SetupStageView Advanced disclosure (ContentView.swift:387): kept `DisclosureGroup("Advanced", isExpanded:)` (verify_1400b anchors on that form), added `.accessibilityLabel("Advanced")` + `.accessibilityAddTraits(.isButton)` + `.accessibilityIdentifier("setup.advanced")` on the group so the header is a findable/pressable AX control; AC3 — collapsed inner panels no longer leak: `.accessibilityHidden(!advancedExpanded)` on the content VStack (exposure follows state; all six pro panels kept in place). Six pro panels untouched, BUG-01 sample-button label untouched, Cut "More" disclosure out of scope. **Verify:** `verify_1400b_setup.py` PASS, `verify_1400d_design.py` PASS (regression), grep `DisclosureGroup("Advanced"` → `.accessibilityLabel("Advanced")` nearby (:432), `./scripts/swift_locked.sh build --target ShopPilot` → complete (16.25s). Parent SPK-0623 left `[ ]`. Live AX re-check deferred to next `ui_drive_full.sh` run.
+
+- [x] **SPK-UI-BUG-03** **BUG** Cut "Cut out" runs toolpath generation on the main thread — AX server blackout ~35s (app-wide freeze)
+  - Found by: SPK-0623b live walk #2 (2026-08-13, rebuilt binary with BUG-01/02 fixes)
+  - Symptom: with the bundled Sign sample loaded, pressing **Cut out** (`ContentView.swift:950` → `AppSession.generateProfileToolpath()` → `ProfileToolpathGenerator.generateProfile(on:)` → `ProfileToolpathEngine.compute` on the main thread) blocks the app's main thread for ~35s. During that window the AX server answers NOTHING — every `ax_act` query returns `no windows` (timeout). The UI drive's `press_step` read this as NOT FOUND and its `dump_save` mislabeled it "AX denied" (exit 4). A human sees the whole window beachball/freeze for the duration; AT users lose the app entirely.
+  - Evidence: live repro (2026-08-13, 14:0x): 8 consecutive AX queries failed after Cut out, ~4.5s each, then recovery; `/tmp/shoppilot-ui-drive-full-dumps/miss-Pocket.txt` (23 bytes: "no windows / AX denied" — the mislabel), dump after recovery shows "Profile: 474 lines, ~2970s, 9 depth pass(es)". `ProfileToolpathGenerator.swift:60` — `ProfileToolpathEngine.compute(...)` is called synchronously.
+  - Suggested fix: route `generateProfileToolpath()` through the existing SPK-1314 async pattern (`recalculateDirtyToolpathsAsync` — background `computeDirtyToolpathResults` + main-actor apply, AppSession.swift:2905). The generator protocol (SPK-1403c) may need an async witness; keep `ShopPilotVerify1403c` source-contract checks passing.
+  - Driver mitigation (landed in this card's walk): `ax_act.swift` now distinguishes real TCC denial (`AXIsProcessTrusted()` false → "AX DENIED") from a busy app ("no windows (app busy or none)") — busy is never exit 4; `ui_drive_full.sh` `press_step` gained a ~60s busy-patience poll before declaring NOT FOUND.
+  - worklog: 2026-08-13 — Hermes coder. **AC met.** `AppSession` gains an off-main single-op generate pipeline: `generateToolpathAsync(compute:apply:)` (background `DispatchQueue.global(qos: .userInitiated)` engine compute on VALUE snapshots + main-actor apply) + `@Published isGeneratingToolpath`. `generateProfileToolpath` now delegates to the new Core async witness `ProfileToolpathGenerator.generateProfileAsync(on:completion:)` (same SPK-1403c orchestration — guards, undo, node, params JSON, layer guard — with the ~35s `ProfileToolpathEngine.compute` off the main thread); the sync `generateProfile(on:)` stays for CLTs/tests. **All 20 sibling Cut-stage generates** (Pocket, V-Carve [preflight gate stays sync], Drill, Drill Bank, Wrapped Fluting, Prism, Fluting, Chamfer, Inlay ×2, Quick Engrave, Photo V-Carve, Drag Knife, Texture, Sketch Carve, Rotary Wrap, Rough 3D, Finish 3D, Rest Machine [nothing-to-clear → no node], Thread Mill) route through the same helper — no engine compute left on the button path (array copies + merge + laser-held left sync, documented). Cut row shows a spinner + disables the top buttons while generating. **Verify:** new `ShopPilotVerifyBUG03` PASS (source contract: helper + `DispatchQueue.global(qos: .userInitiated)` + async delegate, no sync `generateProfile(on: self)` in AppSession, 20 helper usages; behavior: async completion lands node + summary on a fake session, empty-vectors guard completes synchronously). `ShopPilotVerify1403c` source-contract updated for the async delegate → PASS. `./scripts/swift_locked.sh build --target ShopPilot` → complete. 1103e regression runs with the 1700a slice.
+  - Out of scope: engine perf tuning, changing generator semantics.
+  - **P0 — do FIRST** in `docs/planning/PREVIEW_PLAYBACK_HERMES.md` before SPK-1700a–d. Laser held. Do not stamp SPK-0623.
 
 **Phase G exit:** SPK-0623 `[x]` = personal-use sim acceptance + safety gates (not notarized public ship). Then agents may open Phase H+ per LEAN.
 
@@ -1447,7 +1460,58 @@ Phase O/P/1403 **CLOSED**. Laser/LightBurn **HELD**. Do not reopen. Unlisted P0/
 
 - [-] **SPK-1612** **PLAT** DocumentGroup / multi-window — **skip**. One `Window("ShopPilot")` is OK. Do not start.
 
-**STOP:** queue empty, or next work would be DocumentGroup, laser/LightBurn, SPK-0623, AppSession full rewrite, or NavigationSplitView.
+**STOP (Phase Q chrome):** do not start DocumentGroup, laser/LightBurn, SPK-0623 rubber-stamp, AppSession full rewrite, or NavigationSplitView.
+
+**Next Ready (Preview honesty):** **SPK-1700** + **SPK-UI-BUG-03** — see below. Laser held. Prompt: `docs/planning/PREVIEW_PLAYBACK_HERMES.md`.
+
+---
+
+# SPK-1700 — Vectric-like Preview playback (filled heightfield)
+
+**DoD on parent:** Engine (dense heightmap + bit-radius stamp) + UI (filled raster in `ToolpathPreviewView`, playhead) + Persist (N/A / session-only) + Verify (`ShopPilotVerify1103e` + `ShopPilotVerify1700*`) + screenshot pack in `docs/screenshots/`. **BUG-03 first.** Simulator only. **Do not mark SPK-0623 `[x]`.**
+
+- [ ] **SPK-1700** **PREV** Parent — filled heightfield raster + playhead + circular bit stamp + GitHub screenshot pack // P0
+  - deps: SPK-1103e `[x]`; **SPK-UI-BUG-03 must `[x]` before 1700d capture** (do BUG-03 before 1700a–d in the Hermes run)
+  - AC: Preview shows a filled sheet heightmap (not `/40` dots); slider/playhead over sim time; endmill-radius stamp so pocket stepover matches tool; 2D pocket + 3D rough/finish shots in `docs/screenshots/`
+  - Out of scope: Metal chips; laser; live serial; SPK-0623 stamp
+  - Verify: `./scripts/verify_locked.sh ShopPilotVerify1103e` + `ShopPilotVerify1700a`/`b`/`c`; PNGs per `docs/screenshots/README.md`
+  - worktree: required; assignee: coder; 45–90m slices (outer Hermes run may be long)
+  - all swift via `swift_locked.sh`; never `rm -rf .build`; worktree-only Sources
+  - UI doctrine: stage rail, Hold/Reset when connected, no auto-run
+
+- [x] **SPK-1700a** **PREV** Draw full heightmap as filled image in ToolpathPreviewView; drop `/40` display stride // P0
+  - parent: SPK-1700
+  - AC: Simulate path uses stride 1 (or equivalent full grid); Preview heightfield/combined is a filled raster/image tinted by material palette; 1103e still PASS
+  - Out of scope: playhead, bit stamp, screenshots
+  - Verify: `./scripts/verify_locked.sh ShopPilotVerify1700a` then `./scripts/verify_locked.sh ShopPilotVerify1103e`
+  - worktree: required; assignee: coder; 90m
+  - Files: `ToolpathSimulator.swift`, `ToolpathPreviewView.swift`, `Package.swift` + `Sources/ShopPilotVerify1700a`
+  - worklog: 2026-08-13 — Hermes coder. **AC met.** Core: `ToolpathSimulator.materialSimulation` display stride default `0`→**1** (every cell; `simulateHeightmap` added returning the FULL dense `Heightmap`, no stride); `DirtyRegionManager.performResimulationHeightmap` added (same partial/full-tree contract, returns the heightmap). UI: `ToolpathPreviewView` replaces the 4×4-ellipse `/40` dot scatter with a filled raster — one-pixel-per-cell `CGImage` built from the heightmap tinted by the SPK-1202 material palette, drawn at cell size under the same 2.5D projection as the wireframe (top/iso/front consistent via a concatenated affine; front edge-on skips). Palette change re-tints via `.onChange(of: materialPaletteName)`. Sim status now reports cells. **Verify:** new `ShopPilotVerify1700a` PASS (default-stride samples == 200×100 = 20,000 not the old 800; heightmap 200×100; two G1 passes carve two CONTIGUOUS full rows 0…199 — no scattered dots, rows between intact; explicit coarse stride 40 still yields the 15-cell draft). `ShopPilotVerify1103e` PASS (cancel, sheet-aware, full-tree, draft regression). App build `--target ShopPilot` complete. (1700c's stamp landed in the same run — 1700a passes `toolRadiusMm: 0.01` to isolate density/contiguity from bit width.)
+
+- [x] **SPK-1700b** **PREV** Playhead/slider over sim time // P0
+  - parent: SPK-1700; deps: 1700a
+  - AC: Preview slider (optional Play) shows heightfield for toolpath prefix; t=0 stock, t=1 full sim
+  - Out of scope: bit stamp; screenshot pack; Metal
+  - Verify: `./scripts/verify_locked.sh ShopPilotVerify1700b` + regression 1103e
+  - worktree: required; assignee: coder; 90m
+  - worklog: 2026-08-13 — Hermes coder. **AC met.** Preview toolbar gains a Play/Pause + 0…1 slider (enabled once a sim exists) over G-code progress. Scrubbing runs a **cancellable prefix-sim** (`scrubToPlayhead` → `ToolpathSimulator.simulateHeightmap` on `Array(lines.prefix(count))` with `shouldCancel: { Task.isCancelled }`, stale tasks cancelled); playhead 1 reuses the cached full sim (`fullSimHeightmap`) without re-running. Wireframe still shows the full path in combined mode; status reports "Playhead N% · n/lines". Playback sweeps 0→1 in ~18s. **Verify:** new `ShopPilotVerify1700b` PASS — t=0 == stock top everywhere; removal monotone across prefixes of an exactly-3-line cut (0 ≤ 0 ≤ 9 ≤ 39 cells); t=1 (all lines) == full sim; prefix shape is a real trench. Regression `ShopPilotVerify1103e` PASS. App build complete.
+
+- [x] **SPK-1700c** **PREV** Circular bit-radius stamp on G1 removal // P0
+  - parent: SPK-1700; deps: 1700a
+  - AC: each interpolated cut point stamps a disk of tool radius; pocket stepover ridges match tool, not 1-cell needles
+  - Out of scope: ball-nose cusps; laser; screenshots
+  - Verify: `./scripts/verify_locked.sh ShopPilotVerify1700c` + regression 1103e
+  - worktree: required; assignee: coder; 90m
+  - worklog: 2026-08-13 — Hermes coder. **AC met.** `ToolpathSimulator.simulate` now stamps a **flat-endmill disk** at every interpolated G1 point (cells whose center is within `toolRadiusMm` are lowered to `min(current, cutter Z)`; nil → documented 1.5mm fallback). `toolRadiusMm` threaded through `simulate`/`materialSimulation`/`simulateHeightmap`/`DirtyRegion.performResimulation(Heightmap)`; the preview passes `session.previewToolRadiusMm` (largest assigned tool diameter/2 from the tool DATABASE across tree nodes). Raster stepover ridges now match the tool: trench width ≈ 2R, and 8mm-stepover leaves a stock ridge while 6mm (== diameter) clears a continuous pocket. **Verify:** new `ShopPilotVerify1700c` PASS — R=3 pass clears a ~6mm band (rows 7…13, NOT a 1-cell line); 8mm stepover ridge intact; 6mm stepover no ridge; nil fallback = ~3mm band. Regression `ShopPilotVerify1103e` PASS (its raster probes sit ≥5mm off the cut lines — outside the 1.5mm fallback band). App build complete.
+
+- [ ] **SPK-1700d** **QA** Screenshot pack — 2D pocket + 3D relief sim + chrome // P0
+  - parent: SPK-1700; deps: 1700a, 1700b, 1700c, **SPK-UI-BUG-03**
+  - AC: capture via `scripts/capture_window.swift` into `docs/screenshots/`: `2d-pocket-stepover.png`, `2d-playhead.png`, `3d-relief-sim.png`, `welcome.png`, `design.png`, `cut.png`, `machine-sim.png` (composition in `docs/screenshots/README.md`); update root README image markdown; Simulator only; Hold/Reset on machine shot
+  - Out of scope: implementing playback (that's a–c); SPK-0623; laser
+  - Verify: PNGs exist and >20KB; `./scripts/verify_locked.sh ShopPilotVerify1103e`
+  - worktree: required; assignee: coder; 90m
+
+---
 
 **Out of Phase Q:** laser, App Store/notarize, SPK-0623, `@Observable`, NavigationSplitView, Easy/Expert, char-count streaming, preview Metal rewrite, Phase H–K.
 
@@ -1511,6 +1575,11 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 ---
 
 ## 12. Work log
+
+### 2026-08-13 — SPK-1700 Preview playback queued (docs)
+- Board: parent **SPK-1700** `[ ]` + children **1700a** raster, **1700b** playhead, **1700c** bit stamp, **1700d** screenshot pack. **SPK-UI-BUG-03 remains P0 `[ ]` — Hermes must do BUG-03 FIRST** then 1700a–d.
+- Prompt: `docs/planning/PREVIEW_PLAYBACK_HERMES.md`. Shot list: `docs/screenshots/README.md`. README honesty: no laser product, preview is 2.5D heightfield not Metal; version 0.05; existing `01–06` PNGs kept until 1700d.
+- Laser held. **SPK-0623 left `[ ]`** (no rubber stamp). No ToolpathSimulator playback implemented this pass.
 
 ### 2026-08-13 — SPK-0623b Full AX UI drive
 - Card **SPK-0623b** `[ ]` (Ready): `scripts/ui_drive_full.sh` + inventory/Full walk in `docs/planning/UI_AGENT_DRIVE.md`. Parent **SPK-0623** remains `[ ]` (human). Verify: `bash -n` + `--self-check`. Live catalog run = local Hermes + Accessibility TCC (not this pass).

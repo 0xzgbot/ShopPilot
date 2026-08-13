@@ -19,8 +19,35 @@ struct ToolpathPreviewView: View {
     @State private var dragStart: CGSize = .zero
     @State private var mode: PreviewMode = .wireframe
     @State private var simStatus: String = "Idle"
-    @State private var heightSamples: [(x: Double, y: Double, z: Double)] = []
+    /// SPK-1700a — the FULL dense simulated heightmap (every cell), drawn as
+    /// a filled raster image at cell size (not the old /40 dot scatter).
+    @State private var simHeightmap: Heightmap?
+    /// Cached filled-raster image built from `simHeightmap` + the selected
+    /// material palette (rebuilt when either changes).
+    @State private var simImage: CGImage?
     @State private var isSimulating = false
+    /// SPK-1700b — playhead over sim time (0…1 = G-code progress). Scrubbing
+    /// shows the heightfield as of that toolpath prefix (cancellable
+    /// prefix-sim); 1 reuses the cached full sim.
+    @State private var playhead: Double = 1.0
+    @State private var isPlaying = false
+    @State private var playTask: Task<Void, Never>?
+    @State private var scrubTask: Task<Void, Never>?
+    /// The last FULL sim result (playhead 1 shows this without re-running).
+    @State private var fullSimHeightmap: Heightmap?
+    /// Lines + sheet footprint the last full sim ran on — the scrub
+    /// prefix-sims over these.
+    @State private var simLines: [String] = []
+    @State private var simSheet: (width: Double, depth: Double, stock: Double)?
+    /// SPK-1700b — cached wireframe parse. Playback re-renders the view at
+    /// ~7 Hz; re-parsing the full G-code buffer (segments + per-node map +
+    /// peck retracts) on EVERY render saturated the main thread on big jobs
+    /// (5k+ lines) and starved the AX server. Invalidated only when the
+    /// G-code buffer actually changes.
+    @State private var wireCache: (signature: String,
+                                   segments: [(start: (x: Double, y: Double), end: (x: Double, y: Double), isRapid: Bool)],
+                                   perNode: [UUID: [(start: (x: Double, y: Double), end: (x: Double, y: Double), isRapid: Bool)]],
+                                   pecks: [(start: (x: Double, y: Double), end: (x: Double, y: Double))])?
     @State private var simTask: Task<Void, Never>?
     @State private var cancelFlag = PreviewSimCancelFlag()
     /// SPK-1008 — webcam overlay visibility in the Preview stage.
@@ -32,7 +59,34 @@ struct ToolpathPreviewView: View {
     @State private var materialPaletteName = MaterialSurfacePalette.presets[0].name
 
     private var segments: [(start: (x: Double, y: Double), end: (x: Double, y: Double), isRapid: Bool)] {
-        WireframeRenderer.generateSegments(from: session.allToolpathGCode)
+        cachedWire().segments
+    }
+
+    /// Cheap content signature for the G-code buffer (line count + total
+    /// chars + first/last line) — O(n) but ~100× cheaper than re-parsing.
+    private func wireSignature(_ lines: [String]) -> String {
+        let chars = lines.reduce(0) { $0 + $1.count }
+        return "\(lines.count)|\(chars)|\(lines.first ?? "")|\(lines.last ?? "")"
+    }
+
+    /// SPK-1700b — parsed wireframe data (segments, per-node map, peck
+    /// retracts), cached across the high-frequency playback re-renders.
+    /// Recomputes only when the G-code buffer actually changes.
+    private func cachedWire() -> (segments: [(start: (x: Double, y: Double), end: (x: Double, y: Double), isRapid: Bool)],
+                                  perNode: [UUID: [(start: (x: Double, y: Double), end: (x: Double, y: Double), isRapid: Bool)]],
+                                  pecks: [(start: (x: Double, y: Double), end: (x: Double, y: Double))]) {
+        let lines = session.allToolpathGCode
+        let sig = wireSignature(lines)
+        if let cache = wireCache, cache.signature == sig {
+            return (cache.segments, cache.perNode, cache.pecks)
+        }
+        let parsed = (
+            segments: WireframeRenderer.generateSegments(from: lines),
+            perNode: session.segmentsByToolpathNode,
+            pecks: WireframeRenderer.detectPeckRetracts(from: lines)
+        )
+        wireCache = (sig, parsed.segments, parsed.perNode, parsed.pecks)
+        return parsed
     }
 
     /// SPK-1103c — the currently selected toolpath tree node (recursive lookup,
@@ -138,6 +192,23 @@ struct ToolpathPreviewView: View {
                     .buttonStyle(.bordered)
                 }
 
+                // SPK-1700b — playhead over sim time (0…1 = G-code progress).
+                // Scrubbing runs a cancellable prefix-sim so the heightfield
+                // shows the cut as of that point; 1 reuses the full result.
+                if simHeightmap != nil {
+                    Button(isPlaying ? "Pause" : "Play") {
+                        isPlaying ? pausePlayback() : startPlayback()
+                    }
+                    .help("Play the cut simulation from start to end")
+                    Slider(value: $playhead, in: 0...1)
+                        .frame(maxWidth: 160)
+                        .help("Playhead — shows the heightfield as of this toolpath prefix")
+                    Text("\(Int(playhead * 100))%")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 34, alignment: .leading)
+                }
+
                 Button("Generate profile if empty") {
                     if session.vectors.isEmpty { session.addDemoRectangle() }
                     session.generateProfileToolpath()
@@ -150,7 +221,8 @@ struct ToolpathPreviewView: View {
                 ZStack {
                     Color(nsColor: .textBackgroundColor)
                     Canvas { context, size in
-                        drawPreview(context: context, size: size)
+                        var ctx = context
+                        drawPreview(context: &ctx, size: size)
                     }
                     .gesture(
                         MagnificationGesture()
@@ -247,6 +319,13 @@ struct ToolpathPreviewView: View {
         }
         .onAppear { fitContent() }
         .onChange(of: session.allToolpathGCode.count) { _, _ in fitContent() }
+        // SPK-1700a — switching the material palette re-tints the filled raster.
+        .onChange(of: materialPaletteName) { _, _ in rebuildSimImage() }
+        // SPK-1700b — scrubbing/playing the playhead shows the heightfield
+        // as of that toolpath prefix.
+        .onChange(of: playhead) { _, newValue in
+            scrubToPlayhead(newValue)
+        }
     }
 
     private func worldToView(_ x: Double, _ y: Double, size: CGSize) -> CGPoint {
@@ -290,7 +369,7 @@ struct ToolpathPreviewView: View {
         )
     }
 
-    private func drawPreview(context: GraphicsContext, size: CGSize) {
+    private func drawPreview(context: inout GraphicsContext, size: CGSize) {
         // SPK-1316 — sheet-aware stock: the ACTIVE sheet drawn as a soft
         // block under everything, so toolpaths read as cutting this piece.
         drawSheetStock(context: context, size: size)
@@ -317,7 +396,8 @@ struct ToolpathPreviewView: View {
         // belongs to — two Profiles are distinguishable there).
         if mode == .wireframe || mode == .combined {
             let hoverID = session.hoveredToolpathID
-            for (nodeID, nodeSegments) in session.segmentsByToolpathNode {
+            let perNode = cachedWire().perNode
+            for (nodeID, nodeSegments) in perNode {
                 guard hoverID == nil || hoverID == nodeID else { continue }
                 for seg in nodeSegments {
                     var p = Path()
@@ -329,7 +409,7 @@ struct ToolpathPreviewView: View {
             }
             // Peck retracts: dashed yellow ticks at the drill points.
             if mode == .combined || mode == .wireframe {
-                let pecks = WireframeRenderer.detectPeckRetracts(from: session.allToolpathGCode)
+                let pecks = cachedWire().pecks
                 for peck in pecks {
                     let pt = worldToView(peck.start.x, peck.start.y, size: size)
                     let rect = CGRect(x: pt.x - 3, y: pt.y - 3, width: 6, height: 6)
@@ -390,18 +470,25 @@ struct ToolpathPreviewView: View {
             }
         }
 
-        // Draft heightfield samples — SPK-1202: tinted by the selected
-        // material palette (skin color on top, base revealed at depth).
-        if (mode == .heightfield || mode == .combined), !heightSamples.isEmpty {
-            for sample in heightSamples {
-                let pt = worldToView(sample.x, sample.y, size: size)
-                let t = max(0, min(1, sample.z / 10))
-                let palette = MaterialSurfacePalette.preset(named: materialPaletteName)
-                    ?? MaterialSurfacePalette.presets[0]
-                let c = palette.color(atDepthFraction: t)
-                let rect = CGRect(x: pt.x - 2, y: pt.y - 2, width: 4, height: 4)
-                context.fill(Path(ellipseIn: rect),
-                             with: .color(Color(red: c.r, green: c.g, blue: c.b)))
+        // SPK-1700a — filled heightfield raster: the FULL dense heightmap
+        // drawn as an image at cell size (not the old /40 dot scatter),
+        // tinted by the material palette (SPK-1202). Drawn under the same
+        // 2.5D projection as the wireframe so top/iso/front all stay
+        // geometrically consistent (sheet edges are exactly the sheet rect).
+        if (mode == .heightfield || mode == .combined), let img = simImage, let sheet = session.activeSheet {
+            let proj = ViewProjection.projection(for: viewOrientation, orthographic: orthographic)
+            if proj.yScale > 0.01 {   // front view is edge-on — nothing to raster
+                let t = CGAffineTransform(
+                    a: scale, b: 0,
+                    c: CGFloat(proj.xShear) * scale, d: -CGFloat(proj.yScale) * scale,
+                    tx: size.width / 2 + pan.width, ty: size.height / 2 + pan.height
+                )
+                context.concatenate(t)
+                context.draw(
+                    Image(decorative: img, scale: 1),
+                    in: CGRect(x: 0, y: 0, width: sheet.width, height: sheet.depth)
+                )
+                context.concatenate(t.inverted())
             }
         }
 
@@ -447,6 +534,8 @@ struct ToolpathPreviewView: View {
     /// dirty-region tracker has a PARTIAL change (only some tree nodes dirty),
     /// only the dirty nodes' G-code is re-simulated and the status reports the
     /// delta; a full-tree change (or no dirty state) simulates everything.
+    /// SPK-1700a: the result is the FULL dense heightmap, rendered as a
+    /// filled raster (not a dot scatter).
     private func runMaterialSimulation() {
         let fullLines = session.allToolpathGCode
         guard !fullLines.isEmpty else { return }
@@ -454,29 +543,155 @@ struct ToolpathPreviewView: View {
         cancelFlag.cancelled = false
         isSimulating = true
         simStatus = "Simulating material…"
+        simLines = fullLines
+        simSheet = (sheet.width, sheet.depth, sheet.height)
         let manager = session.dirtyRegionManager
         simTask = Task {
             let flag = cancelFlag
-            let (samples, isPartial) = await manager.performResimulation(
+            let (heightmap, isPartial) = await manager.performResimulationHeightmap(
                 partialLines: session.dirtyToolpathGCode,
                 fullLines: fullLines,
                 sheetWidthMm: sheet.width,
                 sheetDepthMm: sheet.depth,
                 stockTopMm: sheet.height,
                 cellSizeMm: 1.0,
+                toolRadiusMm: session.previewToolRadiusMm,
                 shouldCancel: { flag.cancelled }
             )
-            heightSamples = samples
+            if let heightmap {
+                fullSimHeightmap = heightmap
+                simHeightmap = heightmap
+                rebuildSimImage()
+            }
             isSimulating = false
             simTask = nil
+            let cellCount = simHeightmap.map { $0.width * $0.height } ?? 0
             if flag.cancelled {
-                simStatus = "Sim cancelled (\(samples.count) samples kept)"
+                simStatus = "Sim cancelled (\(cellCount) cells kept)"
             } else if isPartial {
-                simStatus = "Dirty-region resim (\(samples.count) samples, changed nodes only)"
+                simStatus = "Dirty-region resim (\(cellCount) cells, changed nodes only)"
             } else {
-                simStatus = "Material sim ready (\(samples.count) samples)"
+                simStatus = "Material sim ready (\(cellCount) cells)"
             }
             if mode == .wireframe { mode = .combined }
+            // SPK-1700b — a paused playhead stays where the user left it.
+            if playhead < 1 { scrubToPlayhead(playhead) }
         }
+    }
+
+    /// SPK-1700b — show the heightfield AS OF the toolpath prefix at the
+    /// playhead (0…1). Playhead 1 reuses the cached full sim; anything less
+    /// runs a cancellable prefix-sim over the same lines/sheet the full sim
+    /// used, so scrubbing feels like watching the cut happen.
+    private func scrubToPlayhead(_ p: Double) {
+        guard let sheet = simSheet, !simLines.isEmpty, !isSimulating else { return }
+        scrubTask?.cancel()
+        if p >= 0.999 {
+            if let full = fullSimHeightmap {
+                simHeightmap = full
+                rebuildSimImage()
+                simStatus = "Playhead 100% — full sim"
+            }
+            return
+        }
+        let lines = simLines
+        let count = max(1, min(lines.count, Int(Double(lines.count) * p)))
+        let prefix = Array(lines.prefix(count))
+        let radius = session.previewToolRadiusMm
+        let paletteName = materialPaletteName
+        simStatus = "Scrubbing \(Int(p * 100))% (\(count)/\(lines.count) lines)…"
+        // Task.detached: the sync prefix-sim AND the filled-raster image
+        // build (240k+ pixels) must run OFF the main actor — a Task created
+        // here inherits the view's main-actor isolation and would beachball
+        // the UI on big jobs; results hop back to main.
+        scrubTask = Task.detached(priority: .userInitiated) {
+            let outcome = await ToolpathSimulator.simulateHeightmap(
+                from: prefix,
+                sheetWidthMm: sheet.width,
+                sheetDepthMm: sheet.depth,
+                stockTopMm: sheet.stock,
+                cellSizeMm: 1.0,
+                toolRadiusMm: radius,
+                shouldCancel: { Task.isCancelled }
+            )
+            guard !Task.isCancelled else { return }
+            let palette = MaterialSurfacePalette.preset(named: paletteName)
+                ?? MaterialSurfacePalette.presets[0]
+            let image = Self.heightfieldImage(from: outcome.heightmap, palette: palette)
+            await MainActor.run {
+                guard !Task.isCancelled else { return }
+                simHeightmap = outcome.heightmap
+                simImage = image
+                simStatus = "Playhead \(Int(p * 100))% · \(prefix.count)/\(lines.count) lines"
+            }
+        }
+    }
+
+    /// SPK-1700b — sweep the playhead 0 → 1 (~18s), re-prefix-simming on
+    /// every tick via `scrubToPlayhead`. Resets to 0 first so a playhead
+    /// left at 1.0 (default/full) still plays.
+    private func startPlayback() {
+        guard simHeightmap != nil else { return }
+        isPlaying = true
+        playTask = Task {
+            playhead = 0
+            while !Task.isCancelled && playhead < 1 {
+                // Duration-based sleep — the deprecated nanoseconds variant
+                // returned immediately in this context, racing 0 → 100%.
+                try? await Task.sleep(for: .milliseconds(150))
+                guard !Task.isCancelled else { return }
+                playhead = min(1, playhead + 1.0 / 120.0)
+            }
+            isPlaying = false
+        }
+    }
+
+    private func pausePlayback() {
+        isPlaying = false
+        playTask?.cancel()
+    }
+
+    /// SPK-1700a — (re)build the filled raster image from the current
+    /// heightmap + material palette (one pixel per cell; row 0 = world max-Y
+    /// so the image draws upright under the view's flipped projection).
+    private func rebuildSimImage() {
+        guard let hm = simHeightmap else {
+            simImage = nil
+            return
+        }
+        let palette = MaterialSurfacePalette.preset(named: materialPaletteName)
+            ?? MaterialSurfacePalette.presets[0]
+        simImage = Self.heightfieldImage(from: hm, palette: palette)
+    }
+
+    /// Build a filled CGImage of the heightmap at one pixel per cell, tinted
+    /// by the material palette (skin color on top, base revealed at depth).
+    private static func heightfieldImage(from hm: Heightmap, palette: MaterialSurfacePalette) -> CGImage? {
+        let w = hm.width
+        let h = hm.height
+        guard w > 0, h > 0 else { return nil }
+        var pixels = [UInt8](repeating: 0, count: w * h * 4)
+        for gy in 0..<h {
+            let worldY = h - 1 - gy   // image row 0 = world max-Y
+            for gx in 0..<w {
+                let z = hm.getHeight(gx, worldY)
+                let t = max(0, min(1, z / 10))
+                let c = palette.color(atDepthFraction: t)
+                let i = (gy * w + gx) * 4
+                pixels[i] = UInt8(max(0, min(255, c.r * 255)))
+                pixels[i + 1] = UInt8(max(0, min(255, c.g * 255)))
+                pixels[i + 2] = UInt8(max(0, min(255, c.b * 255)))
+                pixels[i + 3] = 255
+            }
+        }
+        guard let ctx = CGContext(
+            data: &pixels,
+            width: w, height: h,
+            bitsPerComponent: 8,
+            bytesPerRow: w * 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return nil }
+        return ctx.makeImage()
     }
 }

@@ -14,7 +14,7 @@ Take you from "ShopPilot is installed" to "I've generated G-code and streamed it
 ## Prerequisites
 
 - macOS 14+ (Apple Silicon or Intel)
-- ShopPilot installed — download [`dist/ShopPilot-macOS.zip`](../../dist/ShopPilot-macOS.zip) or build from source (see [README](../../README.md))
+- ShopPilot installed — download [`dist/ShopPilot-0.05-macOS.zip`](../../dist/ShopPilot-0.05-macOS.zip) or build from source (see [README](../../README.md))
 - Optional: a CNC machine connected via USB serial (Step 8)
 
 ---
@@ -68,8 +68,8 @@ Switch to the **Cut** stage.
 Switch to the **Preview** stage.
 
 1. Select a toolpath and click **Simulate**.
-2. Watch the virtual cutter remove material — toggle **Wireframe / Heightfield / Combined** views.
-3. Run the draft simulation; **Cancel** aborts a long sim.
+2. Watch the virtual cutter remove material on a **2.5D heightfield** (toggle **Wireframe / Heightfield / Combined**). This is not a Metal chip simulation.
+3. Run the simulation; **Cancel** aborts a long sim. Playhead / filled raster / bit-radius stamp ship as **SPK-1700**.
 
 ![Preview stage](../screenshots/06-preview.png)
 
