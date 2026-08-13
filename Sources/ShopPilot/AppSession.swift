@@ -444,11 +444,23 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
         packageURL = url
         markClean()
         clearUndoStack()
+        // SPK-1611 — a successful save feeds Open Recent.
+        RecentPackagesStore.record(url)
         // SPK-1402a — an explicit save supersedes the recovery artifact, so
         // launch no longer offers to recover this document.
         try? FileManager.default.removeItem(at: RecoveryCoordinator.recoveryURL(for: job))
         pendingRecovery = nil
         statusMessage = "Saved “\(job.name)”"
+    }
+
+    /// SPK-1611 — open a package from the Open Recent submenu (same loader
+    /// as File ▸ Open, with friendly status on failure).
+    func openRecentPackage(url: URL) {
+        do {
+            try openPackage(from: url)
+        } catch {
+            statusMessage = "Open failed: \(error.localizedDescription)"
+        }
     }
 
     /// Open a `.shoppilot` package from the given URL into this session.
@@ -458,6 +470,8 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
         packageURL = url
         markClean()
         clearUndoStack()
+        // SPK-1611 — a successful open feeds Open Recent.
+        RecentPackagesStore.record(url)
         statusMessage = "Opened “\(payload.job.name)”"
     }
 

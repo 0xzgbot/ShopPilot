@@ -69,6 +69,24 @@ struct ShopPilotApp: App {
                     session.handleCommand(.exportGcode)
                 }
                 .keyboardShortcut(shortcut("file.export"))
+
+                // SPK-1611 — Open Recent: the last N .shoppilot packages
+                // opened/saved, newest first, recorded by the session's
+                // open/save hooks. Picking one runs the same openPackage
+                // loader as File ▸ Open.
+                Menu("Open Recent") {
+                    let recents = RecentPackagesStore.recent()
+                    if recents.isEmpty {
+                        Text("No recent jobs")
+                            .disabled(true)
+                    } else {
+                        ForEach(recents, id: \.self) { url in
+                            Button(url.lastPathComponent) {
+                                session.openRecentPackage(url: url)
+                            }
+                        }
+                    }
+                }
             }
 
             // SPK-1606 — Edit menu Undo/Redo call the session stack (the
