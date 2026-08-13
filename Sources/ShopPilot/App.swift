@@ -85,6 +85,34 @@ struct ShopPilotApp: App {
                 }
             }
 
+            // SPK-1605 — a real Help menu (replaces the default). Safety is
+            // always reachable from here; the scope/README links open the
+            // repo docs (local files when present).
+            CommandGroup(replacing: .help) {
+                Button("Safety Notice") {
+                    session.showSafetyDisclaimer = true
+                }
+                .help("Read the machine-safety notice before your first cut")
+
+                Divider()
+
+                Button("ShopPilot README") {
+                    if let url = Bundle.main.url(forResource: "README", withExtension: "md") {
+                        NSWorkspace.shared.open(url)
+                    } else if let repo = URL(string: "https://github.com/0xzgbot/ShopPilot") {
+                        NSWorkspace.shared.open(repo)
+                    }
+                }
+
+                Button("Lean CNC Scope") {
+                    let base = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+                    let scope = base.appendingPathComponent("docs/planning/LEAN_CNC_SCOPE.md")
+                    if FileManager.default.fileExists(atPath: scope.path) {
+                        NSWorkspace.shared.open(scope)
+                    }
+                }
+            }
+
             CommandMenu("ShopPilot") {
                 Button("Command Palette…") {
                     session.showCommandPalette = true
