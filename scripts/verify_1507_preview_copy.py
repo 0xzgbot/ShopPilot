@@ -40,8 +40,11 @@ def main() -> int:
          "Camera help says the sim is the wireframe (not the camera)")
 
     # 2. MetalPreview: no un-nuanced metal-backed claim.
-    must("metal-backed preview" not in metal
-         or "does NOT use a Metal renderer" in metal,
+    # (Pass if the phrase is gone entirely, OR any remaining use is
+    # immediately qualified by the honesty note.)
+    has_claim = "metal-backed preview" in metal
+    has_note = "does NOT use a Metal renderer" in metal
+    must(not has_claim or has_note,
          "MetalPreview has no un-nuanced 'metal-backed preview' claim")
     must("legacy scaffolding" in metal.lower(),
          "MetalPreview labels itself legacy scaffolding")
