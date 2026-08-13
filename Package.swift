@@ -1046,12 +1046,27 @@ let package = Package(
             path: "Sources/ShopPilotVerify1506"
         ),
 
-        // AppSession split slice 1 (2026-08-12) — sample-load lifecycle
-        // extraction (SPK-1403a).
+        // AppSession split slices (2026-08-12) — sample-load (1403a), undo
+        // stack (1403b), profile generate (1403c), machine facade (1403d).
         .executableTarget(
             name: "ShopPilotVerify1403a",
             dependencies: ["ShopPilotCore"],
             path: "Sources/ShopPilotVerify1403a"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1403b",
+            dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
+            path: "Sources/ShopPilotVerify1403b"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1403c",
+            dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
+            path: "Sources/ShopPilotVerify1403c"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify1403d",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify1403d"
         ),
 
         .target(

@@ -13,7 +13,7 @@ import ShopPilotSerial
 /// the `isDirty` flag, and the undo/redo stack hooks. Stages read from this
 /// object instead of keeping parallel ad-hoc state.
 @MainActor
-final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSession {
+final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSession, SnapshotSession {
     @Published var selectedStage: Stage = .setup
     /// Active Design-stage create tool — lifted from the canvas so the left
     /// tool palette and the canvas share one source of truth.
@@ -24,7 +24,9 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
     /// Per-shape layer membership, index-aligned with `shapes` (SPK-1137).
     /// Kept in lockstep by every shape mutation so the canvas can honor each
     /// layer's hide/lock and save/open can keep each layer's own vectors.
-    @Published private(set) var shapeLayerIDs: [UUID] = []
+    /// Internal setter: `SnapshotSession` conformance (SPK-1403b) restores
+    /// layer ids on undo.
+    @Published var shapeLayerIDs: [UUID] = []
     @Published var gcodeLines: [String] = []
     @Published var lastToolpathSummary: String = "No toolpath generated"
     @Published var statusMessage: String = "Ready"
@@ -392,26 +394,11 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
         undoManager.removeAllActions()
     }
 
-    // MARK: - Snapshot undo support
+    // MARK: - Snapshot undo support (SPK-1403b)
 
-    private struct SessionSnapshot {
-        let job: Job
-        let shapes: [VectorShape]
-        let shapeLayerIDs: [UUID]
-        let shapeGroups: [[Int]]
-        let gcodeLines: [String]
-        let selectedVectorIDs: Set<UUID>
-    }
-
+    /// Capture the current document slice (delegated to Core SessionUndoStack).
     private func captureSnapshot() -> SessionSnapshot {
-        SessionSnapshot(
-            job: job,
-            shapes: shapes,
-            shapeLayerIDs: shapeLayerIDs,
-            shapeGroups: shapeGroups,
-            gcodeLines: gcodeLines,
-            selectedVectorIDs: selectedVectorIDs
-        )
+        SessionUndoStack.capture(from: self)
     }
 
     private func registerUndoPoint() {
@@ -426,12 +413,8 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
         undoManager.registerUndo(withTarget: self) { target in
             target.performUndoRestore(forward)
         }
-        job = snapshot.job
-        shapes = snapshot.shapes
-        shapeLayerIDs = snapshot.shapeLayerIDs
-        shapeGroups = snapshot.shapeGroups
-        gcodeLines = snapshot.gcodeLines
-        selectedVectorIDs = snapshot.selectedVectorIDs
+        // SPK-1403b — field transfer is Core-owned (SessionUndoStack.restore).
+        SessionUndoStack.restore(snapshot, into: self)
         markDirty()
     }
 
