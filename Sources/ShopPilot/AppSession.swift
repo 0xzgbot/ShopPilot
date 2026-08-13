@@ -13,7 +13,7 @@ import ShopPilotSerial
 /// the `isDirty` flag, and the undo/redo stack hooks. Stages read from this
 /// object instead of keeping parallel ad-hoc state.
 @MainActor
-final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSession, SnapshotSession, ProfileGeneratingSession {
+final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSession, SnapshotSession, ProfileGeneratingSession, FixtureLoadingSession {
     @Published var selectedStage: Stage = .setup
     /// Active Design-stage create tool — lifted from the canvas so the left
     /// tool palette and the canvas share one source of truth.
@@ -4655,39 +4655,14 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
         return true
     }
 
+    // MARK: - Machine G-code (SPK-1403d)
+
+    /// Load fixture G-code into the buffer when it is empty (so Machine
+    /// Continue / fixture load always has something to hand off). SPK-1403d:
+    /// the orchestration is owned by `FixtureGCodeLoader` (Core) — this
+    /// facade just supplies the session hooks.
     func loadFixtureGCodeIfNeeded() {
-        guard gcodeLines.isEmpty else { return }
-        let candidates = [
-            URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-                .appendingPathComponent("fixtures/gcode/calibration_square.nc"),
-            Bundle.main.bundleURL
-                .appendingPathComponent("fixtures/gcode/calibration_square.nc"),
-        ]
-        for url in candidates where FileManager.default.fileExists(atPath: url.path) {
-            if let text = try? String(contentsOf: url, encoding: .utf8) {
-                gcodeLines = text
-                    .components(separatedBy: .newlines)
-                    .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
-                lastToolpathSummary = "Loaded fixture \(url.lastPathComponent) (\(gcodeLines.count) lines)"
-                statusMessage = lastToolpathSummary
-                return
-            }
-        }
-        gcodeLines = [
-            "G21",
-            "G90",
-            "G0 Z5",
-            "G0 X0 Y0",
-            "G1 Z-1 F200",
-            "G1 X20 F800",
-            "G1 Y20",
-            "G1 X0",
-            "G1 Y0",
-            "G0 Z5",
-            "M2",
-        ]
-        lastToolpathSummary = "Built-in air-cut square (\(gcodeLines.count) lines)"
-        statusMessage = lastToolpathSummary
+        FixtureGCodeLoader.loadIfNeeded(into: self)
     }
 
     /// Send G-code to the Machine stage via the Cut-to-Machine bridge.
