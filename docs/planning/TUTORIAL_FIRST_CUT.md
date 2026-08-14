@@ -1,118 +1,113 @@
 # ShopPilot — First Cut Tutorial
 
 **Audience:** New users with a Mac and (optionally) a CNC machine.  
-**Time:** ~15 minutes, simulator only — no hardware required.
+**Time:** ~15 minutes, **simulator only** — no hardware required.
 
 ---
 
 ## Goal
 
-Take you from "ShopPilot is installed" to "I've generated G-code and streamed it through the simulator" — safely, without touching real hardware.
+From install → sample or recipe → G-code → **simulator** stream. Live serial is optional and is **not** the bar.
+
+This is **not** LightBurn (no laser product) and **not** Fusion (Model orbit is a thin 2.5D relief view). Preview is a filled heightfield + playhead, not chips.
 
 ---
 
 ## Prerequisites
 
 - macOS 14+ (Apple Silicon or Intel)
-- ShopPilot installed — download [`dist/ShopPilot-0.05-macOS.zip`](../../dist/ShopPilot-0.05-macOS.zip) or build from source (see [README](../../README.md))
-- Optional: a CNC machine connected via USB serial (Step 8)
+- ShopPilot **0.06** — [`dist/ShopPilot-0.06-macOS.zip`](../../dist/ShopPilot-0.06-macOS.zip) or `VERSION=0.06 ZIP_NAME=ShopPilot-0.06-macOS.zip ./scripts/package_app.sh` (see [README](../../README.md))
+- Optional: USB serial CNC (Step 8)
 
 ---
 
-## Step 1 — Create a Job (Start with a Recipe)
+## Step 1 — Welcome / Setup
 
-1. Launch ShopPilot. You land on the **Setup** stage.
-2. Click the **Choose a Recipe** card.
-3. Pick **Signage**. ShopPilot creates the job, a sign-shaped sheet, and even pre-generates a V-Carve toolpath (you'll see "Recipe V-Carve ready" in the status bar).
-4. Set your material: choose a **Material** and confirm **Stock Dimensions** (width / depth / height in mm).
+1. Launch ShopPilot. First run: **Welcome / Start Making** with bundled samples (sign, box, keychain, plaque). **Try a sample**, or close Welcome and use Setup.
+2. On **Setup**, pick a **recipe** (Signage, Decorative Panel, Portrait Relief) or set **Material** and **Stock** yourself.
+3. Advanced (sheets, double-sided, rotary, document variables) stays collapsed unless you need it.
 
-> ✨ Recipes give you a complete, working job in one click — the fastest way to learn the pipeline. You can also start with a blank **Custom** job and set stock yourself.
+![Welcome samples](../screenshots/welcome.png)
 
 ![Setup stage](../screenshots/01-setup.png)
 
 ---
 
-## Step 2 — Design (Vectors & Layers)
+## Step 2 — Design
 
-Switch to the **Design** stage. The Signage recipe already placed your art on layers.
+Switch to **Design**.
 
-1. Look at the **LAYERS** panel (left): `Text` (4 items) and `Border` (1 item).
-2. Draw your own shape with the **Rect**, **Circle**, **Line**, or **Polyline** tools.
-3. Use the **Ops bar** for vector surgery: **Weld / Subtract / Intersect / Join / Close / Trim**, plus Nudge, Flip, Rotate, Scale.
-4. Import artwork anytime: **SVG**, **DXF**, or **STL relief** (Design → STL Relief…).
+1. Draw with **Rect / Circle / Line / Polyline**; add text; or **Import** SVG / DXF / STL.
+2. **Snap to grid** (toolbar) so create/move land on the grid.
+3. **Select**: drag empty space for a **marquee**; hold **Space** (or middle-button) to pan.
+4. Watch the **XY DRO** (sheet mm). Set **sheet origin** (corner vs center) if your job is not lower-left (0,0).
+5. Ops: Weld / Subtract / Intersect / Join / Close / Trim, plus nudge/flip/rotate/scale.
 
-![Design stage](../screenshots/02-design-signage.png)
-
----
-
-## Step 3 — Cut (Toolpaths)
-
-Switch to the **Cut** stage.
-
-1. **+ Add Toolpath** → choose a strategy:
-   - **Profile** — cut around the outline (on/inside/outside line)
-   - **Pocket** — clear an enclosed area
-   - **Drill** — plunge holes
-   - **V-Carve** — engrave with a V-bit (the recipe already made one for you)
-2. Pick the vectors to cut, choose a **Tool**, set depth / feed / passes.
-3. Click **Calculate** — the toolpath appears in the list and on canvas.
-
-**Dirty workflow (important):** edit your design after generating a toolpath and it goes **dirty** ("Recalculate Dirty (1)"). Export is blocked until you **Recalculate** — this protects you from cutting stale art.
-
-![Cut stage](../screenshots/03-cut.png)
+![Design stage](../screenshots/design.png)
 
 ---
 
-## Step 4 — Preview (Simulate Before You Cut)
+## Step 3 — Cut
 
-Switch to the **Preview** stage.
+Switch to **Cut**.
 
-1. Select a toolpath and click **Simulate**.
-2. Watch the virtual cutter remove material on a **2.5D heightfield** (toggle **Wireframe / Heightfield / Combined**). This is not a Metal chip simulation.
-3. Run the simulation; **Cancel** aborts a long sim. Playhead / filled raster / bit-radius stamp ship as **SPK-1700**.
+1. Recipes: **Cut out** (Profile), **Pocket**, **Engrave**, or **More**.
+2. Inspector shows **F / S / Z** for the selected op. Tabs/leads for Profile also show on the Design overlay.
+3. Generate/recalc is **async** — the window should stay responsive.
+4. **Dirty workflow:** edit art → toolpath goes dirty → export blocked until Recalculate.
 
-![Preview stage](../screenshots/06-preview.png)
+![Cut stage](../screenshots/cut.png)
 
 ---
 
-## Step 5 — Model (3D Relief, Optional)
+## Step 4 — Preview
 
-The **Model** stage shows 3D relief and offers **Rough 3D / Finish 3D** toolpaths (Studio3D tier). Import an STL in Design → STL Relief… to populate it.
+Switch to **Preview**.
+
+1. **Simulate**. You get a **filled 2.5D heightfield** (and wireframe / combined toggles). Not Metal chips, not Fusion GPU mill.
+2. Use the **playhead / Play** to scrub sim time (empty stock → full removal).
+3. **Cancel** aborts a long sim.
+
+![Preview pocket](../screenshots/2d-pocket-stepover.png)
+
+![Preview playhead](../screenshots/2d-playhead.png)
+
+---
+
+## Step 5 — Model (optional)
+
+**Model** is heightfield relief (STL / plaque / 3D text) plus **Rough 3D / Finish 3D**. **Orbit** looks around the relief in 2.5D — not a 3-axis mill CAD view.
 
 ![Model stage](../screenshots/04-model.png)
 
----
-
-## Step 6 — Run on the Simulator (No Hardware)
-
-1. Switch to the **Machine** stage.
-2. Transport: **Simulator** (default). Click **Connect** — status turns green **Connected**.
-3. Send your toolpath: **Send to Machine Stage** in Cut (or the air-cut square loads automatically if the buffer is empty).
-4. Work through the **Pre-Flight Checklist** — all items must be acknowledged.
-5. Click **RUN**. The simulator streams the G-code line-by-line (each line gets an `ok`) and reports **Stream complete**.
-6. After a run, the checklist returns — you can adjust and run again.
-
-![Machine stage](../screenshots/05-machine.png)
-
-> Safety chrome: **Hold / Resume / Reset** are always visible while connected — no auto-run on load, ever.
+![3D relief in Preview](../screenshots/3d-relief-sim.png)
 
 ---
 
-## Step 7 — Save, Open, Export
+## Step 6 — Simulator (the bar)
 
-- **Save / Open** (`.shoppilot` package) — job, layers, toolpaths, and machine profile all round-trip.
-- **Export G-code** — GRBL-compatible output, blocked while any toolpath is dirty.
-- Export happens through the Cut stage (**Save Toolpaths…** / **Send to Machine Stage**).
+1. **Machine** stage. Transport: **Simulator**. **Connect**.
+2. Send G-code from Cut (**Send to Machine Stage**) or load the air-cut square if the buffer is empty.
+3. Acknowledge **Pre-Flight**. **Hold / Resume / Reset** stay visible.
+4. **RUN**. Simulator waits for `ok` per line. No auto-run on load.
+5. Large **Machine DRO** shows parsed position.
+
+![Machine simulator](../screenshots/machine-sim.png)
+
+> Software Hold/Reset is **not** a hardware e-stop. The sim does not prove a live cut.
 
 ---
 
-## Step 8 — Real Hardware (Optional)
+## Step 7 — Save / export
 
-1. Connect your CNC via USB serial.
-2. Machine stage → Transport: **Serial** → **Connect**.
-3. Set work zero with the **Jog** pad + **Zero X / Y / Z**.
-4. Re-run the preflight checklist — all green.
-5. Clamp material, confirm the tool, click **RUN**.
+- **Save / Open** `.shoppilot` (vectors, layers, toolpaths).
+- **Export G-code** from Cut — blocked while dirty.
+
+---
+
+## Step 8 — Real hardware (optional)
+
+Serial to GRBL/FluidNC exists (port + baud). After Connect: jog, zero, preflight, then Run. First moves should be **air cuts**. Keep a hardware e-stop in reach. This step is optional; **personal acceptance is simulator-first**.
 
 ---
 
@@ -120,17 +115,16 @@ The **Model** stage shows 3D relief and offers **Rough 3D / Finish 3D** toolpath
 
 | Problem | Fix |
 | --- | --- |
-| "Dirty toolpath — cannot export" | Recalculate in the Cut stage after editing art |
-| Toolpaths don't appear on canvas | Select vectors in the Cut stage's vector selector before calculating |
-| Simulator won't connect | Ensure Transport = Simulator, then Connect |
-| Machine shows alarm / soft-limit | Press **Reset**, re-home, reduce jog step, retry |
-| "Toolpath outside stock bounds" | Fix stock dimensions in Setup to match your material |
+| Dirty toolpath — cannot export | Recalculate in Cut after editing art |
+| Toolpaths missing on canvas | Select vectors before calculating |
+| Simulator won't connect | Transport = Simulator, then Connect |
+| Alarm / soft-limit | **Reset**, re-home, smaller jog |
+| Toolpath outside stock | Fix stock in Setup |
 
 ---
 
-## What's Next?
+## What's next?
 
-- Import an **SVG/DXF** instead of drawing (Design stage, Import Design File).
-- Try the **Decorative Panel** and **Portrait Relief** recipes for different workflows.
-- Read the [product overview](README_MAC_NATIVE.md) for the full feature map.
-- Check `MASTER_KANBAN.md` for what's shipping next.
+- Other samples and recipes (Decorative Panel, Portrait Relief).
+- Safety: [`SAFETY.md`](SAFETY.md).
+- Agents: `MASTER_KANBAN.md`. **SPK-0623** stays owner-gated until the owner marks it.

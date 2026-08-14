@@ -942,7 +942,7 @@ A (parallel from day 0)
   - Out of scope: none (UI-only).
   - worklog: 2026-08-13 — Hermes coder (after SPK-UI-BUG-01 [x]). SetupStageView Advanced disclosure (ContentView.swift:387): kept `DisclosureGroup("Advanced", isExpanded:)` (verify_1400b anchors on that form), added `.accessibilityLabel("Advanced")` + `.accessibilityAddTraits(.isButton)` + `.accessibilityIdentifier("setup.advanced")` on the group so the header is a findable/pressable AX control; AC3 — collapsed inner panels no longer leak: `.accessibilityHidden(!advancedExpanded)` on the content VStack (exposure follows state; all six pro panels kept in place). Six pro panels untouched, BUG-01 sample-button label untouched, Cut "More" disclosure out of scope. **Verify:** `verify_1400b_setup.py` PASS, `verify_1400d_design.py` PASS (regression), grep `DisclosureGroup("Advanced"` → `.accessibilityLabel("Advanced")` nearby (:432), `./scripts/swift_locked.sh build --target ShopPilot` → complete (16.25s). Parent SPK-0623 left `[ ]`. Live AX re-check deferred to next `ui_drive_full.sh` run.
 
-- [ ] **SPK-UI-BUG-03** **BUG** Cut "Cut out" runs toolpath generation on the main thread — AX server blackout ~35s (app-wide freeze)
+- [x] **SPK-UI-BUG-03** **BUG** Cut "Cut out" runs toolpath generation on the main thread — AX server blackout ~35s (app-wide freeze) — **SHIPPED 2026-08-13** (`5f36c65`)
   - Found by: SPK-0623b live walk #2 (2026-08-13, rebuilt binary with BUG-01/02 fixes)
   - Symptom: with the bundled Sign sample loaded, pressing **Cut out** (`ContentView.swift:950` → `AppSession.generateProfileToolpath()` → `ProfileToolpathGenerator.generateProfile(on:)` → `ProfileToolpathEngine.compute` on the main thread) blocks the app's main thread for ~35s. During that window the AX server answers NOTHING — every `ax_act` query returns `no windows` (timeout). The UI drive's `press_step` read this as NOT FOUND and its `dump_save` mislabeled it "AX denied" (exit 4). A human sees the whole window beachball/freeze for the duration; AT users lose the app entirely.
   - Evidence: live repro (2026-08-13, 14:0x): 8 consecutive AX queries failed after Cut out, ~4.5s each, then recovery; `/tmp/shoppilot-ui-drive-full-dumps/miss-Pocket.txt` (23 bytes: "no windows / AX denied" — the mislabel), dump after recovery shows "Profile: 474 lines, ~2970s, 9 depth pass(es)". `ProfileToolpathGenerator.swift:60` — `ProfileToolpathEngine.compute(...)` is called synchronously.
@@ -950,6 +950,7 @@ A (parallel from day 0)
   - Driver mitigation (landed in this card's walk): `ax_act.swift` now distinguishes real TCC denial (`AXIsProcessTrusted()` false → "AX DENIED") from a busy app ("no windows (app busy or none)") — busy is never exit 4; `ui_drive_full.sh` `press_step` gained a ~60s busy-patience poll before declaring NOT FOUND.
   - Out of scope: engine perf tuning, changing generator semantics.
   - **P0 — do FIRST** in `docs/planning/PREVIEW_PLAYBACK_HERMES.md` before SPK-1700a–d. Laser held. Do not stamp SPK-0623.
+  - worklog: 2026-08-13 — Hermes. Async generate for Cut out (SPK-1314 pattern); AX no longer blacked out ~35s. Parent SPK-0623 left `[ ]`.
 
 **Phase G exit:** SPK-0623 `[x]` = personal-use sim acceptance + safety gates (not notarized public ship). Then agents may open Phase H+ per LEAN.
 
@@ -1461,9 +1462,7 @@ Phase O/P/1403 **CLOSED**. Laser/LightBurn **HELD**. Do not reopen. Unlisted P0/
 
 **STOP (Phase Q chrome):** do not start DocumentGroup, laser/LightBurn, SPK-0623 rubber-stamp, AppSession full rewrite, or NavigationSplitView.
 
-**Next Ready (Preview honesty):** **SPK-1700** + **SPK-UI-BUG-03** — see below. Laser held. Prompt: `docs/planning/PREVIEW_PLAYBACK_HERMES.md`.
-
-**Also Ready (CAM first-hour UI, parallel-ok with 1700 except 1800h):** **SPK-1800** — snap / marquee / canvas DRO / sheet origin / CAM inspector / tabs-leads overlay / Machine DRO / Model orbit. Prompt: `docs/planning/CAM_UI_FIRST_HOUR_HERMES.md`. **Do not block 1800a on BUG-03 or 1700.** Serialize `DesignCanvasView.swift` for 1800a–d. **1800h:** if SPK-1700 still `[ ]`, Model stage only (`ModelStageView` / `ReliefCanvasView`) — do not share `ToolpathPreviewView`.
+**Shipped (2026-08-13):** **SPK-UI-BUG-03**, **SPK-1700** (a–d), **SPK-1800** (a–h). Laser/LightBurn **held**. **SPK-0623** remains owner-gated `[ ]` — do not rubber-stamp. Next agent work: only Ready `[ ]` cards that are not 0623 / not laser / not `[-]`.
 
 ---
 
@@ -1471,7 +1470,7 @@ Phase O/P/1403 **CLOSED**. Laser/LightBurn **HELD**. Do not reopen. Unlisted P0/
 
 **DoD on parent:** Engine (dense heightmap + bit-radius stamp) + UI (filled raster in `ToolpathPreviewView`, playhead) + Persist (N/A / session-only) + Verify (`ShopPilotVerify1103e` + `ShopPilotVerify1700*`) + screenshot pack in `docs/screenshots/`. **BUG-03 first.** Simulator only. **Do not mark SPK-0623 `[x]`.**
 
-- [ ] **SPK-1700** **PREV** Parent — filled heightfield raster + playhead + circular bit stamp + GitHub screenshot pack // P0
+- [x] **SPK-1700** **PREV** Parent — filled heightfield raster + playhead + circular bit stamp + GitHub screenshot pack // P0 — **SHIPPED 2026-08-13** (`3ef4fad` / `a901d00`)
   - deps: SPK-1103e `[x]`; **SPK-UI-BUG-03 must `[x]` before 1700d capture** (do BUG-03 before 1700a–d in the Hermes run)
   - AC: Preview shows a filled sheet heightmap (not `/40` dots); slider/playhead over sim time; endmill-radius stamp so pocket stepover matches tool; 2D pocket + 3D rough/finish shots in `docs/screenshots/`
   - Out of scope: Metal chips; laser; live serial; SPK-0623 stamp
@@ -1480,7 +1479,7 @@ Phase O/P/1403 **CLOSED**. Laser/LightBurn **HELD**. Do not reopen. Unlisted P0/
   - all swift via `swift_locked.sh`; never `rm -rf .build`; worktree-only Sources
   - UI doctrine: stage rail, Hold/Reset when connected, no auto-run
 
-- [ ] **SPK-1700a** **PREV** Draw full heightmap as filled image in ToolpathPreviewView; drop `/40` display stride // P0
+- [x] **SPK-1700a** **PREV** Draw full heightmap as filled image in ToolpathPreviewView; drop `/40` display stride // P0 — **SHIPPED**
   - parent: SPK-1700
   - AC: Simulate path uses stride 1 (or equivalent full grid); Preview heightfield/combined is a filled raster/image tinted by material palette; 1103e still PASS
   - Out of scope: playhead, bit stamp, screenshots
@@ -1488,21 +1487,21 @@ Phase O/P/1403 **CLOSED**. Laser/LightBurn **HELD**. Do not reopen. Unlisted P0/
   - worktree: required; assignee: coder; 90m
   - Files: `ToolpathSimulator.swift`, `ToolpathPreviewView.swift`, `Package.swift` + `Sources/ShopPilotVerify1700a`
 
-- [ ] **SPK-1700b** **PREV** Playhead/slider over sim time // P0
+- [x] **SPK-1700b** **PREV** Playhead/slider over sim time // P0 — **SHIPPED**
   - parent: SPK-1700; deps: 1700a
   - AC: Preview slider (optional Play) shows heightfield for toolpath prefix; t=0 stock, t=1 full sim
   - Out of scope: bit stamp; screenshot pack; Metal
   - Verify: `./scripts/verify_locked.sh ShopPilotVerify1700b` + regression 1103e
   - worktree: required; assignee: coder; 90m
 
-- [ ] **SPK-1700c** **PREV** Circular bit-radius stamp on G1 removal // P0
+- [x] **SPK-1700c** **PREV** Circular bit-radius stamp on G1 removal // P0 — **SHIPPED**
   - parent: SPK-1700; deps: 1700a
   - AC: each interpolated cut point stamps a disk of tool radius; pocket stepover ridges match tool, not 1-cell needles
   - Out of scope: ball-nose cusps; laser; screenshots
   - Verify: `./scripts/verify_locked.sh ShopPilotVerify1700c` + regression 1103e
   - worktree: required; assignee: coder; 90m
 
-- [ ] **SPK-1700d** **QA** Screenshot pack — 2D pocket + 3D relief sim + chrome // P0
+- [x] **SPK-1700d** **QA** Screenshot pack — 2D pocket + 3D relief sim + chrome // P0 — **SHIPPED**
   - parent: SPK-1700; deps: 1700a, 1700b, 1700c, **SPK-UI-BUG-03**
   - AC: capture via `scripts/capture_window.swift` into `docs/screenshots/`: `2d-pocket-stepover.png`, `2d-playhead.png`, `3d-relief-sim.png`, `welcome.png`, `design.png`, `cut.png`, `machine-sim.png` (composition in `docs/screenshots/README.md`); update root README image markdown; Simulator only; Hold/Reset on machine shot
   - Out of scope: implementing playback (that's a–c); SPK-0623; laser
@@ -1622,6 +1621,9 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 ---
 
 ## 12. Work log
+
+### 2026-08-13 — docs sync (README / CHANGELOG / tutorial / packaging)
+- User-facing docs aligned to HEAD **0.06** (`4683a9f`): Welcome samples, stage rail, Cut recipes, SPK-1800 chrome, SPK-1700 filled heightfield + playhead, BUG-03 async generate. Screenshot pack wired in README. PACKAGING.md rewritten (no paid-tier fiction). Laser/LightBurn held. **SPK-0623 left `[ ]`** (AX `ui_drive_full` PASS is not a ship stamp). Board: 1700 / 1700a–d / BUG-03 marked `[x]` to match git (were stale `[ ]`). No product code this pass.
 
 ### 2026-08-13 — SPK-1800 CAM first-hour UI queued (docs)
 - Board: Phase R parent **SPK-1800** `[ ]` + children **1800a–h** `[ ]` Ready. Serialize DesignCanvasView for a–d. 1800e/g/h parallel-ok after 1800a if files differ. **BUG-03 / 1700 do not block 1800a.** **1800h = ModelStageView only** while 1700 `[ ]`. Laser held. **SPK-0623 left `[ ]`**.

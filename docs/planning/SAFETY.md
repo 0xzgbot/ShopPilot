@@ -44,6 +44,6 @@
 
 All users must see this message before first hardware connection:
 
-> **ShopPilot is a CNC toolpath generator and machine controller. It does not replace hardware safety. Always use a hardware emergency stop, wear appropriate PPE, and never leave a running machine unattended. Software controls are not a substitute for proper machine safety.**
+> **ShopPilot is a CNC toolpath generator and machine controller. It does not replace hardware safety. Always use a hardware emergency stop, wear appropriate PPE, and never leave a running machine unattended. Software controls, Preview heightfield, and the built-in simulator are not a substitute for a hardware e-stop or a proven live cut.**
 
 See [`SHOPPILOT_SCOPE.md`](./SHOPPILOT_SCOPE.md) for the full scope and safety statement.

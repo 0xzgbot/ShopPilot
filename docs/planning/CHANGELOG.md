@@ -6,6 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [0.06] — 2026-08-13 (universal)
+
+Personal-use zip: `dist/ShopPilot-0.06-macOS.zip` (`VERSION=0.06` in `scripts/package_app.sh` → `CFBundleShortVersionString`). Universal arm64 + x86_64, ad-hoc signed.
+
+### Added — Preview playback (SPK-1700) + async Cut generate (SPK-UI-BUG-03)
+- Filled sheet heightfield in Preview (no `/40` display stride); circular **bit-radius stamp** on G1 removal
+- **Playhead / Play** over sim time (t=0 stock → t=1 full sim)
+- Screenshot pack: `welcome.png`, `design.png`, `cut.png`, `2d-pocket-stepover.png`, `2d-playhead.png`, `3d-relief-sim.png`, `machine-sim.png`
+- Cut **Cut out** generate off the main thread (no ~35s UI/AX freeze)
+
+### Added — First-hour CAM UI (SPK-1800)
+- Design: grid **snap**, **marquee** select, cursor **XY DRO**, sheet **origin** (corner/center)
+- Cut inspector **F / S / Z**; tabs/leads overlay on Design
+- Machine **DRO** from parsed MPos; Model **Orbit** (2.5D relief, not Fusion)
+
+### Honest / held
+- Preview is 2.5D heightfield, not Metal chips
+- Laser / LightBurn **held** (not a product)
+- **SPK-0623** remains owner-gated `[ ]` (AX `ui_drive_full` PASS is evidence, not a ship stamp)
+
+---
+
 ## [0.05] — built on request (universal)
 
 ### Added — Phase O (friendliness + live serial + persist-honesty, SPK-1400…1402)

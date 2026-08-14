@@ -8,12 +8,12 @@
 | **Project root** | `~/Desktop/ShopPilot` |
 | **Working name** | ShopPilot |
 | **Product class** | Native **macOS CNC suite**: professional-grade **design + toolpaths + preview** + **machine control** |
-| **Primary machines** | CNC routers (GRBL / FluidNC class controllers over USB serial); laser later |
-| **Stack** | **SwiftUI** (macOS 14+) · geometry/toolpath core · Metal preview · serial IOKit/ORSSerialPort |
-| **Not in first ship** | Illegal reverse-engineering of proprietary CRV; Windows/Linux ports |
+| **Primary machines** | CNC routers (GRBL / FluidNC class controllers over USB serial). Laser/LightBurn **held** (not a product). |
+| **Stack** | **SwiftUI** (macOS 14+) · geometry/toolpath core · **2.5D heightfield preview** (not Metal chips) · serial IOKit |
+| **Not in first ship** | Illegal reverse-engineering of proprietary CRV; Windows/Linux ports; App Store / notarize |
 | **Doc status** | Living — agents **must** update task checkboxes + Work log |
-| **Last updated** | 2026-08-04 |
-| **Current phase focus** | Lean CNC bar (G-code, V-Carve, 3D carving, GRBL control) — see LEAN_CNC_SCOPE |
+| **Last updated** | 2026-08-13 |
+| **Current phase focus** | Lean CNC bar; SPK-1700 / SPK-1800 / BUG-03 shipped; **SPK-0623 owner-gated** — see LEAN_CNC_SCOPE |
 | **★ Lean north star** | [`docs/planning/LEAN_CNC_SCOPE.md`](./docs/planning/LEAN_CNC_SCOPE.md) — **overrides feature-count parity** |
 | **★ Single task board** | [`MASTER_KANBAN.md`](./MASTER_KANBAN.md) — **only** place to claim work |
 | **★ Finish roadmap** | [`docs/planning/FINISH_ROADMAP.md`](./docs/planning/FINISH_ROADMAP.md) — Tracks 1–6 + lean 3D |
@@ -81,7 +81,7 @@ Build **ShopPilot**: a Mac-native **professional-grade** creative CNC suite **pl
 1. Job setup (single → double → rotary).
 2. 2D design (vectors, text, bitmaps, layers, nest).
 3. 3D components (combine modes, shapes, sculpt, import).
-4. Full toolpath strategy set (profile → V-carve → 3D → specialty → laser).
+4. Toolpath set: profile → V-carve → 3D (+ specialty later). **Laser held** — not a product.
 5. Accurate preview simulation + posts + job sheets.
 6. **Stage-rail UI**: full power, no permanent icon walls (see UX plan).
 
