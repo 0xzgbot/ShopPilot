@@ -31,6 +31,8 @@ struct ModelStageView: View {
     /// SPK-0708 — composite render configuration sheet.
     @State private var showCompositeRender = false
     @State private var showLaserToolpath = false
+    // SPK-1800h: orbit toggle state (Model-stage level).
+    @State private var orbitMode: Bool = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -50,6 +52,7 @@ struct ModelStageView: View {
                     zoom: $zoom, panX: $panX, panY: $panY,
                     fitBase: $fitBase,
                     sculptMode: sculptMode,
+                    orbitMode: orbitMode,
                     strokeParams: SculptStrokeParams(
                         tool: sculptTool,
                         radiusMm: brushRadiusMm,
@@ -335,6 +338,12 @@ struct ModelStageView: View {
             .sheet(isPresented: $showTeacher) {
                 CombineModeTeacherSheet()
             }
+
+            // SPK-1800h: orbit toggle — drag to rotate yaw/pitch around the relief.
+            Divider().frame(height: 14)
+            Toggle("Orbit", isOn: $orbitMode)
+                .toggleStyle(.button)
+                .help("Orbit: drag to rotate the relief (yaw/pitch)")
             if !session.reliefComponents.isEmpty {
                 Button("Recomposite") { session.recompositeRelief() }
                     .help("Re-run the combine modes over the component stack")
@@ -522,32 +531,29 @@ struct ModelStageView: View {
 /// drag-to-pan / scroll-to-zoom camera (SPK-3D-UI basic camera). In sculpt
 /// mode the drag applies a brush stroke at the cursor instead of panning:
 /// view point → world mm (inverse of the image layout transform) → stroke.
+/// SPK-1800h: in Orbit mode, dragging rotates yaw/pitch around the relief.
 private struct ReliefCanvasView: View {
     let hf: HeightfieldData
     @Binding var zoom: Double
     @Binding var panX: Double
     @Binding var panY: Double
-    /// Reports the fit scale (base = min(viewport/grid)) so the Model stage
-    /// can compute the 1:1 view preset.
     @Binding var fitBase: Double
     var sculptMode: Bool = false
+    // SPK-1800h: orbit — drag to rotate yaw/pitch.
+    var orbitMode: Bool = false
     var strokeParams: SculptStrokeParams = SculptStrokeParams()
     var onStroke: ((CGPoint, Bool) -> Void)? = nil
-    /// SPK-0705 — interactive shape handles.
     var handles: [ShapeHandle] = []
     var onHandleDrag: ((UUID, Double, Double, Double, Bool) -> Void)? = nil
     @State private var strokeLocation: CGPoint?
     @State private var dragIsLive: Bool = false
-    /// SPK-0705 — handle drag state. `activeHandleID` is set by tapping a
-    /// handle (previously never set, so the whole drag path was dead code).
     @State private var activeHandleID: UUID?
     @State private var handleDragStart: CGPoint?
-    /// Last event's translation — DragGesture's `value.translation` is
-    /// CUMULATIVE from gesture start; adding it every event compounds the
-    /// pan/handle delta (drag 100px → canvas moves hundreds more).
     @State private var lastDragTranslation: CGSize?
-    /// True after the first handle-drag event (undo snapshot already taken).
     @State private var handleDragLive: Bool = false
+    // SPK-1800h: 2.5D orbit state.
+    @State private var orbitYaw: Double = 0
+    @State private var orbitPitch: Double = 0
 
     var body: some View {
         GeometryReader { geo in
@@ -613,16 +619,16 @@ private struct ReliefCanvasView: View {
                         if sculptMode {
                             let p = value.location
                             strokeLocation = p
-                            // First stroke of a drag records the undo point;
-                            // subsequent ones apply without re-snapshotting so
-                            // one gesture = one undo entry (grid snapshots are
-                            // MB-sized on big reliefs).
                             onStroke?(worldPoint(from: p, offsetX: offsetX, offsetY: offsetY, scale: scale), !dragIsLive)
                             dragIsLive = true
+                        } else if orbitMode {
+                            // SPK-1800h: orbit — drag rotates yaw/pitch.
+                            let last = lastDragTranslation ?? value.translation
+                            orbitYaw += (value.translation.width - last.width) * 0.5
+                            orbitPitch += (value.translation.height - last.height) * 0.5
+                            orbitPitch = max(-89, min(89, orbitPitch))
+                            lastDragTranslation = value.translation
                         } else if let activeHandleID {
-                            // SPK-0705: handle drag mode. value.translation is
-                            // CUMULATIVE from gesture start — add only the
-                            // per-event delta, and snapshot undo once.
                             let last = lastDragTranslation ?? value.translation
                             let dx = (value.translation.width - last.width) / scale
                             let dy = (value.translation.height - last.height) / scale
@@ -630,7 +636,6 @@ private struct ReliefCanvasView: View {
                             onHandleDrag?(activeHandleID, dx, dy, 0, !handleDragLive)
                             handleDragLive = true
                         } else {
-                            // Pan: same cumulative-translation trap — delta only.
                             let last = lastDragTranslation ?? value.translation
                             panX += (value.translation.width - last.width) / scale
                             panY += (value.translation.height - last.height) / scale
