@@ -310,6 +310,11 @@ struct InspectorShell: View {
         VStack(alignment: .leading, spacing: 12) {
             SectionLabel("Toolpaths")
 
+            // SPK-1800e: compact F/S/Z readout for the selected toolpath.
+            if let node = session.selectedOperationNode {
+                toolpathParamsReadout(node)
+            }
+
             if session.toolpaths.isEmpty {
                 Text("No toolpaths yet")
                     .font(.caption)
@@ -332,6 +337,18 @@ struct InspectorShell: View {
                 .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 12)
+    }
+
+    /// SPK-1800e: compact F / S / Z readout for the selected toolpath operation.
+    private func toolpathParamsReadout(_ node: ToolpathTreeNode) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Selected")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            PropertyRow(label: "F", value: node.paramFeedRate.map { "\(Int($0))" } ?? "—")
+            PropertyRow(label: "S", value: node.paramSpindleRpm.map { "\(Int($0))" } ?? "—")
+            PropertyRow(label: "Z", value: node.paramCutDepth.map { String(format: "%.1f", $0) } ?? "—")
+        }
     }
 
     // MARK: - Preview Stage

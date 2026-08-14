@@ -299,6 +299,9 @@ public struct MachineConnectionView: View {
             // else on the stage (Safety Req #1: never buried).
             safetyChrome
 
+            // SPK-1800g: large Machine DRO — X/Y/Z from parsed mPos.
+            machineDRO
+
             Divider()
 
             // Stream progress (visible when streaming)
@@ -817,6 +820,40 @@ public struct MachineConnectionView: View {
     /// Short label for a jog step, so "0.01 mm" doesn't render as "0.010000".
     private func stepLabel(_ size: Double) -> String {
         size >= 1 ? String(format: "%.0f mm", size) : String(format: "%g mm", size)
+    }
+
+    // MARK: - Machine DRO (SPK-1800g)
+
+    /// Large monospaced X Y Z readout from the parsed mPos status report.
+    /// Updates when the simulator/controller reports `<Idle|MPos:…>`.
+    private var machineDRO: some View {
+        Group {
+            if chromeState.isLive {
+                VStack(spacing: 2) {
+                    Text("MPos")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    HStack(spacing: 12) {
+                        droColumn("X", controller.machineSession.mPosX)
+                        droColumn("Y", controller.machineSession.mPosY)
+                        droColumn("Z", controller.machineSession.mPosZ)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+        }
+    }
+
+    private func droColumn(_ label: String, _ value: Double) -> some View {
+        VStack(spacing: 0) {
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Text(String(format: "%.3f", value))
+                .font(.system(size: 16, weight: .medium, design: .monospaced))
+                .foregroundStyle(.primary)
+        }
+        .frame(minWidth: 60)
     }
 
     // MARK: - Jog Button
