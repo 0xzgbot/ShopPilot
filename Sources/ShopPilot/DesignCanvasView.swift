@@ -384,6 +384,52 @@ struct DesignCanvasView: View {
 
     /// UI-polish cluster — toolpath wireframe overlay, gated by the Toolpaths
     /// chip. Reuses the same segment parser as the Preview stage.
+    /// SPK-1800f: parse lead-in / lead-out segments from Profile G-code.
+    /// Lead-in: first G1 cut move after the plunge in each pass.
+    /// Lead-out: last G1 cut move before the rapid to safe Z.
+    private func parseLeadSegments(from gcode: [String]) -> (leadIns: [(CGPoint, CGPoint)], leadOuts: [(CGPoint, CGPoint)]) {
+        var leadIns: [(CGPoint, CGPoint)] = []
+        var leadOuts: [(CGPoint, CGPoint)] = []
+        var i = 0
+        while i < gcode.count {
+            let line = gcode[i].trimmingCharacters(in: .whitespaces)
+            if line.hasPrefix("(Pass") {
+                let passStart = i + 1
+                var plungeIdx = -1
+                var firstCutIdx = -1
+                var lastCutIdx = -1
+                for j in passStart..<gcode.count {
+                    let l = gcode[j].trimmingCharacters(in: .whitespaces)
+                    if l.hasPrefix("(Pass") && j > passStart { break }
+                    if plungeIdx < 0 && l.hasPrefix("G1 Z") { plungeIdx = j }
+                    if plungeIdx >= 0 && firstCutIdx < 0 && l.hasPrefix("G1 X") { firstCutIdx = j }
+                    if l.hasPrefix("G1 X") { lastCutIdx = j }
+                }
+                if firstCutIdx > plungeIdx && plungeIdx >= 0 {
+                    var leadInStart: CGPoint?
+                    if plungeIdx > 0 {
+                        let rapidLine = gcode[plungeIdx - 1].trimmingCharacters(in: .whitespaces)
+                        if rapidLine.hasPrefix("G0 X"), let p = WireframeRenderer.parseXY(from: rapidLine, previousX: nil, previousY: nil) {
+                            leadInStart = CGPoint(x: p.x, y: p.y)
+                        }
+                    }
+                    let cutLine = gcode[firstCutIdx].trimmingCharacters(in: .whitespaces)
+                    if let cutPoint = WireframeRenderer.parseXY(from: cutLine, previousX: nil, previousY: nil), let start = leadInStart {
+                        leadIns.append((start, CGPoint(x: cutPoint.x, y: cutPoint.y)))
+                    }
+                }
+                if lastCutIdx >= 0 {
+                    let cutLine = gcode[lastCutIdx].trimmingCharacters(in: .whitespaces)
+                    if let cutPoint = WireframeRenderer.parseXY(from: cutLine, previousX: nil, previousY: nil) {
+                        leadOuts.append((CGPoint(x: cutPoint.x, y: cutPoint.y), CGPoint(x: cutPoint.x + 5, y: cutPoint.y)))
+                    }
+                }
+            }
+            i += 1
+        }
+        return (leadIns, leadOuts)
+    }
+
     private var toolpathOverlayLayer: some View {
         Canvas { context, _ in
             guard session.canvasOverlays.contains(.toolpaths) else { return }
@@ -397,6 +443,21 @@ struct DesignCanvasView: View {
                     with: .color(seg.isRapid ? Color.blue.opacity(0.5) : Color.green.opacity(0.7)),
                     lineWidth: seg.isRapid ? 1.0 : 1.5
                 )
+            }
+
+            // SPK-1800f: draw lead-in / lead-out segments (distinct stroke).
+            let (leadIns, leadOuts) = parseLeadSegments(from: session.allToolpathGCode)
+            for (start, end) in leadIns {
+                var p = Path()
+                p.move(to: screen(start.x, start.y))
+                p.addLine(to: screen(end.x, end.y))
+                context.stroke(p, with: .color(Color.orange.opacity(0.8)), lineWidth: 2.0)
+            }
+            for (start, end) in leadOuts {
+                var p = Path()
+                p.move(to: screen(start.x, start.y))
+                p.addLine(to: screen(end.x, end.y))
+                context.stroke(p, with: .color(Color.purple.opacity(0.8)), lineWidth: 2.0)
             }
         }
     }
