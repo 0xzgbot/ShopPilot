@@ -87,6 +87,8 @@ struct DesignCanvasView: View {
     @State private var spaceKeyDown = false
     // SPK-1800c: cursor location for DRO.
     @State private var cursorLocation: CGPoint?
+    // SPK-1800d: canvas datum mode — "corner" or "center".
+    @State private var canvasOriginMode: String = "corner"
 
     private let doubleTapWindow: TimeInterval = 0.35
 
@@ -218,6 +220,22 @@ struct DesignCanvasView: View {
             .buttonStyle(.borderless)
             .help(snapToGridOn ? "Snap: ON — shapes snap to grid" : "Snap: OFF — free placement")
 
+            // SPK-1800d: sheet origin datum — corner vs center.
+            // Design origin is the sheet drawing datum; Machine work zero / mPos / G54
+            // live on the Machine stage and are not changed by this control.
+            Divider().frame(height: 14)
+            Text("Origin:")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Picker("Canvas Origin", selection: $canvasOriginMode) {
+                Text("Corner").tag("corner")
+                    .help("Design origin at sheet corner (world 0,0)")
+                Text("Center").tag("center")
+                    .help("Design origin at sheet center")
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 120)
+
             // UI-polish cluster: visibility chips (Vec / Keep-outs / Toolpaths).
             Divider().frame(height: 14)
             ForEach(0..<CanvasOverlayOptions.chips.count, id: \.self) { i in
@@ -246,6 +264,15 @@ struct DesignCanvasView: View {
         }
         .padding(8)
         .onChange(of: session.designTool) { _, _ in resetDraft() }
+        .onChange(of: canvasOriginMode) { _, newMode in
+            session.updateCanvasOrigin(newMode)
+        }
+        .onChange(of: session.activeSheetID) { _, _ in
+            // SPK-1800d: load persisted datum mode from the job.
+            if let mode = session.job.canvasOriginRaw {
+                canvasOriginMode = mode
+            }
+        }
     }
 
     // MARK: - Layers
@@ -255,9 +282,16 @@ struct DesignCanvasView: View {
             // SPK-visual — design-anchored grid: lines move with the content
             // (offset + scale), so the sheet reads as a fixed world, and a
             // bold amber origin cross marks the (0,0) datum at any zoom.
+            // SPK-1800d: sheet center for center-origin mode.
+            let sheetCenterX = (session.activeSheet?.width ?? 0) / 2
+            let sheetCenterY = (session.activeSheet?.depth ?? 0) / 2
+            let useCenter = session.job.canvasOriginRaw == "center"
+            let originX = useCenter ? sheetCenterX : 0
+            let originY = useCenter ? sheetCenterY : 0
+
             let step: CGFloat = 20 * scale
             guard step > 2 else { return }
-            let origin = screen(0, 0)
+            let origin = screen(originX, originY)
             var path = Path()
             // Vertical lines.
             var x = origin.x.truncatingRemainder(dividingBy: step)

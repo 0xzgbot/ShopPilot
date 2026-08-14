@@ -913,6 +913,14 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
         markDirty()
     }
 
+    /// SPK-1800d: persist the Design canvas datum (corner/center) on the job.
+    func updateCanvasOrigin(_ mode: String) {
+        registerUndoPoint()
+        job.canvasOriginRaw = mode
+        job.updatedAt = .now
+        markDirty()
+    }
+
     // MARK: - Sheet CRUD (SPK-0800 multi-sheet management)
 
     /// Add a new sheet (default 600×400×25 stock) and make it active.

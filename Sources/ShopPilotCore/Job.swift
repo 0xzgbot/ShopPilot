@@ -80,6 +80,11 @@ public struct Job: Identifiable, Codable, Sendable {
     /// (`ShapeGroupEngine.sanitized`), so stale indices never crash.
     public var shapeGroups: [[Int]]?
 
+    /// SPK-1800d — Design canvas datum: where the sheet origin sits.
+    /// `"corner"` (default, world 0,0 = sheet corner) or `"center"` (world 0,0 = sheet center).
+    /// Optional + legacy-safe — older documents decode nil → corner.
+    public var canvasOriginRaw: String?
+
     public init(
         id: UUID = UUID(),
         name: String = "Untitled Project",
