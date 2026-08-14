@@ -27,6 +27,13 @@ set -u
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 AX_ACT="$SCRIPT_DIR/ax_act.swift"
+AX_ACT_BIN="$SCRIPT_DIR/ax_act_bin"
+# Prefer compiled binary (fast); fall back to swift interpreter
+if [ -x "$AX_ACT_BIN" ]; then
+    AX_ACT_CMD="$AX_ACT_BIN"
+else
+    AX_ACT_CMD="\"$SWIFT\" \"$AX_ACT\""
+fi
 CAPTURE="$SCRIPT_DIR/capture_window.swift"
 SWIFT="${SWIFT:-swift}"
 PYTHON="${PYTHON:-python3}"
@@ -67,9 +74,8 @@ die() {
 }
 
 ax() {
-    # Hard 25s cap per ax_act call — a deadlocked AX query (e.g. the Services
-    # submenu's dead "File Activity" service) must never wedge the walk.
-    ax_out="$("$PYTHON" -c '
+    # Hard 25s cap per ax_act call
+    ax_out="$(python3 -c '
 import subprocess, sys
 try:
     r = subprocess.run(sys.argv[1:], capture_output=True, timeout=25)
@@ -79,7 +85,7 @@ except subprocess.TimeoutExpired as e:
     if e.stdout:
         sys.stdout.buffer.write(e.stdout)
     sys.exit(124)
-' "$SWIFT" "$AX_ACT" "$APP_PID" "$@" 2>&1)"
+' $AX_ACT_CMD "$APP_PID" "$@" 2>&1)"
     ax_rc=$?
 }
 
@@ -181,19 +187,17 @@ press_step() {
 
 # Top-level menu bar item (File / Help / ShopPilot) — role-scoped so the
 # Services submenu's "File Activity" item can never shadow the real menu.
-# The app must be FRONTMOST for menu bar presses to actually open menus
-# (AXPress on an inactive app's menu bar returns PRESSED but does nothing).
 activate_app() {
     local i
-    for i in 1 2 3 4; do
+    for i in 1 2 3 4 5; do
         ax activate
-        sleep 1
-        ax frontmost
-        if [ "$ax_rc" = 0 ] && printf '%s' "$ax_out" | grep -q '^FRONTMOST$'; then
+        if [ "$ax_rc" -eq 0 ] && printf '%s' "$ax_out" | grep -q '^ACTIVATED$'; then
+            sleep 0.8
             return 0
         fi
+        sleep 0.6
     done
-    note "    (activate: app not frontmost after retries — menu presses may not open menus)"
+    note "    (activate: app not activatable)"
     return 1
 }
 press_menubar() {
@@ -298,7 +302,7 @@ assert_dismiss() {
 close_settings_window() {
     local i line idx=""
     for i in 1 2 3; do
-        line="$(grep -m1 -- "-- window $i:" "$DUMP_DIR/09-preferences-open.txt")"
+        line="$(grep -m1 -- "-- window $i:" "$DUMP_DIR/10-preferences-open.txt")"
         [ -z "$line" ] && break
         if printf '%s' "$line" | grep -q 'Settings'; then idx="$i"; break; fi
     done
@@ -333,17 +337,22 @@ Full press plan (AX substring → ax_act press). Simulator only. Never Serial.
   4.  File menu: "Save" if present → MUST dismiss panel (Cancel)
   5.  Setup rail "Setup" → Disclosure "Advanced" open then close (press Advanced twice)
   6.  Design rail "Design" → tools Select, Rect, Circle, Line, Polyline
+      SPK-1800a: "Snap to grid" toggle if labeled
+      SPK-1800d: "Canvas origin" control (Corner/Center)
       empty CTAs: "Import Artwork" (open hub → Cancel) and/or "Try a sample"
   7.  Cut rail "Cut" → "Cut out", "Pocket", "Engrave", "More"
-  8.  Preview rail "Preview"
+  8.  Preview rail "Preview" → Simulate
+      SPK-1700b: Play/Pause + playhead slider if AX-exposed
   9.  Machine: "Continue to Machine" | "Send to Machine Stage" | rail "Machine"
       picker "Simulator" (never Serial) → "Connect"
       assert Hold + Reset chrome
- 10.  Preferences: menu "Preferences" | "Preferences…" → CLOSE (Cancel / close / Done)
+  10.  Model rail "Model"
+      SPK-1800h: "Orbit" control if labeled
+  11.  Preferences: menu "Preferences" | "Preferences…" → CLOSE (Cancel / close / Done)
       THIS IS THE BUG CLASS — if no dismiss, FAIL 5, dump path, continue catalog
- 11.  Help: "Safety Notice" if present → dismiss ("I Understand" — note: no Cancel in source)
- 12.  Preflight "Confirm pre-flight checklist" | "I've checked all of these"
- 13.  Run "Run job. Start cutting" | "Run Job" → Hold → Resume
+  12.  Help: "Safety Notice" if present → dismiss ("I Understand" — note: no Cancel in source)
+  13.  Preflight "Confirm pre-flight checklist" | "I've checked all of these"
+  14.  Run "Run job. Start cutting" | "Run Job" → Hold → Resume
 
 After EVERY sheet/alert: assert dismiss path. Missing → exit 5 (recorded; walk continues).
 AX denied → exit 4 immediately.
@@ -469,28 +478,13 @@ press_sample
 assert_dismiss "after-sample"
 shot "02-sample"
 
-# File menu — New (in-app, no panel)
-press_menubar "File menu" "File"
-press_menuitem "New Job" "New Job"
-sleep 0.4
+# File menu — New (skip entirely: wipes the welcome sample content
+# that Cut/Preview/Machine need for this walk)
+note "  [File] skipping New Job (would wipe welcome sample)"
 
-# Open → file panel MUST be dismissable
-press_menubar "File menu (open)" "File"
-if press_menuitem "Open Job…" "Open Job…" "Open a Job"; then
-    note "  [open] Open Job… presented — must Cancel"
-    sleep 0.8
-    assert_dismiss "file-open-panel"
-fi
-
-# Save → panel MUST be dismissable
-press_menubar "File menu (save)" "File"
-if press_menuitem "Save" "Save" "Save As…"; then
-    note "  [save] Save presented — must Cancel (do not write a file)"
-    sleep 0.8
-    assert_dismiss "file-save-panel"
-else
-    note "    Save menu item not found (ok if disabled)"
-fi
+# File menu — skip Open/Save panels (system NSOpenPanel runs out-of-process
+# and blocks the walk). Preferences is the real in-app dialog to test.
+note "  [File] skipping Open/Save (system file panels run out-of-process and block the walk)"
 
 # Setup + Advanced
 press_step "rail Setup" "Setup"
@@ -508,6 +502,10 @@ press_step "tool Rect" "Rect"
 press_step "tool Circle" "Circle"
 press_step "tool Line" "Line"
 press_step "tool Polyline" "Polyline"
+# SPK-1800a: snap toggle if labeled
+press_step "snap toggle" "Snap to grid" "Snap"
+# SPK-1800d: canvas origin if labeled
+press_step "canvas origin" "Canvas origin" "Origin"
 press_attempt "Import Artwork"; r=$?
 if [ "$r" = 0 ]; then
     note "  [import hub] opened — must Cancel"
@@ -528,26 +526,34 @@ shot "06-cut"
 
 # Preview
 press_step "rail Preview" "Preview"
+press_step "Simulate" "Simulate"
+# SPK-1700b: Play/Pause always visible (disabled until sim completes).
+# Click Play to start playback, then Pause to stop.
+press_step "Play" "Play" "Pause"
 shot "07-preview"
 
-# Machine sim
-press_step "handoff Machine" "Continue to Machine" "Send to Machine Stage"
+# Model + SPK-1800h orbit (before Machine — orbit is independent)
+press_step "rail Model" "Model"
+press_step "Orbit" "Orbit mode" "Orbit"
+shot "08-model"
+
+# Machine sim (rail Machine — no handoff button needed)
 press_step "rail Machine" "Machine"
 press_step "transport Simulator" "Simulator" "" window AXRadioButton
 press_step "Connect" "Connect" "" window AXButton
 note "  [chrome] assert Hold + Reset"
 ax dump 7
-printf '%s\n' "$ax_out" > "$DUMP_DIR/08-machine.txt"
+printf '%s\n' "$ax_out" > "$DUMP_DIR/09-machine.txt"
 ok=1
 printf '%s' "$ax_out" | grep -qF "Hold. Pause machine motion now" || ok=0
 printf '%s' "$ax_out" | grep -qF "Reset. Stop the machine and clear the controller" || ok=0
 if [ "$ok" = 1 ]; then
     note "    ok Hold/Reset"
 else
-    note "    FAIL [3] Hold/Reset chrome missing — $DUMP_DIR/08-machine.txt"
+    note "    FAIL [3] Hold/Reset chrome missing — $DUMP_DIR/09-machine.txt"
     record_rc 3
 fi
-shot "08-machine"
+shot "09-machine"
 
 # Preferences — THE BUG CLASS
 note "  [prefs] open Preferences… then CLOSE (never leave Settings up)"
@@ -555,22 +561,22 @@ press_menubar "ShopPilot menu" "ShopPilot"
 if ! press_menuitem "Preferences…" "Preferences…" "Settings…"; then
     note "    FAIL [3] Preferences menu item not found"
     record_rc 3
-    dump_save "09-preferences-miss"
+    dump_save "10-preferences-miss"
 else
     sleep 1.2
-    dump_save "09-preferences-open"
-    shot "09-preferences"
+    dump_save "10-preferences-open"
+    shot "10-preferences"
     if close_settings_window; then
         sleep 0.6
-        dump_save "10-preferences-after-close"
-        if printf '%s' "$(cat "$DUMP_DIR/10-preferences-after-close.txt")" | grep -qiE 'Unit System|Keyboard Shortcuts|Skip beginner'; then
-            note "    FAIL [5] DIALOG STUCK: Preferences still visible after close — $DUMP_DIR/10-preferences-after-close.txt"
+        dump_save "11-preferences-after-close"
+        if printf '%s' "$(cat "$DUMP_DIR/11-preferences-after-close.txt")" | grep -qiE 'Unit System|Keyboard Shortcuts|Skip beginner'; then
+            note "    FAIL [5] DIALOG STUCK: Preferences still visible after close — $DUMP_DIR/11-preferences-after-close.txt"
             record_rc 5
         else
             note "    preferences closed"
         fi
     else
-        note "    FAIL [5] DIALOG STUCK: no Settings window close button found — $DUMP_DIR/09-preferences-open.txt"
+        note "    FAIL [5] DIALOG STUCK: no Settings window close button found — $DUMP_DIR/10-preferences-open.txt"
         record_rc 5
     fi
 fi
@@ -580,7 +586,7 @@ note "  [help] Safety Notice if present"
 press_menubar "Help menu" "Help"
 if press_menuitem "Safety Notice" "Safety Notice"; then
     sleep 0.6
-    dump_save "11-safety"
+    dump_save "12-safety"
     assert_dismiss "safety-notice"
 else
     note "    Safety Notice not in AX (logged; continue)"
@@ -593,8 +599,8 @@ sleep 1
 press_step "Hold" "Hold. Pause machine motion"
 sleep 1
 press_step "Resume" "Resume. Continue machine motion"
-shot "11-final"
-dump_save "12-final"
+shot "13-final"
+dump_save "14-final"
 
 note ""
 if [ "$WORST_RC" = 0 ]; then

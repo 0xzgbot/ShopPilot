@@ -218,6 +218,7 @@ struct DesignCanvasView: View {
                     .foregroundStyle(snapToGridOn ? Color.accentColor : .secondary)
             }
             .buttonStyle(.borderless)
+            .accessibilityLabel("Snap to grid")
             .help(snapToGridOn ? "Snap: ON — shapes snap to grid" : "Snap: OFF — free placement")
 
             // SPK-1800d: sheet origin datum — corner vs center.
@@ -235,6 +236,7 @@ struct DesignCanvasView: View {
             }
             .pickerStyle(.segmented)
             .frame(width: 120)
+            .accessibilityLabel("Canvas origin")
 
             // UI-polish cluster: visibility chips (Vec / Keep-outs / Toolpaths).
             Divider().frame(height: 14)

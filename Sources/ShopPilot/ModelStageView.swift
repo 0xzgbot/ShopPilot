@@ -343,6 +343,7 @@ struct ModelStageView: View {
             Divider().frame(height: 14)
             Toggle("Orbit", isOn: $orbitMode)
                 .toggleStyle(.button)
+                .accessibilityLabel("Orbit mode")
                 .help("Orbit: drag to rotate the relief (yaw/pitch)")
             if !session.reliefComponents.isEmpty {
                 Button("Recomposite") { session.recompositeRelief() }

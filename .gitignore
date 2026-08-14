@@ -55,3 +55,4 @@ research/raw/
 # Track the downloadable zip; ignore the regenerable unpacked .app.
 dist/*.app
 dist/*.app.zip
+scripts/ax_act_bin

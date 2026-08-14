@@ -1,6 +1,7 @@
 import Foundation
 import ApplicationServices
 import AppKit
+import CoreGraphics
 
 // Swift AX driver — dump / press-by-description / setvalue, with timeouts.
 // Usage:
@@ -211,6 +212,23 @@ if mode == "dump" {
     }
     let err = AXUIElementPerformAction(close as! AXUIElement, kAXPressAction as CFString)
     print(err == .success ? "CLOSED" : "CLOSE FAILED: \(err.rawValue)")
+} else if mode == "presskey" {
+    // presskey <key> — simulate a key press (used for Escape to dismiss panels)
+    guard args.count >= 4 else { exit(2) }
+    let key = args[3]
+    var keyCode: CGKeyCode = 53 // Escape by default
+    switch key.lowercased() {
+    case "escape", "esc": keyCode = 53
+    case "return", "enter": keyCode = 36
+    case "tab": keyCode = 48
+    default: keyCode = 53
+    }
+    let src = CGEventSource(stateID: .hidSystemState)
+    let keyDown = CGEvent(keyboardEventSource: src, virtualKey: keyCode, keyDown: true)
+    let keyUp = CGEvent(keyboardEventSource: src, virtualKey: keyCode, keyDown: false)
+    keyDown?.post(tap: .cghidEventTap)
+    keyUp?.post(tap: .cghidEventTap)
+    print("KEY PRESSED: \(key)")
 } else if mode == "presspos" {
     guard args.count >= 5, let x = Int(args[3]), let y = Int(args[4]) else { exit(2) }
     guard let windows = attr(app, kAXWindowsAttribute) as? [AXUIElement] else { print("no windows"); exit(1) }

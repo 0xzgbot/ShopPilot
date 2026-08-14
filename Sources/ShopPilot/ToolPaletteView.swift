@@ -46,6 +46,7 @@ struct DesignToolPaletteView: View {
         .buttonStyle(.plain)
         .help(t.hint)
         .accessibilityLabel(t.label)
+        .accessibilityAddTraits(.isButton)
         .keyboardShortcut(shortcutKey(t), modifiers: .option)
     }
 

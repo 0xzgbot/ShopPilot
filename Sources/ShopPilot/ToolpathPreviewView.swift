@@ -193,16 +193,18 @@ struct ToolpathPreviewView: View {
                 }
 
                 // SPK-1700b — playhead over sim time (0…1 = G-code progress).
-                // Scrubbing runs a cancellable prefix-sim so the heightfield
-                // shows the cut as of that point; 1 reuses the full result.
+                // Always visible (disabled until sim completes) so users see
+                // playback is coming and AX can find it during UI walks.
+                Button(isPlaying ? "Pause" : "Play") {
+                    isPlaying ? pausePlayback() : startPlayback()
+                }
+                .disabled(simHeightmap == nil)
+                .help("Play the cut simulation from start to end")
+                Slider(value: $playhead, in: 0...1)
+                    .frame(maxWidth: 160)
+                    .disabled(simHeightmap == nil)
+                    .help("Playhead — shows the heightfield as of this toolpath prefix")
                 if simHeightmap != nil {
-                    Button(isPlaying ? "Pause" : "Play") {
-                        isPlaying ? pausePlayback() : startPlayback()
-                    }
-                    .help("Play the cut simulation from start to end")
-                    Slider(value: $playhead, in: 0...1)
-                        .frame(maxWidth: 160)
-                        .help("Playhead — shows the heightfield as of this toolpath prefix")
                     Text("\(Int(playhead * 100))%")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
