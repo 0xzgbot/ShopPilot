@@ -76,14 +76,41 @@ struct DesignCanvasView: View {
     @State private var measureA: CGPoint?
     @State private var measureB: CGPoint?
 
+    // SPK-1800a: snap toggle state — persists via @AppStorage.
+    @AppStorage("shop_pilot_canvas_snap") private var snapToGridOn: Bool = false
+
     // SPK-1800b: marquee select state.
     @State private var isMarqueeDragging = false
     @State private var marqueeStart: CGPoint?
     @State private var marqueeEnd: CGPoint?
     // SPK-1800b: Space key tracker for Space+drag pan.
     @State private var spaceKeyDown = false
+    // SPK-1800c: cursor location for DRO.
+    @State private var cursorLocation: CGPoint?
 
     private let doubleTapWindow: TimeInterval = 0.35
+
+    /// World-coordinate grid step shared by `gridLayer` and the snap helper
+    /// (20 world units). Create tools and select-move snap to these intersections.
+    private let canvasGridStep: CGFloat = 20
+
+    /// SPK-1800a: instance wrapper around the pure snap helper.
+    private func snapToGrid(_ p: CGPoint) -> CGPoint {
+        CanvasSnap.snap(p, gridStep: canvasGridStep, on: snapToGridOn)
+    }
+
+    /// SPK-1800a: snap math — pure helper so the CLT can test it without SwiftUI.
+    enum CanvasSnap {
+        /// Round a world-coordinate point to the nearest grid intersection.
+        /// When `on` is false, returns `p` unchanged.
+        static func snap(_ p: CGPoint, gridStep: CGFloat, on: Bool) -> CGPoint {
+            guard on else { return p }
+            return CGPoint(
+                x: round(p.x / gridStep) * gridStep,
+                y: round(p.y / gridStep) * gridStep
+            )
+        }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -100,6 +127,7 @@ struct DesignCanvasView: View {
                     draftLayer
                     nodeEditLayer
                     measureLayer
+                    cursorDROLayer
                     hintLayer
                 }
                 .clipped()
@@ -117,29 +145,26 @@ struct DesignCanvasView: View {
                             scaleBeforePinch = scale
                         }
                 )
-                .onKeyPress(.space) { _ in
-                    // SPK-1800b: track Space for Space+drag pan.
-                    spaceKeyDown = true
-                    return .ignored
-                }
-                .onKeyPress(.init(" ")) { _ in
-                    spaceKeyDown = true
+                .onKeyPress(.space) {
+                    // SPK-1800b: toggle Space-pan mode (sticky — press once to
+                    // pan on, press again to pan off; avoids key-up tracking).
+                    spaceKeyDown.toggle()
                     return .ignored
                 }
                 .onContinuousHover { phase in
-                    guard tool == .polyline else { return }
                     switch phase {
                     case .active(let loc):
-                        hoverLocation = model(loc)
+                        // SPK-1800c: cursor DRO tracks hover for all tools.
+                        if tool == .polyline {
+                            hoverLocation = model(loc)
+                        }
+                        cursorLocation = model(loc)
                     case .ended:
                         hoverLocation = nil
+                        cursorLocation = nil
                     }
                 }
                 .onAppear { fitContent(in: geo.size) }
-                .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignMainNotification)) { _ in
-                    // SPK-1800b: release Space if window loses focus mid-press.
-                    spaceKeyDown = false
-                }
             }
         }
     }
@@ -455,6 +480,27 @@ struct DesignCanvasView: View {
         }
     }
 
+    /// SPK-1800c: cursor DRO overlay — live X/Y in sheet mm while hovering.
+    @ViewBuilder
+    private var cursorDROLayer: some View {
+        if let loc = cursorLocation {
+            VStack {
+                HStack {
+                    Spacer()
+                    Text(String(format: "X %.1f  Y %.1f", loc.x, loc.y))
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 4))
+                        .accessibilityLabel(String(format: "Cursor X %.1f Y %.1f", loc.x, loc.y))
+                }
+                Spacer()
+            }
+            .padding(8)
+        }
+    }
+
     private var hintLayer: some View {
         VStack {
             Spacer()
@@ -546,7 +592,8 @@ struct DesignCanvasView: View {
         }
         guard let idx = selectedIndex, session.shapes.indices.contains(idx) else {
             // Drag on empty canvas → marquee or pan.
-            let isPan = spaceKeyDown || NSEvent.pressedMouseButtons.contains(.secondary)
+            // Middle button (== otherMouse / button 2) or Space pans.
+            let isPan = spaceKeyDown || NSEvent.pressedMouseButtons == 4
             if isPan {
                 isMarqueeDragging = false
                 offset = CGSize(
@@ -875,31 +922,6 @@ struct DesignCanvasView: View {
             height: size.height / 2 + CGFloat((minY + maxY) / 2) * scale
         )
     }
-}
-
-/// World-coordinate grid step shared by `gridLayer` and the snap helper
-/// (20 world units). Create tools and select-move snap to these intersections.
-private let canvasGridStep: CGFloat = 20
-
-/// SPK-1800a: snap math — pure helper so the CLT can test it without SwiftUI.
-enum CanvasSnap {
-    /// Round a world-coordinate point to the nearest grid intersection.
-    /// When `on` is false, returns `p` unchanged.
-    static func snap(_ p: CGPoint, gridStep: CGFloat, on: Bool) -> CGPoint {
-        guard on else { return p }
-        return CGPoint(
-            x: round(p.x / gridStep) * gridStep,
-            y: round(p.y / gridStep) * gridStep
-        )
-    }
-}
-
-/// SPK-1800a: snap toggle state — persists via @AppStorage.
-@AppStorage("shop_pilot_canvas_snap") private var snapToGridOn: Bool = false
-
-/// SPK-1800a: instance wrapper around the pure snap helper.
-private func snapToGrid(_ p: CGPoint) -> CGPoint {
-    CanvasSnap.snap(p, gridStep: canvasGridStep, on: snapToGridOn)
 }
 
 /// In-flight vertex drag for node-edit mode (SPK-1101b): which vertex of which
