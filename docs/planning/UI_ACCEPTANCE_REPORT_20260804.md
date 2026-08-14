@@ -4,7 +4,7 @@
 **Script:** `docs/planning/UI_ACCEPTANCE_DRIVER.md` (G1-A → G1-F → G2)
 **App:** `.build/debug/ShopPilot` @ `413c82b` (master, clean pull)
 **Run folder:** `/tmp/shoppilot-ui-accept-20260804/`
-**Transport:** Simulator only. **No live CNC / no notarize / no App Store.**
+**Transport:** Simulator only. **Scope exclusions:** live CNC, notarization, App Store.
 **TCC:** Screen Recording + Accessibility granted. AX **reads + AXPress actions** allowed; **CGEvent clicks/keystrokes denied** (`-25211` on `click at`) — the driver used AXPress (buttons/menus/radios) + positional presses via a Swift AX probe (timeouts), never mouse drags.
 
 ---

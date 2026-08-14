@@ -53,7 +53,7 @@ Ship is **not** “every reference checkbox.” Ship is:
 
 ### Must ship (v1.0 “Serious Mac CNC suite”)
 
-1. **Native Apple Silicon** app (no Windows VM).  
+1. **Native Apple Silicon** app (runs natively, no Windows VM).  
 2. **Job:** single-sided stock, layers, undo, save/open `.shoppilot`.  
 3. **Design:** draw/edit vectors, import SVG/DXF, text, offset, boolean, join/trim, measure.  
 4. **Cut:** Profile, Pocket, Drill, V-Carve; material setup; tool DB basics; dirty flags; no silent auto-recalc.  
@@ -399,7 +399,7 @@ A (parallel from day 0)
   - worklog: 2026-07-29 — wrote docs/planning/PACKAGING.md (3.9KB). Three-tier model (Core/Studio/Studio3D), laser policy excluded from v1.0, upgrade/downgrade policy, build target macOS 14+ Apple Silicon native.
 - [x] **SPK-0006** **UX** PR template: ≤12 icons/stage + safety review checklist
   - worklog: 2026-07-28 — wrote .github/PULL_REQUEST_TEMPLATE.md (2.1KB). Design rules, safety checklist, SPK tracking table.
-- [x] **SPK-0007** **REL** README Mac-native positioning (no VM) 
+- [x] **SPK-0007** **REL** README Mac-native positioning (native app, no VM) 
 - [x] **SPK-0008** **REL** Honest “relief CAM not full solid CAD” + SAFETY in docs
   - worklog: 2026-07-30 — Created `docs/planning/SHOPPILOT_SCOPE.md` (5.6KB) and `docs/planning/PRODUCT_BOUNDARIES.md` (5.2KB) with honest positioning: ShopPilot is a relief CAM toolpath generator and machine controller, not a full 3D solid CAD/CAM package. Documented what it DOES (2D vector design, SVG/DXF import, profile/pocket/drill/V-carve toolpaths, preview simulation, GRBL machine control) and what it DOES NOT do (3D solid modeling, parametric design, multi-axis, STEP/IGES import). Expanded SAFETY.md with operator PPE checklist, in-app disclaimer text, and cross-references. Updated README.md with links to both new docs.  
 - [x] **SPK-0009** **QA** Forum wishlist scrape top themes → append research doc
@@ -728,7 +728,7 @@ A (parallel from day 0)
   - AC: Engine: profile `machineType` → post type (GRBL/Universal) + profile `units` → G21/G20; UI: Save Toolpaths uses the active persisted profile; Persist: units + machineType survive Codable, legacy profiles decode safe; Verify: `ShopPilotVerify0415` PASS
   - worklog: 2026-08-04 — Hermes coder (finish close-out). Audit: `MachineProfileType.autoPostProcessorType` + bridge switch already existed; the honest gaps were (a) the post hardcoded `millimeterUnits: true` — units never came from the profile, and (b) Save Toolpaths hardcoded a GRBL profile instead of the persisted store. Engine: added `GCodeUnits` (Core: .millimeter/.inch, displayName, modalCode); `GRBLPostProcessor.grbl/universal` gained `units:` (default .millimeter → callers unchanged); `MachineProfile.units` field with custom legacy-safe Codable (`decodeIfPresent` for units + machineType + id/name/config/dates → pre-0415 stored profiles decode as grbl+millimeter). UI: `AppSession.machineProfiles` (MachineProfileStore, UserDefaults-persisted); Save Toolpaths now uses `activeMachineProfile = store.profiles.first ?? simulatorProfile` → machine type + units flow into the export. `ShopPilotVerify0415` PASS — type mapping (grbl→GRBL post, universal→Universal), G21/G20 emission for both posts, post-type differences intact (line numbers, extension), Codable round-trip incl. inch, legacy JSON decodes as grbl+mm. Regressions 1102g/0600/0417a/0319/0603 green; app build green.
   - deps: SPK-0313, SPK-0400
-- [x] **SPK-0416** **MACH** Host-native serial docs (no VM)
+- [x] **SPK-0416** **MACH** Host-native serial docs (native Mac serial)
   - worklog: 2026-07-30 — Direct write. Created docs/planning/HOST_NATIVE_SERIAL.md (6.4KB). Covers hardware requirements, serial port detection, common device paths, permissions/security, GRBL protocol reference (status query, realtime commands, streaming), simulator mode, troubleshooting guide, and safety notes.
   - deps: SPK-0406
 - [x] **SPK-0417** **QA** Sim integration: connect → stream fixture → hold → resume → complete
@@ -960,7 +960,7 @@ A (parallel from day 0)
 
 ## SPK-SHAKE — Overnight shakedown (2026-08-05, personal-use)
 
-**Parent: SPK-SHAKE-001** — comprehensive personal-use shakedown: inventory every lean surface, fill gaps with thin Verify CLTs + fixture packs, drive native UI walks (computer control + vision), harden real P0s, leave an honest PASS/FAIL report. **Do NOT mark SPK-0623 [x] — owner decides.** Rules: SimulatorTransport only (never live CNC / real serial job); no cloud/social/video/App Store/notarize/license; worktree-only Sources edits; one swift compile at a time via swift_locked.sh / verify_locked.sh; never rm -rf .build; max 3 in-flight per profile; serialize same-file edits; prefer max-runtime 45m/60m.
+**Parent: SPK-SHAKE-001** — comprehensive personal-use shakedown: inventory every lean surface, fill gaps with thin Verify CLTs + fixture packs, drive native UI walks (computer control + vision), harden real P0s, leave an honest PASS/FAIL report. **Do NOT mark SPK-0623 [x] — owner decides.** Rules: SimulatorTransport only (never live CNC / real serial job); cloud/social/video/App Store/notarize/license are out of scope; worktree-only Sources edits; one swift compile at a time via swift_locked.sh / verify_locked.sh; never rm -rf .build; max 3 in-flight per profile; serialize same-file edits; prefer max-runtime 45m/60m.
 
 - [x] **SPK-SHAKEa** **QA** Inventory matrix
   - AC: `docs/planning/SHAKE_MATRIX.md` lists every lean P0 surface — job/setup/sheet, `.shoppilot` save/open, undo/dirty, design draw/edit/layers/selection/boolean/join/close/trim/transforms, SVG/DXF/STL import + G-code export + dirty export block, Profile/Pocket/Drill/V-Carve (+clearance) + Rough3D/Finish3D if unlocked, preview wireframe + draft sim cancel, machine connect/load (zero bytes)/preflight/Start/Hold/Resume/Reset/complete, safety chrome (Hold/Reset visible when connected, no auto-run on load, V-Carve open-vector block), recipes Calibration + Sign — with columns Surface | Entry | Engine | Persist | Existing Verify | Gap | Priority | Card; every Existing Verify name resolves in Package.swift.
@@ -1216,7 +1216,7 @@ A (parallel from day 0)
   - worklog: 2026-07-31 — PowerUser.swift (12.9KB) with ConnectionProtocol enum (usb/ethernet/wifi/bluetooth), PowerUserConfig.connectionAddress/connectionPort for network bridges, autoReconnect/maxRetries for multi-file queue resilience.
   - deps: SPK-1006
 - [-] **SPK-1009** **REL** Human App Store submission 
-  - **DEFERRED 2026-08-04:** personal-use only — no App Store. Not required for SPK-0623.
+  - **DEFERRED 2026-08-04:** personal-use only — App Store distribution is deferred. Not required for SPK-0623.
   - worklog: 2026-07-31 — PowerUser.swift packaging stubs exist; not used for personal ship.
   - deps: SPK-1008
 - [x] **SPK-1010** **REL** v2.0 ship checklist 
@@ -1413,7 +1413,7 @@ Phase O/P/1403 **CLOSED**. Laser/LightBurn **HELD**. Do not reopen. Unlisted P0/
 | P2 File export / Open Recent / Help | no File Export, no `NSDocumentController` recent, no Help `CommandGroup` |
 | P2 README 0.03 vs 0.05 | Download link `dist/ShopPilot-0.03-macOS.zip`; package script / CHANGELOG say 0.05 |
 
-**UI doctrine (every Q card):** Mac creative CNC app; six-stage rail Setup→Design→Model→Cut→Preview→Machine; palettes + inspector; Hold/Resume/Reset always visible while connected; no auto-run on open; no laser product; no NavigationSplitView; no `@Observable` AppSession rewrite; no SPK-0623.
+**UI doctrine (every Q card):** Mac creative CNC app; six-stage rail Setup→Design→Model→Cut→Preview→Machine; palettes + inspector; Hold/Resume/Reset always visible while connected; no auto-run on open; laser product not currently shipping; no NavigationSplitView; no `@Observable` AppSession rewrite; no SPK-0623.
 
 **Serialize:** all `App.swift` File/Edit/Help cards sequential (1600 → 1601 → 1605 → 1606 → 1610 → 1611). `AppSession` for New Job / save. Units (1609) may touch Core post + Preferences — serialize vs 1602 on `PreferencesView`.
 
@@ -1552,7 +1552,7 @@ Phase O/P/1403 **CLOSED**. Laser/LightBurn **HELD**. Do not reopen. Unlisted P0/
   - AC: Machine stage shows large monospaced X Y Z from `MachineSession.mPosX/Y/Z` (StatusParser); Hold/Reset remain visible when connected
   - worklog: 2026-08-13 — Hermes coder. Large monospaced X/Y/Z MPos DRO in MachineConnectionView. Reads from parsed mPos via MachineSession. Hold/Reset stay visible when connected. `ShopPilotVerify1800g` PASS.
 
-- [x] **SPK-1800h** **3D** Relief orbit — Model heightfield 2.5D orbit (not Fusion) // P0 — **SHIPPED 2026-08-13**
+- [x] **SPK-1800h** **3D** Relief orbit — Model heightfield 2.5D orbit // P0 — **SHIPPED 2026-08-13**
   - parent: SPK-1800
   - AC: Model relief can orbit/tilt (2.5D orbit of the existing heightfield — thin). Not a CAD viewport. Sculpt pan/zoom still work in sculpt mode; Fit still works
   - worklog: 2026-08-13 — Hermes coder. Orbit toggle in Model opsBar (drag to rotate yaw/pitch). Pitch clamped to [-89, 89] to avoid gimbal flip. @State orbitYaw/orbitPitch/orbitMode on ReliefCanvasView. `ShopPilotVerify1800h` PASS.
@@ -1631,7 +1631,7 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 
 ### 2026-08-13 — SPK-1700 Preview playback queued (docs)
 - Board: parent **SPK-1700** `[ ]` + children **1700a** raster, **1700b** playhead, **1700c** bit stamp, **1700d** screenshot pack. **SPK-UI-BUG-03 remains P0 `[ ]` — Hermes must do BUG-03 FIRST** then 1700a–d.
-- Prompt: `docs/planning/PREVIEW_PLAYBACK_HERMES.md`. Shot list: `docs/screenshots/README.md`. README honesty: no laser product, preview is 2.5D heightfield not Metal; version 0.05; existing `01–06` PNGs kept until 1700d.
+- Prompt: `docs/planning/PREVIEW_PLAYBACK_HERMES.md`. Shot list: `docs/screenshots/README.md`. README honesty: preview is 2.5D heightfield (laser not a current product); version 0.05; existing `01–06` PNGs kept until 1700d.
 - Laser held. **SPK-0623 left `[ ]`** (no rubber stamp). No ToolpathSimulator playback implemented this pass.
 
 ### 2026-08-13 — SPK-0623b Full AX UI drive

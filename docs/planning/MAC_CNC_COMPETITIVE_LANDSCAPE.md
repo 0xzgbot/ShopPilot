@@ -217,7 +217,7 @@ This is better than a toggle because:
 
 1. **Native Mac** — This is the #1 selling point. Most competitors force Mac users into Parallels.
 2. **All-in-one** — Design + CAM + Control in one app (competitors split these)
-3. **Offline-first** — No cloud, no subscription
+3. **Offline-first**
 4. **Pricing** — $99/$199 perpetual vs $349–$1,995 perpetual or $635/yr subscription
 5. **Recipe-driven onboarding** — No other CNC app does this
 

@@ -2,7 +2,7 @@
 
 ## Overview
 
-ShopPilot connects to CNC routers natively on macOS — no Windows VM, no Docker, no emulation. The app uses the macOS serial API directly to communicate with GRBL/FluidNC-compatible controllers over USB.
+ShopPilot connects to CNC routers natively on macOS. The app uses the macOS serial API directly to communicate with GRBL/FluidNC-compatible controllers over USB.
 
 ## Hardware Requirements
 
@@ -190,6 +190,6 @@ After major macOS updates, serial permissions may need to be re-granted:
 
 ## Safety Notes
 
-- **Software is not a substitute for hardware e-stop.** Always have a physical emergency stop accessible.
+- **Software complements but does not replace hardware e-stop.** Always have a physical emergency stop accessible.
 - The GRBL reset command (Ctrl+X) aborts all motion but does NOT disable the spindle or coolant. Manually verify these are off before approaching the machine.
 - Disconnecting during streaming will cause an error and halt the job, but may leave the spindle running on some controllers. Always use Hold → Reset in sequence for safety.

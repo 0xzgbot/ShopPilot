@@ -2,7 +2,9 @@
 
 **Native macOS CNC suite** — design vector art, generate 2.5D toolpaths, simulate the cut, and run your machine. All on the Mac you already own.
 
-> 🛑 **Safety first:** ShopPilot is a CAM + machine-control app, **not** a substitute for a hardware e-stop. The Preview heightfield and the built-in **simulator** are rehearsal tools — they do not prove a live cut is safe. Simulate, then air-cut, then cut. Keep a physical e-stop within reach.
+> 🛑 **Safety first:** ShopPilot is a CAM + machine-control app. The Preview heightfield and the built-in **simulator** are rehearsal tools — they complement but do not replace a hardware e-stop. Simulate, then air-cut, then cut. Keep a physical e-stop within reach.
+
+**New here?** [**Quickstart (~15 min)**](docs/planning/QUICKSTART.md) — Welcome sample → Design → Cut → Preview → Machine Simulator. No USB required.
 
 [![macOS](https://img.shields.io/badge/macOS-14+-black?logo=apple&logoColor=white)](https://developer.apple.com/macos)
 [![Swift](https://img.shields.io/badge/Swift-5.9-orange?logo=swift&logoColor=white)](https://swift.org)
@@ -13,7 +15,7 @@
 
 ## Screenshots
 
-Gallery: [`docs/screenshots/`](docs/screenshots/README.md). Shots below match the **0.06** UI. Preview is a SwiftUI **2.5D filled heightfield + playhead** — not Metal chip simulation, not Fusion GPU mill. Laser is **not** a product.
+Gallery: [`docs/screenshots/`](docs/screenshots/README.md). Shots below match the **0.06** UI. Preview is a SwiftUI **2.5D filled heightfield + playhead**. Laser module is not a current product.
 
 | Welcome | Design | Cut recipes |
 | --- | --- | --- |
@@ -33,12 +35,12 @@ Older numbered stills (`01-setup.png` … `06-preview.png`) remain in the same f
 
 ## Why ShopPilot?
 
-- **Native, not a VM.** SwiftUI + CoreGraphics on Apple Silicon and Intel. No Parallels, no Boot Camp, no Windows license.
-- **A 2.5D CAM suite — not LightBurn, not Fusion.** Vectors, booleans, layers, **Profile / Pocket / Drill / V-Carve**, and **3D rough/finish** from an STL or plaque heightfield. There is no laser/LightBurn product surface. Model orbit is a thin 2.5D relief view, not a 3D mill CAD viewport.
+- **Native.** SwiftUI + CoreGraphics on Apple Silicon and Intel.
+- **A 2.5D CAM suite.** Vectors, booleans, layers, **Profile / Pocket / Drill / V-Carve**, and **3D rough/finish** from an STL or plaque heightfield. Model orbit is a thin 2.5D relief view.
 - **Welcome samples + stage rail + Cut recipes.** First launch: bundled sign, box, keychain, plaque. Six stages: **Setup → Design → Model → Cut → Preview → Machine**. Cut uses recipe buttons (Cut out / Pocket / Engrave + More).
 - **First-hour CAM chrome.** Grid snap, marquee select, canvas XY DRO, sheet origin (corner/center), inspector **F / S / Z**, tabs/leads on the Design overlay, large **Machine DRO**, Model **Orbit**.
-- **Machine control built in.** Jog, work zero, touch-off probe, feed override, G54–G59, spindle, serial to GRBL/FluidNC. **The bar is the simulator** (Hold / Resume / Reset always visible). Live serial exists; it is not the acceptance bar.
-- **Safety by design.** Preflight before Run, no auto-run on load, dirty-toolpath export blocking. Software is not a hardware e-stop.
+- **Machine control built in.** Jog, work zero, touch-off probe, feed override, G54–G59, spindle, serial to GRBL/FluidNC. **The bar is the simulator** (Hold / Resume / Reset always visible). Live serial also available.
+- **Safety by design.** Preflight before Run, no auto-run on load, dirty-toolpath export blocking. Software complements but does not replace a hardware e-stop.
 
 ---
 
@@ -62,7 +64,7 @@ Older numbered stills (`01-setup.png` … `06-preview.png`) remain in the same f
 ### Model & 3D (lean spine)
 - STL → relief and bitmap → relief heightfields; 3D text; components / combine / mirror / sculpt strokes.
 - **Rough 3D / Finish 3D / rest machining** from the heightfield.
-- **Orbit** — thin 2.5D relief view (not Fusion-style 3D CAD).
+- **Orbit** — thin 2.5D relief view.
 
 ### Toolpaths (CAM)
 - **Profile** — in/out/on, climb/conventional, passes, **tabs**, ramping, **leads**, corner sharpen, ordering, allowance. Tabs/leads draw on the Design overlay.
@@ -70,12 +72,12 @@ Older numbered stills (`01-setup.png` … `06-preview.png`) remain in the same f
 - **Drill** — peck cycles, dwell, plunge feeds.
 - **V-Carve** — depth shading, V-bit presets, flat-depth, clearance-tool, inlay recipes.
 - **Inspector** — selected op **feed / spindle / Z** in the inspector shell.
-- **Specialty (engine / later)** — extra strategies may appear in More. **Laser is held** — not a shipping product. Rotary wrap is not the lean north star.
+- **Specialty (engine / later)** — extra strategies may appear in More. **Laser module not currently shipping.** Rotary wrap is a post-lean feature.
 - **Tool database** — classes, strategy defaults, manufacturer catalogs (Amana, Whiteside).
 - **Tree & safety** — status dots, **async generate/recalc** (Cut out does not freeze the UI), keep-out zones, time estimates, templates, dirty-export blocking.
 
 ### Preview
-- Full-tree **wireframe** plus sheet-aware **filled heightfield** (bit-radius stamp, cancellable). **Playhead / Play** over sim time. This is 2.5D raster, not chips, not Metal GPU mill.
+- Full-tree **wireframe** plus sheet-aware **filled heightfield** (bit-radius stamp, cancellable). **Playhead / Play** over sim time. 2.5D raster preview.
 
 ### Machine control
 - **Transports** — **simulator first**; real serial (GRBL/FluidNC) with port/baud pickers.
@@ -86,7 +88,7 @@ Older numbered stills (`01-setup.png` … `06-preview.png`) remain in the same f
 - **Stage rail** — Setup → Design → Model → Cut → Preview → Machine, ≤12 icons per stage.
 - **⌘K**, context menus, coach strip, editable shortcuts, GRBL-oriented post templates.
 
-> Scope: **personal use only, never for sale.** No 3D-view vector editing, no Fusion parametric modeling, no LightBurn/laser product.
+> Scope: **personal use only, never for sale.** 2.5D relief CAM — a focused tool, not a 3D parametric CAD suite.
 
 ---
 
@@ -133,14 +135,16 @@ Do not run bare `swift build` / `swift test` as the default gate.
 
 ## First 15 minutes
 
-1. **Welcome / Setup** — Try a sample (sign, box, keychain, plaque) or a recipe, or set stock + material.
-2. **Design** — Rect / Circle / Line / Polyline, text, or import SVG / DXF / STL. Toggle **snap**; marquee-select; watch the **XY DRO**; set **sheet origin**.
-3. **Cut** — Cut out / Pocket / Engrave (or More). Inspector shows **F / S / Z**. Recalc is async. Export stays blocked while dirty.
-4. **Preview** — Simulate; use the **playhead**. Filled heightfield, not a chip renderer.
-5. **Model** (optional) — relief + Rough/Finish 3D; **Orbit** for a 2.5D look-around.
-6. **Machine** — **Simulator** → Connect → preflight → Run. Hold / Reset stay visible. Serial is optional after that.
+**Start here:** [`docs/planning/QUICKSTART.md`](docs/planning/QUICKSTART.md) (numbered, screenshoted).
 
-Full walkthrough: [`docs/planning/TUTORIAL_FIRST_CUT.md`](docs/planning/TUTORIAL_FIRST_CUT.md)
+1. **Welcome / Setup** — Safety **I Understand**, then try a sample (sign, box, keychain, plaque) or a recipe.
+2. **Design** — Rect / Circle / Line / Polyline, text, or import SVG / DXF / STL. Toggle **snap**; marquee-select; **Space** to pan; watch the **XY DRO**.
+3. **Cut** — Cut out / Pocket / Engrave (or More). Wait for generate (async). Export stays blocked while dirty.
+4. **Preview** — Simulate; use the **playhead**. Filled heightfield.
+5. **Model** (optional) — relief + Rough/Finish 3D; **Orbit** for a 2.5D look-around.
+6. **Machine** — **Simulator** → Connect → preflight → **you** press Run. Hold / Reset stay visible. Serial is optional.
+
+Longer walkthrough: [`docs/planning/TUTORIAL_FIRST_CUT.md`](docs/planning/TUTORIAL_FIRST_CUT.md)
 
 ---
 
@@ -148,6 +152,7 @@ Full walkthrough: [`docs/planning/TUTORIAL_FIRST_CUT.md`](docs/planning/TUTORIAL
 
 | Doc | Role |
 | --- | --- |
+| [`docs/planning/QUICKSTART.md`](docs/planning/QUICKSTART.md) | **Sit-down Quickstart** (~15 min, simulator) |
 | [`docs/planning/TUTORIAL_FIRST_CUT.md`](docs/planning/TUTORIAL_FIRST_CUT.md) | End-user first-cut tutorial |
 | [`docs/planning/SAFETY.md`](docs/planning/SAFETY.md) | Safety policy |
 | [`MASTER_KANBAN.md`](MASTER_KANBAN.md) | **Only task board** |
@@ -161,7 +166,7 @@ Full walkthrough: [`docs/planning/TUTORIAL_FIRST_CUT.md`](docs/planning/TUTORIAL
 
 **Current package:** personal-use **0.06** ([`dist/ShopPilot-0.06-macOS.zip`](dist/ShopPilot-0.06-macOS.zip)), HEAD `4683a9f` or later. Lean bar: router CAM — design → toolpaths → 2.5D preview → **simulator** (serial exists).
 
-**Shipped on this tip:** Welcome samples, stage rail, Cut recipes, SPK-1800 first-hour chrome, SPK-1700 Preview playback, SPK-UI-BUG-03 async Cut generate. Live AX `ui_drive_full` 14-stage walk has **PASS**ed twice (Hermes). **Laser / LightBurn held.**
+**Shipped on this tip:** Welcome samples, stage rail, Cut recipes, SPK-1800 first-hour chrome, SPK-1700 Preview playback, SPK-UI-BUG-03 async Cut generate. Live AX `ui_drive_full` 14-stage walk has **PASS**ed twice (Hermes). **Laser module not currently shipping.**
 
 **Still owner-gated:** **SPK-0623** personal-use UI acceptance — `[ ]` until the owner marks it. Agents must not rubber-stamp. Optional live air-cut **SPK-0419** stays `[!]`. No App Store / notarization.
 

@@ -1,6 +1,6 @@
 # ShopPilot — First Cut Tutorial
 
-**Audience:** New users with a Mac and (optionally) a CNC machine.  
+**Audience:** New users with a Mac and (optionally) a CNC machine.
 **Time:** ~15 minutes, **simulator only** — no hardware required.
 
 ---
@@ -9,7 +9,7 @@
 
 From install → sample or recipe → G-code → **simulator** stream. Live serial is optional and is **not** the bar.
 
-This is **not** LightBurn (no laser product) and **not** Fusion (Model orbit is a thin 2.5D relief view). Preview is a filled heightfield + playhead, not chips.
+Model orbit is a thin 2.5D relief view. Preview is a filled heightfield + playhead.
 
 ---
 
@@ -64,7 +64,7 @@ Switch to **Cut**.
 
 Switch to **Preview**.
 
-1. **Simulate**. You get a **filled 2.5D heightfield** (and wireframe / combined toggles). Not Metal chips, not Fusion GPU mill.
+1. **Simulate**. You get a **filled 2.5D heightfield** (and wireframe / combined toggles).
 2. Use the **playhead / Play** to scrub sim time (empty stock → full removal).
 3. **Cancel** aborts a long sim.
 
@@ -76,7 +76,7 @@ Switch to **Preview**.
 
 ## Step 5 — Model (optional)
 
-**Model** is heightfield relief (STL / plaque / 3D text) plus **Rough 3D / Finish 3D**. **Orbit** looks around the relief in 2.5D — not a 3-axis mill CAD view.
+**Model** is heightfield relief (STL / plaque / 3D text) plus **Rough 3D / Finish 3D**. **Orbit** looks around the relief in 2.5D.
 
 ![Model stage](../screenshots/04-model.png)
 
@@ -94,7 +94,7 @@ Switch to **Preview**.
 
 ![Machine simulator](../screenshots/machine-sim.png)
 
-> Software Hold/Reset is **not** a hardware e-stop. The sim does not prove a live cut.
+> Software Hold/Reset complements but does not replace a hardware e-stop.
 
 ---
 

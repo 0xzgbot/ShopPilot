@@ -87,7 +87,7 @@ Sources include the vendor’s own Mac FAQ stance, Onefinity/Sienci/Carbide foru
 | Fix | Difficulty | Impact |
 | --- | --- | --- |
 | **Native Apple Silicon SwiftUI app** | Core product | Category-defining |
-| **Metal 3D view** (no Windows D3D-in-VM) | Core | Kills black-view class of bugs |
+| **Metal 3D view** (native Mac) | Core | Stable 3D rendering |
 | **No VM in the critical path** for serial + files | Core | Reliability |
 | Marketing: “Mac-native CNC studio” | Low | Captures entire abandoned segment |
 

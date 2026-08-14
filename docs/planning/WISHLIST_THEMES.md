@@ -75,10 +75,10 @@ Community sentiment is that the vendor moves slowly on feature requests and bug 
 
 Users want native import of SVG, DXF, STL, OBJ without conversion tools. ShopPilot supports all these formats natively.
 
-## Theme 15: "Need offline-first / no cloud dependency" (Frequency: Medium)
-**Resolution (2026-08-11): SHIPPED** — fully offline, no account/cloud/telemetry.
+## Theme 15: "Need offline-first" (Frequency: Medium)
+**Resolution (2026-08-11): SHIPPED** — fully offline, no account/telemetry.
 
-Many users work in shops with unreliable internet. ShopPilot is fully offline — no account required, no cloud sync, no telemetry.
+Many users work in shops with unreliable internet. ShopPilot is fully offline — no account required, no telemetry.
 
 ---
 

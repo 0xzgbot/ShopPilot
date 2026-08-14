@@ -3,7 +3,7 @@ import ShopPilotCore
 import ShopPilotGeometry
 
 /// SPK-1800h verify (CLT machine, no XCTest).
-/// 3D relief orbit (thin, not Fusion):
+/// 3D relief orbit (thin 2.5D):
 ///   1. Orbit state tracks yaw/pitch (degrees).
 ///   2. Drag updates yaw (horizontal) and pitch (vertical), clamped [-89, 89].
 ///   3. Pitch clamped to avoid gimbal flip.

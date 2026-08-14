@@ -3,7 +3,7 @@
 **Version:** 0.06  
 **Last updated:** 2026-08-13
 
-This is **not** a paid-tier / App Store plan. ShopPilot is personal-use only; notarization and public distribution cards are `[-]` on `MASTER_KANBAN.md`.
+This document covers personal-use packaging only. ShopPilot is personal-use only; notarization and public distribution cards are `[-]` on `MASTER_KANBAN.md`.
 
 ---
 
@@ -41,15 +41,13 @@ The unpacked `.app` is not the source of truth; rebuild the zip from source.
 
 ## Product surface (honest)
 
-Personal CNC: 2D design, Profile/Pocket/Drill/V-Carve, 3D rough/finish from heightfields, 2.5D Preview, simulator + optional GRBL serial.
-
-**Not packaged as products:** laser / LightBurn, Fusion-style 3D CAD, paid Core/Studio/Studio3D unlocks (legacy notes below this line are obsolete).
+Personal CNC: 2D design, Profile/Pocket/Drill/V-Carve, 3D rough/finish from heightfields, 2.5D Preview, simulator + optional GRBL serial. Legacy notes below this line are obsolete.
 
 ---
 
 ## Laser
 
-**Held.** Engine goldens may exist historically; there is no laser product UI. Do not expand laser in packaging copy.
+**Held.** Engine goldens may exist historically; laser is not a current product UI. Do not expand laser in packaging copy.
 
 ---
 

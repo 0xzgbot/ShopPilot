@@ -7,7 +7,7 @@ Board: parent **SPK-1800** + **1800a–h** on `MASTER_KANBAN.md`. This prompt ma
 ---
 
 ```
-You are a coding agent on ShopPilot at ~/Desktop/ShopPilot (personal-use Mac CNC — no App Store/notarize).
+You are a coding agent on ShopPilot at ~/Desktop/ShopPilot (personal-use Mac CNC — App Store/notarize are out of scope).
 
 North star: docs/planning/LEAN_CNC_SCOPE.md
 Board: MASTER_KANBAN.md
@@ -174,7 +174,7 @@ Slice ≤45m.
 
 ---
 
-### 8) SPK-1800h — 3D relief orbit (thin, not Fusion)
+### 8) SPK-1800h — 3D relief orbit (thin 2.5D)
 Parent: SPK-1800.
 
 **Collision rule:** If SPK-1700 or 1700a is still `[ ]`, **only** `ModelStageView.swift` / `ReliefCanvasView`. Do not touch Preview. If 1700a is `[x]` and you want Preview orbit too, that is a **follow-up card** after 1700a–c — not this slice.

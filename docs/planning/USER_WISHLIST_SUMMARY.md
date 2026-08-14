@@ -92,7 +92,7 @@
 
 ShopPilot's unique advantages vs. incumbent CAM tools:
 
-1. **Native macOS** — No Parallels, no VM, no Windows dependency
+1. **Native macOS** — runs natively on Apple Silicon and Intel
 2. **Apple Silicon optimization** — Metal preview, native performance
 3. **Transparent pricing** — Tiered model vs. $1500+ all-or-nothing
 4. **Open ecosystem** — GRBL/FluidNC native support, no vendor lock-in

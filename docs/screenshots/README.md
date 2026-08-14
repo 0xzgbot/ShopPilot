@@ -1,18 +1,18 @@
 # ShopPilot screenshots (GitHub pack)
 
-Images here are the **product gallery**. Required pack landed with **SPK-1700d**. Preview is a **filled 2.5D heightfield + playhead**, not a GPU mill / Metal chip sim. No laser CTAs.
+Images here are the **product gallery**. Required pack landed with **SPK-1700d**. Preview is a **filled 2.5D heightfield + playhead**.
 
 ## Required pack (README wires these)
 
 | File | Composition |
 | --- | --- |
-| `welcome.png` | Welcome / **Start Making**: bundled samples (sign, box, keychain, plaque). No laser CTA. |
+| `welcome.png` | Welcome / **Start Making**: bundled samples (sign, box, keychain, plaque). |
 | `design.png` | **Design**: vectors on canvas, layers/inspector; rail on Design. Snap / DRO / origin may be visible. |
-| `cut.png` | **Cut**: Pocket or Profile (or sample); recipes are CNC (no laser product). |
+| `cut.png` | **Cut**: Pocket or Profile (or sample); recipes are CNC. |
 | `2d-pocket-stepover.png` | **Preview** after 2D pocket **Simulate**: filled heightfield, stepover ridges from **bit-radius stamp**. |
 | `2d-playhead.png` | Same job, **playhead** mid-sim; slider visible. |
-| `3d-relief-sim.png` | Plaque / STL heightfield → Rough 3D → Preview: relief in the heightfield. Not Fusion. |
-| `machine-sim.png` | **Machine** + **Simulator**; **Hold** + **Reset** visible. Not Serial/USB. |
+| `3d-relief-sim.png` | Plaque / STL heightfield → Rough 3D → Preview: relief in the heightfield. |
+| `machine-sim.png` | **Machine** + **Simulator**; **Hold** + **Reset** visible. |
 
 ## Numbered aliases (still in repo)
 
@@ -21,7 +21,7 @@ Images here are the **product gallery**. Required pack landed with **SPK-1700d**
 | `01-setup.png` | Setup |
 | `02-design-signage.png` | Design |
 | `03-cut.png` | Cut |
-| `04-model.png` | Model (2.5D relief / orbit — not Fusion) |
+| `04-model.png` | Model (2.5D relief / orbit) |
 | `05-machine.png` | Machine simulator |
 | `06-preview.png` | Preview heightfield |
 

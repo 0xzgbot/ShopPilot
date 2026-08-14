@@ -1,18 +1,18 @@
 # ShopPilot — Mac-Native CNC Studio
 
-**Native macOS · Apple Silicon + Intel · No Windows VM required**
+**Native macOS · Apple Silicon + Intel**
 
 ---
 
 ## What is ShopPilot?
 
-ShopPilot is a professional-grade Computer-Aided Manufacturing (CAM) application built natively for macOS. It generates CNC toolpaths from 2D vector designs and 3D relief models, then streams G-code to your machine — all without the bloat, Windows-only limitations, or subscription pricing of legacy alternatives.
+ShopPilot is a professional-grade Computer-Aided Manufacturing (CAM) application built natively for macOS. It generates CNC toolpaths from 2D vector designs and 3D relief models, then streams G-code to your machine.
 
-**Scope:** personal use only, never for sale. No 3D-view vector editing, no Fusion-style parametric modeling — a focused 2.5D CAM tool with relief editing on the Model stage.
+**Scope:** personal use only, never for sale. 2.5D relief CAM with relief editing on the Model stage.
 
 ## Screenshots
 
-Files in [`../screenshots/`](../screenshots/README.md). Current numbered PNGs are 0.05 UI. Preview is **2.5D heightfield**, not Metal. Laser is not a product. Hermes SPK-1700d will add `welcome.png`, `2d-pocket-stepover.png`, `3d-relief-sim.png`, etc.
+Files in [`../screenshots/`](../screenshots/README.md). Current numbered PNGs are 0.05 UI. Preview is **2.5D heightfield**. Hermes SPK-1700d will add `welcome.png`, `2d-pocket-stepover.png`, `3d-relief-sim.png`, etc.
 
 | Design & layers | Toolpaths | Machine (simulator) |
 | --- | --- | --- |
@@ -26,11 +26,11 @@ Files in [`../screenshots/`](../screenshots/README.md). Current numbered PNGs ar
 
 ## Why ShopPilot?
 
-### Native Mac, Not a VM
-ShopPilot runs natively on Apple Silicon (M1/M2/M3/M4) and Intel Macs. No Parallels, no Boot Camp, no Windows license needed. The app leverages SwiftUI for the UI and CoreGraphics for rendering — technologies built specifically for macOS.
+### Native Mac
+ShopPilot runs natively on Apple Silicon (M1/M2/M3/M4) and Intel Macs. The app leverages SwiftUI for the UI and CoreGraphics for rendering — technologies built specifically for macOS.
 
 ### Personal Use, No Subscription
-Built for a single owner's workshop. No subscription, no account, no cloud dependency, no telemetry — fully offline.
+Built for a single owner's workshop. Fully offline — no subscription, no account, no telemetry.
 
 ### Integrated Machine Control
 Connect your CNC machine directly from ShopPilot — jog axes, set work zero, touch-off probe, override feed, switch work offsets (G54–G59), stream G-code, and monitor status in real time. The built-in simulator lets you test everything before touching hardware.
@@ -49,8 +49,8 @@ Connect your CNC machine directly from ShopPilot — jog axes, set work zero, to
 |----------|----------|
 | **Design** | Draw/edit vectors, import SVG/DXF/EPS/PDF/AI/DWG/WebP/STL, offset, boolean ops (weld/subtract/intersect), join/close/trim/fillet, dogbone corner relief, vector boundary, nest, layers, undo/redo, smart selection + dimension handles |
 | **Model** | STL/bitmap → relief heightfield, 3D text relief, components, mirror modes, sculpt strokes |
-| **Toolpaths** | Profile, Pocket, Drill, V-Carve (+ clearance), 3D rough/finish/rest from heightfield, dirty-gating and async recalc. Laser **held** (not product). |
-| **Preview** | SwiftUI wireframe + sheet-aware **heightfield** (not Metal chips). Filled raster / playhead / bit stamp = SPK-1700. |
+| **Toolpaths** | Profile, Pocket, Drill, V-Carve (+ clearance), 3D rough/finish/rest from heightfield, dirty-gating and async recalc. |
+| **Preview** | SwiftUI wireframe + sheet-aware **heightfield**. Filled raster / playhead / bit stamp = SPK-1700. |
 | **Machine** | Serial (port/baud pickers) + simulator, jog/zero, touch-off probing, feed override, spindle control, work offsets, G-code streaming, Hold/Reset safety controls |
 | **Tools** | 13 tool classes, 17 strategy defaults, manufacturer catalogs (Amana/Whiteside), toolpath templates, accel-aware time estimates |
 | **Export** | GRBL-compatible G-code, design PDF export, job sheets (HTML→PDF), Post Studio templates, `.shoppilot` job packages |

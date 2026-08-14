@@ -19,11 +19,11 @@ Personal-use zip: `dist/ShopPilot-0.06-macOS.zip` (`VERSION=0.06` in `scripts/pa
 ### Added — First-hour CAM UI (SPK-1800)
 - Design: grid **snap**, **marquee** select, cursor **XY DRO**, sheet **origin** (corner/center)
 - Cut inspector **F / S / Z**; tabs/leads overlay on Design
-- Machine **DRO** from parsed MPos; Model **Orbit** (2.5D relief, not Fusion)
+- Machine **DRO** from parsed MPos; Model **Orbit** (2.5D relief)
 
 ### Honest / held
-- Preview is 2.5D heightfield, not Metal chips
-- Laser / LightBurn **held** (not a product)
+- Preview is 2.5D heightfield.
+- Laser / LightBurn **held**
 - **SPK-0623** remains owner-gated `[ ]` (AX `ui_drive_full` PASS is evidence, not a ship stamp)
 
 ---
@@ -45,7 +45,7 @@ Personal-use zip: `dist/ShopPilot-0.06-macOS.zip` (`VERSION=0.06` in `scripts/pa
 - Stream start never writes 0x18; fallback path attaches the streamer
 - File menu Open Job… (⌘O) routes to the same session path as Welcome
 - Simulator soft-limit follows the machine profile's travel (legacy 500 default)
-- Preview copy honesty (wireframe sim, not Metal GPU; camera = reference overlay)
+- Preview copy honesty (wireframe sim; camera = reference overlay)
 - AppSession split: sample-load lifecycle, snapshot undo, Cut-out generate, and fixture G-code facade extracted into Core/Geometry with CLT-verified delegates (facade + bindings unchanged)
 
 ### Fixed

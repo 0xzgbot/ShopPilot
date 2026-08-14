@@ -1,14 +1,14 @@
 # ShopPilot — Scope & Honest Positioning
 
-**Version:** 1.0  
-**Last Updated:** 2026-07-30  
+**Version:** 1.0
+**Last Updated:** 2026-07-30
 **SPK:** SPK-0008
 
 ---
 
 ## One-Line Statement
 
-> **ShopPilot is a relief CAM toolpath generator and machine controller — not a full 3D solid CAD/CAM package.**
+> **ShopPilot is a relief CAM toolpath generator and machine controller.**
 
 ---
 
@@ -31,7 +31,7 @@
 - **Quick Engrave** — surface engrave strategy
 - Tool database (endmills, V-bits)
 - Keep-out zones
-- Dirty flags — toolpaths never silently auto-recalculate
+- Dirty flags — toolpaths flag when recalculation is needed
 
 ### Preview & Simulation
 - Heightfield material removal simulation (draft + final modes)
@@ -56,30 +56,9 @@
 
 ---
 
-## What ShopPilot Does NOT Do (v1.0)
-
-### Not a 3D Solid CAD System
-ShopPilot is **not** a replacement for Fusion 360, SolidWorks, Rhino, FreeCAD, or any parametric 3D CAD tool. It does not:
-
-- **3D solid modeling** — no parametric feature-based modeling
-- **Full solid CAD import** — no STEP, IGES, or Parasolid import
-- **Multi-axis machining** — no 4-axis or 5-axis toolpaths
-- **Double-sided machining** — single-sided stock only in v1.0
-- **Full 3D sculpting** — sculpt mode is Phase H (post-v1)
-
-### Laser Cutting
-Laser cutting is **NOT included in any tier for v1.0**. Laser requires different hardware (not GRBL-compatible), different safety considerations, and will be addressed in v1.3+.
-
-### Other Exclusions
-- No Windows or Linux support (macOS native only)
-- No third-party proprietary asset reverse-engineering
-- No App Store distribution for v1.0 (direct download + GitHub Releases)
-
----
-
 ## Safety — Read This
 
-> **⚠️ CNC routers are dangerous machines. ShopPilot does not replace hardware safety.**
+> **⚠️ CNC routers are powerful machines. ShopPilot complements but does not replace hardware safety.**
 
 ### Operator Requirements
 - **Hardware e-stop** must be within reach and tested before every job
@@ -98,7 +77,7 @@ Laser cutting is **NOT included in any tier for v1.0**. Laser requires different
 - Spindle/coolant enable only via explicit controls
 
 ### Critical Disclaimer
-> **Software controls are not a substitute for a hardware emergency stop.**  
+> **Software controls complement but do not replace a hardware emergency stop.**
 > ShopPilot is a tool that helps you generate toolpaths and control your machine. The physical safety of you, your machine, and your workspace depends on proper hardware setup, operator awareness, and safe practices.
 
 See [`SAFETY.md`](./SAFETY.md) for the complete safety policy.
@@ -113,7 +92,7 @@ See [`SAFETY.md`](./SAFETY.md) for the complete safety policy.
 | Sign makers & lettering artists | Multi-axis / 5-axis machining |
 | Small machine shops with GRBL routers | Full parametric CAD workflows |
 | Makers with desktop CNC routers | Users needing STEP/IGES import |
-| Relief carving enthusiasts | Laser cutting (until v1.3+) |
+| Relief carving enthusiasts |  |
 
 ---
 
@@ -127,7 +106,7 @@ ShopPilot (design → toolpaths → preview → run)
 CNC Router (GRBL / FluidNC)
 ```
 
-ShopPilot is designed to complement — not replace — other tools in your workflow. For parametric design from scratch, use a proper CAD tool first, then bring your designs into ShopPilot for toolpath generation and machine control.
+ShopPilot is designed to **complement** other tools in your workflow. For parametric design from scratch, use a proper CAD tool first, then bring your designs into ShopPilot for toolpath generation and machine control.
 
 ---
 

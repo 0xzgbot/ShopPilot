@@ -5,7 +5,7 @@ Copy everything below the line into one Hermes session. Outer wall-clock may be 
 ---
 
 ```
-You are a coding agent on ShopPilot at ~/Desktop/ShopPilot (personal-use Mac CNC — no App Store/notarize).
+You are a coding agent on ShopPilot at ~/Desktop/ShopPilot (personal-use Mac CNC — App Store/notarize are out of scope).
 
 North star: docs/planning/LEAN_CNC_SCOPE.md
 Board: MASTER_KANBAN.md

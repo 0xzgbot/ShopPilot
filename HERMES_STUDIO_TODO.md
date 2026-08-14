@@ -44,14 +44,14 @@ Agents: claim `[~]`, done `[x]`, human `[!]`. Prefer **simulator** and golden fi
 
 ### PAIN-1 — No native Mac (cluster 1)
 
-- [ ] **PAIN-101** Ship **native Apple Silicon** macOS app (no Windows VM required for core path)  
+- [ ] **PAIN-101** Ship **native Apple Silicon** macOS app (runs natively without a VM)  
   - **AC:** Install/run on M-series without Parallels; docs say “Mac-native”
 - [ ] **PAIN-102** **Metal** 3D canvas + preview (avoid D3D-in-VM class failures / black view)  
   - **deps:** STU-207 path · **AC:** 3D view stable under stress; no black viewport on supported GPUs
-- [ ] **PAIN-103** Serial + files on host OS only (no VM file-path / USB bridging required)  
+- [ ] **PAIN-103** Serial + files on host OS only (native Mac serial — no VM bridging required)  
   - **deps:** Control SP-204 · **AC:** Documented connect path is host-native
 - [ ] **PAIN-104** Marketing/README “Mac-native CNC studio” positioning  
-  - **// parallel-ok** · **AC:** README + website stub state native Mac + no VM
+  - **// parallel-ok** · **AC:** README + website stub state native Mac (no VM)
 
 ### PAIN-2 — Price ladder / overkill / module friction (cluster 2)
 

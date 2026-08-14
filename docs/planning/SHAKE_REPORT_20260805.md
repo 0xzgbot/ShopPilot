@@ -2,7 +2,7 @@
 
 **Conductor:** Hermes coder (SPK-SHAKEa…i, overnight shakedown)  
 **App:** `.build/debug/ShopPilot` @ `998a7ee` (master, clean)  
-**Transport:** Simulator only. **No live CNC / no notarize / no App Store.**  
+**Transport:** Simulator only. **Scope exclusions:** live CNC, notarization, App Store.  
 **Run dir:** `/tmp/shoppilot-shake-ui-20260805/shots/`
 
 ---

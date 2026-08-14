@@ -11,7 +11,7 @@ struct SafetyDisclaimerView: View {
 
             Text(
                 """
-                ShopPilot software controls are not a substitute for a hardware emergency stop.
+                ShopPilot software controls are a complement to a hardware emergency stop.
 
                 Always:
                 • Keep a hardware e-stop within reach

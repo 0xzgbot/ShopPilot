@@ -1,6 +1,6 @@
 # ShopPilot — Product Boundaries & Scope
 
-**Version:** 1.0  
+**Version:** 1.0
 **Last Updated:** 2026-07-30
 
 ---
@@ -32,7 +32,7 @@ ShopPilot is a **relief CAM toolpath generator and machine controller** for macO
 - **Quick Engrave** strategy
 - Tool database (endmills, V-bits)
 - Keep-out zones
-- Dirty flags — no silent auto-recalculation
+- Dirty flags — toolpaths flag when recalculation is needed (no silent auto-recalc)
 
 ### Preview
 - Heightfield material simulation (draft + final modes)
@@ -58,27 +58,6 @@ ShopPilot is a **relief CAM toolpath generator and machine controller** for macO
 
 ---
 
-## What ShopPilot Does NOT Do (v1.0)
-
-### Not a 3D Solid CAD System
-ShopPilot is **not** a replacement for Fusion 360, SolidWorks, Rhino, FreeCAD, or any parametric 3D CAD tool. It does not:
-
-- **3D solid modeling** — no parametric feature-based modeling
-- **Full solid CAD import** — no STEP, IGES, or Parasolid import in v1.0
-- **Multi-axis machining** — no 4-axis or 5-axis toolpaths
-- **Double-sided machining** — single-sided stock only in v1.0
-- **Full 3D sculpting** — sculpt mode is planned for Phase H (post-v1)
-
-### Laser Cutting
-Laser cutting is **not included in any tier for v1.0**. Laser requires different hardware (not GRBL-compatible), different safety considerations, and will be addressed in v1.3+.
-
-### Other Exclusions (v1.0)
-- No Windows or Linux support (macOS native only)
-- No third-party proprietary asset reverse-engineering
-- No App Store distribution (direct download + GitHub Releases only for v1.0)
-
----
-
 ## Target Audience
 
 | Who it IS for | Who it is NOT for |
@@ -87,15 +66,15 @@ Laser cutting is **not included in any tier for v1.0**. Laser requires different
 | Sign makers & lettering artists | Multi-axis / 5-axis machining |
 | Small machine shops | Full parametric CAD workflows |
 | Makers with GRBL routers | Users needing STEP/IGES import |
-| Relief carving enthusiasts | Laser cutting (until v1.3+) |
+| Relief carving enthusiasts |  |
 
-**Positioning:** ShopPilot is a friendly, Mac-native tool for people who already have (or plan to get) a hobby-grade CNC router and want to go from design to cutting in one app. It is not a full CAD/CAM suite for industrial use.
+**Positioning:** ShopPilot is a friendly, Mac-native tool for people who already have (or plan to get) a hobby-grade CNC router and want to go from design to cutting in one app. It is a focused relief CAM tool, not a full CAD/CAM suite for industrial use.
 
 ---
 
 ## Relationship to Other Tools
 
-ShopPilot is designed to **complement** (not replace) other tools in your workflow:
+ShopPilot is designed to **complement** other tools in your workflow:
 
 - **CAD tools** (Fusion 360, FreeCAD, Rhino, TinkerCAD) → create your 3D geometry or 2D designs
 - **ShopPilot** → take 2D vectors (or future STL/OBJ imports) → generate toolpaths → preview → run on your CNC router
@@ -107,8 +86,8 @@ ShopPilot is designed to **complement** (not replace) other tools in your workfl
 
 See [`SAFETY.md`](./SAFETY.md) for the complete safety policy. Key points:
 
-- **Software is not a substitute for a hardware emergency stop.**
-- CNC routers are dangerous machines — always follow proper safety procedures.
+- **Software complements but does not replace a hardware emergency stop.**
+- CNC routers are powerful machines — always follow proper safety procedures.
 - Wear appropriate PPE (safety glasses, hearing protection, no loose clothing).
 - Never leave a running machine unattended.
 - Always test on the simulator before running on real hardware.

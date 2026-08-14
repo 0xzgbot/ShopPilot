@@ -932,7 +932,7 @@ public struct MachineConnectionView: View {
                 HStack(spacing: SP.Space.s) {
                     Image(systemName: "exclamationmark.triangle")
                         .foregroundStyle(.secondary)
-                    Text("Software Hold is not a substitute for your machine's hardware e-stop.")
+                    Text("Software Hold is a complement to, not a replacement for, your machine's hardware e-stop.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Spacer()

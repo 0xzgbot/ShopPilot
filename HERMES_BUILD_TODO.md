@@ -264,7 +264,7 @@ SP-000 → SP-001 → SP-200 → SP-201 → SP-108 → SP-202 → SP-301/305 →
   - **AC:** User always sees controller-facing filename/extension
 - [ ] **SP-512** One-click **Run** primary CTA after connect + zero + armed — **PAIN-705**  
   - **Role:** UI · **deps:** SP-510 · **AC:** Single obvious run control; Hold/Reset remain visible
-- [ ] **SP-513** Host-native USB path docs (no VM required) — **PAIN-103**  
+- [ ] **SP-513** Host-native USB path docs (native Mac — no VM required) — **PAIN-103**  
   - **Role:** Tech writer · **deps:** SP-204 · **AC:** README section “Mac native serial”
 - [ ] **SP-514** Integration hook for Studio “Run on machine” handoff — **PAIN-701**  
   - **Role:** Core · **deps:** SP-305 · **AC:** API or file drop contract documented for STU-210

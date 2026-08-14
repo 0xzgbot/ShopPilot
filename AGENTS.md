@@ -100,7 +100,7 @@ These are product requirements, not nice-to-haves.
 4. **Soft-limit awareness** for jog UI when profile travel is known; warn if unknown.
 5. **Spindle / coolant** commands only via explicit controls (no accidental M3 on connect).
 6. Console must show **raw TX/RX** (toggle) for diagnosis.
-7. Document: **software is not a substitute for a hardware e-stop.**
+7. Document: **software complements but does not replace a hardware e-stop.**
 8. Unit tests for parser + streamer state machine **before** claiming live serial done.
 9. Never ship default baud/port that auto-connects and runs a job on launch.
 
@@ -205,7 +205,7 @@ ShopPilot/
 
 ## 7. Human-only / deferred blockers
 
-**Personal-use product (2026-08-04):** no App Store, notarization, or license finalization — those cards are `[-]` on MASTER_KANBAN and are **not** SPK-0623 blockers.
+**Personal-use product (2026-08-04):** App Store, notarization, and license finalization are out of scope (`[-]` on MASTER_KANBAN) and are **not** SPK-0623 blockers.
 
 - `[!]` Physical CNC router for live air-cut (SPK-0419) — **optional** for personal SPK-0623; sim acceptance is enough
 - `[-]` Apple Developer / notarization / public DMG release / App Store / license text
@@ -231,7 +231,7 @@ Append to `HERMES_BUILD_TODO.md` § Work log:
 ## 9. Hand-off prompt (copy for Hermes)
 
 ```
-You are building ShopPilot at ~/Desktop/ShopPilot (personal-use Mac CNC — no App Store/notarize).
+You are building ShopPilot at ~/Desktop/ShopPilot (personal-use Mac CNC — App Store/notarize are out of scope).
 North star: docs/planning/LEAN_CNC_SCOPE.md.
 Board: MASTER_KANBAN.md. Personal ship gate: SHIP_CHECKLIST.md + docs/planning/UI_ACCEPTANCE_DRIVER.md.
 Read AGENTS.md safety. No third-party proprietary assets. No cloud/social/in-app video.

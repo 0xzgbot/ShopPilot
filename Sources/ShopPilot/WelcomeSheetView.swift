@@ -120,7 +120,7 @@ struct WelcomeSheetView: View {
             HStack(spacing: 4) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange)
-                Text("Simulate before you cut — software is not a substitute for a hardware e-stop.")
+                Text("Simulate before you cut — software is a complement to a hardware e-stop.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
