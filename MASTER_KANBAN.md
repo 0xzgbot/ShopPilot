@@ -1507,6 +1507,7 @@ Phase O/P/1403 **CLOSED**. Laser/LightBurn **HELD**. Do not reopen. Unlisted P0/
   - Out of scope: implementing playback (that's a–c); SPK-0623; laser
   - Verify: PNGs exist and >20KB; `./scripts/verify_locked.sh ShopPilotVerify1103e`
   - worktree: required; assignee: coder; 90m
+  - worklog: 2026-08-14 — Hermes coder. **SPK-1700e** refresh — re-captured all 13 PNGs on dirty working tree (PreviewCameraFit uncommitted, both verifies pass on working tree). Welcome: Start Making sheet with 4 cards (centered). Design: Sign vectors + layers/inspector + rail. Cut: recipes + tool library. 2D pocket/heightfield: Sign pocket 10491 lines, isometric+Fit. 2D playhead: mid-sim slider. 3D relief: Plaque Rough 3D heightfield (not empty placeholder). Machine: Simulator Idle + Hold/Reset. Numbered aliases 01-06 refreshed. All 13 PNGs PASS dimension/size check (3496-3584px wide, 80KB+). Root README wires same filenames — no doc change. Both verify_locked 1206 + 1313 PASS. [x]
 
 ---
 
