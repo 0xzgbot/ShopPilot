@@ -66,7 +66,29 @@ func main() throws {
     try expect(ViewOrientationShortcut.orientation(for: "3") == .front, "⌘⌥3 → front")
     try expect(ViewOrientationShortcut.orientation(for: "9") == nil, "unknown key → nil")
 
-    print("ShopPilotVerify1206: PASS — top/iso/front projection math, ortho vs perspective compression, gizmo face mapping, ⌘⌥1-3 shortcuts")
+    // ── 5. Preview Fit centers projected sheet, not world origin. ────────
+    let sheet: [(x: Double, y: Double)] = [(0, 0), (600, 0), (600, 400), (0, 400)]
+    let isoFit = PreviewCameraFit.fit(
+        worldPoints: sheet,
+        projection: iso,
+        viewportWidth: 800,
+        viewportHeight: 500
+    )
+    try expect(isoFit.scale > 0.05 && isoFit.scale < 40, "iso fit scale in range")
+    try expect(abs(isoFit.panX) > 1 || abs(isoFit.panY) > 1,
+               "iso fit pan is non-zero so the sheet is not left on the origin")
+    let mappedCorners = sheet.map { iso.map(x: $0.x, y: $0.y) }
+    let cx = (mappedCorners.map(\.x).min()! + mappedCorners.map(\.x).max()!) / 2
+    let cy = (mappedCorners.map(\.y).min()! + mappedCorners.map(\.y).max()!) / 2
+    try expect(close(isoFit.panX, -cx * isoFit.scale, 1e-6), "panX centers projected X")
+    try expect(close(isoFit.panY, cy * isoFit.scale, 1e-6), "panY centers projected Y")
+    let topFit = PreviewCameraFit.fit(
+        worldPoints: sheet, projection: top,
+        viewportWidth: 800, viewportHeight: 500
+    )
+    try expect(abs(topFit.panX) > 1, "top-view fit also pans off the world origin")
+
+    print("ShopPilotVerify1206: PASS — top/iso/front projection math, ortho vs perspective compression, gizmo face mapping, ⌘⌥1-3 shortcuts, preview fit centers isometric sheet")
 }
 
 do {

@@ -13,11 +13,14 @@ private final class PreviewSimCancelFlag: @unchecked Sendable {
 struct ToolpathPreviewView: View {
     @ObservedObject var session: AppSession
 
-    @State private var scale: CGFloat = 2.5
-    @State private var baseScale: CGFloat = 2.5
-    @State private var pan: CGSize = .zero
-    @State private var dragStart: CGSize = .zero
-    @State private var mode: PreviewMode = .wireframe
+    /// User zoom/pan on top of a per-frame Fit to the live Canvas size.
+    /// Framing used stale @State size before, which left isometric stock
+    /// in a corner (world origin at screen center, pan never applied).
+    @State private var userZoom: CGFloat = 1
+    @State private var userZoomAtPinch: CGFloat = 1
+    @State private var userPan: CGSize = .zero
+    @State private var userPanAtDrag: CGSize = .zero
+    @State private var mode: PreviewMode = .combined
     @State private var simStatus: String = "Idle"
     /// SPK-1700a — the FULL dense simulated heightmap (every cell), drawn as
     /// a filled raster image at cell size (not the old /40 dot scatter).
@@ -53,7 +56,7 @@ struct ToolpathPreviewView: View {
     /// SPK-1008 — webcam overlay visibility in the Preview stage.
     @State private var showCamera = false
     /// SPK-1206 — view orientation (top/iso/front) + orthographic toggle.
-    @State private var viewOrientation: ViewOrientation = .top
+    @State private var viewOrientation: ViewOrientation = .isometric
     @State private var orthographic = true
     /// SPK-1202 — material surface palette for the heightfield preview.
     @State private var materialPaletteName = MaterialSurfacePalette.presets[0].name
@@ -177,7 +180,7 @@ struct ToolpathPreviewView: View {
                 .pickerStyle(.segmented)
                 .frame(maxWidth: 360)
 
-                Button("Fit") { fitContent() }
+                Button("Fit") { resetUserCamera() }
                 if isSimulating {
                     Button("Cancel") {
                         cancelFlag.cancelled = true
@@ -214,12 +217,12 @@ struct ToolpathPreviewView: View {
                 Button("Generate profile if empty") {
                     if session.vectors.isEmpty { session.addDemoRectangle() }
                     session.generateProfileToolpath()
-                    fitContent()
+                    resetUserCamera()
                 }
                 .buttonStyle(.borderedProminent)
             }
 
-            GeometryReader { _ in
+            GeometryReader { geo in
                 ZStack {
                     Color(nsColor: .textBackgroundColor)
                     Canvas { context, size in
@@ -229,22 +232,22 @@ struct ToolpathPreviewView: View {
                     .gesture(
                         MagnificationGesture()
                             .onChanged { value in
-                                scale = max(0.4, min(12, baseScale * value))
+                                userZoom = max(0.4, min(8, userZoomAtPinch * value))
                             }
                             .onEnded { _ in
-                                baseScale = scale
+                                userZoomAtPinch = userZoom
                             }
                     )
                     .simultaneousGesture(
                         DragGesture()
                             .onChanged { value in
-                                pan = CGSize(
-                                    width: dragStart.width + value.translation.width,
-                                    height: dragStart.height + value.translation.height
+                                userPan = CGSize(
+                                    width: userPanAtDrag.width + value.translation.width,
+                                    height: userPanAtDrag.height + value.translation.height
                                 )
                             }
                             .onEnded { _ in
-                                dragStart = pan
+                                userPanAtDrag = userPan
                             }
                     )
                 }
@@ -319,8 +322,12 @@ struct ToolpathPreviewView: View {
             }
             return .ignored
         }
-        .onAppear { fitContent() }
-        .onChange(of: session.allToolpathGCode.count) { _, _ in fitContent() }
+        .onAppear {
+            resetUserCamera()
+            if simHeightmap == nil, !session.allToolpathGCode.isEmpty {
+                runMaterialSimulation()
+            }
+        }
         // SPK-1700a — switching the material palette re-tints the filled raster.
         .onChange(of: materialPaletteName) { _, _ in rebuildSimImage() }
         // SPK-1700b — scrubbing/playing the playhead shows the heightfield
@@ -333,11 +340,12 @@ struct ToolpathPreviewView: View {
     private func worldToView(_ x: Double, _ y: Double, size: CGSize) -> CGPoint {
         // SPK-1206 — 2.5D projection: top = identity; iso shears X and
         // compresses Y; front collapses Y (edge-on).
+        let cam = camera(for: size)
         let proj = ViewProjection.projection(for: viewOrientation, orthographic: orthographic)
         let mapped = proj.map(x: x, y: y)
         return CGPoint(
-            x: size.width / 2 + pan.width + CGFloat(mapped.x) * scale,
-            y: size.height / 2 + pan.height - CGFloat(mapped.y) * scale
+            x: size.width / 2 + cam.pan.width + CGFloat(mapped.x) * cam.scale,
+            y: size.height / 2 + cam.pan.height - CGFloat(mapped.y) * cam.scale
         )
     }
 
@@ -462,7 +470,7 @@ struct ToolpathPreviewView: View {
             case .circle:
                 if let center = zone.circleCenter, let radius = zone.circleRadiusMm {
                     let c = worldToView(center.x, center.y, size: size)
-                    let r = CGFloat(radius) * scale
+                    let r = CGFloat(radius) * camera(for: size).scale
                     let ellipse = Path(ellipseIn: CGRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r))
                     context.fill(ellipse, with: .color(fill))
                     context.stroke(ellipse, with: .color(edge), style: dash)
@@ -480,10 +488,11 @@ struct ToolpathPreviewView: View {
         if (mode == .heightfield || mode == .combined), let img = simImage, let sheet = session.activeSheet {
             let proj = ViewProjection.projection(for: viewOrientation, orthographic: orthographic)
             if proj.yScale > 0.01 {   // front view is edge-on — nothing to raster
+                let cam = camera(for: size)
                 let t = CGAffineTransform(
-                    a: scale, b: 0,
-                    c: CGFloat(proj.xShear) * scale, d: -CGFloat(proj.yScale) * scale,
-                    tx: size.width / 2 + pan.width, ty: size.height / 2 + pan.height
+                    a: cam.scale, b: 0,
+                    c: CGFloat(proj.xShear) * cam.scale, d: -CGFloat(proj.yScale) * cam.scale,
+                    tx: size.width / 2 + cam.pan.width, ty: size.height / 2 + cam.pan.height
                 )
                 context.concatenate(t)
                 context.draw(
@@ -506,29 +515,43 @@ struct ToolpathPreviewView: View {
         }
     }
 
-    private func fitContent() {
-        var xs: [Double] = []
-        var ys: [Double] = []
-        for path in session.vectors {
-            for pt in path.points { xs.append(pt.x); ys.append(pt.y) }
+    /// Fit the **sheet** (not G-code rapids) to this Canvas size, then apply
+    /// the user's pinch/drag on top. Computed every draw so isometric stock
+    /// stays centered even when GeometryReader state is stale.
+    private func camera(for size: CGSize) -> (scale: CGFloat, pan: CGSize) {
+        var pts: [(x: Double, y: Double)] = []
+        if let sheet = session.activeSheet {
+            pts.append((0, 0))
+            pts.append((sheet.width, 0))
+            pts.append((sheet.width, sheet.depth))
+            pts.append((0, sheet.depth))
+        } else {
+            for path in session.vectors {
+                for pt in path.points { pts.append((pt.x, pt.y)) }
+            }
         }
-        for seg in segments {
-            xs.append(seg.start.x); ys.append(seg.start.y)
-            xs.append(seg.end.x); ys.append(seg.end.y)
-        }
-        guard let minX = xs.min(), let maxX = xs.max(), let minY = ys.min(), let maxY = ys.max() else {
-            scale = 2.5
-            baseScale = 2.5
-            pan = .zero
-            dragStart = .zero
-            return
-        }
-        let w = max(maxX - minX, 1)
-        let h = max(maxY - minY, 1)
-        scale = CGFloat(min(400 / w, 280 / h))
-        baseScale = scale
-        pan = .zero
-        dragStart = .zero
+        let proj = ViewProjection.projection(for: viewOrientation, orthographic: orthographic)
+        let fitted = PreviewCameraFit.fit(
+            worldPoints: pts,
+            projection: proj,
+            viewportWidth: Double(max(size.width, 1)),
+            viewportHeight: Double(max(size.height, 1))
+        )
+        let z = userZoom
+        return (
+            scale: CGFloat(fitted.scale) * z,
+            pan: CGSize(
+                width: CGFloat(fitted.panX) * z + userPan.width,
+                height: CGFloat(fitted.panY) * z + userPan.height
+            )
+        )
+    }
+
+    private func resetUserCamera() {
+        userZoom = 1
+        userZoomAtPinch = 1
+        userPan = .zero
+        userPanAtDrag = .zero
     }
 
     /// SPK-1103e / SPK-0315: sheet-aware material sim on a background task —

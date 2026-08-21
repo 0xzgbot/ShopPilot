@@ -56,6 +56,13 @@ func main() throws {
         }
         try expect(layer.name == "Layer 1", "\(sample.name): first layer named 'Layer 1' (got \(layer.name))")
         try expect(layer.vectors.count >= 2, "\(sample.name): >= 2 vectors (got \(layer.vectors.count))")
+        if sample.category == "Sign" {
+            try expect(layer.vectors.count >= 12, "Sign sample is a dense layout (>=12 vectors, got \(layer.vectors.count))")
+        }
+        if sample.category == "Plaque" {
+            try expect(payload.job.stlHeightfield != nil, "Plaque sample includes a cameo heightfield for Model/Preview")
+            try expect((payload.job.stlHeightfield?.heights.count ?? 0) > 16, "Plaque heightfield has a real grid")
+        }
         // Sensible stock: positive width/depth/height.
         try expect(sheet.width > 0 && sheet.depth > 0 && sheet.height > 0,
                    "\(sample.name): positive sheet dimensions")

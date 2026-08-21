@@ -55,6 +55,7 @@ struct DesignCanvasView: View {
     @State private var scale: CGFloat = 2.0
     @State private var scaleBeforePinch: CGFloat = 2.0
     @State private var offset: CGSize = .zero
+    @State private var lastCanvasSize: CGSize = CGSize(width: 600, height: 400)
     @State private var selectedIndex: Int?
     @State private var dragStart: CGPoint?
     /// Active create tool — owned by the session so the left tool palette
@@ -92,6 +93,10 @@ struct DesignCanvasView: View {
 
     private let doubleTapWindow: TimeInterval = 0.35
 
+    /// Extra translation baked into `screen`/`model` (legacy canvas padding).
+    /// Fit MUST subtract these or the job sits in a corner.
+    private let screenPadX: CGFloat = 40
+    private let screenPadY: CGFloat = 200
     /// World-coordinate grid step shared by `gridLayer` and the snap helper
     /// (20 world units). Create tools and select-move snap to these intersections.
     private let canvasGridStep: CGFloat = 20
@@ -166,7 +171,17 @@ struct DesignCanvasView: View {
                         cursorLocation = nil
                     }
                 }
-                .onAppear { fitContent(in: geo.size) }
+                .onAppear {
+                    lastCanvasSize = geo.size
+                    fitContent(in: geo.size)
+                }
+                .onChange(of: geo.size) { _, newSize in
+                    lastCanvasSize = newSize
+                    fitContent(in: newSize)
+                }
+                .onChange(of: session.shapes.count) { _, _ in
+                    fitContent(in: geo.size)
+                }
             }
         }
     }
@@ -259,7 +274,7 @@ struct DesignCanvasView: View {
                 .help("Show/hide \(chip.label.lowercased()) on the canvas")
             }
 
-            Button("Fit") { fitContent() }
+            Button("Fit") { fitContent(in: lastCanvasSize) }
             Text("Zoom \(Int(scale * 50))%")
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -960,15 +975,15 @@ struct DesignCanvasView: View {
 
     private func model(_ p: CGPoint) -> CGPoint {
         CGPoint(
-            x: (p.x - offset.width - 40) / scale,
-            y: -(p.y - offset.height - 200) / scale
+            x: (p.x - offset.width - screenPadX) / scale,
+            y: -(p.y - offset.height - screenPadY) / scale
         )
     }
 
     private func screen(_ x: Double, _ y: Double) -> CGPoint {
         CGPoint(
-            x: CGFloat(x) * scale + offset.width + 40,
-            y: CGFloat(-y) * scale + offset.height + 200
+            x: CGFloat(x) * scale + offset.width + screenPadX,
+            y: CGFloat(-y) * scale + offset.height + screenPadY
         )
     }
 
@@ -997,26 +1012,30 @@ struct DesignCanvasView: View {
     }
 
     private func fitContent(in size: CGSize = CGSize(width: 600, height: 400)) {
-        guard !session.shapes.isEmpty else {
-            scale = 2
-            scaleBeforePinch = 2
-            offset = .zero
-            return
+        lastCanvasSize = size
+        var minX = 0.0
+        var minY = 0.0
+        var maxX = session.activeSheet?.width ?? 100
+        var maxY = session.activeSheet?.depth ?? 100
+        if !session.shapes.isEmpty {
+            let rects = session.shapes.map(\.boundingRect)
+            minX = min(minX, rects.map(\.minX).min() ?? minX)
+            maxX = max(maxX, rects.map(\.maxX).max() ?? maxX)
+            minY = min(minY, rects.map(\.minY).min() ?? minY)
+            maxY = max(maxY, rects.map(\.maxY).max() ?? maxY)
         }
-        let rects = session.shapes.map(\.boundingRect)
-        let minX = rects.map(\.minX).min() ?? 0
-        let maxX = rects.map(\.maxX).max() ?? 100
-        let minY = rects.map(\.minY).min() ?? 0
-        let maxY = rects.map(\.maxY).max() ?? 100
         let w = max(maxX - minX, 1)
         let h = max(maxY - minY, 1)
         let sx = (size.width - 80) / CGFloat(w)
         let sy = (size.height - 80) / CGFloat(h)
-        scale = max(0.3, min(sx, sy, 6))
+        scale = max(0.3, min(sx, sy, 8))
         scaleBeforePinch = scale
+        let cx = (minX + maxX) / 2
+        let cy = (minY + maxY) / 2
+        // screen(x,y) = (x*scale + offset.w + padX, -y*scale + offset.h + padY)
         offset = CGSize(
-            width: size.width / 2 - CGFloat((minX + maxX) / 2) * scale,
-            height: size.height / 2 + CGFloat((minY + maxY) / 2) * scale
+            width: size.width / 2 - CGFloat(cx) * scale - screenPadX,
+            height: size.height / 2 + CGFloat(cy) * scale - screenPadY
         )
     }
 }

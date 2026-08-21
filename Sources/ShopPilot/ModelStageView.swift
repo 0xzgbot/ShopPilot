@@ -570,7 +570,7 @@ private struct ReliefCanvasView: View {
                 Color(nsColor: .underPageBackgroundColor)
                 if let image = makeImage(render.pixels, w: render.widthPx, h: render.heightPx) {
                     Image(nsImage: image)
-                        .interpolation(.none)
+                        .interpolation(.medium)
                         .resizable()
                         .frame(width: w * scale, height: h * scale)
                         .offset(x: offsetX, y: offsetY)

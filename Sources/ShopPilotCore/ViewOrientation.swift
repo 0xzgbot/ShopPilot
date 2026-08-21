@@ -103,3 +103,42 @@ public enum ViewOrientationShortcut {
         }
     }
 }
+
+// MARK: - Preview camera fit (sheet-centered isometric)
+
+/// Fit + pan so a world AABB (sheet / vectors / toolpath) lands in the
+/// **center** of the Preview canvas after 2.5D projection.
+///
+/// `worldToView` places mapped (0,0) at the viewport center when pan is
+/// zero. Sheets live in [0, W] × [0, D], so a zero pan parks the stock in
+/// a corner. This helper projects every world point, then chooses scale
+/// and pan so the projected centroid sits at the canvas center with padding.
+public enum PreviewCameraFit {
+    public static func fit(
+        worldPoints: [(x: Double, y: Double)],
+        projection: ViewProjection,
+        viewportWidth: Double,
+        viewportHeight: Double,
+        paddingFraction: Double = 0.14
+    ) -> (scale: Double, panX: Double, panY: Double) {
+        guard !worldPoints.isEmpty, viewportWidth > 1, viewportHeight > 1 else {
+            return (2.5, 0, 0)
+        }
+        let mapped = worldPoints.map { projection.map(x: $0.x, y: $0.y) }
+        let minMX = mapped.map(\.x).min() ?? 0
+        let maxMX = mapped.map(\.x).max() ?? 1
+        let minMY = mapped.map(\.y).min() ?? 0
+        let maxMY = mapped.map(\.y).max() ?? 1
+        let pw = max(maxMX - minMX, 1e-6)
+        let ph = max(maxMY - minMY, 1e-6)
+        let pad = min(max(paddingFraction, 0), 0.4)
+        let availW = viewportWidth * (1 - 2 * pad)
+        let availH = viewportHeight * (1 - 2 * pad)
+        let scale = min(40.0, max(0.05, min(availW / pw, availH / ph)))
+        let cx = (minMX + maxMX) / 2
+        let cy = (minMY + maxMY) / 2
+        // sx = vw/2 + panX + mx * scale  →  panX = -cx * scale
+        // sy = vh/2 + panY - my * scale  →  panY =  cy * scale
+        return (scale, -cx * scale, cy * scale)
+    }
+}
