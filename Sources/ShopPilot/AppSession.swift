@@ -1218,6 +1218,83 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
         markDirty()
     }
 
+    // MARK: - SPK-1900f (nesting)
+
+    /// Design-stage "Nest Selection": pack the selected shapes (or all shapes
+    /// when nothing is selected) onto the active sheet with the AABB skyline
+    /// packer. Translation-only placement (rotation reserved for a follow-up
+    /// card): each shape moves so its bounding box lands at the packer slot,
+    /// preserving intra-shape geometry. Undoable; reports utilization.
+    @discardableResult
+    func nestShapesOnSheet(spacingMm: Double = 6.0) -> Bool {
+        guard let sheet = activeSheet else {
+            statusMessage = "Nest: no sheet — set one up in Setup first"
+            return false
+        }
+        let indices: [Int]
+        if selectedShapeIndices.isEmpty {
+            indices = Array(shapes.indices)
+        } else {
+            indices = ShapeGroupEngine.expandedSelection(
+                selected: Set(selectedShapeIndices),
+                groups: shapeGroups
+            ).sorted()
+        }
+        guard !indices.isEmpty else {
+            statusMessage = "Nest: nothing to nest — draw or select some vectors first"
+            return false
+        }
+        let parts = indices.compactMap { idx -> NestingPart? in
+            guard shapes.indices.contains(idx) else { return nil }
+            let bb = shapes[idx].boundingRect
+            return NestingPart(
+                id: UUID(),
+                widthMm: bb.width,
+                heightMm: bb.height,
+                allowRotation: false
+            )
+        }
+        guard !parts.isEmpty else {
+            statusMessage = "Nest: selected shapes have no measurable bounds"
+            return false
+        }
+        let options = NestingOptions(
+            sheetWidthMm: sheet.width,
+            sheetHeightMm: sheet.depth,
+            spacingMm: spacingMm,
+            allowRotationGlobally: false
+        )
+        switch NestingEngine.nest(parts: parts, options: options) {
+        case .success(let placements, let usedFraction):
+            registerUndoPoint()
+            // Placements are sorted by the packer's deterministic part order;
+            // pair each placement back to its shape via the part id.
+            var idToShapeIndex: [UUID: Int] = [:]
+            for (slot, idx) in indices.enumerated() where slot < parts.count {
+                idToShapeIndex[parts[slot].id] = idx
+            }
+            for placement in placements {
+                guard let shapeIndex = idToShapeIndex[placement.partID],
+                      shapes.indices.contains(shapeIndex) else { continue }
+                let bb = shapes[shapeIndex].boundingRect
+                let dx = placement.xMm - bb.minX
+                let dy = placement.yMm - bb.minY
+                shapes[shapeIndex] = shapes[shapeIndex].translated(by: dx, dy)
+            }
+            syncLayerVectors()
+            markDirty()
+            statusMessage = "Nest: \(placements.count) of \(parts.count) parts placed, \(String(format: "%.0f", usedFraction * 100))% sheet used"
+            return true
+        case .doesNotFit(let unplacedIDs):
+            if unplacedIDs.count == parts.count {
+                statusMessage = "Nest: parts do not fit on \(Int(sheet.width))×\(Int(sheet.depth))mm sheet — enlarge the sheet or reduce spacing"
+            } else {
+                statusMessage = "Nest: \(parts.count - unplacedIDs.count) placed, \(unplacedIDs.count) did not fit"
+            }
+            return false
+        }
+    }
+
     // MARK: - Design ops (SPK-1101)
 
     /// Replace the shape at `index` with a new shape (undoable, dirty).
@@ -2329,6 +2406,76 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
         if !result.success {
             statusMessage = "Image relief import failed: \(result.errorMessage ?? "unknown error")"
         }
+    }
+
+    // MARK: - SPK-1900a / SPK-1900e (photo → heightfield engines)
+
+    /// Decode an image file to a row-major luminance grid (0..1) using the
+    /// same ImageIO path as the bitmap-relief importer. Rows = image Y.
+    static func decodeLuminanceGrid(from url: URL) -> [[Double]]? {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+              let cg = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return nil }
+        let pixels = BitmapHeightfieldImporter.grayscalePixels(from: cg)
+        guard pixels.count == cg.width * cg.height else { return nil }
+        var rows: [[Double]] = []
+        for r in 0..<cg.height {
+            rows.append(Array(pixels[r * cg.width..<(r + 1) * cg.width]))
+        }
+        return rows
+    }
+
+    /// Shared tail for the two photo engines: store the generated grid as the
+    /// document relief (same slot as STL/image import), hop to Model stage,
+    /// and dirty every 3D node so recalc regenerates from it.
+    private func adoptGeneratedRelief(_ hf: HeightfieldData, label: String) {
+        registerUndoPoint()
+        job.stlHeightfield = hf
+        markDirty()
+        selectedStage = .model
+        for node in toolpathTree.allNodes where node.strategyKind == .rough3D || node.strategyKind == .finish3D {
+            node.markDirty()
+        }
+        statusMessage = "\(label): \(hf.width)×\(hf.height) grid, \(String(format: "%.0f", Double(hf.width) * hf.cellSizeMm))×\(String(format: "%.0f", Double(hf.height) * hf.cellSizeMm))mm"
+    }
+
+    /// ⌘K "Photo Lithophane…" / Model-stage button: pick a photo, map its
+    /// light transmission to thickness (bright = thin), and load it as the
+    /// relief. Cut it with Rough/Finish 3D like any other relief.
+    func generateLithophaneFromPanel() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.image]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.title = "Import Photo Lithophane"
+        guard panel.runModal() == .OK, let url = panel.url,
+              let rows = Self.decodeLuminanceGrid(from: url) else {
+            statusMessage = "Lithophane: could not read that image"
+            return
+        }
+        var params = LithophaneParams()
+        params.mode = .lithophaneThickness
+        params.gridResolution = 600 // match the importer's ~600-cell budget
+        adoptGeneratedRelief(LithophaneEngine.generateHeightfield(luminance: rows, params: params),
+                             label: "Lithophane")
+    }
+
+    /// ⌘K "Image to Relief…" — Carveco-style auto-levels + smoothing +
+    /// detail boost over a photo, landing in the standard relief slot.
+    func generateImageToReliefFromPanel() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.image]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.title = "Import Image to Relief"
+        guard panel.runModal() == .OK, let url = panel.url,
+              let rows = Self.decodeLuminanceGrid(from: url) else {
+            statusMessage = "Image to Relief: could not read that image"
+            return
+        }
+        var params = ImageToReliefParams()
+        params.gridResolution = 600
+        adoptGeneratedRelief(ImageToReliefEngine.generateHeightfield(luminance: rows, params: params),
+                             label: "Image relief")
     }
 
     // MARK: - Sculpt (SPK-0713 lean slice)
@@ -5036,6 +5183,10 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
             importSTLHeightfieldFromPanel()
         case .importImageRelief:
             importBitmapHeightfieldFromPanel()
+        case .importLithophane:
+            generateLithophaneFromPanel()
+        case .importImageToRelief:
+            generateImageToReliefFromPanel()
         case .importOBJRelief:
             importOBJHeightfieldFromPanel()
         case .import3MFRelief:

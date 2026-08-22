@@ -257,6 +257,10 @@ struct ModelStageView: View {
                 .foregroundStyle(.secondary)
             Button("Image Relief…") { session.importBitmapHeightfieldFromPanel() }
                 .help("Import a black & white image as a heightmap (brightness → height)")
+            Button("Photo Lithophane…") { session.generateLithophaneFromPanel() }
+                .help("Import a photo as a lithophane — bright areas cut thin so light passes through")
+            Button("Image to Relief…") { session.generateImageToReliefFromPanel() }
+                .help("Import any photo as a carved relief with auto-levels, smoothing and detail boost")
             Divider().frame(height: 14)
             Button("Zoom +") { zoom = min(8.0, zoom * 1.25) }
                 .disabled(session.job.stlHeightfield == nil)

@@ -224,7 +224,7 @@ public enum BitmapHeightfieldImporter {
     /// Drawing into a device-gray context performs the colorspace conversion
     /// (sRGB/whatever → luminance). Empirically the bitmap context memory is
     /// already top-down (row 0 = image top), so no row flip is applied.
-    static func grayscalePixels(from image: CGImage) -> [Double] {
+    public static func grayscalePixels(from image: CGImage) -> [Double] {
         let w = image.width
         let h = image.height
         guard w > 0, h > 0 else { return [] }

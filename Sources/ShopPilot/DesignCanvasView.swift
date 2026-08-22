@@ -253,6 +253,18 @@ struct DesignCanvasView: View {
             .frame(width: 120)
             .accessibilityLabel("Canvas origin")
 
+            // SPK-1900f: pack selected (or all) vectors onto the sheet.
+            Button {
+                session.nestShapesOnSheet()
+            } label: {
+                Image(systemName: "rectangle.split.3x1")
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel("Nest shapes")
+            .accessibilityAddTraits(.isButton)
+            .disabled(session.shapes.isEmpty)
+            .help("Nest selection on the sheet (all shapes if nothing selected)")
+
             // UI-polish cluster: visibility chips (Vec / Keep-outs / Toolpaths).
             Divider().frame(height: 14)
             ForEach(0..<CanvasOverlayOptions.chips.count, id: \.self) { i in

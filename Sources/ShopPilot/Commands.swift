@@ -11,6 +11,8 @@ public enum CommandID: String, CaseIterable {
     case importSVG = "import_svg"
     case importSTLRelief = "import_stl_relief"
     case importImageRelief = "import_image_relief"
+    case importLithophane = "import_lithophane"
+    case importImageToRelief = "import_image_to_relief"
     case importOBJRelief = "import_obj_relief"
     case import3MFRelief = "import_3mf_relief"
     case importEPS = "import_eps"
@@ -55,6 +57,8 @@ public enum CommandID: String, CaseIterable {
         case .importSVG: return "Import SVG…"
         case .importSTLRelief: return "Import STL Relief…"
         case .importImageRelief: return "Import Image Relief…"
+        case .importLithophane: return "Import Photo Lithophane…"
+        case .importImageToRelief: return "Import Image to Relief…"
         case .importOBJRelief: return "Import OBJ Relief…"
         case .import3MFRelief: return "Import 3MF Relief…"
         case .importEPS: return "Import EPS…"
@@ -91,6 +95,7 @@ public enum CommandID: String, CaseIterable {
     var category: CommandCategory {
         switch self {
         case .newJob, .openJob, .saveJob, .exportGcode, .importSVG, .importSTLRelief, .importImageRelief,
+             .importLithophane, .importImageToRelief,
              .importOBJRelief, .import3MFRelief, .importEPS, .importPDF, .importAI, .importDWG:
             return .file
         case .undo, .redo, .cut, .copy, .paste, .deleteVector, .group, .ungroup, .setSize:
@@ -113,6 +118,8 @@ public enum CommandID: String, CaseIterable {
         case .importSVG: return nil
         case .importSTLRelief: return nil
         case .importImageRelief: return nil
+        case .importLithophane: return nil
+        case .importImageToRelief: return nil
         case .importOBJRelief: return nil
         case .import3MFRelief: return nil
         case .importEPS: return nil
@@ -169,6 +176,7 @@ public enum CommandID: String, CaseIterable {
     var isComingSoon: Bool {
         switch self {
         case .newJob, .openJob, .saveJob, .exportGcode, .importSVG, .importSTLRelief, .importImageRelief,
+             .importLithophane, .importImageToRelief,
              .importOBJRelief, .import3MFRelief, .importEPS, .importPDF, .importAI, .importDWG,
              .undo, .redo,
              .group, .ungroup, .setSize,
