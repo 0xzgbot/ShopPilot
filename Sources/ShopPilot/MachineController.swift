@@ -319,6 +319,45 @@ public final class MachineController: ObservableObject {
         }
     }
 
+    // MARK: - SPK-1900b — Frame job / click-to-jog
+
+    /// True when motion commands are safe to send: transport open, not
+    /// streaming, not in alarm. Mirrors the softHomeAll gate.
+    public var canSendMotion: Bool {
+        connection.connectionState.isConnected && chromeState == .idle
+    }
+
+    /// Trace the job bounds in air at a safe clearance height so the operator
+    /// can verify stock placement before cutting. No-op unless connected AND
+    /// idle; never sends spindle or Z-cutting motion.
+    public func frameJob(widthMm: Double, heightMm: Double) {
+        guard canSendMotion else {
+            connection.addSystemMessage("Frame needs a connected, idle machine")
+            return
+        }
+        let lines = FrameJobFormatter.lines(widthMm: widthMm, heightMm: heightMm)
+        Task {
+            for line in lines {
+                await connection.sendCommand(line)
+            }
+            connection.addSystemMessage("Frame sent — \(Int(widthMm))×\(Int(heightMm))mm at safe Z")
+        }
+    }
+
+    /// Click-to-jog: absolute rapid to the clicked canvas point. No-op unless
+    /// connected AND idle.
+    public func jogTo(xMm: Double, yMm: Double) {
+        guard canSendMotion else {
+            connection.addSystemMessage("Jog-to needs a connected, idle machine")
+            return
+        }
+        let line = JogToFormatter.line(xMm: xMm, yMm: yMm)
+        Task {
+            await connection.sendCommand(line)
+            connection.addSystemMessage("Jog to X\(String(format: "%.1f", xMm)) Y\(String(format: "%.1f", yMm))")
+        }
+    }
+
     // MARK: - Touch-off probing (SPK-1303)
 
     /// Run the touch-off probe sequence at the current XY. After the probe

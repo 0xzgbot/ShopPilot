@@ -74,6 +74,10 @@ struct DesignCanvasView: View {
     @State private var nodeDrag: NodeDrag?
     // SPK-1101c: measure mode (click two points to read the distance).
     @State private var measureMode = false
+
+    /// SPK-1900b — when true, a plain canvas click rapids the machine to that
+    /// model-space point (only fires when the machine is connected + idle).
+    @State private var jogToMachineMode = false
     @State private var measureA: CGPoint?
     @State private var measureB: CGPoint?
 
@@ -264,6 +268,32 @@ struct DesignCanvasView: View {
             .accessibilityAddTraits(.isButton)
             .disabled(session.shapes.isEmpty)
             .help("Nest selection on the sheet (all shapes if nothing selected)")
+
+            // SPK-1900b: click-to-jog mode + frame job bounds. Both only move
+            // when the machine is connected AND idle; the buttons reflect that.
+            Button {
+                jogToMachineMode.toggle()
+                if !jogToMachineMode { measureMode = false }
+            } label: {
+                Image(systemName: "arrow.uturn.down.circle")
+                    .foregroundStyle(jogToMachineMode ? Color.accentColor : .secondary)
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel("Jog-to mode")
+            .accessibilityAddTraits(.isButton)
+            .help("Click the canvas to rapid the machine there (connected + idle only)")
+
+            Button {
+                let sheet = session.activeSheet
+                session.machine.frameJob(widthMm: sheet?.width ?? 0, heightMm: sheet?.depth ?? 0)
+            } label: {
+                Image(systemName: "rectangle.dashed")
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel("Frame job")
+            .accessibilityAddTraits(.isButton)
+            .disabled(!(session.machine.canSendMotion))
+            .help("Trace the job bounds in air at a safe height (connected + idle only)")
 
             // UI-polish cluster: visibility chips (Vec / Keep-outs / Toolpaths).
             Divider().frame(height: 14)
@@ -654,6 +684,18 @@ struct DesignCanvasView: View {
                     .onEnded { value in
                         guard hypot(value.translation.width, value.translation.height) < 6 else { return }
                         handleMeasureTap(at: value.location)
+                    }
+            )
+        }
+        // SPK-1900b: jog-to mode takes over plain clicks — rapid the machine
+        // to the clicked model-space point (controller gates on connected+idle).
+        if jogToMachineMode {
+            return AnyGesture(
+                DragGesture(minimumDistance: 0)
+                    .onEnded { value in
+                        guard hypot(value.translation.width, value.translation.height) < 6 else { return }
+                        let p = model(value.location)
+                        session.machine.jogTo(xMm: Double(p.x), yMm: Double(p.y))
                     }
             )
         }

@@ -38,3 +38,30 @@ public enum JogCommandFormatter {
         ["G91 G0 \(axis)\(String(format: "%.3f", distanceMm))", restoreLine]
     }
 }
+
+/// SPK-1900b — click-to-jog: one absolute rapid to a canvas point. The jog
+/// discipline restores G90 after every relative jog, so an absolute G0 is
+/// the correct modal state here; no M3, no Z motion, no auto-run.
+public enum JogToFormatter {
+    public static func line(xMm: Double, yMm: Double) -> String {
+        "G0 X\(String(format: "%.3f", xMm)) Y\(String(format: "%.3f", yMm))"
+    }
+}
+
+/// SPK-1900b — frame the job bounds: trace the sheet rectangle in AIR at a
+/// safe clearance height so the operator can visually confirm stock position
+/// and job bounds before any cut. Pure G0 motion — never a spindle command,
+/// never a cut depth.
+public enum FrameJobFormatter {
+    public static func lines(widthMm: Double, heightMm: Double, clearanceZMm: Double = 5.0) -> [String] {
+        let f = { (v: Double) in String(format: "%.3f", v) }
+        return [
+            "G0 Z\(f(clearanceZMm))",       // lift to clearance FIRST
+            "G0 X0.000 Y0.000",              // to the job origin corner
+            "G0 X\(f(widthMm)) Y0.000",      // perimeter at clearance height
+            "G0 X\(f(widthMm)) Y\(f(heightMm))",
+            "G0 X0.000 Y\(f(heightMm))",
+            "G0 X0.000 Y0.000",              // return to origin
+        ]
+    }
+}
