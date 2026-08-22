@@ -7,6 +7,8 @@ import ShopPilotCore
 struct CommandPaletteView: View {
     @State private var searchText = ""
     @FocusState private var isFocused: Bool
+    /// SPK-1900c — Beginner mode filters pro import formats out of the list.
+    @AppStorage("shop_pilot_beginner_mode") private var beginnerMode = false
     
     /// Currently selected index in the filtered list.
     @State private var selectedIndex = 0
@@ -22,9 +24,9 @@ struct CommandPaletteView: View {
     /// Filtered and grouped commands based on search text.
     private var filteredCommands: [(category: CommandCategory, command: CommandID)] {
         if searchText.isEmpty {
-            return CommandRegistry.flatCommands
+            return CommandRegistry.flatCommands(beginnerMode: beginnerMode)
         }
-        return CommandRegistry.search(searchText)
+        return CommandRegistry.search(searchText, beginnerMode: beginnerMode)
     }
     
     /// Flat list for indexing (used by keyboard navigation).

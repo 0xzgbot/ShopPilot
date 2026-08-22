@@ -369,6 +369,10 @@ private struct SetupStageView: View {
     /// SPK-1400b — the six pro panels live under one Advanced disclosure,
     /// collapsed by default so first-run sees Stock & Material only.
     @State private var advancedExpanded = false
+    /// SPK-1900c — Beginner mode keeps the Advanced disclosure collapsed and
+    /// hides the toggle entirely (panels stay in the app; Advanced mode shows
+    /// them again). Read via the same UserDefaults key AppSettings writes.
+    @AppStorage("shop_pilot_beginner_mode") private var beginnerMode = false
 
     var body: some View {
         ScrollView {
@@ -432,6 +436,13 @@ private struct SetupStageView: View {
                 .accessibilityLabel("Advanced")
                 .accessibilityAddTraits(.isButton)
                 .accessibilityIdentifier("setup.advanced")
+                // SPK-1900c — Beginner mode: the whole disclosure stays hidden
+                // (and collapsed); Advanced mode brings it back unchanged.
+                .accessibilityHidden(beginnerMode ? true : !advancedExpanded)
+                .opacity(beginnerMode ? 0 : 1)
+                .disabled(beginnerMode)
+                .frame(maxHeight: beginnerMode ? 0 : nil)
+                .clipped()
             }
             .padding()
         }

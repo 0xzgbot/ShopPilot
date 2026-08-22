@@ -57,4 +57,15 @@ struct AppSettings {
 
     /// When `true`, the beginner coach is skipped on first run.
     @AppStorage(Key.proSkip) var proSkip: Bool = false
+
+    // MARK: - Experience mode (SPK-1900c)
+
+    private enum Key2 {
+        static let beginner = "shop_pilot_beginner_mode"
+    }
+
+    /// SPK-1900c — Beginner mode hides professional surfaces (Setup Advanced
+    /// panels, pro import formats in ⌘K) without deleting anything; Advanced
+    /// (default) is the full app. Port of VP H-101's mode switch.
+    @AppStorage(Key2.beginner) var beginnerMode: Bool = false
 }

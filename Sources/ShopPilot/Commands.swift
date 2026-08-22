@@ -249,11 +249,22 @@ public struct CommandRegistry {
             routableCommands.filter { $0.category == category }.map { (category, $0) }
         }
     }
-    
+
+    /// SPK-1900c — Beginner mode hides pro import formats (DWG/AI/EPS/PDF)
+    /// from ⌘K; the commands still exist and stay routable for Advanced.
+    public static let beginnerHiddenIDs: Set<CommandID> = [
+        .importDWG, .importAI, .importEPS, .importPDF,
+    ]
+
+    /// Flat list filtered for the current experience mode.
+    public static func flatCommands(beginnerMode: Bool) -> [(category: CommandCategory, command: CommandID)] {
+        beginnerMode ? flatCommands.filter { !beginnerHiddenIDs.contains($0.command) } : flatCommands
+    }
+
     /// Search commands by text. Returns matching (category, command) pairs.
-    public static func search(_ query: String) -> [(category: CommandCategory, command: CommandID)] {
+    public static func search(_ query: String, beginnerMode: Bool = false) -> [(category: CommandCategory, command: CommandID)] {
         let lowerQuery = query.lowercased()
-        return flatCommands.filter { _, cmd in
+        return flatCommands(beginnerMode: beginnerMode).filter { _, cmd in
             cmd.name.localizedCaseInsensitiveContains(lowerQuery) ||
             cmd.rawValue.localizedCaseInsensitiveContains(lowerQuery)
         }

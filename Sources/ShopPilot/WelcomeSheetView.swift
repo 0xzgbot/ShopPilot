@@ -87,6 +87,17 @@ struct WelcomeSheetView: View {
 
             VStack(spacing: 8) {
                 Button {
+                    // SPK-1900c — Photo starter: straight into the photo
+                    // import (lithophane mapping), landing in the Model stage.
+                    session.generateLithophaneFromPanel()
+                    onDone()
+                } label: {
+                    Label("Start from a Photo…", systemImage: "photo")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+
+                Button {
                     session.selectedStage = .setup
                     onDone()
                 } label: {

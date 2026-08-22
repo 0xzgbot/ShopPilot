@@ -8,6 +8,8 @@ struct PreferencesView: View {
     @AppStorage("shop_pilot_units")       private(set) var units:       String = "mm"
     @AppStorage("shop_pilot_theme")        private(set) var theme:       String = "system"
     @AppStorage("shop_pilot_pro_skip")     private(set) var proSkip:     Bool   = false
+    /// SPK-1900c — Beginner/Advanced experience mode.
+    @AppStorage("shop_pilot_beginner_mode") private(set) var beginnerMode: Bool = false
 
     /// UI-polish cluster — customizable shortcuts. Loaded once on appear and
     /// written back through `ShortcutStore` so the app-agnostic store stays
@@ -45,6 +47,13 @@ struct PreferencesView: View {
                     .help(
                         "When enabled, the beginner coaching overlay will be skipped on first launch."
                     )
+                // SPK-1900c — experience mode switch (VP H-101 port).
+                Picker("Experience mode", selection: $beginnerMode) {
+                    Text("Beginner — guided, fewer panels").tag(true)
+                    Text("Advanced — everything").tag(false)
+                }
+                .pickerStyle(.inline)
+                .help("Beginner hides pro setup panels and import formats; nothing is deleted.")
             }
 
             // ── Keyboard shortcuts (UI-polish cluster) ───────
