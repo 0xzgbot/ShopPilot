@@ -1462,7 +1462,7 @@ Phase O/P/1403 **CLOSED**. Laser/LightBurn **HELD**. Do not reopen. Unlisted P0/
 
 **STOP (Phase Q chrome):** do not start DocumentGroup, laser/LightBurn, SPK-0623 rubber-stamp, AppSession full rewrite, or NavigationSplitView.
 
-**Shipped (2026-08-13):** **SPK-UI-BUG-03**, **SPK-1700** (a–d), **SPK-1800** (a–h). Laser/LightBurn **held**. **SPK-0623** remains owner-gated `[ ]` — do not rubber-stamp. Next agent work: only Ready `[ ]` cards that are not 0623 / not laser / not `[-]`.
+**Shipped (2026-08-13):** **SPK-UI-BUG-03**, **SPK-1700** (a–d), **SPK-1800** (a–h). Laser/LightBurn **held**. **SPK-0623** remains owner-gated `[ ]` — do not rubber-stamp. Next agent work: Ready `[ ]` that are not 0623 / not laser / not `[-]`; prefer **SPK-1910a** (trochoid engine) then 1910b/c. **SPK-1900g** stays owner license hold.
 
 ---
 
@@ -1495,6 +1495,48 @@ Phase O/P/1403 **CLOSED**. Laser/LightBurn **HELD**. Do not reopen. Unlisted P0/
 1. **Wave A (parallel subagents, NEW FILES ONLY):** 1900a engine+CLT · 1900e engine+CLT · 1900f engine+CLT — zero shared-file edits, pre-register CLT targets in Package.swift first.
 2. **Wave B (in-session, serialized hot files):** 1900a wiring → 1900e wiring → 1900f UI → 1900b → 1900c → 1900d.
 3. **Wave C:** 1900g docs + phase-close sweep (all new CLTs + regressions 1206/1313 + app build).
+
+---
+
+# PHASE T — Trochoidal slotting (SPK-1910) — hobby-router WOC loops (MillMage gap)
+
+> Filed 2026-08-21 from `docs/planning/research/MARKET_GAPS_2026.md` + MillMage trailer (trochoidal slotting). Independent implementation — no proprietary ports. Spec: `docs/planning/SPK-1910_TROCHOIDAL_AGENT_PROMPT.md`. Do **not** add dogbones, rest pockets, 3D adaptive, or Fusion morph on this parent. Prompt: one child at a time; 1910a first.
+
+- [x] **SPK-1910** **CAM** Trochoidal slotting parent
+  - parent DoD: Engine (centerline loops + Z step-down) + UI (Cut add + params form) + Persist (`paramsJSON` round-trip) + Verify (`ShopPilotVerify1910a` + `scripts/verify_1910c_trochoid.py`)
+  - deps: none. Out of scope on parent: dogbones, T-bones, rest-from-previous-tool, trochoidal *pocketing* of wide areas, laser, probe, Tool DB auto-feeds
+  - worktree: required; assignee: coder; 60m children
+  - all swift via `swift_locked.sh`; never `rm -rf .build`; worktree-only Sources
+  - Prompt: `docs/planning/SPK-1910_TROCHOIDAL_AGENT_PROMPT.md`
+
+- [x] **SPK-1910a** **CAM** Engine + CLT — NEW `Sources/ShopPilotCore/TrochoidSlotToolpath.swift` + `ShopPilotVerify1910a`
+  - parent: SPK-1910
+  - AC: 80×8 mm closed rect, D=6.35, WOC=0.8, depth=4, DOC=2 → looping XY, `isTooNarrow == false`; 80×5 mm same D → too narrow, no cut G1/G2/G3; peak sampled radial engagement &lt; D; Codable round-trip + default decode; `O=TROCHOID_SLOT`; no M6/G28; M3 only if rpm &gt; 0; deterministic
+  - Out of scope: AppSession, SwiftUI, preview, ContentView
+  - Verify: `./scripts/verify_locked.sh ShopPilotVerify1910a`
+  - worktree: required; assignee: coder; 60m
+  - Pre-register CLT in Package.swift with engine. // engine parallel-ok
+  - **Done (2026-08-21):** Engine + CLT PASS. Loop radius formula documented (`R = min(toolR − woc/2, slotHalfW − toolR)`), effective pitch = min(pitch, WOC) so advance never exceeds engagement; ramp entry (no vertical plunge); per-pass retract at safe Z; G2/G3 winding from cutDirection; header `O=TROCHOID_SLOT`; M3 gated on rpm>0; validation errors → empty gcode. CLT: all 8 assert groups PASS — 80×8 slot → 246 loops × 2 passes, peak sampled engagement 1.2 mm < 6.35 D; 80×5 → too-narrow, zero cut moves; smaller WOC → more loops (monotonic); depth 4/DOC 2 → exactly 2 passes; climb→G3 / conventional→G2; Codable round-trip + `{}`/partial default merge; no M6/G28; deterministic. ShopPilotCore build green.
+
+- [x] **SPK-1910b** **CAM** Tree + session generate/apply + recalc
+  - parent: SPK-1910; deps: 1910a `[x]`
+  - AC: Cut “Trochoid Slot” node, `strategyKind == .trochoidSlot`, label prefix `"Trochoid Slot"` (not Thread Mill); recalc from `paramsJSON` changes G-code when WOC changes; beginner mode hides this strategy; generate undoable like pocket
+  - Out of scope: params form polish; screenshots
+  - Verify: `ShopPilotVerify1910b` (tree + paramsJSON, no UI) + `./scripts/swift_locked.sh build --target ShopPilot`
+  - worktree: required; assignee: coder; 60m
+  - Files: `ToolpathTree.swift`, `AppSession.swift` (hot — serial)
+  - **Done (2026-08-21):** `StrategyKind.trochoidSlot` case + `"Trochoid Slot"` displayName (no Thread Mill collision); `trochoidSlotParams()` legacy-safe decode; recalc branch regenerates from stored `paramsJSON` with tool-feed linkage (`TrochoidSlotParams: ToolFeedApplicable`). Session: `generateTrochoidSlotToolpath()` (async compute like pocket, registerUndoPoint → undoable, end-mill default tool, too-narrow → no node added) + `applyTrochoidSlotParams()` (store + regenerate + refresh G-code buffer). UI: "Trochoid Slot" menu item under More strategies with AX label + `.isButton`, hidden in Beginner mode via `@AppStorage beginnerMode`. `ShopPilotVerify1910b` PASS — classification, recalc WOC 0.8→0.4 grows loops 246→370, paramsJSON round-trip, too-narrow clears dirty with header-only output, bare node defaults; app target build green.
+
+- [x] **SPK-1910c** **UX** Params form + structural gate
+  - parent: SPK-1910; deps: 1910b `[x]`
+  - AC: form D/depth/WOC/pitch/feed/plunge/safe Z/ramp; Apply regenerates; Add control AX label + `.isButton`; `scripts/verify_1910c_trochoid.py` greps form + prefix + `O=TROCHOID_SLOT`
+  - Out of scope: Tool DB seed auto-fill
+  - Verify: `python3 scripts/verify_1910c_trochoid.py` + app target build
+  - worktree: required; assignee: coder; 45m
+  - Files: `ContentView.swift` (serial)
+  - **Done (2026-08-21):** Form landed in `SpecialtyParamsForms.swift` (`TrochoidSlotParamsForm`: Tool Ø / Cut depth / Start depth / Depth-per-pass / Safe Z / Max WOC / Loop pitch / Feed / Plunge / RPM / climb-conventional picker / ramp toggle, Apply → regenerate) and is wired into the node panel via `applyTrochoidSlotParams`. Structural gate `scripts/verify_1910c_trochoid.py` PASS (menu item + AX label + `.isButton`, beginner-hidden, all AC fields, `O=TROCHOID_SLOT` marker). App target build green.
+
+**Execution:** 1910a (new files) → 1910b (hot tree/session) → 1910c (form). Parent `[x]` only when a–c `[x]`.
 
 ---
 
@@ -2177,3 +2219,8 @@ Board rows SPK-1201…1210 flipped `[x]` (plan: `docs/planning/UI_OVERHAUL_PLAN.
 ### 2026-08-10 — Plugin ABI loadable (Hermes coder, SPK-1006 follow-up)
 - **Plugin ABI [x]** — the SPK-1006 plugin API is now a working, verified ABI (was: "proposal, not loadable"). New `Sources/ShopPilotCore/PluginAPI.swift`: `PluginManifest` (apiVersion/id/name/kind/entry/capabilities/params, rejected on bad apiVersion or missing fields), `PluginJobDocument`/`PluginOutput` JSON contract, `PluginRunner` (child-process sandbox — job JSON on stdin, output JSON on stdout, `.swift` entry via `swift` interpreter or direct binary/shebang, 30s default timeout with terminate+reap), `PluginStore` discovery (Application Support/ShopPilot/Plugins + app-bundle Plugins + repo fixtures). Session `runPluginStrategy` builds the doc from the live job and injects plugin G-code as a toolpath node; Cut-stage `PluginsPanelView` lists discovered plugins with a Run button. Bundled sample plugin `fixtures/plugins/dotgrid-engrave/` (manifest + main.swift, peck-dot grid across stock). **`ShopPilotVerifyPluginABI` PASS** — real child-process run (12-dot grid on 40×30 stock, last dot (35,25), markers + modal header), bad-manifest rejection, 2s timeout kill of a hung plugin, vector round-trip through the doc. Docs: `RECIPE_PLUGIN_API_DRAFT.md` → Implemented; v2 checklist deferred item removed.
 
+
+### 2026-08-21 — SPK-1910 Trochoidal slotting complete (Hermes coder, single session a→b→c)
+- **Claimed:** SPK-1910a → 1910b → 1910c (one at a time per prompt).
+- **Did:** 1910a — new `TrochoidSlotToolpath.swift` (`TrochoidSlotParams` legacy-safe Codable, `TrochoidSlotResult`, `TrochoidSlotToolpathEngine`): bounding-box medial-axis centerline for closed slot corridors, loop radius `R = min(toolR − woc/2, slotHalfW − toolR)`, effective pitch `min(pitch, WOC)` so advance never exceeds radial engagement, G2/G3 full-circle loops with winding from cutDirection, ramp entry (no dead plunge), Z step-down + safe-Z retract between passes, too-narrow gate (< D×1.02 → header-only), `O=TROCHOID_SLOT` marker, M3 gated on rpm>0, no M6/G28. CLT `ShopPilotVerify1910a` covers all 8 spec assert groups. 1910b — `StrategyKind.trochoidSlot` (+displayName "Trochoid Slot", no Thread Mill collision), `trochoidSlotParams()` decode, recalc branch in `computeDirtyToolpathResults` from stored `paramsJSON` (tool-feed linked via `ToolFeedApplicable`); session `generateTrochoidSlotToolpath()`/`applyTrochoidSlotParams()` following the pocket async+undo pattern; Cut More-menu item (AX label + `.isButton`, beginner-hidden). CLT `ShopPilotVerify1910b`. 1910c — `TrochoidSlotParamsForm` in SpecialtyParamsForms.swift wired to Apply-regenerate; python gate `scripts/verify_1910c_trochoid.py`.
+- **Result:** all three cards `[x]`, parent `[x]`. Verify: 1910a PASS (246 loops × 2 passes on 80×8/D6.35/WOC0.8, peak engagement 1.2 < D; 80×5 too-narrow zero-cut), 1910b PASS (recalc WOC 0.8→0.4 grows loops 246→370; paramsJSON round-trip; too-narrow clears dirty header-only), 1910c python gate PASS, regression `ShopPilotVerify1133b` PASS after recalc-switch edit, app target build green. Ad-hoc slice verify only (no full test.sh) — noted per parent DoD. Scope held: no dogbones/rest/adaptive/morph.

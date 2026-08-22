@@ -496,3 +496,68 @@ struct ThreadMillParamsForm: View {
         .padding(8)
     }
 }
+
+// MARK: - Trochoid Slot strategy form (SPK-1910c)
+
+/// Editable form for the SPK-1910 trochoidal slotting field set. Editing is
+/// local; "Apply" stores the params on the operation and regenerates its
+/// G-code with the real engine (same contract as Pocket/Thread Mill forms).
+struct TrochoidSlotParamsForm: View {
+    let node: ToolpathTreeNode
+    let onApply: (TrochoidSlotParams) -> Void
+
+    @State private var params: TrochoidSlotParams
+
+    init(node: ToolpathTreeNode, onApply: @escaping (TrochoidSlotParams) -> Void) {
+        self.node = node
+        self.onApply = onApply
+        _params = State(initialValue: node.trochoidSlotParams())
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            GroupBox("Tool & depth") {
+                Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                    SpecialtyNumRow(label: "Tool Ø (mm)", value: $params.toolDiameterMm)
+                    SpecialtyNumRow(label: "Cut depth (mm)", value: $params.cutDepthMm)
+                    SpecialtyNumRow(label: "Start depth (mm)", value: $params.startDepthMm)
+                    SpecialtyNumRow(label: "Depth/pass (mm)", value: $params.maxDepthOfCutMm)
+                    SpecialtyNumRow(label: "Safe Z (mm)", value: $params.safetyHeightMm)
+                }
+            }
+            GroupBox("Engagement") {
+                Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                    // The whole point of trochoidal slotting — keep this small.
+                    SpecialtyNumRow(label: "Max WOC (mm)", value: $params.maxWocMm)
+                    SpecialtyNumRow(label: "Loop pitch (mm)", value: $params.loopPitchMm)
+                }
+                Text("WOC = radial engagement per loop. Smaller = safer on hobby routers, more loops.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            GroupBox("Feeds") {
+                Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                    SpecialtyNumRow(label: "Feed (mm/min)", value: $params.feedRateMmPerMin)
+                    SpecialtyNumRow(label: "Plunge (mm/min)", value: $params.plungeFeedRateMmPerMin)
+                    SpecialtyNumRow(label: "Spindle (RPM, 0 = off)", value: $params.spindleRpm)
+                }
+            }
+            GroupBox("Options") {
+                Picker("Direction", selection: $params.cutDirection) {
+                    ForEach([CutDirection.climb, .conventional], id: \.self) { d in
+                        Text(d.displayName).tag(d)
+                    }
+                }
+                .labelsHidden()
+                Toggle("Ramp entry (no dead plunge)", isOn: $params.rampEntry)
+            }
+
+            Button("Apply Params — Regenerate") {
+                onApply(params)
+            }
+            .buttonStyle(.borderedProminent)
+            .frame(maxWidth: .infinity)
+        }
+        .padding(8)
+    }
+}

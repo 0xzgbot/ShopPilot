@@ -3385,6 +3385,92 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
         return true
     }
 
+    // MARK: - SPK-1910b — Trochoid Slot (generate / apply)
+
+    /// Generate a trochoidal slotting toolpath from the closed session
+    /// vectors and add it to the tree. Pro strategy — hidden in Beginner
+    /// mode at the UI layer. SPK-UI-BUG-03: engine compute runs off the
+    /// main thread.
+    func generateTrochoidSlotToolpath() {
+        guard !vectors.isEmpty else {
+            statusMessage = "No vectors — draw or import a closed slot corridor first"
+            return
+        }
+        let vectorsSnapshot = vectors.filter { $0.isClosed && !$0.points.isEmpty }
+        guard !vectorsSnapshot.isEmpty else {
+            statusMessage = "Trochoid Slot needs a CLOSED vector — the corridor boundary"
+            return
+        }
+        let stockHeight = activeSheet?.height ?? 25.0
+        let nodeCount = toolpathTree.allNodes.count
+        registerUndoPoint()
+        generateToolpathAsync(compute: {
+            let params = TrochoidSlotParams()
+            let result = TrochoidSlotToolpathEngine.compute(
+                vectors: vectorsSnapshot,
+                params: params,
+                material: nil,
+                stockHeightMm: stockHeight
+            )
+            let summary = result.isTooNarrow
+                ? "Trochoid Slot: corridor too narrow for the tool — no cut generated"
+                : "Trochoid Slot: \(result.loopCount) loops × \(result.passCount) pass(es), \(result.gcodeLines.count) lines"
+            return AsyncGenerateResult(
+                nodeName: "Trochoid Slot \(nodeCount)",
+                gcode: result.gcodeLines,
+                estimatedTime: result.estimatedTimeSeconds,
+                summary: summary,
+                paramsJSON: Self.encodeParamsValue(params),
+                addNode: !result.isTooNarrow
+            )
+        }) { result in
+            let node = self.addToolpathNode(named: result.nodeName, gcode: result.gcode, estimatedTime: result.estimatedTime)
+            node.paramsJSON = result.paramsJSON
+            // Trochoid slots use an end mill, not the default V-bit mapping.
+            if let endMill = self.toolDatabase.tools.first(where: { $0.type == .endMill }) {
+                node.toolID = endMill.id
+            }
+        }
+    }
+
+    /// Apply Trochoid Slot params to an operation: store them on the node and
+    /// immediately regenerate its G-code with the real engine (SPK-1910b).
+    @discardableResult
+    func applyTrochoidSlotParams(_ params: TrochoidSlotParams, to nodeID: UUID) -> Bool {
+        guard let node = toolpathTree.findNode(id: nodeID),
+              node.strategyKind == .trochoidSlot else {
+            statusMessage = "Apply params: select a Trochoid Slot operation"
+            return false
+        }
+        guard !vectors.isEmpty else {
+            statusMessage = "No vectors — add shapes first"
+            return false
+        }
+        registerUndoPoint()
+        node.paramsJSON = encodeParams(params)
+        let result = TrochoidSlotToolpathEngine.compute(
+            vectors: vectors.filter { $0.isClosed && !$0.points.isEmpty },
+            params: params,
+            material: nil,
+            stockHeightMm: activeSheet?.height ?? 25.0
+        )
+        node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+        node.estimatedTimeSeconds = result.estimatedTimeSeconds
+        node.clearDirty()
+        let all = allToolpathGCode
+        if !all.isEmpty {
+            gcodeLines = all
+        }
+        lastToolpathSummary =
+            "Trochoid Slot: \(result.loopCount) loops × \(result.passCount) pass(es), " +
+            "\(Int(result.estimatedTimeSeconds))s"
+        statusMessage = result.isTooNarrow
+            ? "Trochoid Slot: corridor too narrow for the tool — no cut generated"
+            : lastToolpathSummary
+        markDirty()
+        return true
+    }
+
     /// Generate a Drill toolpath at the center of every closed vector
     /// (bounding-box centroid, default peck cycle) and add it to the tree.
     /// SPK-UI-BUG-03: engine compute runs off the main thread.

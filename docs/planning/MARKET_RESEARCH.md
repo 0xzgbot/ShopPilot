@@ -329,3 +329,14 @@ Market research above is **real but not exhaustive**. Next passes:
 | Where must we still match the incumbent? | Toolpath quality, V-carve/inlay family, relief modeling depth, posts. |
 
 *Being honest about ingestion is how we get better than the incumbent — not by claiming we already are.*
+
+---
+
+## Part 6 — 2026-08-21 refresh (forums + YouTube captions)
+
+See [`research/MARKET_GAPS_2026.md`](./research/MARKET_GAPS_2026.md) for the full competitive gap pass (4 ingested transcripts + MillMage/Spark/gSender/Carbide/V1E sources). Short version:
+
+- **Vectric Spark** is native Mac **entry-level + GRBL streamer**, not Aspire. Core VCarve/Aspire stay Windows.
+- **MillMage** is the closest paid Mac rival: design + CAM + GRBL send, $99/$199, V-carve/relief/nest in 0.9, still Rosetta until 1.0.
+- **Constant undelivered asks** (not more strategies): CAM+control in one app, probe/M6 that does not crash Z, V-inlay that actually fits (bit tip + fudge), vector doctor, chip-load Tool DB for *this* router, rest machining, spoilboard surfacer in the sender.
+- **Do not chase:** AI credit 3D, V13 assembly view, 964 posts, cabinet software.

@@ -189,6 +189,7 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
         case sketchCarve
         case rotaryWrap
         case threadMill
+        case trochoidSlot
         case unknown
 
         /// Human-readable strategy name (SPK-1201 cut-layers table column).
@@ -212,6 +213,7 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
             case .sketchCarve: return "Sketch Carve"
             case .rotaryWrap: return "Rotary Wrap"
             case .threadMill: return "Thread Mill"
+            case .trochoidSlot: return "Trochoid Slot"
             case .unknown: return "Operation"
             }
         }
@@ -250,6 +252,9 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
         if label.hasPrefix("Sketch Carve") { return .sketchCarve }
         if label.hasPrefix("Rotary Wrap") { return .rotaryWrap }
         if label.hasPrefix("Thread Mill") { return .threadMill }
+        // SPK-1910b — trochoidal slotting (no prefix collision: "Trochoid"
+        // is distinct from "Thread Mill", "Texture", "Profile", …).
+        if label.hasPrefix("Trochoid Slot") { return .trochoidSlot }
         return .unknown
     }
 
@@ -510,6 +515,18 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
               let params = try? JSONDecoder().decode(ThreadMillParams.self, from: data)
         else {
             return ThreadMillParams()
+        }
+        return params
+    }
+
+    /// The node's stored trochoid-slot params (SPK-1910b), or defaults when
+    /// none were persisted (legacy-safe).
+    public func trochoidSlotParams() -> TrochoidSlotParams {
+        guard let json = paramsJSON,
+              let data = json.data(using: .utf8),
+              let params = try? JSONDecoder().decode(TrochoidSlotParams.self, from: data)
+        else {
+            return TrochoidSlotParams()
         }
         return params
     }
@@ -969,6 +986,22 @@ public final class ToolpathTreeManager: ObservableObject {
                     ))
                 }
 
+            case .trochoidSlot:
+                // SPK-1910b — regenerate the slot corridor from stored params.
+                // Too-narrow slots emit header-only G-code; that is a valid
+                // (safe) result, so the node still clears its dirty badge.
+                let result = TrochoidSlotToolpathEngine.compute(
+                    vectors: vectors.filter { $0.isClosed && !$0.points.isEmpty },
+                    params: withToolFeeds(node.trochoidSlotParams(), node: node, tools: tools, materialName: materialName, machineName: machineName),
+                    material: material,
+                    stockHeightMm: stockHeightMm
+                )
+                results.append(ToolpathNodeResult(
+                    nodeID: node.id,
+                    gcode: result.gcodeLines.joined(separator: "\n"),
+                    estimatedTimeSeconds: result.estimatedTimeSeconds
+                ))
+
             case .unknown:
                 continue
             }
@@ -1086,6 +1119,8 @@ extension PocketToolpathParams: ToolFeedApplicable, ToolPassDepthApplicable {}
 extension DrillToolpathParams: ToolFeedApplicable {}
 extension DrillBankToolpathParams: ToolFeedApplicable {}
 extension VCarveParams: ToolFeedApplicable, ToolPassDepthApplicable {}
+// SPK-1910b — trochoid slot params carry feed/plunge/rpm for tool linkage.
+extension TrochoidSlotParams: ToolFeedApplicable {}
 
 // MARK: - Preview (Xcode only — not available in CLI builds)
 

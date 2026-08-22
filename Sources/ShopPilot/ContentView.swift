@@ -906,6 +906,8 @@ private struct DesignStageView: View {
 
 private struct CutStageView: View {
     @ObservedObject var session: AppSession
+    /// SPK-1910b — Beginner mode hides the pro-only Trochoid Slot strategy.
+    @AppStorage("shop_pilot_beginner_mode") private var beginnerMode = false
 
     /// SPK-1201 — which cut overview is shown in the left pane.
     private enum CutViewMode: String, CaseIterable, Identifiable {
@@ -1007,6 +1009,15 @@ private struct CutStageView: View {
                             .help("Wrap the selected vectors around a rotary axis (X → A degrees, Y stays axial)")
                         Button("Thread Mill") { session.generateThreadMillingToolpath() }
                             .help("Cut a thread inside the selected closed vector with one helical pass (real G2 helix)")
+                        // SPK-1910b — pro strategy, hidden in Beginner mode
+                        // (same pattern as the Advanced disclosure: hidden +
+                        // disabled so it never leaks into the AX tree).
+                        if !beginnerMode {
+                            Button("Trochoid Slot") { session.generateTrochoidSlotToolpath() }
+                                .help("Mill a narrow slot with looping trochoid moves — small radial engagement, no full-width bury")
+                                .accessibilityLabel("Trochoid Slot")
+                                .accessibilityAddTraits(.isButton)
+                        }
                     }
                     Section("3D relief (needs an STL)") {
                         Button("Rough 3D") { session.generateRough3DToolpath() }
@@ -1572,6 +1583,16 @@ private struct CutStageView: View {
                     ScrollView {
                         ThreadMillParamsForm(node: node) { newParams in
                             _ = session.applyThreadMillParams(newParams, to: node.id)
+                        }
+                    }
+                    .frame(maxHeight: 320)
+                }
+
+                // SPK-1910b: Trochoid Slot strategy form.
+                if node.strategyKind == .trochoidSlot {
+                    ScrollView {
+                        TrochoidSlotParamsForm(node: node) { newParams in
+                            _ = session.applyTrochoidSlotParams(newParams, to: node.id)
                         }
                     }
                     .frame(maxHeight: 320)
