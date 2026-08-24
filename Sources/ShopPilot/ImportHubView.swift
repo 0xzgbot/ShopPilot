@@ -208,7 +208,42 @@ public struct ImportHubView: View {
     }
 
     private func performImport(url: URL, format: ImportFormat) async throws -> ImportResult {
-        // SPK-0216: all formats route through UnifiedImportRouter — one
+        // SPK-2000b: cabinetry CSVs route through CabinetryImporter.
+        if format == .cabinetryCSV {
+            let data = try Data(contentsOf: url)
+            let result = CabinetryImporter.importCSV(data)
+            guard result.success else {
+                return ImportResult(
+                    fileName: url.lastPathComponent,
+                    format: format,
+                    shapes: [],
+                    errors: ["FATAL: \(result.errorMessage ?? "import failed")"],
+                    warnings: []
+                )
+            }
+            // One rectangle VectorShape per placed part.
+            var shapes: [VectorShape] = []
+            for rect in result.rectangles {
+                let xs = rect.map(\.x), ys = rect.map(\.y)
+                guard let minX = xs.min(), let minY = ys.min(),
+                      let maxX = xs.max(), let maxY = ys.max() else { continue }
+                shapes.append(.rectangle(
+                    origin: VectorPoint(x: minX, y: minY),
+                    width: maxX - minX,
+                    height: maxY - minY
+                ))
+            }
+            return ImportResult(
+                fileName: url.lastPathComponent,
+                format: format,
+                shapes: shapes,
+                errors: [],
+                warnings: ["Vendor dialect: \(result.vendorDialect) — " +
+                           "\(result.parts.count) parts, \(shapes.count) placed on sheet"]
+            )
+        }
+
+        // SPK-0216: all other formats route through UnifiedImportRouter — one
         // dispatch, uniform result shape.
         let routerFormat: UnifiedImportRouter.Format
         switch format {
@@ -218,6 +253,7 @@ public struct ImportHubView: View {
         case .pdf: routerFormat = .pdf
         case .ai: routerFormat = .ai
         case .dwg: routerFormat = .dwg
+        case .cabinetryCSV: return ImportResult(fileName: url.lastPathComponent, format: format, shapes: [], errors: ["FATAL: unreachable"], warnings: [])
         }
         let result = UnifiedImportRouter.importFile(at: url, format: routerFormat)
         // The router emits warnings ONLY on failure (unsupported ext, read or
@@ -436,6 +472,8 @@ private struct FilePickerView: NSViewRepresentable {
                 return [.plainText, .pdf, .data] // AI is EPS or PDF flavor
             case .dwg:
                 return [.data] // DWG is binary; no UTType registry entry
+            case .cabinetryCSV:
+                return [.commaSeparatedText, .plainText] // cut-list CSV/TSV
             }
         }
     }
@@ -452,6 +490,7 @@ public enum ImportFormat: String, Codable, Sendable, CaseIterable, Identifiable 
     case pdf
     case ai
     case dwg
+    case cabinetryCSV
 
     public var id: String { rawValue }
 
@@ -463,6 +502,7 @@ public enum ImportFormat: String, Codable, Sendable, CaseIterable, Identifiable 
         case .pdf: return "PDF"
         case .ai: return "AI"
         case .dwg: return "DWG"
+        case .cabinetryCSV: return "Cabinetry CSV"
         }
     }
 
@@ -474,6 +514,7 @@ public enum ImportFormat: String, Codable, Sendable, CaseIterable, Identifiable 
         case .pdf: return "PDF — vector content streams"
         case .ai: return "Adobe Illustrator — EPS or PDF flavor"
         case .dwg: return "AutoCAD DWG — R12 (AC1009) LINE/CIRCLE/ARC/POINT"
+        case .cabinetryCSV: return "Cabinet cut list — Mozaik/KCD/CabinetSense/CabinetPartsPro/Polyboard/SmartWOP part lists"
         }
     }
 
@@ -485,6 +526,7 @@ public enum ImportFormat: String, Codable, Sendable, CaseIterable, Identifiable 
         case .pdf: return "doc.plaintext"
         case .ai: return "paintbrush.pointed"
         case .dwg: return "square.stack.3d.up"
+        case .cabinetryCSV: return "cabinet"
         }
     }
 
@@ -496,6 +538,7 @@ public enum ImportFormat: String, Codable, Sendable, CaseIterable, Identifiable 
         case .pdf: return "Ready"
         case .ai: return "Ready"
         case .dwg: return "Ready (R12)"
+        case .cabinetryCSV: return "Ready (6 vendors)"
         }
     }
 
@@ -503,6 +546,7 @@ public enum ImportFormat: String, Codable, Sendable, CaseIterable, Identifiable 
         switch self {
         case .svg, .dxf, .eps, .pdf, .ai: return .green
         case .dwg: return .green
+        case .cabinetryCSV: return .green
         }
     }
 }

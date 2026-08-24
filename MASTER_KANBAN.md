@@ -2416,7 +2416,7 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
   - AC: industrial (Haas/Fanuc/SINUMERIK/Heidenhain/Okuma/Centroid), routers (FluidNC/Mach3/Mach4/WinCNC/Masso/UCCNC/PlanetCNC/ShopBot/X-Carve/LongMill/Shapeoko/Onefinity/Avid), firmware (Marlin/Smoothieware/Duet/LinuxCNC), laser+plasma group; every template mm+inch via existing grammar; picker shows groups; rotary Y2A retained.
   - Verify: `ShopPilotVerify2000a` — count ≥54, every template emits valid moves for a sample program through `PostTemplateEngine`, units variants distinct, ids unique.
 
-- [ ] **SPK-2000b** **GEO** Cabinetry import (CSV job-list dialects)
+- [x] **SPK-2000b** **GEO** Cabinetry import (CSV job-list dialects)
   - AC: parse Mozaik/KCD/CabinetSense/CabinetPartsPro/Polyboard/SmartWOP-style part lists (comma+tab, header-vocabulary tolerant) into sheet rectangles as design vectors; fixture-driven CLT per vendor vocabulary; Import Hub accepts `.csv`.
   - Verify: `ShopPilotVerify2000b` — six fixtures parse, dims land within tolerance, malformed input reports honestly (no crash).
 
@@ -2434,3 +2434,6 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
 
 ### 2026-08-24 — SPK-2000a closed (Hermes)
 - PostCatalog: 14 GRBL-family routers ×mm/inch, 6 industrial (Fanuc-dialect body w/ G28+M30) ×mm/inch, 4 firmware mm-only, 4 laser/plasma ($32=1+M5, THC M64/M65) — 55 shipped total. Picker now grouped (Routers/Industrial/Firmware/Laser & Plasma + Custom), menu style. Verify `ShopPilotVerify2000a` PASS: ≥54 count, unique ids, all emit clean through PostTemplateEngine with moveCount preserved, no raw specifiers leak, units variants differ, grouping total, dialect markers present. App build green.
+
+### 2026-08-24 — SPK-2000b closed (Hermes)
+- `CabinetryImport.swift`: vocabulary-driven parser for Mozaik/KCD/CabinetSense/CabinetPartsPro/Polyboard/SmartWOP part lists — separator auto-detect (tab/semicolon/comma by count), quoted-cell CSV reader, BOM+CRLF tolerant, best-overlap header mapping, qty expansion into shelf-packed closed rectangles, honest failure messages (row numbers included). Import Hub gains **Cabinetry CSV** format (.commaSeparatedText/.plainText) routing through the importer; result surfaces dialect+part count in warnings. Verify `ShopPilotVerify2000b` PASS: all six dialects parse distinctly (fixtures inline), geometry fits sheet/no pairwise overlap/first==last closure, empty/gibberish/partial-number inputs fail honestly, vectorPaths naming carries copy suffixes. App build green.
