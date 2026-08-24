@@ -34,7 +34,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 AX_ACT="$SCRIPT_DIR/ax_act.swift"
 CAPTURE="$SCRIPT_DIR/capture_window.swift"
-SWIFT="${SWIFT:-swift}"
+# SPK-DOGFOOD-05 — prefer a precompiled ax_act binary: the JIT-interpreted
+# script SIGILLs on deep AX trees (depth >= 7). Build once with:
+#   swiftc -O -o "$SCRIPT_DIR/.ax_act_bin" "$SCRIPT_DIR/ax_act.swift"
+AX_BIN="$SCRIPT_DIR/.ax_act_bin"
+if [ -x "$AX_BIN" ]; then SWIFT=""; AX_RUN() { "$AX_BIN" "$@"; }; else AX_RUN() { "$SWIFT" "$AX_ACT" "$@"; }; fi
 SHOTS_PREFIX="/tmp/shoppilot-ui-drive"
 DUMP_LOG="$SHOTS_PREFIX-00-ax-dump.txt"
 APP_LOG="$SHOTS_PREFIX-app.log"
@@ -61,7 +65,7 @@ die() { # <exit_code> <message...>
 }
 
 ax() { # <args...> — run ax_act.swift against APP_PID; output -> ax_out, rc -> ax_rc
-    ax_out="$("$SWIFT" "$AX_ACT" "$APP_PID" "$@" 2>&1)"
+    ax_out="$(AX_RUN "$APP_PID" "$@" 2>&1)"
     ax_rc=$?
 }
 

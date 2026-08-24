@@ -1170,6 +1170,51 @@ let package = Package(
             dependencies: ["ShopPilotCore"],
             path: "Sources/ShopPilotVerify1800f"
         ),
+        .executableTarget(
+            name: "ShopPilotVerifyDOGFOOD02",
+            dependencies: ["ShopPilotCore", "ShopPilot"],
+            path: "Sources/ShopPilotVerifyDOGFOOD02"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerifyDOGFOOD02b",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerifyDOGFOOD02b"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerifyDOGFOOD01",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerifyDOGFOOD01"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerifyDOGFOOD03",
+            dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
+            path: "Sources/ShopPilotVerifyDOGFOOD03"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerifyDOGFOOD1920d",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerifyDOGFOOD1920d"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerifyDOGFOOD1920e",
+            dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
+            path: "Sources/ShopPilotVerifyDOGFOOD1920e"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerifyDOGFOOD1920f",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerifyDOGFOOD1920f"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerifyDOGFOOD1920g",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerifyDOGFOOD1920g"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerifyDOGFOOD1920h",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerifyDOGFOOD1920h"
+        ),
 
         .target(
             name: "ShopPilotCore",

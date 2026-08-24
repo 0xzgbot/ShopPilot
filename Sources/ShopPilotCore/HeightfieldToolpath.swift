@@ -42,6 +42,10 @@ public struct HeightfieldRoughParams: Codable, Sendable, ToolFeedApplicable {
     /// are cut — wider runs were already cleared by the prior pass. 0 = plain
     /// z-level rough (default, so legacy params decode unchanged).
     public var previousToolDiameterMm: Double
+    /// SPK-1920d (H-304) — inverse mill: flip the effective surface (Z vs
+    /// stock) so the machine cuts the COMPLEMENT of the relief — the fixture
+    /// pocket / mold cavity around the part instead of the part itself.
+    public var inverseMill: Bool
 
     public init(
         toolDiameterMm: Double = 6.0,
@@ -52,7 +56,8 @@ public struct HeightfieldRoughParams: Codable, Sendable, ToolFeedApplicable {
         safeZHeightMm: Double = 5.0,
         stockAllowanceMm: Double = 0.5,
         spindleRpm: Double = 0,
-        previousToolDiameterMm: Double = 0
+        previousToolDiameterMm: Double = 0,
+        inverseMill: Bool = false
     ) {
         self.toolDiameterMm = toolDiameterMm
         self.stepDownMm = stepDownMm
@@ -63,6 +68,7 @@ public struct HeightfieldRoughParams: Codable, Sendable, ToolFeedApplicable {
         self.stockAllowanceMm = stockAllowanceMm
         self.spindleRpm = spindleRpm
         self.previousToolDiameterMm = previousToolDiameterMm
+        self.inverseMill = inverseMill
     }
 
     /// True when this pass is a rest rough (smaller tool clearing the valleys
@@ -73,6 +79,7 @@ public struct HeightfieldRoughParams: Codable, Sendable, ToolFeedApplicable {
         case toolDiameterMm, stepDownMm, stepOverMm, feedRateMmPerMin
         case plungeFeedRateMmPerMin, safeZHeightMm, stockAllowanceMm, spindleRpm
         case previousToolDiameterMm
+        case inverseMill
     }
 
     public init(from decoder: Decoder) throws {
@@ -86,6 +93,7 @@ public struct HeightfieldRoughParams: Codable, Sendable, ToolFeedApplicable {
         stockAllowanceMm = try c.decodeIfPresent(Double.self, forKey: .stockAllowanceMm) ?? 0.5
         spindleRpm = try c.decodeIfPresent(Double.self, forKey: .spindleRpm) ?? 0
         previousToolDiameterMm = try c.decodeIfPresent(Double.self, forKey: .previousToolDiameterMm) ?? 0
+        inverseMill = try c.decodeIfPresent(Bool.self, forKey: .inverseMill) ?? false
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -99,6 +107,7 @@ public struct HeightfieldRoughParams: Codable, Sendable, ToolFeedApplicable {
         try c.encode(stockAllowanceMm, forKey: .stockAllowanceMm)
         try c.encode(spindleRpm, forKey: .spindleRpm)
         try c.encode(previousToolDiameterMm, forKey: .previousToolDiameterMm)
+        try c.encode(inverseMill, forKey: .inverseMill)
     }
 }
 
@@ -168,7 +177,15 @@ public enum HeightfieldRoughEngine {
         params: HeightfieldRoughParams
     ) -> HeightfieldToolpathResult {
         let b = heightfield.bounds
-        let stockTop = heightfield.maxHeight + params.stockAllowanceMm
+        // SPK-1920d (H-304) — inverse mill: the effective surface is flipped
+        // (Z vs stock). Normal: stock top sits above the relief max, cutting
+        // DOWN to the surface. Inverse: treat each cell's height as its
+        // DISTANCE BELOW the stock top (h' = maxHeight - h), so the machine
+        // cuts the complement — valleys where the part had peaks. The flip is
+        // applied once here; everything downstream (stockTop, levels, run
+        // detection) works on the flipped grid unchanged.
+        let effective = params.inverseMill ? inverted(heightfield) : heightfield
+        let stockTop = effective.maxHeight + params.stockAllowanceMm
         let stepDown = max(0.1, params.stepDownMm)
         let stepOver = max(0.1, params.stepOverMm)
 
@@ -203,37 +220,38 @@ public enum HeightfieldRoughEngine {
             lines.append("(Pass \(pass + 1)/\(levels.count), Z=\(String(format: "%.3f", depthZ)))")
             lines.append("G0 Z\(String(format: "%.3f", params.safeZHeightMm))")
 
-            let rowStride = max(1, Int(round(stepOver / heightfield.cellSizeMm)))
+            let rowStride = max(1, Int(round(stepOver / effective.cellSizeMm)))
             var row = 0
-            while row < heightfield.height {
-                let cy = heightfield.minY + (Double(row) + 0.5) * heightfield.cellSizeMm
+            while row < effective.height {
+                let cy = effective.minY + (Double(row) + 0.5) * effective.cellSizeMm
                 // Contiguous runs of cuttable cells in this row. Detection is
                 // per-CELL (stride 1): a coarser step would let runs bleed into
                 // skipped columns and cut cells above the level.
                 var col = 0
-                while col < heightfield.width {
-                    // Skip uncut cells.
-                    while col < heightfield.width {
-                        let cx = heightfield.minX + (Double(col) + 0.5) * heightfield.cellSizeMm
-                        if heightfield.heightInterpolated(atX: cx, y: cy) <= level + 1e-9 { break }
+                while col < effective.width {
+                    // Skip uncut cells (h <= level: the pass plane is above
+                    // the surface here, nothing to remove at this Z).
+                    while col < effective.width {
+                        let cx = effective.minX + (Double(col) + 0.5) * effective.cellSizeMm
+                        if effective.heightInterpolated(atX: cx, y: cy) <= level + 1e-9 { break }
                         col += 1
                     }
-                    guard col < heightfield.width else { break }
+                    guard col < effective.width else { break }
                     let runStartCol = col
                     var runEndCol = col
-                    while runEndCol < heightfield.width {
-                        let cx = heightfield.minX + (Double(runEndCol) + 0.5) * heightfield.cellSizeMm
-                        if heightfield.heightInterpolated(atX: cx, y: cy) > level + 1e-9 { break }
+                    while runEndCol < effective.width {
+                        let cx = effective.minX + (Double(runEndCol) + 0.5) * effective.cellSizeMm
+                        if effective.heightInterpolated(atX: cx, y: cy) > level + 1e-9 { break }
                         runEndCol += 1
                     }
                     // SPK-3D-rest: in a rest pass, a run at least as wide as
                     // the previous tool's diameter was already cleared by that
                     // tool — only narrower valleys (which the big tool could
                     // not reach) are cut by the smaller rest tool.
-                    let runWidthMm = Double(runEndCol - runStartCol) * heightfield.cellSizeMm
+                    let runWidthMm = Double(runEndCol - runStartCol) * effective.cellSizeMm
                     if !params.isRestRough || runWidthMm < params.previousToolDiameterMm - 1e-9 {
-                        let x0 = heightfield.minX + (Double(runStartCol) + 0.5) * heightfield.cellSizeMm
-                        let x1 = heightfield.minX + (Double(runEndCol - 1) + 0.5) * heightfield.cellSizeMm
+                        let x0 = effective.minX + (Double(runStartCol) + 0.5) * effective.cellSizeMm
+                        let x1 = effective.minX + (Double(runEndCol - 1) + 0.5) * effective.cellSizeMm
                         lines.append("G0 X\(String(format: "%.3f", x0)) Y\(String(format: "%.3f", cy))")
                         lines.append("G1 Z\(String(format: "%.3f", depthZ)) F\(Int(params.plungeFeedRateMmPerMin))")
                         lines.append("G1 X\(String(format: "%.3f", x1)) Y\(String(format: "%.3f", cy)) F\(Int(params.feedRateMmPerMin))")
@@ -253,6 +271,22 @@ public enum HeightfieldRoughEngine {
             estimatedTimeSeconds: totalLength / max(1, params.feedRateMmPerMin) * 60.0,
             passCount: levels.count,
             bounds: b
+        )
+    }
+
+    /// SPK-1920d — flip the surface: each cell's height becomes its distance
+    /// below the original maximum, so peaks become valleys and vice versa.
+    private static func inverted(_ hf: HeightfieldData) -> HeightfieldData {
+        let maxH = hf.maxHeight
+        var heights = hf.heights
+        for i in heights.indices { heights[i] = maxH - heights[i] }
+        return HeightfieldData(
+            width: hf.width,
+            height: hf.height,
+            cellSizeMm: hf.cellSizeMm,
+            minX: hf.minX,
+            minY: hf.minY,
+            heights: heights
         )
     }
 }

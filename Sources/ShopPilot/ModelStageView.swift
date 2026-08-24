@@ -108,6 +108,11 @@ struct ModelStageView: View {
                     if let hf = result.heightfield {
                         session.job.stlHeightfield = hf
                         session.markDirty()
+                        // SPK-1920b (H-301) — the imported STL lands as a named
+                        // relief component on the sheet stack, not just the raw
+                        // relief slot; recomposite places it on sheet bounds.
+                        session.addComponentFromActiveRelief(
+                            named: stlURL.deletingPathExtension().lastPathComponent)
                         session.statusMessage = "STL relief: \(result.triangleCount) triangles → \(hf.width)×\(hf.height) grid, max \(String(format: "%.1f", hf.maxHeight))mm"
                         session.selectedStage = .model
                     } else {

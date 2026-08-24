@@ -11,6 +11,13 @@ public enum StreamState {
     case streaming
     case paused
     case error(String)
+
+    /// SPK-1920h — true when the stream is held (Hold pressed). The Preview
+    /// live playhead stays visible but frozen in this state.
+    public var isPaused: Bool {
+        if case .paused = self { return true }
+        return false
+    }
 }
 
 extension StreamState: Equatable {
@@ -74,8 +81,25 @@ public final class GCodeStreamer: ObservableObject {
     private var transport: MachineTransport?
     private var isPaused = false
     private var lastProgressUpdateTime: Date = Date()
-    
+
     public init() {}
+
+    // MARK: - SPK-DOGFOOD-02 — stale transport teardown
+
+    /// True while the streamer still holds a transport reference it no longer
+    /// streams through (a finished stream whose wire has since been closed).
+    public var hasStaleTransport: Bool { transport != nil }
+
+    /// Called by the session when a stream finishes (ok, error, or cancel):
+    /// drops the retained transport so the NEXT connection cannot inherit a
+    /// closed wire. Before this existed, `streamer.reset()` during reconnect
+    /// wrote 0x18 into the previous connection's closed transport and the
+    /// awaiting main thread hung forever (dogfood beachball 2026-08-22).
+    public func finishStreaming() {
+        transport = nil
+        isPaused = false
+        state = .idle
+    }
     
     public var isStreaming: Bool { state == .streaming }
     

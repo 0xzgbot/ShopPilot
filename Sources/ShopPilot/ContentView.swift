@@ -196,7 +196,10 @@ struct ContentView: View {
             MachineConnectionView(
                 pendingGCode: session.allToolpathGCode,
                 controller: session.machine,
-                simTravelLimitMM: min(profile.travelXMM, profile.travelYMM)
+                simTravelLimitMM: min(profile.travelXMM, profile.travelYMM),
+                onSurfaceWasteboard: {
+                    session.generateWasteboardSurfacingToolpath()
+                }
             )
         }
     }
@@ -1593,6 +1596,16 @@ private struct CutStageView: View {
                     ScrollView {
                         TrochoidSlotParamsForm(node: node) { newParams in
                             _ = session.applyTrochoidSlotParams(newParams, to: node.id)
+                        }
+                    }
+                    .frame(maxHeight: 320)
+                }
+
+                // SPK-1920d (H-304): Rough 3D strategy form — inverse mill toggle.
+                if node.strategyKind == .rough3D {
+                    ScrollView {
+                        Rough3DParamsForm(node: node, tools: session.toolDatabase.tools) { newParams in
+                            _ = session.applyRough3DParams(newParams, to: node.id)
                         }
                     }
                     .frame(maxHeight: 320)

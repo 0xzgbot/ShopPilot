@@ -214,6 +214,21 @@ struct ToolpathPreviewView: View {
                         .frame(width: 34, alignment: .leading)
                 }
 
+                // SPK-1920h (H-503) — LIVE playhead while streaming: the
+                // streamer's line index drives the same progress readout so
+                // the Preview mirrors the cut in real time. Hold pauses the
+                // stream AND freezes this readout together (both derive from
+                // streamer.currentLine, which stops advancing on Hold).
+                if session.machine.streamer.isStreaming || session.machine.streamer.state.isPaused {
+                    let total = max(1, session.machine.streamer.totalLines)
+                    ProgressView(value: Double(session.machine.streamer.currentLine), total: Double(total))
+                        .frame(maxWidth: 120)
+                        .help("Live machine progress — line \(session.machine.streamer.currentLine) of \(total)")
+                    Text("LIVE")
+                        .font(.caption2.bold())
+                        .foregroundStyle(.red)
+                }
+
                 Button("Generate profile if empty") {
                     if session.vectors.isEmpty { session.addDemoRectangle() }
                     session.generateProfileToolpath()
@@ -591,8 +606,14 @@ struct ToolpathPreviewView: View {
             isSimulating = false
             simTask = nil
             let cellCount = simHeightmap.map { $0.width * $0.height } ?? 0
+            // SPK-DOGFOOD-04 — never claim "ready" with no heightfield. A nil
+            // map after a non-cancelled run means the simulation produced no
+            // data (empty buffer race, recover-from-autosave invalidation);
+            // the honest status tells the user to press Simulate.
             if flag.cancelled {
                 simStatus = "Sim cancelled (\(cellCount) cells kept)"
+            } else if simHeightmap == nil {
+                simStatus = "Material sim empty — press Simulate"
             } else if isPartial {
                 simStatus = "Dirty-region resim (\(cellCount) cells, changed nodes only)"
             } else {

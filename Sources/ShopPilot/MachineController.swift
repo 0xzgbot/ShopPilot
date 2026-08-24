@@ -145,7 +145,29 @@ public final class MachineController: ObservableObject {
     }
 
     private func recomputeChromeState() {
-        chromeState = derivedChromeState()
+        // SPK-DOGFOOD-02 — the 500ms status poller fires `$currentStatus` even
+        // when the report text is identical, and writing the same value back
+        // still fires objectWillChange → the whole Machine stage body (and
+        // every observer of the window chrome) rebuilds twice a second. During
+        // an alarm with raw TX/RX on, that stacked with console appends into a
+        // permanent AttributeGraph storm. Only publish when the glanceable
+        // state actually changed; `.running(progress:)` still flows on real
+        // progress deltas because progress participates in equality.
+        let next = derivedChromeState()
+        if next != chromeState {
+            chromeState = next
+        }
+    }
+
+    /// Main-actor wrapper for chrome recomputes fired from non-main contexts
+    /// (button-action Tasks, async stream paths). SPK-DOGFOOD-02: publishing
+    /// `chromeState` from a BACKGROUND thread drives SwiftUI's AttributeGraph
+    /// off-main — that path blocks on `_MovableLockSyncMain` while the main
+    /// thread holds the AttributeGraph lock in its own update and waits on the
+    /// same publisher's unfair lock → ABBA deadlock (the reconnect beachball).
+    @MainActor
+    func recomputeChromeStateOnMain() async {
+        recomputeChromeState()
     }
 
     private func derivedChromeState() -> MachineChromeState {
@@ -196,7 +218,7 @@ public final class MachineController: ObservableObject {
             machineSession.attach(transport: transport)
             machineSession.attachStreamer(streamer)
         }
-        recomputeChromeState()
+        await recomputeChromeStateOnMain()
     }
 
     public func disconnect() async {
@@ -206,9 +228,13 @@ public final class MachineController: ObservableObject {
         // ConnectionManager owns the transport lifecycle — session detaches
         // (no double-close) and resets its own state.
         machineSession.detach()
+        // SPK-DOGFOOD-02 — the streamer must not carry the old transport into
+        // the next connection: reset()/hold/resume would write into a closed
+        // wire and block the awaiting main thread forever.
+        streamer.finishStreaming()
         preflightPassed = false
         latchedAlarm = nil
-        recomputeChromeState()
+        await recomputeChromeStateOnMain()
     }
 
     // MARK: - Safety actions
@@ -362,7 +388,13 @@ public final class MachineController: ObservableObject {
 
     /// Run the touch-off probe sequence at the current XY. After the probe
     /// hits, compute + apply the Z work offset so the stock surface reads 0.
+    /// SPK-1920f: a disconnected (or busy) machine makes this an honest no-op —
+    /// nothing is queued and the status names why.
     public func touchOffZ(plateThickness: Double = 3.0) {
+        guard canSendMotion else {
+            connection.addSystemMessage("Touch-off probe needs a connected, idle machine — connect first")
+            return
+        }
         let plan = TouchOff.plan(plateThickness: plateThickness)
         let sequence = TouchOff.gcode(plan)
         Task {
@@ -502,6 +534,11 @@ public final class MachineController: ObservableObject {
         await MainActor.run {
             self.isStreamingJob = false
             self.preflightPassed = false
+            // SPK-DOGFOOD-02 — drop the streamer's transport reference the
+            // moment a stream ends (ok, error, or cancel). A stale reference
+            // to a closed transport made the next disconnect→reconnect hang
+            // the main thread (dogfood beachball 2026-08-22).
+            self.streamer.finishStreaming()
             self.recomputeChromeState()
         }
         if let message {

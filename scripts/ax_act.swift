@@ -17,22 +17,62 @@ func attr(_ el: AXUIElement, _ key: String) -> CFTypeRef? {
     return err == .success ? out : nil
 }
 
+/// SPK-DOGFOOD-05 — safe children fetch. `as? [AXUIElement]` on a CFArray can
+/// trap (SIGILL in the JIT-interpreted script) when the array holds elements
+/// that are not all AXUIElement (deep Design-stage trees expose heterogeneous
+/// refs at depth ≥7). Bridge element-wise with a type-ID check instead.
+func childrenOf(_ el: AXUIElement) -> [AXUIElement] {
+    guard let raw = attr(el, kAXChildrenAttribute) else { return [] }
+    return axElementArray(raw)
+}
+
+/// Safe CFArray → [AXUIElement]: element-wise type-ID check, never traps on
+/// heterogeneous arrays (windows attribute, children, etc.).
+func axElementArray(_ raw: CFTypeRef) -> [AXUIElement] {
+    guard CFGetTypeID(raw) == CFArrayGetTypeID() else { return [] }
+    let arr = raw as! CFArray
+    var out: [AXUIElement] = []
+    out.reserveCapacity(CFArrayGetCount(arr))
+    for i in 0..<CFArrayGetCount(arr) {
+        let unmanaged: CFTypeRef = unsafeBitCast(CFArrayGetValueAtIndex(arr, i), to: CFTypeRef.self)
+        if CFGetTypeID(unmanaged) == AXUIElementGetTypeID() {
+            out.append(unmanaged as! AXUIElement)
+        }
+    }
+    return out
+}
+
+/// Safe single-element cast: returns nil unless the ref really is an AXUIElement.
+func asAXUIElement(_ raw: CFTypeRef?) -> AXUIElement? {
+    guard let raw, CFGetTypeID(raw) == AXUIElementGetTypeID() else { return nil }
+    let typed: AXUIElement = unsafeBitCast(raw, to: AXUIElement.self)
+    return typed
+}
+
 func strAttr(_ el: AXUIElement, _ key: String) -> String {
     guard let v = attr(el, key) else { return "" }
     return v as? String ?? ""
 }
 
 func posOf(_ el: AXUIElement) -> (Int, Int) {
-    guard let pos = attr(el, kAXPositionAttribute), CFGetTypeID(pos) == AXValueGetTypeID(),
-          AXValueGetType(pos as! AXValue) == .cgPoint else { return (-1, -1) }
-    var p = CGPoint.zero; AXValueGetValue(pos as! AXValue, .cgPoint, &p)
+    // SPK-DOGFOOD-05 — bitcast after type-ID check. `as! AXValue` trapped
+    // (SIGILL) on deep-tree elements whose position value bridged oddly.
+    guard let pos = attr(el, kAXPositionAttribute),
+          CFGetTypeID(pos) == AXValueGetTypeID() else { return (-1, -1) }
+    let value: AXValue = unsafeBitCast(pos, to: AXValue.self)
+    guard AXValueGetType(value) == .cgPoint else { return (-1, -1) }
+    var p = CGPoint.zero
+    AXValueGetValue(value, .cgPoint, &p)
     return (Int(p.x), Int(p.y))
 }
 
 func sizeOf(_ el: AXUIElement) -> (Int, Int) {
-    guard let sz = attr(el, kAXSizeAttribute), CFGetTypeID(sz) == AXValueGetTypeID(),
-          AXValueGetType(sz as! AXValue) == .cgSize else { return (-1, -1) }
-    var s = CGSize.zero; AXValueGetValue(sz as! AXValue, .cgSize, &s)
+    guard let sz = attr(el, kAXSizeAttribute),
+          CFGetTypeID(sz) == AXValueGetTypeID() else { return (-1, -1) }
+    let value: AXValue = unsafeBitCast(sz, to: AXValue.self)
+    guard AXValueGetType(value) == .cgSize else { return (-1, -1) }
+    var s = CGSize.zero
+    AXValueGetValue(value, .cgSize, &s)
     return (Int(s.width), Int(s.height))
 }
 
@@ -40,9 +80,7 @@ var allElements: [AXUIElement] = []
 
 func collect(_ el: AXUIElement) {
     allElements.append(el)
-    if let children = attr(el, kAXChildrenAttribute) as? [AXUIElement] {
-        for c in children { collect(c) }
-    }
+    for c in childrenOf(el) { collect(c) }
 }
 
 /// Depth-limited collect — the menu bar's Services submenu can hang the app's
@@ -52,9 +90,7 @@ func collect(_ el: AXUIElement) {
 func collectLimited(_ el: AXUIElement, depth: Int, maxDepth: Int) {
     guard depth <= maxDepth else { return }
     allElements.append(el)
-    if let children = attr(el, kAXChildrenAttribute) as? [AXUIElement] {
-        for c in children { collectLimited(c, depth: depth + 1, maxDepth: maxDepth) }
-    }
+    for c in childrenOf(el) { collectLimited(c, depth: depth + 1, maxDepth: maxDepth) }
 }
 
 /// Window close/cancel buttons — needed for Settings-window dismiss (the
@@ -64,27 +100,45 @@ func collectLimited(_ el: AXUIElement, depth: Int, maxDepth: Int) {
 func collectWindowChrome(_ windows: [AXUIElement]) {
     for w in windows {
         if let close = attr(w, kAXCloseButtonAttribute) {
-            collect(close as! AXUIElement)
+            if let c = asAXUIElement(close) { collect(c) }
         }
-        if let cancel = attr(w, kAXCancelButtonAttribute) {
-            collect(cancel as! AXUIElement)
+        if let cancel = attr(w, kAXCancelButtonAttribute), let c = asAXUIElement(cancel) {
+            collect(c)
         }
     }
 }
 
 func walk(_ el: AXUIElement, depth: Int, maxDepth: Int, filter: String?, lines: inout [String]) {
-    guard depth <= maxDepth else { return }
-    let role = strAttr(el, kAXRoleAttribute)
-    if filter == nil || role == filter {
-        let (px, py) = posOf(el); let (sx, sy) = sizeOf(el)
-        let desc = strAttr(el, kAXDescriptionAttribute)
-        let title = strAttr(el, kAXTitleAttribute)
-        let value = strAttr(el, kAXValueAttribute)
-        let indent = String(repeating: "  ", count: depth)
-        lines.append("\(indent)\(role)|d=\(desc)|t=\(title)|v=\(value)|p=\(px),\(py)|s=\(sx)x\(sy)")
-    }
-    if let children = attr(el, kAXChildrenAttribute) as? [AXUIElement] {
-        for c in children { walk(c, depth: depth + 1, maxDepth: maxDepth, filter: filter, lines: &lines) }
+    // SPK-DOGFOOD-05 — iterative stack instead of recursion: deep Design-stage
+    // trees at default depth 8 crashed the interpreted script (SIGILL); an
+    // explicit LIFO also bounds memory deterministically.
+    var stack: [(el: AXUIElement, depth: Int)] = [(el, depth)]
+    while let (node, d) = stack.popLast() {
+        guard d <= maxDepth else { continue }
+        let role = strAttr(node, kAXRoleAttribute)
+        if filter == nil || role == filter {
+            // SPK-DOGFOOD-05 — position/size AX queries on deep-tree elements
+            // (menu containers, canvas internals at depth >=7) can trap the
+            // process (SIGILL inside posOf). Roles/titles carry the evidence
+            // value; only query p/s for concrete control roles.
+            // Geometry queries are depth-gated: some canvas-internal elements
+            // at depth >=7 poison the AX position/size query (server-side
+            // SIGILL). Roles/titles/values remain for ALL depths.
+            let queryGeometry = d <= 5 && ["AXButton", "AXStaticText", "AXCheckBox",
+                                 "AXRadioButton", "AXTextField", "AXPopUpButton",
+                                 "AXMenuButton", "AXSlider", "AXImage", "AXMenuItem",
+                                 "AXMenuBarItem"].contains(role)
+            let (px, py): (Int, Int) = queryGeometry ? posOf(node) : (0, 0)
+            let (sx, sy): (Int, Int) = queryGeometry ? sizeOf(node) : (0, 0)
+            let desc = strAttr(node, kAXDescriptionAttribute)
+            let title = strAttr(node, kAXTitleAttribute)
+            let value = strAttr(node, kAXValueAttribute)
+            let indent = String(repeating: "  ", count: d)
+            lines.append("\(indent)\(role)|d=\(desc)|t=\(title)|v=\(value)|p=\(px),\(py)|s=\(sx)x\(sy)")
+        }
+        for c in childrenOf(node).reversed() {
+            stack.append((c, d + 1))
+        }
     }
 }
 
@@ -99,7 +153,8 @@ let mode = args[2]
 if mode == "dump" {
     let maxDepth = args.count > 3 ? Int(args[3]) ?? 8 : 8
     let filter = args.count > 4 ? args[4] : nil
-    guard let windows = attr(app, kAXWindowsAttribute) as? [AXUIElement] else {
+    let windows = axElementArray(attr(app, kAXWindowsAttribute) ?? kCFNull as CFTypeRef)
+    guard !windows.isEmpty else {
         // Only a genuinely untrusted process is "AX denied". A trusted
         // client querying a BUSY app (main thread generating toolpaths)
         // also gets nil here — that is NOT a TCC denial and must never
@@ -112,7 +167,7 @@ if mode == "dump" {
     for (i, win) in windows.enumerated() {
         var closeInfo = "close=none"
         if let closeRaw = attr(win, kAXCloseButtonAttribute) {
-            let close = closeRaw as! AXUIElement
+            guard let close = asAXUIElement(closeRaw) else { continue }
             let (cx, cy) = posOf(close)
             closeInfo = "close=d=\(strAttr(close, kAXDescriptionAttribute))|t=\(strAttr(close, kAXTitleAttribute))|p=\(cx),\(cy)"
         }
@@ -121,14 +176,17 @@ if mode == "dump" {
     }
     if let mb = attr(app, kAXMenuBarAttribute) {
         print("-- menubar")
-        walk(mb as! AXUIElement, depth: 1, maxDepth: min(maxDepth, 4), filter: filter, lines: &lines)
+        if let mb = asAXUIElement(mb) {
+        walk(mb, depth: 1, maxDepth: min(maxDepth, 4), filter: filter, lines: &lines)
+    }
     }
     print(lines.joined(separator: "\n"))
 } else if mode == "press" {
     let target = args[3]
     let scope = args.count > 4 ? args[4] : nil
     let roleFilter = args.count > 5 ? args[5] : nil
-    guard let windows = attr(app, kAXWindowsAttribute) as? [AXUIElement] else {
+    let windows = axElementArray(attr(app, kAXWindowsAttribute) ?? kCFNull as CFTypeRef)
+    guard !windows.isEmpty else {
         if !AXIsProcessTrusted() { print("AX DENIED"); exit(1) }
         print("no windows (app busy or none)"); exit(1)
     }
@@ -141,7 +199,7 @@ if mode == "dump" {
         // depth 3 reaches every menu item (menu bar item -> AXMenu -> item);
         // the Services submenu items ("File Activity", dead provider) sit at
         // depth 5 and must never be collected.
-        collectLimited(mb as! AXUIElement, depth: 0, maxDepth: 3)
+        if let mbEl = asAXUIElement(mb) { collectLimited(mbEl, depth: 0, maxDepth: 3) }
     }
     var hit: AXUIElement? = nil
     for el in allElements {
@@ -165,7 +223,8 @@ if mode == "dump" {
 } else if mode == "setvalue" {
     let target = args[3]
     let newValue = args.count > 4 ? args[4] : ""
-    guard let windows = attr(app, kAXWindowsAttribute) as? [AXUIElement] else {
+    let windows = axElementArray(attr(app, kAXWindowsAttribute) ?? kCFNull as CFTypeRef)
+    guard !windows.isEmpty else {
         print("no windows"); exit(1)
     }
     allElements = []
@@ -201,16 +260,18 @@ if mode == "dump" {
     guard args.count >= 4, let idx = Int(args[3]) else {
         print("usage: ax_act <pid> closewin <index>"); exit(2)
     }
-    guard let windows = attr(app, kAXWindowsAttribute) as? [AXUIElement] else {
+    let windows = axElementArray(attr(app, kAXWindowsAttribute) ?? kCFNull as CFTypeRef)
+    guard !windows.isEmpty else {
         print("no windows"); exit(1)
     }
     guard idx >= 1, idx <= windows.count else {
         print("NO WINDOW \(idx) of \(windows.count)"); exit(3)
     }
-    guard let close = attr(windows[idx - 1], kAXCloseButtonAttribute) else {
+    guard let closeRaw = attr(windows[idx - 1], kAXCloseButtonAttribute),
+          let close = asAXUIElement(closeRaw) else {
         print("NO CLOSE BUTTON"); exit(3)
     }
-    let err = AXUIElementPerformAction(close as! AXUIElement, kAXPressAction as CFString)
+    let err = AXUIElementPerformAction(close, kAXPressAction as CFString)
     print(err == .success ? "CLOSED" : "CLOSE FAILED: \(err.rawValue)")
 } else if mode == "presskey" {
     // presskey <key> — simulate a key press (used for Escape to dismiss panels)
@@ -231,7 +292,8 @@ if mode == "dump" {
     print("KEY PRESSED: \(key)")
 } else if mode == "presspos" {
     guard args.count >= 5, let x = Int(args[3]), let y = Int(args[4]) else { exit(2) }
-    guard let windows = attr(app, kAXWindowsAttribute) as? [AXUIElement] else { print("no windows"); exit(1) }
+    let windows = axElementArray(attr(app, kAXWindowsAttribute) ?? kCFNull as CFTypeRef)
+    guard !windows.isEmpty else { print("no windows"); exit(1) }
     allElements = []
     for w in windows { collect(w) }
     var best: AXUIElement? = nil
@@ -253,7 +315,8 @@ if mode == "dump" {
     // description/title to match by substring.
     guard args.count >= 6, let x = Int(args[3]), let y = Int(args[4]) else { exit(2) }
     let newValue = args[5]
-    guard let windows = attr(app, kAXWindowsAttribute) as? [AXUIElement] else { print("no windows"); exit(1) }
+    let windows = axElementArray(attr(app, kAXWindowsAttribute) ?? kCFNull as CFTypeRef)
+    guard !windows.isEmpty else { print("no windows"); exit(1) }
     allElements = []
     for w in windows { collect(w) }
     var best: AXUIElement? = nil

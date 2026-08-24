@@ -485,6 +485,7 @@ public struct WireframeRenderer {
         var lastWasPlunge = false
         var lastPlungeX: Double?
         var lastPlungeY: Double?
+        _ = candidateRetracts  // legacy collector kept for signature stability; confirmation now uses candidateIndexes
 
         func zOf(_ line: String) -> Double? {
             let trimmed = line.uppercased()
@@ -528,31 +529,88 @@ public struct WireframeRenderer {
         }
         // Confirm: a candidate is a peck retract only when a plunge follows
         // at the same XY (the final end-of-op retract has none).
-        for candidate in candidateRetracts {
-            var seenPlunge = false
-            var cx: Double?
-            var cy: Double?
-            for line in gcodeLines {
-                if line == candidate {
-                    seenPlunge = false // reset; we're past the retract now
-                    cx = lastXBefore(line, in: gcodeLines)
-                    cy = lastYBefore(line, in: gcodeLines)
-                    continue
-                }
-                if seenPlunge { continue }
-                guard let z = zOf(line) else { continue }
-                let isRapidLine = line.uppercased().hasPrefix("G0")
-                    && !line.uppercased().hasPrefix("G01") && !line.uppercased().hasPrefix("G1")
-                if !isRapidLine, let px = cx, let py = cy,
-                   let parsed = parseXY(from: line, previousX: px, previousY: py) {
-                    if abs(parsed.x - px) < 0.001, abs(parsed.y - py) < 0.001 {
-                        seenPlunge = true
-                    }
+        //
+        // SPK-DOGFOOD-03 — this used to be O(candidates × lines): for every
+        // candidate it re-scanned the WHOLE buffer from line 0 and called
+        // lastXBefore/lastYBefore (each another full scan). On a 14k-line
+        // trochoid buffer with thousands of pecks that was minutes of main-
+        // thread stall. Now: ONE forward pass records each candidate's index
+        // + XY as we go; then for each candidate a BOUNDED lookahead scans
+        // only forward from its own index until the next plunge or the next
+        // candidate (whichever comes first) — total work stays O(lines).
+        var candidateIndexes: [Int] = []
+        var candidateXY: [(x: Double, y: Double)] = []
+        candidateRetracts.removeAll()
+
+        // Re-walk once recording indexes/positions of the candidates found
+        // above (same predicates, no extra rescans).
+        lastX = nil; lastY = nil; lastZ = nil
+        lastWasPlunge = false
+        lastPlungeX = nil; lastPlungeY = nil
+        for (idx, line) in gcodeLines.enumerated() {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+            if trimmed.hasPrefix("G0") || trimmed.hasPrefix("G1") || trimmed.hasPrefix("G00") || trimmed.hasPrefix("G01") {
+                if let parsed = parseXY(from: line, previousX: lastX, previousY: lastY) {
+                    lastX = parsed.x
+                    lastY = parsed.y
                 }
             }
-            if seenPlunge, let lx = lastXBefore(candidate, in: gcodeLines),
-               let ly = lastYBefore(candidate, in: gcodeLines) {
-                retracts.append((start: (lx, ly), end: (lx, ly)))
+            guard let z = zOf(line) else { continue }
+            let isRapid = trimmed.hasPrefix("G0") && !trimmed.hasPrefix("G01") && !trimmed.hasPrefix("G1")
+            if isRapid, let lz = lastZ, let lx = lastX, let ly = lastY,
+               z > lz + 0.5, lastWasPlunge,
+               let px = lastPlungeX, let py = lastPlungeY,
+               abs(px - lx) < 0.001, abs(py - ly) < 0.001 {
+                candidateIndexes.append(idx)
+                candidateXY.append((lx, ly))
+            }
+            lastWasPlunge = (!isRapid) && (lastZ == nil || z < (lastZ ?? 0))
+            if lastWasPlunge, let lx = lastX, let ly = lastY {
+                lastPlungeX = lx
+                lastPlungeY = ly
+            }
+            lastZ = z
+        }
+
+        // Bounded lookahead per candidate: scan FORWARD ONLY from just past
+        // the retract until the first non-rapid move at the same XY (plunge
+        // confirms) or until the next candidate's index (a later retract
+        // supersedes the search window). Never touches earlier lines.
+        for (c, idx) in candidateIndexes.enumerated() {
+            let xy = candidateXY[c]
+            let upperBound = c + 1 < candidateIndexes.count ? candidateIndexes[c + 1] : gcodeLines.count
+            var confirmed = false
+            var invalidated = false
+            var px = xy.x
+            var py = xy.y
+            var j = idx + 1
+            while j < upperBound {
+                let l = gcodeLines[j]
+                let t = l.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+                let isRapidLine = t.hasPrefix("G0") && !t.hasPrefix("G01") && !t.hasPrefix("G1")
+                if isRapidLine {
+                    // A rapid that MOVES XY after the retract means the tool
+                    // left this spot — the next plunge (if any) happens
+                    // elsewhere, so this was an end-of-op retract. Modal-Z-only
+                    // rapids don't move XY and keep the window open.
+                    if let parsed = parseXY(from: l, previousX: px, previousY: py),
+                       abs(parsed.x - px) > 0.001 || abs(parsed.y - py) > 0.001 {
+                        invalidated = true
+                        break
+                    }
+                } else if let parsed = parseXY(from: l, previousX: px, previousY: py),
+                          abs(parsed.x - px) < 0.001, abs(parsed.y - py) < 0.001 {
+                    confirmed = true
+                    break
+                }
+                if let parsed = parseXY(from: l, previousX: px, previousY: py) {
+                    px = parsed.x
+                    py = parsed.y
+                }
+                j += 1
+            }
+            if confirmed, !invalidated {
+                retracts.append((start: (xy.x, xy.y), end: (xy.x, xy.y)))
             }
         }
         return retracts

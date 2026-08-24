@@ -561,3 +561,139 @@ struct TrochoidSlotParamsForm: View {
         .padding(8)
     }
 }
+
+
+
+// MARK: - SPK-1920e (H-501): material + bit preset picker
+
+/// Reusable "Fill from material & bit" control. Lists every cut-data preset
+/// configured on the node's assigned tool (per material), plus the tool's
+/// geometry defaults; choosing one writes feed/plunge/rpm (and pass depth,
+/// when the strategy has that field) into the form. Mirrors what Recalc's
+/// withToolFeeds would resolve — but on demand, visibly, before Apply.
+struct MaterialBitPresetPicker: View {
+    let node: ToolpathTreeNode
+    let tools: [Tool]
+    @Binding var feedRateMmPerMin: Double
+    @Binding var plungeFeedRateMmPerMin: Double
+    @Binding var spindleRpm: Double
+    var maxDepthOfCutMm: Binding<Double>? = nil
+
+    @State private var selection: String = ""
+
+    private var assignedTool: Tool? {
+        guard let id = node.toolID else { return nil }
+        return tools.first(where: { $0.id == id })
+    }
+
+    private var presets: [(label: String, data: ResolvedCutData)] {
+        guard let tool = assignedTool else { return [] }
+        var out: [(String, ResolvedCutData)] = []
+        for cd in tool.cutData.sorted(by: { $0.material < $1.material }) {
+            out.append((
+                "Material: \(cd.material)",
+                ResolvedCutData(
+                    feedRateMmPerMin: cd.feedRateMmPerMin,
+                    plungeRateMmPerMin: cd.plungeRateMmPerMin,
+                    spindleRpm: cd.spindleRpm,
+                    maxDepthOfCutMm: cd.maxDepthOfCutMm
+                )
+            ))
+        }
+        out.append((
+            "Tool defaults",
+            tool.resolvedCutData(material: nil, machineName: nil)
+        ))
+        return out
+    }
+
+    var body: some View {
+        GroupBox("Preset — fill feeds from material & bit") {
+            if presets.isEmpty {
+                Text("Assign a bit to this operation (Tools panel) to enable material presets.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            } else {
+                Picker("Preset", selection: $selection) {
+                    Text("Choose a preset…").tag("")
+                    ForEach(Array(presets.enumerated()), id: \.offset) { _, preset in
+                        Text("\(preset.label) — F\(Int(preset.data.feedRateMmPerMin)) / P\(Int(preset.data.plungeRateMmPerMin)) / S\(Int(preset.data.spindleRpm))")
+                            .tag(preset.label)
+                    }
+                }
+                .onChange(of: selection) { _, chosen in
+                    guard let picked = presets.first(where: { $0.label == chosen }) else { return }
+                    feedRateMmPerMin = picked.data.feedRateMmPerMin
+                    plungeFeedRateMmPerMin = picked.data.plungeRateMmPerMin
+                    spindleRpm = picked.data.spindleRpm
+                    maxDepthOfCutMm?.wrappedValue = picked.data.maxDepthOfCutMm
+                }
+                Text("Fills the fields below; nothing is written until you press Apply.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+// MARK: - SPK-1920d (H-304): Rough 3D form with inverse mill
+
+/// Strategy form for z-level Rough 3D operations. The marquee control is the
+/// inverse-mill toggle: flips the effective surface so the machine cuts the
+/// complement of the relief (fixture pocket / mold cavity).
+struct Rough3DParamsForm: View {
+    let node: ToolpathTreeNode
+    let tools: [Tool]
+    let onApply: (HeightfieldRoughParams) -> Void
+
+    @State private var params: HeightfieldRoughParams
+
+    init(node: ToolpathTreeNode, tools: [Tool], onApply: @escaping (HeightfieldRoughParams) -> Void) {
+        self.node = node
+        self.tools = tools
+        self.onApply = onApply
+        _params = State(initialValue: node.rough3DParams())
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            MaterialBitPresetPicker(
+                node: node,
+                tools: tools,
+                feedRateMmPerMin: $params.feedRateMmPerMin,
+                plungeFeedRateMmPerMin: $params.plungeFeedRateMmPerMin,
+                spindleRpm: $params.spindleRpm,
+                maxDepthOfCutMm: nil
+            )
+            GroupBox("Tool & levels") {
+                Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                    SpecialtyNumRow(label: "Tool \u{00D8} (mm)", value: $params.toolDiameterMm)
+                    SpecialtyNumRow(label: "Step-down (mm)", value: $params.stepDownMm)
+                    SpecialtyNumRow(label: "Step-over (mm)", value: $params.stepOverMm)
+                    SpecialtyNumRow(label: "Safe Z (mm)", value: $params.safeZHeightMm)
+                    SpecialtyNumRow(label: "Stock allowance (mm)", value: $params.stockAllowanceMm)
+                }
+            }
+            GroupBox("Feeds") {
+                Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                    SpecialtyNumRow(label: "Feed (mm/min)", value: $params.feedRateMmPerMin)
+                    SpecialtyNumRow(label: "Plunge (mm/min)", value: $params.plungeFeedRateMmPerMin)
+                    SpecialtyNumRow(label: "Spindle (RPM, 0 = off)", value: $params.spindleRpm)
+                }
+            }
+            GroupBox("Mode") {
+                Toggle("Inverse mill (cut the complement of the relief)", isOn: $params.inverseMill)
+                Text("On: the machine clears everything AROUND the part \u{2014} peaks become pockets. Use for molds and fixture cavities.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            Button("Apply Params \u{2014} Regenerate") {
+                onApply(params)
+            }
+            .buttonStyle(.borderedProminent)
+            .frame(maxWidth: .infinity)
+        }
+        .padding(8)
+    }
+}

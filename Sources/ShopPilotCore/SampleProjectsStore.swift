@@ -259,14 +259,24 @@ public enum SampleProjectsStore {
         specs.append(("Letter L2", rectanglePoints(x: startX + 2 * (letterW + gap) + letterW, y: ly, width: letterW * 0.7, height: letterH), true))
         specs.append(("Letter O", ellipsePoints(centerX: startX + 5.1 * (letterW + gap), centerY: ly + letterH / 2, rx: letterW / 2, ry: letterH / 2), true))
         specs.append(("Banner", roundedRectPoints(x: 90, y: 58, width: 420, height: 54, radius: 10), true))
+
+        // SPK-DOGFOOD-01 — the authored art is laid out on a 600×400 board,
+        // which exceeds the default simulator/MachineProfile travel envelope
+        // of 500mm: Run Job instantly hit ALARM:Soft limit at X585. Uniformly
+        // scale the whole layout by 0.75 onto a 450×300 sheet — same design,
+        // same proportions, max posted move ≈ 453mm < 500 envelope.
+        let k = 0.75
+        let scaled = specs.map { spec -> (name: String, points: [VectorPoint], isClosed: Bool) in
+            (spec.name, spec.points.map { VectorPoint(x: $0.x * k, y: $0.y * k) }, spec.isClosed)
+        }
         return makePayload(
             sampleID: signID,
             jobName: "Sign — V-Carve Greeting",
             sheetName: "Sign Board",
-            width: 600,
-            depth: 400,
+            width: 600 * k,
+            depth: 400 * k,
             height: 18,
-            vectorSpecs: specs
+            vectorSpecs: scaled
         )
     }
 

@@ -87,7 +87,14 @@ public final class ConnectionManager: ObservableObject {
     /// Connect to machine using the specified transport type.
     public func connect(to type: MachineTransportType, serialConfig: ShopPilotCore.SerialConfig? = nil) async {
         guard connectionState.isDisconnected else { return }
-        
+
+        // SPK-DOGFOOD-02 — a previous session's event task may still be
+        // draining its (now-finished) stream; cancel it before opening so
+        // exactly one event loop exists per connection and the old loop can
+        // never interleave with the new one during reconnect.
+        eventTask?.cancel()
+        eventTask = nil
+
         connectionState = .connecting
         addSystemMessage("Connecting...")
 
@@ -174,30 +181,49 @@ public final class ConnectionManager: ObservableObject {
     /// Start listening for transport events.
     private func startEventListening() {
         guard let transport = transport else { return }
-        
+
         eventTask = Task { [weak self] in
             for await event in transport.events {
                 await self?.handleTransportEvent(event)
             }
         }
     }
-    
+
     /// Handle a transport event.
+    ///
+    /// SPK-DOGFOOD-02 — this MUST stay `@MainActor`. The handler writes
+    /// `@Published` properties (`connectionState`, `currentStatus`), and a
+    /// Combine send from a BACKGROUND cooperative thread runs the SwiftUI
+    /// observers synchronously on that thread: it takes the AttributeGraph
+    /// lock off-main while the main thread can simultaneously hold that lock
+    /// inside its own view update and wait on the same publisher's unfair
+    /// lock — an ABBA deadlock observed as a permanent "Connecting…" hang
+    /// with 0% CPU after Disconnect→Reconnect (dogfood beachball). Hopping
+    /// every event onto the main actor serializes all publishes with view
+    /// updates; identical-value guards above keep the cost trivial.
+    @MainActor
     private func handleTransportEvent(_ event: TransportEvent) async {
         switch event {
         case .connected:
             connectionState = .connected
             addSystemMessage("Transport connected")
-            
+
         case .disconnected:
             await disconnect()
-            
+
         case .dataReceived(let data):
             if let text = String(data: data, encoding: .utf8) {
-                currentStatus = text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+                let trimmed = text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+                // SPK-DOGFOOD-02 — the 500ms status poller delivers an
+                // identical report most ticks; writing it back anyway fires
+                // objectWillChange and rebuilds every observer of this
+                // manager (the whole Machine stage) twice a second. Only
+                // publish when the report actually changed.
+                if trimmed != currentStatus {
+                    currentStatus = trimmed
+                }
                 addConsoleMessage(text: text, type: .received)
             }
-            
         case .error(let message):
             connectionState = .error(message)
             addSystemMessage("Transport error: \(message)")
@@ -246,6 +272,11 @@ public struct MachineConnectionView: View {
 
     /// Optional G-code lines from the Cut/Preview stages (session golden path).
     private let pendingGCode: [String]
+
+    /// SPK-1920g — asks the session to generate the wasteboard surfacing op
+    /// as an explicit Cut-tree node (never auto-runs; Run Job is the only path
+    /// to motion, per the safety non-negotiables).
+    private let onSurfaceWasteboard: () -> Void
     
     private let preflightItems: [PreFlightItem] = [
         PreFlightItem(title: "Work zero set", description: "Confirm X/Y/Z work coordinates are correct"),
@@ -277,9 +308,11 @@ public struct MachineConnectionView: View {
     }
 
     public init(pendingGCode: [String] = [], controller: MachineController,
-                simTravelLimitMM: Double? = nil) {
+                simTravelLimitMM: Double? = nil,
+                onSurfaceWasteboard: (() -> Void)? = nil) {
         self.pendingGCode = pendingGCode
         self.controller = controller
+        self.onSurfaceWasteboard = onSurfaceWasteboard ?? {}
         self.connectionManager = controller.connection
         self.streamer = controller.streamer
         // SPK-1509 — the stage hands the profile's travel envelope to the
@@ -441,77 +474,19 @@ public struct MachineConnectionView: View {
     // MARK: - Console View
     
     /// Console with optional raw TX/RX toggle (Safety Req #6).
+    ///
+    /// SPK-DOGFOOD-02 — the message list lives in `ConsoleLogView`, which
+    /// observes the `ConsoleLog` directly. This outer view no longer reads
+    /// `consoleLog.messages` (the previous `.onReceive($messages)` here
+    /// invalidated the WHOLE Machine stage body — header, DRO, safety chrome,
+    /// preflight, jog — on every 500ms poll append and re-diffed up to
+    /// ConsoleLog.maxMessages rows each time; stacked on identical-status
+    /// chrome writes it pinned the main thread at ~95% CPU). The toggle stays
+    /// in this view: flipping it only re-renders this small row.
     private var consoleView: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Console header — raw TX/RX and clear live here so the toggle sits
-            // with the log it changes (Safety Req #6).
-            HStack(spacing: SP.Space.s) {
-                SectionLabel(showRawTXRX ? "Console — raw TX/RX" : "Console")
-
-                Spacer()
-
-                Toggle("Raw TX/RX", isOn: $showRawTXRX)
-                    .toggleStyle(.button)
-                    .controlSize(.small)
-                    .font(.caption)
-                    .help("Show every byte sent and received, for diagnosis")
-
-                Button {
-                    clearConsole()
-                } label: {
-                    Image(systemName: "trash")
-                }
-                .buttonStyle(.borderless)
-                .controlSize(.small)
-                .help("Clear console")
-                .accessibilityLabel("Clear console")
-            }
-            .padding(.horizontal, SP.Space.m)
-            .frame(height: 26)
-
-            ScrollViewReader { proxy in
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 2) {
-                        ForEach(Array(connectionManager.consoleLog.messages)) { message in
-                            // In raw mode, show sent/received with TX/RX labels
-                            if showRawTXRX && (message.type == .sent || message.type == .received) {
-                                let label = message.type == .sent ? "TX: " : "RX: "
-                                HStack(alignment: .top, spacing: 4) {
-                                    Text(label)
-                                        .font(.caption2)
-                                        .foregroundColor(message.type == .sent ? .blue : .green)
-                                        .lineLimit(1)
-                                    Text(message.text)
-                                        .font(.system(.caption, design: .monospaced))
-                                        .foregroundColor(message.type.uiColor)
-                                        .lineLimit(1)
-                                }
-                            } else {
-                                Text(message.text)
-                                    .font(.system(.caption, design: .monospaced))
-                                    .foregroundColor(message.type.uiColor)
-                                    .lineLimit(1)
-                            }
-                        }
-                    }
-                    .padding(8)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                    .background(Color.black.opacity(0.95))
-                    .onChange(of: connectionManager.consoleLog.messages.count) { count in
-                        withAnimation {
-                            if let lastMessage = connectionManager.consoleLog.messages.last {
-                                proxy.scrollTo(lastMessage.id, anchor: .bottom)
-                            }
-                        }
-                    }
-                    // SPK-UI601: re-render when the (deferred) log appends land.
-                    // Observing the log directly avoids a mirror @Published.
-                    .onReceive(connectionManager.consoleLog.$messages) { _ in }
-                }
-            }
-        }
+        ConsoleView(showRawTXRX: $showRawTXRX, connectionManager: connectionManager)
     }
-    
+
     // MARK: - Command Input
     
     private var commandInputView: some View {
@@ -794,6 +769,16 @@ public struct MachineConnectionView: View {
                             .controlSize(.small)
                             .help("Probe Z with a 3mm touch plate, then zero at the plate top")
 
+                            // SPK-1920g — wasteboard surfacing as an explicit
+                            // Cut-tree op; Run Job discipline applies.
+                            Button {
+                                onSurfaceWasteboard()
+                            } label: {
+                                Label("Surface Wasteboard…", systemImage: "rectangle.compress.vertical")
+                            }
+                            .controlSize(.small)
+                            .help("Generate a facing program for the spoilboard as a Cut operation — nothing runs until you press Run Job")
+
                             Spacer()
 
                             Picker("Offset", selection: Binding(
@@ -1045,3 +1030,102 @@ struct MachineConnectionView_Previews: PreviewProvider {
     }
 }
 #endif
+
+// MARK: - SPK-DOGFOOD-02 — isolated console view
+
+/// The machine console as its own observing view. Appends to the log only
+/// invalidate this small subtree — the Machine stage body (header, DRO,
+/// safety chrome, preflight, jog) no longer rebuilds on every 500ms poll
+/// append, and the row ForEach diffs at most `visibleTail` rows instead of
+/// the whole `ConsoleLog.maxMessages` buffer.
+///
+/// Raw traffic still renders with TX/RX labels (Safety Req #6); windowing
+/// drops only the OLDEST rows off-screen history, never live traffic.
+struct ConsoleView: View {
+    @Binding var showRawTXRX: Bool
+    @ObservedObject var connectionManager: ConnectionManager
+    @ObservedObject private var log: ConsoleLog
+
+    /// Rows SwiftUI diffs per append. Deep enough to fill the pane; small
+    /// enough that a 2-per-second append cadence costs nothing.
+    private let visibleTail = 80
+
+    init(showRawTXRX: Binding<Bool>, connectionManager: ConnectionManager) {
+        self._showRawTXRX = showRawTXRX
+        self.connectionManager = connectionManager
+        self.log = connectionManager.consoleLog
+    }
+
+    /// The last `visibleTail` messages — a stable slice, not the full buffer.
+    private var tail: ArraySlice<ConsoleMessage> {
+        let messages = log.messages
+        guard messages.count > visibleTail else { return messages[...] }
+        return messages[(messages.count - visibleTail)...]
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: SP.Space.s) {
+                SectionLabel(showRawTXRX ? "Console — raw TX/RX" : "Console")
+
+                Spacer()
+
+                Toggle("Raw TX/RX", isOn: $showRawTXRX)
+                    .toggleStyle(.button)
+                    .controlSize(.small)
+                    .font(.caption)
+                    .help("Show every byte sent and received, for diagnosis")
+
+                Button {
+                    log.clear()
+                } label: {
+                    Image(systemName: "trash")
+                }
+                .buttonStyle(.borderless)
+                .controlSize(.small)
+                .help("Clear console")
+                .accessibilityLabel("Clear console")
+            }
+            .padding(.horizontal, SP.Space.m)
+            .frame(height: 26)
+
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 2) {
+                        ForEach(Array(tail)) { message in
+                            // In raw mode, show sent/received with TX/RX labels
+                            if showRawTXRX && (message.type == .sent || message.type == .received) {
+                                let label = message.type == .sent ? "TX: " : "RX: "
+                                HStack(alignment: .top, spacing: 4) {
+                                    Text(label)
+                                        .font(.caption2)
+                                        .foregroundColor(message.type == .sent ? .blue : .green)
+                                        .lineLimit(1)
+                                    Text(message.text)
+                                        .font(.system(.caption, design: .monospaced))
+                                        .foregroundColor(message.type.uiColor)
+                                        .lineLimit(1)
+                                }
+                            } else {
+                                Text(message.text)
+                                    .font(.system(.caption, design: .monospaced))
+                                    .foregroundColor(message.type.uiColor)
+                                    .lineLimit(1)
+                            }
+                        }
+                    }
+                    .padding(8)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .background(Color.black.opacity(0.95))
+                }
+                .onChange(of: log.messages.count) { _ in
+                    withAnimation {
+                        if let lastMessage = log.messages.last {
+                            proxy.scrollTo(lastMessage.id, anchor: .bottom)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

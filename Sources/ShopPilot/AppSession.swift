@@ -3261,6 +3261,41 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
         return node
     }
 
+    /// SPK-1920g (H-402) — wasteboard surfacing: generate the facing program
+    /// as an EXPLICIT tree node. Nothing streams automatically; the user must
+    /// review, confirm preflight, and press Run Job like any other op.
+    @discardableResult
+    func generateWasteboardSurfacingToolpath(
+        widthMm: Double? = nil,
+        depthMm: Double? = nil
+    ) -> ToolpathTreeNode? {
+        let sheetW = widthMm ?? activeSheet?.width ?? 300
+        let sheetD = depthMm ?? activeSheet?.depth ?? 200
+        var params = WasteboardSurfacingParams()
+        params.widthMm = sheetW
+        params.depthMm = sheetD
+
+        registerUndoPoint()
+        let result = WasteboardSurfacingEngine.generate(params)
+        let nodeCount = toolpathTree.allNodes.count
+        // Time estimate: total cut length / feed + plunge/rapid overhead.
+        let rows = WasteboardSurfacingEngine.rowCount(params)
+        let passes = WasteboardSurfacingEngine.zPassCount(params)
+        let cutLength = Double(rows) * max(0, params.widthMm - params.cutterDiameterMm) * Double(passes)
+        let estimated = cutLength / max(1, params.feedRateMmPerMin) * 60 + Double(passes * rows) * 2
+
+        let node = addToolpathNode(
+            named: "Wasteboard Surface \(nodeCount)",
+            gcode: result,
+            estimatedTime: estimated
+        )
+        node.paramsJSON = encodeParams(params)
+        statusMessage = "Wasteboard surfacing ready — \(passes) Z pass(es), \(rows) rows. Review, then Run Job when the bed is clear."
+        lastToolpathSummary = statusMessage
+        markDirty()
+        return node
+    }
+
     // MARK: - Plugin strategies (SPK-1006 loadable ABI)
 
     /// Run a discovered plugin as a toolpath strategy: builds the job
@@ -3396,7 +3431,16 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
             statusMessage = "No vectors — draw or import a closed slot corridor first"
             return
         }
-        let vectorsSnapshot = vectors.filter { $0.isClosed && !$0.points.isEmpty }
+        // SPK-DOGFOOD-03 — corridor selection: with a selection, only the
+        // SELECTED closed shapes become the slot boundary (matches Profile/
+        // Pocket selection semantics); with no selection, all closed shapes
+        // are eligible (small designs, single-slot jobs).
+        let selectedIdx = expandedSelectionIndices
+        let sourceShapes: [VectorShape] = selectedIdx.isEmpty
+            ? shapes
+            : selectedIdx.sorted().compactMap { shapes.indices.contains($0) ? shapes[$0] : nil }
+        let vectorsSnapshot = GeometryBridge.toCorePaths(sourceShapes, layerIDs: shapeLayerIDs)
+            .filter { $0.isClosed && !$0.points.isEmpty }
         guard !vectorsSnapshot.isEmpty else {
             statusMessage = "Trochoid Slot needs a CLOSED vector — the corridor boundary"
             return
@@ -3467,6 +3511,33 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
         statusMessage = result.isTooNarrow
             ? "Trochoid Slot: corridor too narrow for the tool — no cut generated"
             : lastToolpathSummary
+        markDirty()
+        return true
+    }
+
+    /// SPK-1920d (H-304) — apply Rough 3D params (including inverse mill) to an
+    /// operation: store + regenerate with the REAL engine, clearing the dirty
+    /// badge (mirrors the apply* family).
+    @discardableResult
+    func applyRough3DParams(_ params: HeightfieldRoughParams, to nodeID: UUID) -> Bool {
+        guard let node = toolpathTree.findNode(id: nodeID),
+              node.strategyKind == .rough3D else {
+            statusMessage = "Apply params: select a Rough 3D operation"
+            return false
+        }
+        guard let hf = job.stlHeightfield else {
+            statusMessage = "No relief — import an STL or image first"
+            return false
+        }
+        registerUndoPoint()
+        node.paramsJSON = encodeParams(params)
+        let result = HeightfieldRoughEngine.compute(heightfield: hf, params: params)
+        node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+        node.estimatedTimeSeconds = result.estimatedTimeSeconds
+        node.clearDirty()
+        let all = allToolpathGCode
+        if !all.isEmpty { gcodeLines = all }
+        statusMessage = "Rough 3D\(params.inverseMill ? " (inverse)" : ""): \(result.passCount) z-levels, ~\(Int(result.estimatedTimeSeconds))s"
         markDirty()
         return true
     }
