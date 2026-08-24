@@ -26,7 +26,14 @@ func main() throws {
     defer { store.removePersistentDomain(forName: suite) }
 
     let registry = ShortcutRegistry(userDefaults: store)
-    try expect(registry.bindings.count == 11, "catalog has 11 commands (got \(registry.bindings.count))")
+    // Catalog size is asserted against ShortcutRegistry.catalog itself, not a
+    // frozen literal: SPK-1600/1606/1610 grew the menu catalog from 11 to 17
+    // commands and the old `== 11` assert stranded this verify. The structural
+    // invariants (non-empty, unique ids, every binding at default) are what
+    // SPK-1317 actually owns.
+    try expect(registry.bindings.count == ShortcutRegistry.catalog.count,
+               "registry exposes the full catalog (\(ShortcutRegistry.catalog.count) commands, got \(registry.bindings.count))")
+    try expect(registry.bindings.count >= 11, "catalog has not shrunk below the original 11 (got \(registry.bindings.count))")
     for binding in registry.bindings {
         try expect(binding.isDefault, "fresh registry: \(binding.id) at default")
     }
@@ -67,7 +74,7 @@ func main() throws {
     try expect(reloaded.binding(for: "stage.machine")?.key == "6",
                "non-overridden commands stay at defaults after reload")
 
-    print("ShopPilotVerify1317: PASS — 11-command catalog, defaults, override+reject, reset/resetAll, cross-instance persistence, unique ids")
+    print("ShopPilotVerify1317: PASS — \(registry.bindings.count)-command catalog, defaults, override+reject, reset/resetAll, cross-instance persistence, unique ids")
 }
 
 do {

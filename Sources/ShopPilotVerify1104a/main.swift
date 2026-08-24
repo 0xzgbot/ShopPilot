@@ -110,9 +110,19 @@ func verify() async throws {
 
     // 4. Explicit runJob() streams exactly the buffered lines.
     try await session.runJob()
-    try expect(spy.writes.count == sessionLines.count, "runJob streamed all \(sessionLines.count) lines (got \(spy.writes.count))")
+    // SPK-1508 note: the session's status poller writes the GRBL `?` query
+    // byte on its own tick whenever the streamer is NOT mid-stream, and it
+    // can legitimately interleave with a short ok-wait stream (the poller's
+    // streaming gate flips on only after `stream(lines:)` sets .streaming,
+    // and a fast 11-line job can finish between poll ticks). The no-auto-run
+    // contract is about G-code: every COMMAND write must be exactly the
+    // buffered lines — so filter to non-? traffic before counting. (The
+    // pre-SPK-1508 expectation `writes.count == sessionLines.count` counted
+    // raw wire bytes and broke when the poller landed mid-stream.)
+    let commandWrites = spy.writes.filter { $0.trimmingCharacters(in: .whitespacesAndNewlines) != "?" }
+    try expect(commandWrites.count == sessionLines.count, "runJob streamed all \(sessionLines.count) command lines (got \(commandWrites.count); raw wire \(spy.writes.count))")
 
-    let trimmedWrites = spy.writes.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+    let trimmedWrites = commandWrites.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
     try expect(trimmedWrites == sessionLines, "streamed lines match buffered gcodeLines exactly")
 
     // 5. Re-loading replaces the buffer (send-to-machine twice = replace).
