@@ -12,8 +12,8 @@
 | **Stack** | **SwiftUI** (macOS 14+) · geometry/toolpath core · **2.5D heightfield preview** (not Metal chips) · serial IOKit |
 | **Not in first ship** | Illegal reverse-engineering of proprietary CRV; Windows/Linux ports; App Store / notarize |
 | **Doc status** | Living — agents **must** update task checkboxes + Work log |
-| **Last updated** | 2026-08-13 |
-| **Current phase focus** | Lean CNC bar; SPK-1700 / SPK-1800 / BUG-03 shipped; **SPK-0623 owner-gated** — see LEAN_CNC_SCOPE |
+| **Last updated** | 2026-08-24 |
+| **Current phase focus** | Lean CNC bar; 0.06 shipped; Phase S PC-parity (SPK-1900 a–f `[x]`, 1900g owner license hold) + SPK-1910 trochoidal slotting done; dogfood wave DOGFOOD-01…05 all fixed; **SPK-0623 owner-gated** — see LEAN_CNC_SCOPE |
 | **★ Lean north star** | [`docs/planning/LEAN_CNC_SCOPE.md`](./docs/planning/LEAN_CNC_SCOPE.md) — **overrides feature-count parity** |
 | **★ Single task board** | [`MASTER_KANBAN.md`](./MASTER_KANBAN.md) — **only** place to claim work |
 | **★ Finish roadmap** | [`docs/planning/FINISH_ROADMAP.md`](./docs/planning/FINISH_ROADMAP.md) — Tracks 1–6 + lean 3D |

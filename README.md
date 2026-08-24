@@ -57,12 +57,13 @@ Older numbered stills (`01-setup.png` … `06-preview.png`) remain in the same f
 - **Create** — rectangle, circle, line, polyline, text (glyphs → curves, text on curve, 3D text relief).
 - **Edit** — select/drag, **marquee**, multi-select, node editing, measure, dimension handles; **grid snap**; live **XY DRO**.
 - **Origin** — sheet datum corner or center (job-level persist).
-- **Operations** — Offset, Weld, Subtract, Intersect, Join, Close, Trim, Fillet, Extend, dogbone, vector boundary, Array/Circular copy, Keyhole, Nest.
+- **Operations** — Offset, Weld, Subtract, Intersect, Join, Close, Trim, Fillet, Extend, dogbone, vector boundary, Array/Circular copy, Keyhole, **Nest** (sheet-goods packing with rotation + spacing).
 - **Layers** — hide/lock, reorder; multi-sheet with duplication and toolpath transfer.
 - **Import / export** — SVG, DXF, EPS, PDF, AI, DWG, WebP, bitmap trace, STL; design PDF export.
 
 ### Model & 3D (lean spine)
 - STL → relief and bitmap → relief heightfields; 3D text; components / combine / mirror / sculpt strokes.
+- **Image-to-Relief** (auto-levels, smoothing, detail boost) and **Photo Lithophane** (thickness or grayscale mode) from the Model/Photo starters.
 - **Rough 3D / Finish 3D / rest machining** from the heightfield.
 - **Orbit** — thin 2.5D relief view.
 
@@ -71,8 +72,8 @@ Older numbered stills (`01-setup.png` … `06-preview.png`) remain in the same f
 - **Pocket** — offset/raster, multi-tool clearance, allowance, ramping.
 - **Drill** — peck cycles, dwell, plunge feeds.
 - **V-Carve** — depth shading, V-bit presets, flat-depth, clearance-tool, inlay recipes.
+- **Trochoid Slot** — constant-engagement slotting loops for closed corridors (Cut → More; Advanced mode), ramp entry, too-narrow gate.
 - **Inspector** — selected op **feed / spindle / Z** in the inspector shell.
-- **Specialty (engine / later)** — extra strategies may appear in More. **Laser module not currently shipping.** Rotary wrap is a post-lean feature.
 - **Tool database** — classes, strategy defaults, manufacturer catalogs (Amana, Whiteside).
 - **Tree & safety** — status dots, **async generate/recalc** (Cut out does not freeze the UI), keep-out zones, time estimates, templates, dirty-export blocking.
 
@@ -86,6 +87,8 @@ Older numbered stills (`01-setup.png` … `06-preview.png`) remain in the same f
 
 ### Platform & UX
 - **Stage rail** — Setup → Design → Model → Cut → Preview → Machine, ≤12 icons per stage.
+- **Beginner / Advanced experience mode** — Beginner hides pro surfaces (Trochoid, Post Studio, …) without deleting them; switch in Preferences or Welcome.
+- **Machine helpers** — **Frame job** (safe-Z G0 rectangle around job bounds) and **click-to-jog** on the canvas, both gated behind connected + Idle.
 - **⌘K**, context menus, coach strip, editable shortcuts, GRBL-oriented post templates.
 
 > Scope: **personal use only, never for sale.** 2.5D relief CAM — a focused tool, not a 3D parametric CAD suite.
@@ -164,11 +167,11 @@ Longer walkthrough: [`docs/planning/TUTORIAL_FIRST_CUT.md`](docs/planning/TUTORI
 
 ## Status (honest)
 
-**Current package:** personal-use **0.06** ([`dist/ShopPilot-0.06-macOS.zip`](dist/ShopPilot-0.06-macOS.zip)), HEAD `4683a9f` or later. Lean bar: router CAM — design → toolpaths → 2.5D preview → **simulator** (serial exists).
+**Current package:** personal-use **0.06** ([`dist/ShopPilot-0.06-macOS.zip`](dist/ShopPilot-0.06-macOS.zip)), HEAD `a824129` or later. Lean bar: router CAM — design → toolpaths → 2.5D preview → **simulator** (serial exists).
 
-**Shipped on this tip:** Welcome samples, stage rail, Cut recipes, SPK-1800 first-hour chrome, SPK-1700 Preview playback, SPK-UI-BUG-03 async Cut generate. Live AX `ui_drive_full` 14-stage walk has **PASS**ed twice (Hermes). **Laser module not currently shipping.**
+**Shipped on this tip (post-0.06, unreleased):** Phase S PC-parity wave (**SPK-1900 a–f**: photo lithophane, image-to-relief, nesting wired, frame job + click-to-jog, beginner/advanced experience mode), **SPK-1910 trochoidal slotting**, and the dogfood fix wave (**SPK-DOGFOOD-01…05 all fixed** 2026-08-23: Sign sample streams to completion on the sim, alarm + raw console stays responsive, O(n) peck detection, honest preview status). Live AX `ui_drive_full` walk has **PASS**ed; the 2026-08-22 full dogfood sweep found 5 bugs — all fixed and CLT-verified ([`DOGFOOD_REPORT_20260822.md`](docs/planning/DOGFOOD_REPORT_20260822.md)). **Laser module not currently shipping.**
 
-**Still owner-gated:** **SPK-0623** personal-use UI acceptance — `[ ]` until the owner marks it. Agents must not rubber-stamp. Optional live air-cut **SPK-0419** stays `[!]`. No App Store / notarization.
+**Still owner-gated:** **SPK-0623** personal-use UI acceptance — `[ ]` until the owner marks it. Agents must not rubber-stamp. Optional live air-cut **SPK-0419** stays `[!]`. **SPK-1900g** open-source positioning awaits the owner's license choice. No App Store / notarization.
 
 ```bash
 export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer

@@ -3,6 +3,7 @@
 **Source:** reference V12 CAM user guide TOC + What's New  
 **Status keys:** `[ ]` not started · `[~]` in progress · `[x]` shipped · `[-]` deferred (date) · `[!]` blocked  
 **Last audited:** 2026-08-11 — re-audited against the source tree + MASTER_KANBAN (183 items: **136 ✅ shipped, 45 open, 2 permanently deferred**). Scope lock: B02/B03 (3D-view editing) are `[-]` forever — ShopPilot is a 2.5D CAM tool, not a CAD app.
+**Addendum 2026-08-24:** post-audit additions landed but are NOT yet scored into the item counts: SPK-1900a/e (photo lithophane, image-to-relief), SPK-1900b/d (frame job + click-to-jog, safety-chrome audit), SPK-1900c (beginner/advanced mode), SPK-1900f (nesting wired to UI), SPK-1910 (trochoidal slotting). Next re-audit should credit these rows.
 
 Track ownership in your PM tool; keep this file as the living checklist.
 

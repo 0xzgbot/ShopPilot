@@ -6,6 +6,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [Unreleased] — post-0.06 (2026-08-21 → 2026-08-23)
+
+Not yet packaged into a `dist/` zip. All changes below are committed or staged on `master`.
+
+### Added — Phase S: PC-parity wave (SPK-1900)
+- **Photo Lithophane** (SPK-1900a) — photo import → brightness/contrast/gamma/invert adjust → heightfield with two modes: lithophane thickness (light-transmission mapping) and grayscale relief (luminance→depth), three cut paths (lithophane finish-3D / grayscale rough+finish / Photo V-Carve handoff). Design-stage **Start from a Photo…** starter.
+- **Frame job + click-to-jog** (SPK-1900b) — Frame sends a safe-Z G0 rectangle around job bounds; clicking the canvas jogs G0 to that XY. Both gated behind connected + Idle.
+- **Beginner / Advanced experience mode** (SPK-1900c) — explicit mode switch in Preferences + Welcome; Beginner hides pro panels (Trochoid, Post Studio, etc.) without deleting them; three one-click job starters (Sign, Photo, 3D relief).
+- **Safety chrome audit** (SPK-1900d) — Hold/Reset/connection state confirmed visible across all six stages while connected (audit recorded; no code change needed).
+- **Image-to-Relief** (SPK-1900e) — bitmap → heightfield with auto-levels stretch, gaussian smoothing, detail boost (honest name: not "AI"). Model stage **From Image…**.
+- **Nesting** (SPK-1900f) — shelf/skyline packer for sheet goods, rotation 0/90°, spacing + margins, deterministic order, overlap-free; wired to the Design stage Nest… action.
+- **Open-source positioning** (SPK-1900g) — owner license decision pending (`[~]`; parent stays open).
+
+### Added — Phase T: Trochoidal slotting (SPK-1910)
+- New **Trochoid Slot** strategy (Cut → More): bounding-box medial-axis centerline for closed slot corridors, full-circle G2/G3 loops with ramp entry (no dead plunge), Z step-downs between passes, effective pitch ≤ radial engagement, too-narrow gate (< D×1.02). Engine + tree/session generate/recalc + params form; requires corridor selection when shapes are selected.
+
+### Fixed — Dogfood sweep bugs (2026-08-22 walk, fixed 2026-08-23)
+Report: [`DOGFOOD_REPORT_20260822.md`](DOGFOOD_REPORT_20260822.md).
+- **Sign sample could never run** (SPK-DOGFOOD-01, P1) — Sign layout scaled 0.75 at payload build: sheet 600×400 → 450×300 mm, inside the default 500 mm simulator travel envelope. Previously every Run alarmed `Soft limit` within ~9 lines. Verify: `ShopPilotVerifyDOGFOOD01`.
+- **Raw TX/RX console pinned main thread ~95% CPU during alarms** (SPK-DOGFOOD-02, P0) — chrome write guard (identical status polls no longer republish), windowed 80-row `ConsoleView`, stale-transport teardown on stream end/disconnect, `@MainActor` event handling killing the reconnect ABBA deadlock ("Connecting…" wedge). Alarm + raw mode now stays responsive indefinitely. Verify: `ShopPilotVerifyDOGFOOD02`, `ShopPilotVerifyDOGFOOD02b`.
+- **Trochoid generate + big-buffer preview stalled main thread minutes-long** (SPK-DOGFOOD-03, P1) — O(n) peck-retract detection replaces O(candidates × lines²) rescans (14,803-line fixture with 6,800 retracts: 0.215 s); Trochoid Slot respects corridor selection. Verify: `ShopPilotVerifyDOGFOOD03`.
+- **Preview lied "Material sim ready (0 cells)"** (SPK-DOGFOOD-04, P2) — nil-heightmap guard emits honest "Material sim empty — press Simulate". Verify: `scripts/verify_dogfood04_preview_status.py`.
+- **AX driver crashed (SIGILL) at dump depth ≥7** (SPK-DOGFOOD-05, P2 tooling) — hardened CF casts in `scripts/ax_act.swift` (trap was `posOf` force-cast), iterative LIFO walk, depth-gated geometry queries, precompiled binary shipped as `scripts/ax_act_bin`. Depth-8/10 dumps exit 0.
+
+### Honest / held
+- Preview remains 2.5D heightfield. Laser / LightBurn held. **SPK-0623** remains owner-gated `[ ]`.
+
+---
+
 ## [0.06] — 2026-08-13 (universal)
 
 Personal-use zip: `dist/ShopPilot-0.06-macOS.zip` (`VERSION=0.06` in `scripts/package_app.sh` → `CFBundleShortVersionString`). Universal arm64 + x86_64, ad-hoc signed.

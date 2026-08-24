@@ -10,7 +10,7 @@ Archived product overview: [`README_MAC_NATIVE.md`](README_MAC_NATIVE.md)
 
 | Doc | Role |
 | --- | --- |
-| [`CHANGELOG.md`](CHANGELOG.md) | Release history (0.01 → 0.06) |
+| [`CHANGELOG.md`](CHANGELOG.md) | Release history (0.01 → 0.06 + Unreleased post-0.06 wave) |
 | [`QUICKSTART.md`](QUICKSTART.md) | Sit-down Quickstart (~15 min, Welcome → Simulator) |
 | [`TUTORIAL_FIRST_CUT.md`](TUTORIAL_FIRST_CUT.md) | End-user first-cut tutorial |
 | [`SAFETY.md`](SAFETY.md) | Safety guidelines |

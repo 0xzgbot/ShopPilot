@@ -1,6 +1,6 @@
 # ShopPilot — Finish Roadmap (source of truth for completion)
 
-**Last updated:** 2026-08-04  
+**Last updated:** 2026-08-24  
 **Companion board:** [`MASTER_KANBAN.md`](../../MASTER_KANBAN.md)  
 **North star:** [`LEAN_CNC_SCOPE.md`](./LEAN_CNC_SCOPE.md) — lean CNC overrides feature-count parity.  
 **Intent:** Finish lean bar (G-code, V-Carve, 3D carving, GRBL control), then remaining Tracks.  
@@ -23,19 +23,20 @@ A card may be `[x]` only when **all four** are true:
 
 ---
 
-## Current inventory (honest — updated 2026-08-11)
+## Current inventory (honest — updated 2026-08-24)
 
 | Area | Library code | Product-finished |
 | --- | --- | --- |
 | App shell / stages | Wired spine | **Yes** — six-stage rail, browser/inspector, doc round-trip, command palette, coach |
-| Geometry kernel | Substantial | **Yes** — full 2D editor: booleans, node edit, transforms, dimensions, dogbone, vector boundary, nest |
-| 2D toolpath engines | Profile/Pocket/Drill/VCarve/17 strategies | **Yes** — Cut tree/UI/dirty/recalc productized; async recalc; templates |
-| Preview / sim | Heightfield + wireframe + dirty-region | **Yes** — sheet-aware stock, material surfaces, peck viz, cancellable |
-| Machine sim + serial | Real transports | **Yes** — port/baud pickers, touch-off, feed override, work offsets, job sheets |
-| Sign shop | Recipes + samples | **Yes** — recipe picker, sample projects, job sheets, Post Studio |
+| Geometry kernel | Substantial | **Yes** — full 2D editor: booleans, node edit, transforms, dimensions, dogbone, vector boundary, nest (SPK-1900f wired to UI) |
+| 2D toolpath engines | Profile/Pocket/Drill/VCarve/17+ strategies | **Yes** — Cut tree/UI/dirty/recalc productized; async recalc; templates; **trochoidal slotting (SPK-1910)** |
+| Preview / sim | Heightfield + wireframe + dirty-region | **Yes** — sheet-aware stock, material surfaces, peck viz (O(n) detection), playhead, cancellable |
+| Machine sim + serial | Real transports | **Yes** — port/baud pickers, touch-off, feed override, work offsets, job sheets, frame job + click-to-jog (SPK-1900b) |
+| Photo / imaging | Lithophane + image-to-relief | **Yes** — SPK-1900a/e engines + UI wired; beginner/advanced experience mode (SPK-1900c) |
+| Sign shop | Recipes + samples | **Yes** — recipe picker, sample projects (Sign now fits the 500 mm sim envelope — DOGFOOD-01 fix), job sheets, Post Studio |
 | Phases I–N | All shipped | **Yes** — multi-sheet, rotary, laser, specialty, plugins, visual wave |
 
-All Phase I–N cards are `[x]` on MASTER_KANBAN. Remaining: `[!]` SPK-0419 (live air-cut, needs hardware), `[-]` commercial-era cards (permanent personal-use deferrals).
+All Phase I–N cards are `[x]` on MASTER_KANBAN. Dogfood wave SPK-DOGFOOD-01…05 all `[x]` (2026-08-23). Remaining: `[!]` SPK-0419 (live air-cut, needs hardware), `[-]` commercial-era cards (permanent personal-use deferrals), owner-gated **SPK-0623**, and **SPK-1900g** (owner license choice).
 
 ---
 

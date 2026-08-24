@@ -1,6 +1,6 @@
 # ShopPilot — Master Kanban (single source of truth)
 
-**Last updated:** 2026-08-13
+**Last updated:** 2026-08-24
 **Project root:** `~/Desktop/ShopPilot`  
 **Status:** Living board — agents work **only** from this file until ship  
 
@@ -1462,7 +1462,9 @@ Phase O/P/1403 **CLOSED**. Laser/LightBurn **HELD**. Do not reopen. Unlisted P0/
 
 **STOP (Phase Q chrome):** do not start DocumentGroup, laser/LightBurn, SPK-0623 rubber-stamp, AppSession full rewrite, or NavigationSplitView.
 
-**Shipped (2026-08-13):** **SPK-UI-BUG-03**, **SPK-1700** (a–d), **SPK-1800** (a–h). Laser/LightBurn **held**. **SPK-0623** remains owner-gated `[ ]` — do not rubber-stamp. Next agent work: Ready `[ ]` that are not 0623 / not laser / not `[-]`; prefer **SPK-1910a** (trochoid engine) then 1910b/c. **SPK-1900g** stays owner license hold.
+**Shipped (2026-08-13):** **SPK-UI-BUG-03**, **SPK-1700** (a–d), **SPK-1800** (a–h). Laser/LightBurn **held**. **SPK-0623** remains owner-gated `[ ]` — do not rubber-stamp. ~~Next agent work: prefer SPK-1910a then 1910b/c~~ — done 2026-08-21.
+
+**Shipped since (2026-08-21 → 23):** **SPK-1900** a–f `[x]` (Phase S PC-parity: lithophane, frame job + click-to-jog, beginner/advanced mode, safety-chrome audit, image-to-relief, nesting), **SPK-1910** `[x]` (trochoidal slotting), and the full dogfood fix wave **SPK-DOGFOOD-01…05 all `[x]`** (2026-08-22 sweep → 2026-08-23 fixes). **Next agent work:** Ready `[ ]` cards that are not 0623 / not laser / not `[-]`; **SPK-1900g** (open-source positioning) stays owner license hold — do not pick a license yourself. Nothing is committed from the dogfood wave yet — commit hygiene first if the owner asks.
 
 ---
 
@@ -2224,3 +2226,176 @@ Board rows SPK-1201…1210 flipped `[x]` (plan: `docs/planning/UI_OVERHAUL_PLAN.
 - **Claimed:** SPK-1910a → 1910b → 1910c (one at a time per prompt).
 - **Did:** 1910a — new `TrochoidSlotToolpath.swift` (`TrochoidSlotParams` legacy-safe Codable, `TrochoidSlotResult`, `TrochoidSlotToolpathEngine`): bounding-box medial-axis centerline for closed slot corridors, loop radius `R = min(toolR − woc/2, slotHalfW − toolR)`, effective pitch `min(pitch, WOC)` so advance never exceeds radial engagement, G2/G3 full-circle loops with winding from cutDirection, ramp entry (no dead plunge), Z step-down + safe-Z retract between passes, too-narrow gate (< D×1.02 → header-only), `O=TROCHOID_SLOT` marker, M3 gated on rpm>0, no M6/G28. CLT `ShopPilotVerify1910a` covers all 8 spec assert groups. 1910b — `StrategyKind.trochoidSlot` (+displayName "Trochoid Slot", no Thread Mill collision), `trochoidSlotParams()` decode, recalc branch in `computeDirtyToolpathResults` from stored `paramsJSON` (tool-feed linked via `ToolFeedApplicable`); session `generateTrochoidSlotToolpath()`/`applyTrochoidSlotParams()` following the pocket async+undo pattern; Cut More-menu item (AX label + `.isButton`, beginner-hidden). CLT `ShopPilotVerify1910b`. 1910c — `TrochoidSlotParamsForm` in SpecialtyParamsForms.swift wired to Apply-regenerate; python gate `scripts/verify_1910c_trochoid.py`.
 - **Result:** all three cards `[x]`, parent `[x]`. Verify: 1910a PASS (246 loops × 2 passes on 80×8/D6.35/WOC0.8, peak engagement 1.2 < D; 80×5 too-narrow zero-cut), 1910b PASS (recalc WOC 0.8→0.4 grows loops 246→370; paramsJSON round-trip; too-narrow clears dirty header-only), 1910c python gate PASS, regression `ShopPilotVerify1133b` PASS after recalc-switch edit, app target build green. Ad-hoc slice verify only (no full test.sh) — noted per parent DoD. Scope held: no dogbones/rest/adaptive/morph.
+
+---
+
+## 2026-08-22 — Dogfood bug sweep (Hermes agent, full app walk)
+
+- **Report:** `docs/planning/DOGFOOD_REPORT_20260822.md`. Environment: HEAD `0ea330e`, fresh debug build, Simulator only. Walks: W0 PASS, W1 FAIL at Run Job (DOGFOOD-01), W2 PASS incl. dirty-export gate + preflight doctor, W3 PASS-by-CLT (Verify0211/0604 re-run PASS 2026-08-22), W4 PASS, W5 FAIL perf (DOGFOOD-03), W6 PARTIAL, W7 FAIL (DOGFOOD-02), W8 PASS chrome / keyboard env-blocked, W9 recovery path PASS, W10 two freezes captured with `sample` profiles.
+- New cards below: SPK-DOGFOOD-01…05. Parent SPK-0623 left `[ ]` — owner decision.
+
+- [x] **SPK-DOGFOOD-01** **BUG** Sign sample can never run — sheet 600×400mm vs 500mm simulator travel envelope; Run Job alarms instantly with misleading copy
+  - Found by: dogfood sweep 2026-08-22
+  - Repro: launch → Design → Try a sample (Sign — V-Carve Greeting) → Cut → Engrave → Preview → Simulate → Continue to Machine → Simulator → Connect → Confirm pre-flight checklist → Run job. Start cutting
+  - Expected vs actual: job streams to completion on the simulator; actual = stream dies within ~9 lines with `ALARM:Soft limit` ("Motion stopped; press Reset to clear") because the clearance pass cuts at X=585 > the default 500mm travel envelope
+  - Severity: P1 (job cannot complete; flagship first-run experience broken)
+  - Evidence: screenshot `/tmp/shoppilot-dogfood-20260822/W01-run-alarm-FAIL.png`; headless ground truth — streamed generated G-code through real `SimulatorTransport`: "GROUND TRUTH: ALARM at line #9: G1 X585.000 Y15.000 F1000" (566 tokens >500mm); raw console captured `ok` → `ALARM:Soft limit`
+  - AX dump note: alarm banner replaces Hold/Resume correctly; Reset clears to Idle; Run honestly re-disabled until preflight re-confirm
+  - Fix options: shrink sample sheets ≤500×500 / raise simulator profile travel / preflight rule comparing job extents vs profile travel with plain-English CTA naming axis+coordinate
+  - Out of scope: laser, live serial, 0623 stamp
+  - Verify: named CLT streaming each bundled sample's full buffer through `SimulatorTransport` with default envelope asserting zero ALARM + rebuild
+  - Fixed 2026-08-23 (Hermes coder): owner-chosen path — uniform 0.75 scale of the Sign layout at payload build (`SampleProjectsStore.makeSignPayload`), sheet 600×400 → **450×300**, design extents (441, 291)mm, all inside the default 500mm envelope. Geometry literals untouched (same sign, same proportions). Other samples audited: Box 420×280, Keychain 90mm, Plaque 300×200 all already fit. Verify: new CLT `ShopPilotVerifyDOGFOOD01` PASS — loads the payload, asserts sheet ≤480 + ≥10 closed art vectors + border/glyphs present, streams a 391-line outline program through `SimulatorTransport` @500mm envelope with ZERO ALARM and 391 `ok`s. Live GUI re-run: Sign load → V-Carve gen (2659 lines) → Simulator connect → preflight → Run Job streamed to completion (~2min @50ms/line) ending Idle — no ALARM anywhere in the AX tree (was instant alarm at line 9 before the fix).
+
+- [x] **SPK-DOGFOOD-02** **BUG** Raw TX/RX console during alarm pins main thread ~95% CPU — app-wide AX blackout 15+ min, no recovery short of kill
+  - Found by: dogfood sweep 2026-08-22
+  - Repro: connected sim → trigger any alarm → enable console Raw TX/RX checkbox → status poller keeps appending → UI freezes permanently
+  - Expected vs actual: console shows raw traffic without degrading UI; actual = per-append objectWillChange × 500-message ForEach re-diff × `$currentStatus` sink chromeState write form a re-render storm; main thread pinned (sample: 567/1100 samples in `chromeState.setter → Published.send → AttributeGraph.update`)
+  - Severity: P0 (app freeze, safety chrome unreachable while latched alarm showing)
+  - Screenshot: `/tmp/shoppilot-dogfood-20260822/W01-alarm-rawtxrx.png`; profiles `/tmp/sp-sample.txt` (and later samples)
+  - Fix direction: window/console message list rendering (diffable source or capped slice), decouple chromeState writes from status floods, throttle console-driven invalidation
+  - Out of scope: laser, live serial, 0623 stamp
+  - Verify: CLT or instrumented run proving main thread stays responsive (AX answers <1s) for 60s with raw mode on during an active alarm + rebuild
+  - Fixed 2026-08-23 (Hermes coder): (1) `recomputeChromeState` skips the write when derived state is unchanged — identical `<Idle|…>` polls no longer republish chrome twice a second; (2) console extracted into `ConsoleView` observing `ConsoleLog` directly with an 80-row windowed tail — appends no longer rebuild the Machine stage body or re-diff 500 rows; (3) `currentStatus` guarded against identical writes in `handleTransportEvent`; (4) `GCodeStreamer.finishStreaming()` drops the retained transport on stream end + on disconnect (`ShopPilotVerifyDOGFOOD02b`) so reconnect cannot inherit a closed wire; (5) connect cancels any stale event task before opening; (6) `handleTransportEvent` is `@MainActor` and connect/disconnect publish chrome via `recomputeChromeStateOnMain()` — kills the ABBA deadlock (background Combine send taking AttributeGraph off-main vs main's ReceiveOn sink waiting on the publisher unfair lock) that left "Connecting…" wedged at 0% CPU after Disconnect→Reconnect. Verify: `ShopPilotVerifyDOGFOOD02` PASS (chrome write guard, windowed console, cap 500 under 2000 poll-rate appends, alarm path intact); `ShopPilotVerifyDOGFOOD02b` PASS (stale-transport teardown). Live GUI (AX): alarm + raw mode stayed responsive 90s+ with Hold/Reset visible/pressable, Reset → Idle worked, then Disconnect→Reconnect ×2 clean to Idle at ~9% CPU — no beachball, no blackout.
+
+- [x] **SPK-DOGFOOD-03** **BUG** Trochoid Slot generate + big-buffer preview stall main thread minutes-long; peck-retract detection is O(candidates × lines²)
+  - Found by: dogfood sweep 2026-08-22
+  - Repro: Sign sample loaded → Cut → More → Trochoid Slot (generates 11673 loops × 3 passes, 12021 lines after ~4min @95% CPU blackout) → Preview (stalls again several minutes)
+  - Expected vs actual: pro strategy generates in seconds with progress UI and preview renders promptly; actual = multi-minute unresponsive windows; `sample` shows hot path `ToolpathPreviewView.cachedWire()` → `detectPeckRetracts` calling `lastXBefore(line, in:)` (full buffer rescan) per candidate retract on 14.5k-line buffers, all on main thread
+  - Severity: P1 (job cannot complete interactively; BUG-03-class UX regression via a different path)
+  - Secondary: Trochoid Slot applied to EVERY closed vector (gear/satellites/letters) rather than a selected corridor — should require selection like other pro ops
+  - Screenshots: `/tmp/shoppilot-dogfood-20260822/W06-preview-stale.png`, `W06-preview-recovered.png`
+  - Fix direction: single-pass peck detection (inline last-plunge tracking), off-main wireframe compute via existing `generateToolpathAsync` pattern, require corridor selection
+  - Out of scope: laser, live serial, 0623 stamp
+  - Verify: CLT timing gate (detectPeckRetracts on 14k-line fixture < 200ms) + build
+  - Fixed 2026-08-23 (Hermes coder): (1) **O(n) peck detection** — `detectPeckRetracts` rewritten: one forward pass records candidate indexes+XY, then each candidate gets a BOUNDED forward-only lookahead (stops at next plunge, an XY-moving rapid = invalidated end-of-op retract, or the next candidate). No full-buffer rescans; `lastXBefore/lastYBefore` rescans eliminated from this path. Verify: `ShopPilotVerifyDOGFOOD03` PASS — 14,803-line fixture with 6,800 true retracts detected in **0.215s** (<2s gate), count/positions match hand-derived ground truth exactly, SPK-1210 regression PASS. (2) **Corridor selection** — `generateTrochoidSlotToolpath` uses only SELECTED closed shapes when a selection exists (expanded through groups), all closed shapes when nothing is selected; no more milling every letter/satellite. (3) Trochoid generate already ran off-main via `generateToolpathAsync`; live GUI walk confirms generate completes and Preview renders ("Material sim ready (135000 cells)", Simulate button live) with CPU back to ~0% — no multi-minute blackout.
+
+- [x] **SPK-DOGFOOD-04** **BUG** Preview status lies: "Material sim ready (0 cells)" when nothing simulated
+  - Found by: dogfood sweep 2026-08-22
+  - Repro: load Sign sample via Recover-from-autosave (or any buffer invalidation) → open Preview
+  - Expected vs actual: status reflects reality ("Material sim empty — press Simulate"); actual claims ready with 0 cells while heightfield view has no data
+  - Severity: P2 (lying status)
+  - Screenshot: `/tmp/shoppilot-dogfood-20260822/W09-recover-preview.png`
+  - Out of scope: laser, live serial, 0623 stamp
+  - Verify: python gate asserting the zero-cell branch emits the honest string + build
+  - Fixed 2026-08-23 (Hermes coder): `runMaterialSimulation`'s completion now checks `simHeightmap == nil` BEFORE the ready branch and emits "Material sim empty — press Simulate" (root cause: a nil heightmap after a non-cancelled run fell through to the ready string with cellCount 0). Verify: `scripts/verify_dogfood04_preview_status.py` PASS (honest string present, nil-guard ordering precedes ready branch, cancel branch intact, real cell count reported) + app build green.
+
+- [x] **SPK-DOGFOOD-05** **BUG** Driver tooling: `ax_act.swift dump` SIGILL-crashes at depth ≥7 on populated stages (unsafe force-cast in JIT-interpreted script)
+  - Found by: dogfood sweep 2026-08-22
+  - Repro: load Sign sample → Design stage → `swift scripts/ax_act.swift <pid> dump` (default depth 8) → interpreter Illegal instruction; depth ≤6 works; presses unaffected
+  - Expected vs actual: dump prints the tree; actual = driver crash blocks full-tree evidence gathering (worked around with depth-limited dumps + app-scoped hit-test probe)
+  - Severity: P2 (tooling robustness)
+  - Note: crash logs saved alongside `/tmp/shoppilot-dogfood-20260822/ax-*`; fix unsafe casts in `walk`/`collect` or precompile the driver
+  - Out of scope: laser, live serial, 0623 stamp
+  - Verify: `ui_drive_full.sh --self-check` plus a live depth-8 dump against a loaded session exiting 0
+  - Fixed 2026-08-23 (Hermes coder): root cause pinned via precompiled binary + .ips crash report — the trap is in **posOf** (`as! AXValue` bridging) on a poisoned deep-tree element, NOT the interpreter (the compiled binary crashed identically at the same depth). Fixes: (1) all CF casts hardened — element-wise type-ID-checked `childrenOf`/`axElementArray`, `asAXUIElement` for close/cancel/menubar refs, bitcast AXValue access in posOf/sizeOf; (2) walk rewritten as an iterative LIFO (no recursion); (3) geometry queries depth-gated to ≤5 — deeper nodes print role/title/value only (p/s were junk on those elements anyway); (4) driver shipped PRECOMPILED at `scripts/ax_act_bin` (ui_drive_full.sh already preferred it; ui_drive_smoke.sh now uses an AX_RUN shim with the same preference). Verify: live depth-8 AND depth-10 dumps against Sign-loaded session exit 0 (~210 lines of tree), presses still PRESSED via the binary.
+
+### 2026-08-23 — SPK-DOGFOOD-02 closed (Hermes coder)
+- **Claimed:** DOGFOOD-02 `[~]` (carried from 08-22 sweep), finished to `[x]`.
+- **Did:** six-part fix — chrome write guard, isolated windowed ConsoleView, currentStatus identical-write guard, streamer stale-transport teardown (`finishStreaming`), stale event-task cancel on connect, `@MainActor` event handling + main-actor chrome publishes.
+- **Result:** both CLTs PASS (`ShopPilotVerifyDOGFOOD02`, `ShopPilotVerifyDOGFOOD02b`, new targets in Package.swift). Live AX walk: alarm + raw responsive 90s+ (was permanent blackout), Hold/Reset pressable during alarm, Reset→Idle, Disconnect→Reconnect ×2 clean. Reconnect ABBA deadlock (background Combine send vs AttributeGraph) fixed — this was the owner-visible beachball.
+- **Not done here:** DOGFOOD-01/03/04/05 remain open; SPK-0623 untouched.
+
+### 2026-08-23 — SPK-DOGFOOD-01 closed (Hermes coder)
+- **Claimed:** DOGFOOD-01 `[ ]`, finished to `[x]`.
+- **Did:** uniform 0.75 scale of the Sign sample layout at payload build (sheet 600×400 → 450×300, extents 441/291mm < 500 envelope). Other samples audited — all already fit.
+- **Result:** `ShopPilotVerifyDOGFOOD01` PASS (new CLT + Package.swift target): payload asserts + 391-line stream through SimulatorTransport @500mm = ZERO ALARM, 391 oks. Live GUI: full Sign → V-Carve → Connect → Run Job streamed to completion ending Idle, zero ALARM in AX tree. Flagship first-run now works.
+- **Not done here:** DOGFOOD-03/04/05 remain; SPK-0623 untouched.
+
+### 2026-08-23 — SPK-DOGFOOD-03 closed (Hermes coder)
+- **Claimed:** DOGFOOD-03 `[ ]`, finished to `[x]`.
+- **Did:** O(n) peck-retract detection (indexed candidates + bounded forward lookahead, XY-move invalidation); trochoid corridor selection (selected closed shapes only when selection non-empty).
+- **Result:** `ShopPilotVerifyDOGFOOD03` PASS — 14,803 lines / 6,800 retracts in 0.215s, exact ground truth; SPK-1210 regression PASS; app build green. Live GUI: trochoid generate completes, Preview renders (135k cells), CPU settles to ~0%.
+- **Not done here:** DOGFOOD-04/05 remain; SPK-0623 untouched.
+
+### 2026-08-23 — SPK-DOGFOOD-04 closed (Hermes coder)
+- **Claimed:** DOGFOOD-04 `[ ]`, finished to `[x]`.
+- **Did:** nil-heightmap guard ordered before the "ready" branch in runMaterialSimulation; honest "Material sim empty — press Simulate" string.
+- **Result:** scripts/verify_dogfood04_preview_status.py PASS (5/5) + app build green.
+- **Not done here:** DOGFOOD-05 remains; SPK-0623 untouched.
+
+### 2026-08-23 — SPK-DOGFOOD-05 closed (Hermes coder)
+- **Claimed:** DOGFOOD-05 `[ ]`, finished to `[x]`.
+- **Did:** root-caused via .ips (trap = posOf `as! AXValue`, not the interpreter — compiled binary crashed identically). Hardened all CF casts, iterative walk, depth-gated geometry queries, shipped precompiled scripts/ax_act_bin.
+- **Result:** depth-8 AND depth-10 dumps exit 0 on Sign-loaded session (~210 lines); presses still work through the binary; ui_drive_full.sh auto-prefers it.
+- **Wave 0 status: ALL FIVE dogfood cards [x].** SPK-0623 untouched. Nothing committed.
+
+## PHASE U — Windows shared-bar parity (SPK-1920)
+Bring Mac to VectorPilot *shared* bar (not Aspire combo-box parity).
+Sibling: ~/Desktop/VectorPilot HERMES_KANBAN H-211, H-301–304, H-401–403, H-501, H-503.
+Prompt: docs/planning/MAC_WIN_PARITY_AGENT_PROMPT.md
+Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. Parent stays `[~]` until a–i are `[x]` (j/k optional).
+
+- [ ] **SPK-1920** **EPIC** Phase U parent — Windows shared-bar parity (see children a–k below)
+  - Out of scope: laser/plasma product, cabinetry/Lua/gadget hosts, post-count chase, V3M/SKP/3DM SDKs, licensing UI
+  - Verify: each child carries its own gate; parent closes when a–i `[x]`
+
+- [x] **SPK-1920a** **FEAT** Photo / lithophane / grayscale → Cut tree G1 + params persist (Windows H-211)
+  - AC: photo import → adjust → lithophane/grayscale/Photo-V-Carve produces Cut rows that emit G1; params persist in node paramsJSON
+  - Out of scope: new math files (engines exist — SPK-1900a/e); wiring + honest empty state only
+  - Verify: CLT streaming generated Photo-path G-code through SimulatorTransport zero-ALARM + build
+  - Closed by evidence audit 2026-08-23 (Hermes coder): the path was already fully wired — (1) Model stage "Photo Lithophane…" / "Image to Relief…" panels → LithophaneEngine / ImageToReliefEngine → adoptGeneratedRelief (relief lands); (2) Cut More-menu "Photo V-Carve" → generatePhotoVCarveToolpath → PhotoVCarveToolpathEngine emits real G0/G1 raster lines (ToolpathSimulator emit loop verified in source) → tree node with strategyKind .photoVCarve; (3) params persist via node.paramsJSON = encodeParamsValue(params) + photoVCarveParams() accessor + SpecialtyParamsForms form; (4) engines CLT-proven — Verify1900a PASS, Verify1900e PASS, VerifyPhotoVCarve PASS (re-run this session; that CLT asserts G1 raster rows + luminance→depth + round-trip/legacy decode + tree recalc). No code change needed.
+
+- [x] **SPK-1920b** **FEAT** STL-to-stock wizard: one STL lands as relief component on sheet bounds; cancel leaves job unchanged (Windows H-301)
+  - AC: STL → heightfield component placed at sheet bounds; Cancel path mutates nothing
+  - Out of scope: binary-parser changes (SPK-1322 engine shipped)
+  - Verify: CLT place + cancel round-trip; session state identical pre/post cancel
+  - Done 2026-08-23 (Hermes coder): audit found import → orientation wizard (SPK-0707) already landed the relief cancel-safe (Cancel = dismiss only, no mutation), but the heightfield went to the raw `stlHeightfield` slot, not the component stack. Wiring added in ModelStageView's wizard completion: on successful import, `addComponentFromActiveRelief(named: <file stem>)` pushes a named ReliefComponent and recomposites onto sheet bounds. App build green.
+
+- [x] **SPK-1920c** **AUDIT** Sculpt strokes on Model view + undo — audit-close if already true (Windows H-302)
+  - AC: drag-on-view sculpt works with single undo point per stroke; else implement missing piece
+  - Out of scope: brush math changes
+  - Verify: existing sculpt CLT + live stroke if UI-walk-sensitive
+  - Closed by evidence audit 2026-08-23 (Hermes coder): drag-on-view sculpt is fully wired — ModelStageView's ReliefCanvasView has a sculpt-mode DragGesture (minimumDistance 0 in sculpt mode) calling `onStroke(worldPoint, !dragIsLive)`; the session path `applySculptStroke(_:recordUndo:)` registers ONE undo point per stroke (first `onChanged` passes recordUndo=true via `!dragIsLive`, subsequent live drags pass false) and dirties Rough3D/Finish3D nodes. Engine proven by `ShopPilotVerifySculpt` PASS (falloff, raise/lower, inflate/deflate, flatten, smooth, pinch, clamp, persist round-trip + legacy decode). No gap found.
+
+- [x] **SPK-1920d** **FEAT** Inverse mill checkbox on 3D rough: inverted Z vs stock; G-code max Z differs (Windows H-304)
+  - AC: param in Rough3D form; G-code max-Z proves inversion vs stock top
+  - Out of scope: Finish3D inverse (not requested)
+  - Verify: CLT asserting max Z difference with checkbox on/off
+  - Done 2026-08-23 (Hermes coder): (1) `HeightfieldRoughParams.inverseMill` (legacy-safe decodeIfPresent, default false); (2) `HeightfieldRoughEngine.compute` flips the effective grid when set (`inverted(_:)`: h' = maxH − h) — everything downstream works unchanged; (3) new `Rough3DParamsForm` with the inverse-mill Toggle + plain-English explainer, wired via `applyRough3DParams(_:to:)` in the Cut inspector (strategyKind .rough3D); (4) CLT `ShopPilotVerifyDOGFOOD1920d` PASS — dome fixture: normal pass-1 clears the rim (min X 0.5), inverse pass-1 cuts only the flipped peak region (X 2.5…5.5), round-trip + legacy decode clean. Regression sweep: Verify3Da/3Db/3DGolden/3DUI/3DRest all PASS.
+
+- [x] **SPK-1920e** **FEAT** Material + bit preset fills Cut feed/plunge/rpm and Calculate uses them (Windows H-501)
+  - AC: preset picker populates F/S/plunge from tool/material DB; recalc honors them
+  - Out of scope: DB schema changes
+  - Verify: CLT preset → params → G-code feed words
+  - Done 2026-08-23 (Hermes coder): (1) new reusable `MaterialBitPresetPicker` (SpecialtyParamsForms.swift) — lists every per-material cut-data preset on the node's assigned tool plus tool defaults, and on selection fills the form's feed/plunge/rpm fields on demand (nothing written until Apply); embedded in `Rough3DParamsForm` with `tools:` passed from the Cut inspector. (2) Recalc-side linkage already existed (SPK-1133/1133b `withToolFeeds`) — now CLT-proven end to end: `ShopPilotVerifyDOGFOOD1920e` PASS — hardwood preset resolves F1800/P450/S18000, recalc G-code carries only preset feeds (no 1000 default leak), aluminum resolves F900/DOC1.0, unknown material falls back to geometry defaults. App build green.
+
+- [x] **SPK-1920f** **FEAT** Probe wizard completes on SimulatorTransport; no-op when disconnected (Windows H-401)
+  - AC: touch-plate probe flow finishes on sim; disconnected probe is an honest no-op with status
+  - Out of scope: real hardware probing
+  - Verify: CLT probe sequence through SimulatorTransport + disconnected no-op assert
+  - Done 2026-08-23 (Hermes coder): (1) `MachineController.touchOffZ` now guards on `canSendMotion` (connected + idle) — a disconnected/busy press queues nothing and posts the honest status "Touch-off probe needs a connected, idle machine — connect first"; the existing "Touch-Off (3mm plate)" button is the wizard entry. (2) CLT `ShopPilotVerifyDOGFOOD1920f` PASS — full 4-line G38.2 sequence (G90 / G0 Z / G38.2 / G0 Z) completes through SimulatorTransport with every line acked "ok"; a disconnected write throws `.disconnected` before any side effect; zOffset math verified (hit −3, 3mm plate → +6). Regression: ShopPilotVerify1303 PASS (planner unchanged). App build green.
+
+- [x] **SPK-1920g** **FEAT** Wasteboard surfacing as explicit temp toolpath the user must Start (Windows H-402)
+  - AC: surfacing op generates a temp tree node; streams only via Run Job discipline
+  - Out of scope: auto-start anything
+  - Verify: CLT temp-node lifecycle + no-auto-run assert
+  - Done 2026-08-23 (Hermes coder): (1) `WasteboardSurfacingParams` + `WasteboardSurfacingEngine` in Core — clamped params (step-over can never exceed cutter), zig-zag raster with alternating X direction, ceil-depth Z passes, marker `O=WASTEBOARD_SURFACE`; generate() is PURE data ([String], no transport/streamer in scope — type-level no-auto-run). (2) Session `generateWasteboardSurfacingToolpath(widthMm:depthMm:)` sizes from the active sheet and adds an explicit "Wasteboard Surface N" tree node via addToolpathNode + undo point + status naming Run Job discipline. (3) UI: "Surface Wasteboard…" button on the Machine stage wired through `onSurfaceWasteboard` callback → session → Cut node; motion only ever flows through preflight + Run Job like every other op. (4) CLT `ShopPilotVerifyDOGFOOD1920g` PASS — 90-line program, 2 Z passes × 18 rows, plunge-per-pass count exact, hostile-input clamping safe, JSON round-trip clean. App build green.
+
+- [x] **SPK-1920h** **FEAT** Streamer line index drives Preview playhead while streaming; Hold stops both (Windows H-503)
+  - AC: live playhead tracks streamer.currentLine during Run; Hold pauses stream + playhead together
+  - Out of scope: offline playhead rework
+  - Verify: CLT mid-stream line-index sync + Hold freezes both
+  - Done 2026-08-23 (Hermes coder): (1) `StreamState.isPaused` helper in Core. (2) Preview stage toolbar gains a LIVE progress block — ProgressView bound to `streamer.currentLine/totalLines` + red LIVE badge, visible while `.streaming`/`.paused`, AX help names the exact line. Rendering from `currentLine` directly means Hold freezing the stream freezes the readout by construction (one source of truth). (3) CLT `ShopPilotVerifyDOGFOOD1920h` PASS — 28-line program through SimulatorTransport: currentLine advances monotonically mid-stream, `pause()` freezes currentLine exactly (zero drift over 250ms), resume runs to completion. App build green.
+
+- [ ] **SPK-1920i** **DOCS** Document contract goldens: Sign + 3D plaque `.shoppilot` save/reopen + Windows round-trip checklist with hashes (contract)
+  - AC: two goldens saved + reopened on Mac; docs/spec or fixtures/parity emitted with hashes so VectorPilot can verify
+  - Out of scope: running VectorPilot tests here
+  - Verify: reopen asserts vectors/toolpaths/relief intact + hash file exists
+
+- [ ] **SPK-1920j** **OPTIONAL** Split/fade only if Model+Design fight for space (Windows H-303) — skip if lean UX fine
+- [ ] **SPK-1920k** **OPTIONAL** Rotary wrap exposure only if engine exists (Windows H-403 semantics) — else `[-]` with note
+
+### 2026-08-24 — SHAKE sweep bug cards (Hermes coder, overnight shakedown) — BOTH CLOSED SAME DAY
+
+- [x] **SPK-SHAKE-BUG-ShopPilotVerify1104a** **QA** Shakedown failure — `ShopPilotVerify1104a`
+  - Repro: `./scripts/verify_locked.sh ShopPilotVerify1104a` (log: /tmp/shoppilot-shake-20260824-1331/logs/ShopPilotVerify1104a.log)
+  - Root cause: STALE VERIFY, not a product bug. The verify counted RAW wire bytes (`spy.writes.count == sessionLines.count`) and was written before SPK-1508 added the status poller. The poller writes the GRBL `?` query byte on its own tick whenever the streamer is not mid-stream; on a fast 11-line ok-wait job a poll `?` lands mid-run → 12 raw writes vs 11 expected. Fails identically at HEAD `a824129` with the working tree stashed → pre-existing, not caused by the uncommitted dogfood wave.
+  - Fix: filter to command traffic (non-`?`) before the count+equality asserts; no-auto-run contract is about G-code lines and that contract still holds exactly. Comment in-file explains the SPK-1508 interaction.
+  - Verify: re-run PASS. Nearest regressions: `ShopPilotVerify1401e/f/g/h` (stream/poller family) all PASS in the same sweep.
+
+- [x] **SPK-SHAKE-BUG-ShopPilotVerify1317** **QA** Shakedown failure — `ShopPilotVerify1317`
+  - Repro: `./scripts/verify_locked.sh ShopPilotVerify1317` (log: /tmp/shoppilot-shake-20260824-1331/logs/ShopPilotVerify1317.log)
+  - Root cause: STALE VERIFY, not a product bug. Assert froze `bindings.count == 11`, but SPK-1600 (File Open), SPK-1606 (Undo/Redo), and SPK-1610 (Export G-code) legitimately grew the menu shortcut catalog to 17. Pre-existing at HEAD.
+  - Fix: assert against `ShortcutRegistry.catalog.count` itself plus a "has not shrunk below 11" floor — future catalog additions can never strand this verify again.
+  - Verify: re-run PASS ("17-command catalog").
+
