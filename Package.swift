@@ -238,6 +238,11 @@ let package = Package(
             path: "Sources/ShopPilotVerify1900f"
         ),
         .executableTarget(
+            name: "ShopPilotVerify2000a",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify2000a"
+        ),
+        .executableTarget(
             name: "ShopPilotVerify1900b",
             dependencies: ["ShopPilotCore"],
             path: "Sources/ShopPilotVerify1900b"

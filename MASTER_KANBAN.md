@@ -2412,7 +2412,7 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
   - Out of scope: cabinetry import beyond CSV-dialect parity, Lua host on Mac (Mac keeps its plugin ABI), Windows-side work
   - Verify: each child carries its own CLT; parent closes when a–e `[x]`
 
-- [ ] **SPK-2000a** **CAM** Post catalog expansion to ~54 shipped templates
+- [x] **SPK-2000a** **CAM** Post catalog expansion to ~54 shipped templates
   - AC: industrial (Haas/Fanuc/SINUMERIK/Heidenhain/Okuma/Centroid), routers (FluidNC/Mach3/Mach4/WinCNC/Masso/UCCNC/PlanetCNC/ShopBot/X-Carve/LongMill/Shapeoko/Onefinity/Avid), firmware (Marlin/Smoothieware/Duet/LinuxCNC), laser+plasma group; every template mm+inch via existing grammar; picker shows groups; rotary Y2A retained.
   - Verify: `ShopPilotVerify2000a` — count ≥54, every template emits valid moves for a sample program through `PostTemplateEngine`, units variants distinct, ids unique.
 
@@ -2432,3 +2432,5 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
   - AC: side-by-side table VectorPilot@HEAD vs ShopPilot@HEAD — strategy registry, posts, import formats, machine ops, preview modes; every row ✅ or documented owner-deferral; LEAN_CNC_SCOPE + FEATURE_PARITY_MATRIX updated to post-parity reality.
   - Verify: audit committed in `docs/planning/PARITY_AUDIT_2026.md`; full shakedown sweep green.
 
+### 2026-08-24 — SPK-2000a closed (Hermes)
+- PostCatalog: 14 GRBL-family routers ×mm/inch, 6 industrial (Fanuc-dialect body w/ G28+M30) ×mm/inch, 4 firmware mm-only, 4 laser/plasma ($32=1+M5, THC M64/M65) — 55 shipped total. Picker now grouped (Routers/Industrial/Firmware/Laser & Plasma + Custom), menu style. Verify `ShopPilotVerify2000a` PASS: ≥54 count, unique ids, all emit clean through PostTemplateEngine with moveCount preserved, no raw specifiers leak, units variants differ, grouping total, dialect markers present. App build green.

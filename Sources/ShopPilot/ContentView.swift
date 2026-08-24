@@ -2183,11 +2183,11 @@ private struct VCarveParamsForm: View {
 }
 
 
-// MARK: - Post Template Picker (SPK-1134)
+// MARK: - Post Template Picker (SPK-1134, grouped in SPK-2000a)
 
-/// Save-panel accessory: pick which post template the export runs through
-/// (GRBL mm / GRBL inch / GRBL rotary wrap Y2A) or the legacy post. Shows a
-/// summary line per template.
+/// Save-panel accessory: pick which post template the export runs through.
+/// SPK-2000a: templates render grouped (Routers / Industrial / Firmware /
+/// Laser & Plasma) now that the shipped catalog is the full parity surface.
 struct PostTemplatePickerView: View {
     let templates: [PostTemplate]
     @Binding var selectedID: String
@@ -2205,11 +2205,15 @@ struct PostTemplatePickerView: View {
                 .font(.headline)
             Picker("Post", selection: $selectedID) {
                 Text("Legacy (GRBL wrapper)").tag("")
-                ForEach(templates) { template in
-                    Text(template.name).tag(template.id)
+                ForEach(grouped, id: \.group) { section in
+                    Section(section.group) {
+                        ForEach(section.templates) { template in
+                            Text(template.name).tag(template.id)
+                        }
+                    }
                 }
             }
-            .pickerStyle(.radioGroup)
+            .pickerStyle(.menu)
             .labelsHidden()
             if let template = templates.first(where: { $0.id == selectedID }) {
                 Text(template.summary)
@@ -2225,5 +2229,17 @@ struct PostTemplatePickerView: View {
         }
         .padding(12)
         .frame(width: 400, alignment: .leading)
+    }
+
+    /// Grouped view of everything available: shipped catalog first, then any
+    /// user templates under "Custom".
+    private var grouped: [(group: String, templates: [PostTemplate])] {
+        var sections = PostTemplate.groupedShipped
+        let shippedIDs = Set(PostTemplate.shipped.map(\.id))
+        let custom = templates.filter { !shippedIDs.contains($0.id) }
+        if !custom.isEmpty {
+            sections.append((group: "Custom", templates: custom))
+        }
+        return sections
     }
 }
