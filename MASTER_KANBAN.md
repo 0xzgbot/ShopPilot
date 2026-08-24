@@ -2399,3 +2399,36 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
   - Fix: assert against `ShortcutRegistry.catalog.count` itself plus a "has not shrunk below 11" floor — future catalog additions can never strand this verify again.
   - Verify: re-run PASS ("17-command catalog").
 
+---
+
+# PHASE V — Cross-platform feature parity with VectorPilot (SPK-2000)
+
+> Filed 2026-08-24 per owner directive: **both apps ship the same day; features must MATCH.**
+> VectorPilot `origin/main@e954552` is the reference surface. Owner has un-held laser
+> (scope decision supersedes LEAN_CNC_SCOPE's "laser non-goal" row — that file's laser
+> line now reads as satisfied-by-parity). DoD unchanged: Engine + UI + Persist + Verify.
+
+- [ ] **SPK-2000** **EPIC** Phase V parent — Mac catches up to VectorPilot feature surface
+  - Out of scope: cabinetry import beyond CSV-dialect parity, Lua host on Mac (Mac keeps its plugin ABI), Windows-side work
+  - Verify: each child carries its own CLT; parent closes when a–e `[x]`
+
+- [ ] **SPK-2000a** **CAM** Post catalog expansion to ~54 shipped templates
+  - AC: industrial (Haas/Fanuc/SINUMERIK/Heidenhain/Okuma/Centroid), routers (FluidNC/Mach3/Mach4/WinCNC/Masso/UCCNC/PlanetCNC/ShopBot/X-Carve/LongMill/Shapeoko/Onefinity/Avid), firmware (Marlin/Smoothieware/Duet/LinuxCNC), laser+plasma group; every template mm+inch via existing grammar; picker shows groups; rotary Y2A retained.
+  - Verify: `ShopPilotVerify2000a` — count ≥54, every template emits valid moves for a sample program through `PostTemplateEngine`, units variants distinct, ids unique.
+
+- [ ] **SPK-2000b** **GEO** Cabinetry import (CSV job-list dialects)
+  - AC: parse Mozaik/KCD/CabinetSense/CabinetPartsPro/Polyboard/SmartWOP-style part lists (comma+tab, header-vocabulary tolerant) into sheet rectangles as design vectors; fixture-driven CLT per vendor vocabulary; Import Hub accepts `.csv`.
+  - Verify: `ShopPilotVerify2000b` — six fixtures parse, dims land within tolerance, malformed input reports honestly (no crash).
+
+- [ ] **SPK-2000c** **CAM** Laser productization (un-hold)
+  - AC: Laser Fill (raster scanlines over closed vectors w/ angle+spacing+overscan), Laser Picture (bitmap→power-modulated raster, M4 dynamic power), laser posts in the catalog (GRBL-M4/LightBurn-compatible `$32=1` variant); Cut More-menu entries gated behind connected-idle discipline like every op; existing `LaserEngine` vector cut/engrave stays.
+  - Verify: `ShopPilotVerify2000c-laserfill` + `ShopPilotVerify2000c-laserpicture` — scanline coverage of a circle fixture, power scaling monotonic with luminance, no motion outside bounds, streams zero-ALARM through SimulatorTransport.
+
+- [ ] **SPK-2000d** **UI** Shaded 3D relief preview alongside the 2.5D heightfield
+  - AC: Metal mesh view of the active relief (orbit/pinch, amber-on-graphite material shading) reachable from Model stage Orbit control as "3D" mode; falls back to current 2.5D orbit when Metal unavailable; no new editing claims.
+  - Verify: `ShopPilotVerify2000d` — mesh generation from a known heightfield (vertex/index counts, normals finite), availability probe honest, render config round-trips.
+
+- [ ] **SPK-2000e** **QA** Parity close-out audit
+  - AC: side-by-side table VectorPilot@HEAD vs ShopPilot@HEAD — strategy registry, posts, import formats, machine ops, preview modes; every row ✅ or documented owner-deferral; LEAN_CNC_SCOPE + FEATURE_PARITY_MATRIX updated to post-parity reality.
+  - Verify: audit committed in `docs/planning/PARITY_AUDIT_2026.md`; full shakedown sweep green.
+
