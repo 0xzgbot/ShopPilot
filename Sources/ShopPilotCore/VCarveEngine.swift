@@ -65,6 +65,14 @@ public struct VCarveParams: Codable, Sendable {
     public var medialAxisPass: Bool
     public var medialAxisCellMm: Double
 
+    // SPK-2010c — where the ridge's clearance exceeds what the V-bit can
+    // widen to at max depth (× threshold factor), the bit bottoms out and
+    // leaves stock beside the spine; the sweep clears those runs laterally.
+    // Off by default. Additive with defaults.
+    public var flatAreaClearing: Bool
+    public var flatAreaThresholdFactor: Double
+    public var flatAreaStepOverMm: Double
+
     
     public init(
         vBitAngleDegrees: Double = 90.0,
@@ -89,7 +97,10 @@ public struct VCarveParams: Codable, Sendable {
         clearanceStepOverMm: Double = 0.4,
         spindleRpm: Double = 0,
         medialAxisPass: Bool = true,
-        medialAxisCellMm: Double = 1.0
+        medialAxisCellMm: Double = 1.0,
+        flatAreaClearing: Bool = false,
+        flatAreaThresholdFactor: Double = 1.5,
+        flatAreaStepOverMm: Double = 1.0
     ) {
         self.vBitAngleDegrees = vBitAngleDegrees
         self.feedRateMmPerMin = feedRateMmPerMin
@@ -114,6 +125,9 @@ public struct VCarveParams: Codable, Sendable {
         self.spindleRpm = spindleRpm
         self.medialAxisPass = medialAxisPass
         self.medialAxisCellMm = medialAxisCellMm
+        self.flatAreaClearing = flatAreaClearing
+        self.flatAreaThresholdFactor = flatAreaThresholdFactor
+        self.flatAreaStepOverMm = flatAreaStepOverMm
     }
     
     /// Half-angle of the V-bit in radians (used for width calculations).
@@ -140,6 +154,7 @@ public struct VCarveParams: Codable, Sendable {
         case clearanceStepOverMm
         case spindleRpm
         case medialAxisPass, medialAxisCellMm
+        case flatAreaClearing, flatAreaThresholdFactor, flatAreaStepOverMm
     }
 
     public init(from decoder: Decoder) throws {
@@ -167,6 +182,9 @@ public struct VCarveParams: Codable, Sendable {
         spindleRpm = try c.decodeIfPresent(Double.self, forKey: .spindleRpm) ?? 0
         medialAxisPass = try c.decodeIfPresent(Bool.self, forKey: .medialAxisPass) ?? true
         medialAxisCellMm = try c.decodeIfPresent(Double.self, forKey: .medialAxisCellMm) ?? 1.0
+        flatAreaClearing = try c.decodeIfPresent(Bool.self, forKey: .flatAreaClearing) ?? false
+        flatAreaThresholdFactor = try c.decodeIfPresent(Double.self, forKey: .flatAreaThresholdFactor) ?? 1.5
+        flatAreaStepOverMm = try c.decodeIfPresent(Double.self, forKey: .flatAreaStepOverMm) ?? 1.0
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -194,6 +212,9 @@ public struct VCarveParams: Codable, Sendable {
         try c.encode(spindleRpm, forKey: .spindleRpm)
         try c.encode(medialAxisPass, forKey: .medialAxisPass)
         try c.encode(medialAxisCellMm, forKey: .medialAxisCellMm)
+        try c.encode(flatAreaClearing, forKey: .flatAreaClearing)
+        try c.encode(flatAreaThresholdFactor, forKey: .flatAreaThresholdFactor)
+        try c.encode(flatAreaStepOverMm, forKey: .flatAreaStepOverMm)
     }
 }
 
@@ -430,6 +451,12 @@ public struct VCarveEngine {
                         allGcodeLines.append("G0 Z5.0")
                         totalCuttingLength += medialPathLength(path)
                     }
+                    
+                    // ---- SPK-2010c: flat-area clearing (optional) ----
+                    if params.flatAreaClearing {
+                        allGcodeLines.append(contentsOf: flatAreaSweep(
+                            skeleton, params: params, maxDepth: maxDepth))
+                    }
                 }
             }
         }
@@ -463,6 +490,71 @@ public struct VCarveEngine {
             total += hypot(b.x - a.x, b.y - a.y)
         }
         return total
+    }
+
+    /// SPK-2010c — sweep the too-wide segments of the medial-axis ridge at
+    /// full depth. A ridge point is "flat" when its clearance exceeds the
+    /// V-bit's reachable half-width at max depth (tipWidthAtDepth/2) by the
+    /// threshold factor. For each flat run, lateral passes step across the
+    /// extra width on BOTH sides of the spine at −maxDepth, so the fat region
+    /// bottoms out instead of keeping a stock ridge beside the spine.
+    static func flatAreaSweep(
+        _ skeleton: MedialAxis.Result,
+        params: VCarveParams,
+        maxDepth: Double
+    ) -> [String] {
+        let tipHalf = params.tipWidthAtDepth(maxDepth) / 2.0
+        let threshold = max(tipHalf * params.flatAreaThresholdFactor, tipHalf + 1e-6)
+        let zFlat = -maxDepth
+        let feed = Int(params.feedRateMmPerMin)
+        let plunge = Int(params.plungeFeedRateMmPerMin)
+
+        var g: [String] = []
+
+        for path in skeleton.paths {
+            // Split the ridge into maximal runs where clearance >= threshold.
+            var i = 0
+            while i < path.count {
+                if path[i].clearanceMm < threshold { i += 1; continue }
+                var j = i
+                while j + 1 < path.count && path[j + 1].clearanceMm >= threshold { j += 1 }
+
+                // Flat run [i...j]: sweep laterally. The extra half-width each
+                // side of the spine that the V-bit cannot reach:
+                let extra = path[i].clearanceMm - tipHalf
+                if extra > 1e-6 {
+                    let ax = path[i].position.x, ay = path[i].position.y
+                    let bx = path[j].position.x, by = path[j].position.y
+                    let dx = bx - ax, dy = by - ay
+                    let len = hypot(dx, dy)
+                    if len > 1e-9 {
+                        let px = -dy / len, py = dx / len // unit perpendicular
+                        let sweeps = max(1, Int(ceil(extra * 2 / max(params.flatAreaStepOverMm, 0.05))))
+
+                        for s in 0...sweeps {
+                            // Offsets straddle the spine: 0, +step, −step, +2·step, …
+                            let off = Double((s + 1) / 2) * (s % 2 == 1 ? 1.0 : -1.0)
+                                * params.flatAreaStepOverMm
+                            if abs(off) > extra { continue } // stay inside the flat band
+
+                            g.append("G0 Z5.0")
+                            g.append("G0 X\(String(format: "%.3f", ax + px * off)) Y\(String(format: "%.3f", ay + py * off))")
+                            g.append("G1 Z\(String(format: "%.3f", zFlat)) F\(plunge)")
+                            g.append("G1 X\(String(format: "%.3f", bx + px * off)) Y\(String(format: "%.3f", by + py * off)) F\(feed)")
+                            g.append("G0 Z5.0")
+                        }
+                    }
+                }
+
+                i = j + 1
+            }
+        }
+
+        if !g.isEmpty {
+            g.insert("(Flat area clearing: regions wider than \(String(format: "%.3f", tipHalf * 2))mm tip width)", at: 0)
+        }
+
+        return g
     }
 
     /// SPK-VCarveClear — clearance pass emitted BEFORE the V-bit detail pass.
