@@ -2635,5 +2635,5 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
 
 - [ ] **SPK-2024c** **UX** One forward CTA per stage — audit-first (close as audit if already true); coach strip promotes the same action.
 
-Claim order: 2020a0 → 2021a → 2022a → 2022d → (1920i goldens + Win trochoid H-card) → Phase 5 trio → joinery. Do not reopen medial-axis.
+Claim order (week of 2026-08-25): see `docs/planning/WEEK_PLAN_2026-08-25.md` + Hermes paste `docs/planning/WEEK_PLAN_HERMES_ORCHESTRATOR_PROMPT.md`. Wave 1 = 1920i + 2024b + SHAKE-1319 + Win H-610/H-601. Do not retry 2023b until Wave 3. Do not reopen medial-axis. 2022f stays parked.
 
