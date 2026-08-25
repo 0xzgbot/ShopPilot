@@ -562,6 +562,13 @@ let package = Package(
             dependencies: ["ShopPilotCore"],
             path: "Sources/ShopPilotVerify2010c"
         ),
+
+        // PHASE X (2026-08-25) — SPK-2022d device profile library verifier.
+        .executableTarget(
+            name: "ShopPilotVerify2022d",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify2022d"
+        ),
         .executableTarget(
             name: "ShopPilotVerify2020a0",
             dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
@@ -1268,7 +1275,11 @@ let package = Package(
 
         .target(
             name: "ShopPilotCore",
-            path: "Sources/ShopPilotCore"
+            path: "Sources/ShopPilotCore",
+            resources: [
+                // SPK-2022d — bundled device profile catalog.
+                .copy("Resources")
+            ]
         ),
         .target(
             name: "ShopPilotSerial",

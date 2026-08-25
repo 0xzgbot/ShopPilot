@@ -50,6 +50,47 @@ public final class MachineController: ObservableObject {
     /// Jog step in millimetres.
     @Published public var jogStepSize: Double = 1.0
 
+    // MARK: - SPK-2022d — device profile library
+
+    /// The active device profile (nil until a pick is made). Drives §2.4
+    /// soft-limit jog awareness and carries the chosen post id.
+    @Published public private(set) var activeDeviceProfile: DeviceProfile?
+
+    /// Id of the active profile ("" when untouched this session).
+    @Published public private(set) var deviceProfileID: String = ""
+
+    /// One pick sets baud + post + travel + origin, persists last-used, and
+    /// never blocks connect: an unknown/stale id resolves to the Generic GRBL
+    /// fallback instead of failing.
+    public func selectDeviceProfile(id: String) {
+        applyDeviceProfile(DeviceProfileCatalog.resolved(id: id))
+    }
+
+    /// Apply a resolved profile. `announce: false` for the silent launch-time
+    /// restore of last-used (no console spam on startup).
+    private func applyDeviceProfile(_ profile: DeviceProfile, announce: Bool = true) {
+        deviceProfileID = profile.id
+        activeDeviceProfile = profile
+        LastDeviceProfileStore.save(profile.id)
+
+        // Baud follows the machine (GRBL-class: 115200).
+        serialBaudRate = profile.baud
+
+        // Travel feeds the simulator soft-limit envelope (SPK-1509 hook);
+        // placeholder/unknown travel keeps the legacy envelope.
+        if let simLimit = profile.simTravelLimitMM {
+            simTravelLimitMM = simLimit
+        }
+
+        if announce {
+            let travel = profile.travelKnown
+                ? "\(Int(profile.travelXMm))×\(Int(profile.travelYMm))×\(Int(profile.travelZMm))mm"
+                : "travel unknown"
+            connection.addSystemMessage(
+                "Machine profile: \(profile.name) — \(profile.baud) baud · post '\(profile.postID)' · travel \(travel) · origin \(profile.originConvention.displayName)")
+        }
+    }
+
     /// Operator has confirmed the pre-flight checklist. Never auto-set.
     @Published public var preflightPassed = false
 
@@ -78,6 +119,11 @@ public final class MachineController: ObservableObject {
 
     public init() {
         observeMachineState()
+        // SPK-2022d — restore last-used profile silently. A stale id resolves
+        // to Generic; resolution never fails, so connect is never blocked.
+        if let saved = LastDeviceProfileStore.load() {
+            applyDeviceProfile(DeviceProfileCatalog.resolved(id: saved), announce: false)
+        }
     }
 
     // MARK: - State derivation

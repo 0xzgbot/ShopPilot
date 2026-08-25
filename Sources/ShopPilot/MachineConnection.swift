@@ -394,6 +394,26 @@ public struct MachineConnectionView: View {
 
             Spacer(minLength: SP.Space.m)
 
+            // SPK-2022d — one pick sets baud + post + travel + origin. An
+            // unknown machine lands on Generic GRBL; the fallback never
+            // blocks connect. Disabled while live, like the other pickers.
+            Picker("Machine", selection: Binding(
+                get: {
+                    controller.deviceProfileID.isEmpty
+                        ? DeviceProfileCatalog.genericID
+                        : controller.deviceProfileID
+                },
+                set: { controller.selectDeviceProfile(id: $0) }
+            )) {
+                ForEach(DeviceProfileCatalog.bundled) { profile in
+                    Text(profile.name).tag(profile.id)
+                }
+            }
+            .pickerStyle(.menu)
+            .frame(width: 200)
+            .disabled(connectionManager.connectionState.isConnected || connectionManager.connectionState == .connecting)
+            .help("Device profile — one choice sets baud, post, travel and work-origin convention")
+
             Picker("Transport", selection: $controller.transportType) {
                 ForEach(MachineTransportType.allCases) { type in
                     Text(type.displayName).tag(type)
@@ -691,7 +711,31 @@ public struct MachineConnectionView: View {
 
                         Spacer(minLength: 0)
                     }
-                    
+
+                    // SPK-2022d / §2.4 — soft-limit awareness. Known travel:
+                    // warn BEFORE the proposed step leaves the envelope.
+                    // Unknown travel keeps today's behavior but says so
+                    // honestly instead of pretending it is safe.
+                    let softLimitWarnings = SoftLimitAdvisor.warnings(
+                        currentX: controller.machineSession.mPosX,
+                        currentY: controller.machineSession.mPosY,
+                        currentZ: controller.machineSession.mPosZ,
+                        stepMm: controller.jogStepSize,
+                        profile: controller.activeDeviceProfile)
+                    if !softLimitWarnings.isEmpty {
+                        Label(softLimitWarnings.joined(separator: " · "),
+                              systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(SP.Tint.hold)
+                            .help("Proposed jog would leave the machine's known travel envelope")
+                            .accessibilityLabel("Soft limit warning. \(softLimitWarnings.joined(separator: ". "))")
+                    } else if let travelNotice = SoftLimitAdvisor.unknownTravelNotice(profile: controller.activeDeviceProfile) {
+                        Label(travelNotice, systemImage: "questionmark.circle")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .accessibilityLabel(travelNotice)
+                    }
+
                     // Stream controls. Starting a job lives with the pre-flight
                     // checklist above, so nothing here can begin motion.
                     if controller.isStreamingJob || streamer.state == .streaming {
