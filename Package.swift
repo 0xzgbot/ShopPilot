@@ -570,6 +570,13 @@ let package = Package(
             path: "Sources/ShopPilotVerify2022a"
         ),
 
+        // PHASE X (2026-08-25) — SPK-2022b tool-length offset verifier.
+        .executableTarget(
+            name: "ShopPilotVerify2022b",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify2022b"
+        ),
+
         // PHASE X (2026-08-25) — SPK-2022d device profile library verifier.
         .executableTarget(
             name: "ShopPilotVerify2022d",

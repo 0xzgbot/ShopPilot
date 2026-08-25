@@ -497,6 +497,34 @@ public final class MachineController: ObservableObject {
         }
     }
 
+    // MARK: - Tool-length offset (SPK-2022b)
+
+    /// Run the tool-length-offset cycle: send the tool change (`M6 T<n>`),
+    /// then re-probe **Z only** against the touch plate and commit
+    /// `G10 L20 P1 Z<thickness>` so the stock surface reads Z = 0 under the
+    /// new bit. The emitted sequence carries no X or Y words, so XY work
+    /// registers cannot move (proven by `ShopPilotVerify2022b`). Follows the
+    /// touch-off flow: lines go through `connection.sendCommand` exactly like
+    /// `touchOffZ`/`touchOffXYZPlate`; streamer internals untouched.
+    /// SPK-1920f precedent: a disconnected (or busy) machine makes this an
+    /// honest no-op — nothing is queued, the status names why.
+    public func probeToolLengthOffset(toolNumber: Int = 1, plateThickness: Double = 3.0) {
+        guard canSendMotion else {
+            connection.addSystemMessage("Tool length offset needs a connected, idle machine — connect first")
+            return
+        }
+        let plan = TouchOff.planToolLengthOffset(toolNumber: toolNumber, plateThickness: plateThickness)
+        let sequence = TouchOff.toolLengthOffsetSequence(plan)
+        Task {
+            for line in sequence {
+                await connection.sendCommand(line)
+            }
+            connection.addSystemMessage(
+                "Tool length offset sent (T\(toolNumber), plate \(plateThickness)mm) — Z re-probed after tool change; XY untouched"
+            )
+        }
+    }
+
     // MARK: - Work offsets (SPK-1304)
 
     /// The G54–G59 registry for this machine session.

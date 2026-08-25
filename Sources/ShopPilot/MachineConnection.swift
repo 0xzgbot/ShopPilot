@@ -824,6 +824,17 @@ public struct MachineConnectionView: View {
                             .controlSize(.small)
                             .help("Probe Z, then X, then Y against the 3mm touch plate — each axis's work offset commits as its leg completes")
 
+                            // SPK-2022b — tool-length offset: after a tool
+                            // change (M6), re-probe Z ONLY and commit
+                            // G10 L20 P1 Z[t]; XY never moves.
+                            Button {
+                                controller.probeToolLengthOffset(toolNumber: 1, plateThickness: 3.0)
+                            } label: {
+                                Label("Tool length offset", systemImage: "wrench.and.screwdriver")
+                            }
+                            .controlSize(.small)
+                            .help("Probe Z after tool change: send M6, re-probe Z against the 3mm touch plate, set G10 L20 P1 Z — XY work offsets stay untouched")
+
                             // SPK-1920g — wasteboard surfacing as an explicit
                             // Cut-tree op; Run Job discipline applies.
                             Button {

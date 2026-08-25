@@ -171,3 +171,73 @@ extension TouchOff {
         xyzPlateLegs(plan).flatMap { $0 }
     }
 }
+
+// MARK: - SPK-2022b — Tool-length offset (Z-only re-probe after tool change)
+
+/// A validated tool-length-offset plan. After a tool change (`M6`), the new
+/// bit's tip is found by re-probing **Z only** against the touch plate and
+/// committing `G10 L20 P1 Z<thickness>` — so the stock surface reads Z = 0
+/// under the new tool while every XY work register stays exactly as the
+/// operator left it.
+public struct ToolLengthOffsetPlan: Equatable, Sendable {
+    /// Tool number carried by the `M6 T<n>` change, ≥ 1.
+    public let toolNumber: Int
+    /// Zero-plate thickness, mm.
+    public let plateThickness: Double
+    /// Probe feed rate, mm/min.
+    public let probeSpeed: Double
+    /// Maximum probe travel below the safe start height, mm.
+    public let maxDepth: Double
+    /// Safe Z to rapid to / retract to, mm.
+    public let retractHeight: Double
+}
+
+extension TouchOff {
+    /// Build a validated tool-length-offset plan, clamping inputs into the
+    /// same safe ranges as `plan`.
+    public static func planToolLengthOffset(
+        toolNumber: Int = 1,
+        plateThickness: Double,
+        probeSpeed: Double = 120,
+        maxDepth: Double = 10,
+        retractHeight: Double = 5
+    ) -> ToolLengthOffsetPlan {
+        ToolLengthOffsetPlan(
+            toolNumber: max(toolNumber, 1),
+            plateThickness: min(max(plateThickness, plateThicknessRange.lowerBound), plateThicknessRange.upperBound),
+            probeSpeed: min(max(probeSpeed, probeSpeedRange.lowerBound), probeSpeedRange.upperBound),
+            maxDepth: min(max(maxDepth, maxDepthRange.lowerBound), maxDepthRange.upperBound),
+            retractHeight: min(max(retractHeight, retractHeightRange.lowerBound), retractHeightRange.upperBound)
+        )
+    }
+
+    /// The tool-length-offset sequence. Every line touches Z (or no axis) —
+    /// there are deliberately NO X or Y words anywhere in the emission:
+    /// 1. `G90` — absolute positioning.
+    /// 2. `M6 T<tool>` — the tool change itself.
+    /// 3. `G0 Z<retractHeight>` — rapid to safe Z (Z axis only).
+    /// 4. `G38.2 Z-<maxDepth> F<probeSpeed>` — probe down until contact.
+    /// 5. `G10 L20 P1 Z<commit>` — current position (= plate top) becomes
+    ///    Z = plate thickness; identical math to `zCommitOffset`, so the
+    ///    stock surface reads Z = 0 under the new tool.
+    /// 6. `G0 Z<retractHeight>` — retract off the plate.
+    public static func toolLengthOffsetSequence(_ plan: ToolLengthOffsetPlan) -> [String] {
+        [
+            "G90",
+            "M6 T\(plan.toolNumber)",
+            "G0 Z\(fmt(plan.retractHeight))",
+            "G38.2 Z-\(fmt(plan.maxDepth)) F\(fmt(plan.probeSpeed))",
+            "G10 L20 P1 Z\(fmt(zCommitOffset(plateThickness: plan.plateThickness)))",
+            "G0 Z\(fmt(plan.retractHeight))",
+        ]
+    }
+
+    /// True when the sequence is provably Z-only: no line carries an X or Y
+    /// word (the guard senders rely on — XY work offsets cannot be touched
+    /// because no X/Y coordinate is ever transmitted).
+    public static func isZOnly(_ sequence: [String]) -> Bool {
+        sequence.allSatisfy { line in
+            line.range(of: "[XY]", options: .regularExpression) == nil
+        }
+    }
+}
