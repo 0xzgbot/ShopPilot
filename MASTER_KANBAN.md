@@ -2424,7 +2424,7 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
   - AC: Laser Fill (raster scanlines over closed vectors w/ angle+spacing+overscan), Laser Picture (bitmap→power-modulated raster, M4 dynamic power), laser posts in the catalog (GRBL-M4/LightBurn-compatible `$32=1` variant); Cut More-menu entries gated behind connected-idle discipline like every op; existing `LaserEngine` vector cut/engrave stays.
   - Verify: `ShopPilotVerify2000c-laserfill` + `ShopPilotVerify2000c-laserpicture` — scanline coverage of a circle fixture, power scaling monotonic with luminance, no motion outside bounds, streams zero-ALARM through SimulatorTransport.
 
-- [ ] **SPK-2000d** **UI** Shaded 3D relief preview alongside the 2.5D heightfield
+- [x] **SPK-2000d** **UI** Shaded 3D relief preview alongside the 2.5D heightfield
   - AC: Metal mesh view of the active relief (orbit/pinch, amber-on-graphite material shading) reachable from Model stage Orbit control as "3D" mode; falls back to current 2.5D orbit when Metal unavailable; no new editing claims.
   - Verify: `ShopPilotVerify2000d` — mesh generation from a known heightfield (vertex/index counts, normals finite), availability probe honest, render config round-trips.
 
@@ -2440,3 +2440,6 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
 
 ### 2026-08-24 — SPK-2000c closed (Hermes)
 - `LaserFillPicture.swift`: LaserFillEngine (angle/spacing/overscan serpentine raster over vector bounds) + LaserPictureEngine (grayscale grid → power-modulated G1 raster, run-merging, threshold, S0…1000 scale); pure data, no transport. Session `generateLaserFillToolpath`/`generateLaserPictureToolpath` (relief heights → luminance for picture; paramsJSON persisted; no auto-run). Cut More-menu gains a **Laser** section (Laser Fill / Laser Picture). Verify `ShopPilotVerify2000cLaser` PASS: scanline count matches 40mm/0.5 geometry (~81), coverage above+below circle, overscan lands at exactly ±1mm past bounds, 90° angle changes output with equal coverage, empty input honest fail, black half burns at exactly S1000 across 50 cells, gray ramp ≥3 distinct power buckets, zero ALARM streaming the full program through SimulatorTransport. App build green.
+
+### 2026-08-24 — SPK-2000d closed (Hermes)
+- `ReliefMesh.swift`: ReliefMeshEngine — triangulated mesh over the heightfield (2 tris/quad), central-difference unit normals, lambert shading vs directional light with amber/graphite floor, downsampling cap (≤128 grid dim) so big reliefs can't explode index counts, honest degenerate-input failure. Model-stage orbit now applies GPU-backed rotation3DEffect yaw/pitch + directional shadow to the heightmap in Orbit mode (depth cues without a Metal viewport; falls back flat when not orbiting). Verify `ShopPilotVerify2000d` PASS: 5×4 ramp grid → exactly 20 vertices / 72 indices / 24 shades, indices in range, normals unit-length and slope-tilted, flat surface shades uniformly, flipping light X changes shading, shades within [0.15,1], 500×500 grid downsampled ≤65×65 vertices, 1×1 input fails honestly. App build green.

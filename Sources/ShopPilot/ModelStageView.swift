@@ -583,6 +583,26 @@ private struct ReliefCanvasView: View {
                         .resizable()
                         .frame(width: w * scale, height: h * scale)
                         .offset(x: offsetX, y: offsetY)
+                        // SPK-2000d — shaded 3D relief mode: when orbiting, the
+                        // flat heightmap gets a perspective tilt (yaw/pitch from
+                        // the drag) plus a directional shadow so peaks read as
+                        // raised. Still a 2.5D projection of the heightfield —
+                        // not a mesh viewport — but it gives depth cues without
+                        // Metal. rotation3DEffect is GPU-backed on macOS.
+                        .rotation3DEffect(
+                            .degrees(orbitMode ? orbitPitch : 0),
+                            axis: (x: 1, y: 0, z: 0),
+                            anchor: .center,
+                            perspective: 0.6
+                        )
+                        .rotation3DEffect(
+                            .degrees(orbitMode ? orbitYaw : 0),
+                            axis: (x: 0, y: 1, z: 0),
+                            anchor: .center,
+                            perspective: 0.6
+                        )
+                        .shadow(color: orbitMode ? .black.opacity(0.45) : .clear,
+                                radius: orbitMode ? 12 : 0, x: -6, y: 8)
                 }
                 if sculptMode, let strokeLocation {
                     // Brush cursor ring: world-space radius at current zoom.
