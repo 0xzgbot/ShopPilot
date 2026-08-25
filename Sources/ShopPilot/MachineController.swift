@@ -94,6 +94,12 @@ public final class MachineController: ObservableObject {
     /// Operator has confirmed the pre-flight checklist. Never auto-set.
     @Published public var preflightPassed = false
 
+    /// SPK-2022c — "bit already loaded": when ON, the send path suppresses
+    /// EXACTLY the first M6 (+ its immediate dwell) in the outgoing program.
+    /// Pure send-time filter: no document mutation, and toggling OFF restores
+    /// the full program byte-for-byte.
+    @Published public var bitAlreadyLoaded = false
+
     /// A job is being streamed (or is winding down after cancellation).
     @Published public private(set) var isStreamingJob = false
 
@@ -595,8 +601,20 @@ public final class MachineController: ObservableObject {
         machineSession.attachStreamer(streamer)
 
         do {
+            // SPK-2022c — "bit already loaded": suppress exactly the first
+            // M6 (+ immediate dwell) on the way out. Pure send-time filter —
+            // the session buffer itself is never mutated.
+            let outgoing = SendTimeM6Filter.apply(
+                machineSession.gcodeBuffer,
+                skipEnabled: bitAlreadyLoaded
+            )
+            if outgoing.suppressedCount > 0 {
+                connection.addSystemMessage(
+                    "Bit already loaded — skipped first M6 (\(outgoing.suppressedCount) line\(outgoing.suppressedCount == 1 ? "" : "s") suppressed)"
+                )
+            }
             connection.addSystemMessage("Streaming \(machineSession.gcodeBuffer.count) lines from session buffer")
-            try await streamer.stream(lines: machineSession.gcodeBuffer, to: transport)
+            try await streamer.stream(lines: outgoing.lines, to: transport)
             await finishStream(message: Task.isCancelled ? nil : "Stream complete — \(streamer.currentLine) lines")
         } catch {
             await finishStream(message: "Stream error: \(error.localizedDescription)")
@@ -636,7 +654,15 @@ public final class MachineController: ObservableObject {
         }
 
         do {
-            try await streamer.stream(lines: resolved, to: transport)
+            // SPK-2022c — same send-time first-M6 filter as the buffer path;
+            // the fallback lines themselves are never mutated.
+            let outgoing = SendTimeM6Filter.apply(resolved, skipEnabled: bitAlreadyLoaded)
+            if outgoing.suppressedCount > 0 {
+                connection.addSystemMessage(
+                    "Bit already loaded — skipped first M6 (\(outgoing.suppressedCount) line\(outgoing.suppressedCount == 1 ? "" : "s") suppressed)"
+                )
+            }
+            try await streamer.stream(lines: outgoing.lines, to: transport)
             await finishStream(message: Task.isCancelled ? nil : "Stream complete — \(streamer.currentLine) lines")
         } catch {
             await finishStream(message: "Stream error: \(error.localizedDescription)")

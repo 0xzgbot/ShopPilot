@@ -776,6 +776,22 @@ public struct MachineConnectionView: View {
             if connectionManager.connectionState.isConnected {
                 VStack(alignment: .leading, spacing: SP.Space.s) {
                     DisclosureGroup("More") {
+                        // SPK-2022c — "bit already loaded": suppresses exactly
+                        // the first M6 (+ immediate dwell) in the outgoing
+                        // program at send time. Pure send-path filter; OFF
+                        // restores the full program byte-for-byte.
+                        Toggle(isOn: $controller.bitAlreadyLoaded) {
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text("Bit already loaded")
+                                    .font(.caption.weight(.medium))
+                                Text("Skip the first tool change (M6) + its dwell when sending this job")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .toggleStyle(.checkbox)
+                        .accessibilityLabel("Bit already loaded — skip first M6 at send")
+
                         // Feed override + spindle.
                         HStack(spacing: SP.Space.m) {
                             VStack(alignment: .leading, spacing: 2) {

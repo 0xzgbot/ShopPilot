@@ -577,6 +577,13 @@ let package = Package(
             path: "Sources/ShopPilotVerify2022b"
         ),
 
+        // PHASE X (2026-08-25) — SPK-2022c skip-first-M6 send filter verifier.
+        .executableTarget(
+            name: "ShopPilotVerify2022c",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify2022c"
+        ),
+
         // PHASE X (2026-08-25) — SPK-2022d device profile library verifier.
         .executableTarget(
             name: "ShopPilotVerify2022d",
