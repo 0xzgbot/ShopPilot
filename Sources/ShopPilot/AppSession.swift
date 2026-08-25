@@ -3945,6 +3945,91 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
         return result.success
     }
 
+    // MARK: - Laser fill & picture (SPK-2000c — cross-platform parity)
+
+    /// Laser Fill: raster scanline fill over the closed vectors' bounds.
+    /// Pure-data engine + tree node; streams through the normal Run Job
+    /// discipline like every other op (no auto-run).
+    func generateLaserFillToolpath(
+        angleDegrees: Double = 0,
+        lineSpacingMm: Double = 0.3,
+        overscanMm: Double = 1.0,
+        powerPercent: Double = 80,
+        speedMmPerMin: Double = 3000
+    ) {
+        guard !vectors.isEmpty else {
+            statusMessage = "No vectors — draw or import shapes to laser-fill first"
+            return
+        }
+        let pathsSnapshot = vectors.map { $0.points }
+        registerUndoPoint()
+        let params = LaserFillParams(angleDegrees: angleDegrees, lineSpacingMm: lineSpacingMm,
+                                     overscanMm: overscanMm, powerPercent: powerPercent,
+                                     speedMmPerMin: speedMmPerMin)
+        let result = LaserFillEngine.compute(paths: pathsSnapshot, params: params)
+        guard result.success, let bounds = result.bounds else {
+            statusMessage = "Laser Fill failed: \(result.errorMessage ?? "unknown error")"
+            return
+        }
+        let widthMm = bounds.maxX - bounds.minY
+        let timeMinutes = Double(result.scanlineCount) * widthMm / speedMmPerMin
+        let node = addToolpathNode(
+            named: "Laser Fill \(toolpathTree.allNodes.count)",
+            gcode: result.gcodeLines,
+            estimatedTime: timeMinutes * 60.0
+        )
+        node.paramsJSON = encodeParams(params)
+        lastToolpathSummary = "Laser Fill: \(result.scanlineCount) scanlines, \(result.gcodeLines.count) lines"
+        statusMessage = lastToolpathSummary
+    }
+
+    /// Laser Picture: power-modulated raster over the loaded relief heightfield
+    /// (dark = more burn). Uses the STL/image relief already on the document —
+    /// the same data Photo V-Carve consumes.
+    func generateLaserPictureToolpath(
+        targetWidthMm: Double? = nil,
+        lineSpacingMm: Double = 0.25,
+        maxPowerPercent: Double = 100,
+        speedMmPerMin: Double = 2000
+    ) {
+        guard let hf = stlHeightfield else {
+            statusMessage = "No image/relief loaded — import an image or STL in Model first"
+            return
+        }
+        registerUndoPoint()
+        let widthMm = Double(hf.width) * hf.cellSizeMm
+        let target = targetWidthMm ?? min(widthMm, activeSheet?.width ?? widthMm)
+        let params = LaserPictureParams(targetWidthMm: target,
+                                        lineSpacingMm: lineSpacingMm,
+                                        maxPowerPercent: maxPowerPercent,
+                                        speedMmPerMin: speedMmPerMin)
+        // Sample the relief into a grayscale grid (heights normalized to luminance).
+        var lum: [UInt8] = []
+        lum.reserveCapacity(hf.width * hf.height)
+        let maxH = hf.heights.max() ?? 1
+        let minH = hf.heights.min() ?? 0
+        let span = max(1e-6, maxH - minH)
+        for h in hf.heights {
+            // Higher relief = darker pixel = more burn.
+            let darkness = UInt8(max(0, min(255, Int((h - minH) / span * 255))))
+            lum.append(darkness)
+        }
+        let grid = GrayscaleGrid(width: hf.width, height: hf.height, luminance: lum)
+        let result = LaserPictureEngine.compute(grid: grid, params: params)
+        guard result.success else {
+            statusMessage = "Laser Picture failed: \(result.errorMessage ?? "unknown error")"
+            return
+        }
+        let node = addToolpathNode(
+            named: "Laser Picture \(toolpathTree.allNodes.count)",
+            gcode: result.gcodeLines,
+            estimatedTime: 0
+        )
+        node.paramsJSON = encodeParams(params)
+        lastToolpathSummary = "Laser Picture: \(result.rasterRows) rows, \(result.burnedPixels) burned cells"
+        statusMessage = lastToolpathSummary
+    }
+
     // MARK: - Specialty strategies (SPK-0900 + SPK-0802 lean slices)
 
     /// Generate a Prism toolpath: parallel V-grooves across every closed

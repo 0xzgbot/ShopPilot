@@ -2420,7 +2420,7 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
   - AC: parse Mozaik/KCD/CabinetSense/CabinetPartsPro/Polyboard/SmartWOP-style part lists (comma+tab, header-vocabulary tolerant) into sheet rectangles as design vectors; fixture-driven CLT per vendor vocabulary; Import Hub accepts `.csv`.
   - Verify: `ShopPilotVerify2000b` — six fixtures parse, dims land within tolerance, malformed input reports honestly (no crash).
 
-- [ ] **SPK-2000c** **CAM** Laser productization (un-hold)
+- [x] **SPK-2000c** **CAM** Laser productization (un-hold)
   - AC: Laser Fill (raster scanlines over closed vectors w/ angle+spacing+overscan), Laser Picture (bitmap→power-modulated raster, M4 dynamic power), laser posts in the catalog (GRBL-M4/LightBurn-compatible `$32=1` variant); Cut More-menu entries gated behind connected-idle discipline like every op; existing `LaserEngine` vector cut/engrave stays.
   - Verify: `ShopPilotVerify2000c-laserfill` + `ShopPilotVerify2000c-laserpicture` — scanline coverage of a circle fixture, power scaling monotonic with luminance, no motion outside bounds, streams zero-ALARM through SimulatorTransport.
 
@@ -2437,3 +2437,6 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
 
 ### 2026-08-24 — SPK-2000b closed (Hermes)
 - `CabinetryImport.swift`: vocabulary-driven parser for Mozaik/KCD/CabinetSense/CabinetPartsPro/Polyboard/SmartWOP part lists — separator auto-detect (tab/semicolon/comma by count), quoted-cell CSV reader, BOM+CRLF tolerant, best-overlap header mapping, qty expansion into shelf-packed closed rectangles, honest failure messages (row numbers included). Import Hub gains **Cabinetry CSV** format (.commaSeparatedText/.plainText) routing through the importer; result surfaces dialect+part count in warnings. Verify `ShopPilotVerify2000b` PASS: all six dialects parse distinctly (fixtures inline), geometry fits sheet/no pairwise overlap/first==last closure, empty/gibberish/partial-number inputs fail honestly, vectorPaths naming carries copy suffixes. App build green.
+
+### 2026-08-24 — SPK-2000c closed (Hermes)
+- `LaserFillPicture.swift`: LaserFillEngine (angle/spacing/overscan serpentine raster over vector bounds) + LaserPictureEngine (grayscale grid → power-modulated G1 raster, run-merging, threshold, S0…1000 scale); pure data, no transport. Session `generateLaserFillToolpath`/`generateLaserPictureToolpath` (relief heights → luminance for picture; paramsJSON persisted; no auto-run). Cut More-menu gains a **Laser** section (Laser Fill / Laser Picture). Verify `ShopPilotVerify2000cLaser` PASS: scanline count matches 40mm/0.5 geometry (~81), coverage above+below circle, overscan lands at exactly ±1mm past bounds, 90° angle changes output with equal coverage, empty input honest fail, black half burns at exactly S1000 across 50 cells, gray ramp ≥3 distinct power buckets, zero ALARM streaming the full program through SimulatorTransport. App build green.

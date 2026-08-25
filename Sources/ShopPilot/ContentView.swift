@@ -1021,6 +1021,13 @@ private struct CutStageView: View {
                                 .accessibilityLabel("Trochoid Slot")
                                 .accessibilityAddTraits(.isButton)
                         }
+                        // SPK-2000c — laser fill/picture (parity with VectorPilot).
+                        Section("Laser") {
+                            Button("Laser Fill") { session.generateLaserFillToolpath() }
+                                .help("Raster-scanline fill of the closed vectors (angle, spacing, overscan)")
+                            Button("Laser Picture") { session.generateLaserPictureToolpath() }
+                                .help("Power-modulated raster over the loaded image/relief (dark = more burn, M4 dynamic power)")
+                        }
                     }
                     Section("3D relief (needs an STL)") {
                         Button("Rough 3D") { session.generateRough3DToolpath() }
