@@ -1043,6 +1043,112 @@ public final class ToolpathTreeManager: ObservableObject {
         return applyToolpathResults(results)
     }
 
+    /// SPK-0306 — compute results for EVERY operation node regardless of dirty
+    /// state. Mirrors `computeDirtyToolpathResults` but iterates all operation
+    /// nodes (not just dirty ones), so a "Recalculate All" command regenerates
+    /// the whole tree even when nothing was marked dirty. Unknown-strategy ops
+    /// are skipped (they have no engine). Pure pass — no @Published mutation.
+    public func computeAllToolpathResults(
+        vectors: [VectorPath],
+        material: Material?,
+        stockHeightMm: Double,
+        tools: [Tool] = [],
+        heightfield: HeightfieldData? = nil,
+        machineName: String? = nil
+    ) -> [ToolpathNodeResult] {
+        var results: [ToolpathNodeResult] = []
+        let materialName = material?.name
+        for node in allNodes where node.isOperation {
+            switch node.strategyKind {
+            case .profile:
+                let result = ProfileToolpathEngine.compute(
+                    vectors: vectors,
+                    params: withToolFeeds(node.profileParams(), node: node, tools: tools, materialName: materialName, machineName: machineName),
+                    material: material,
+                    stockHeightMm: stockHeightMm
+                )
+                results.append(ToolpathNodeResult(
+                    nodeID: node.id,
+                    gcode: result.gcodeLines.joined(separator: "\n"),
+                    estimatedTimeSeconds: result.estimatedTimeSeconds
+                ))
+            case .pocket:
+                let result = PocketToolpathEngine.compute(
+                    vectors: vectors,
+                    params: withToolFeeds(node.pocketParams(), node: node, tools: tools, materialName: materialName, machineName: machineName),
+                    material: material,
+                    stockHeightMm: stockHeightMm
+                )
+                results.append(ToolpathNodeResult(
+                    nodeID: node.id,
+                    gcode: result.gcodeLines.joined(separator: "\n"),
+                    estimatedTimeSeconds: result.estimatedTimeSeconds
+                ))
+            case .drill:
+                let params = withToolFeeds(node.drillParams(), node: node, tools: tools, materialName: materialName, machineName: machineName)
+                let points: [DrillPoint] = vectors.compactMap { path in
+                    guard path.isClosed, !path.points.isEmpty else { return nil }
+                    let xs = path.points.map(\.x)
+                    let ys = path.points.map(\.y)
+                    return DrillPoint(
+                        x: (xs.min()! + xs.max()!) / 2,
+                        y: (ys.min()! + ys.max()!) / 2,
+                        zDepthMm: -(params.startDepthMm + params.cutDepthMm),
+                        dwellSeconds: params.dwellAtBottom ? params.dwellTimeSeconds : 0
+                    )
+                }
+                guard !points.isEmpty else { continue }
+                let result = DrillToolpathEngine.compute(
+                    points: points,
+                    params: params,
+                    material: material,
+                    stockHeightMm: stockHeightMm
+                )
+                results.append(ToolpathNodeResult(
+                    nodeID: node.id,
+                    gcode: result.gcodeLines.joined(separator: "\n"),
+                    estimatedTimeSeconds: result.estimatedTimeSeconds
+                ))
+            case .vcarve:
+                let result = VCarveEngine.compute(
+                    vectors: vectors,
+                    params: withToolFeeds(node.vcarveParams(), node: node, tools: tools, materialName: materialName, machineName: machineName),
+                    stockHeightMm: stockHeightMm
+                )
+                results.append(ToolpathNodeResult(
+                    nodeID: node.id,
+                    gcode: result.gcodeLines.joined(separator: "\n"),
+                    estimatedTimeSeconds: result.estimatedTimeSeconds
+                ))
+            default:
+                continue
+            }
+        }
+        return results
+    }
+
+    /// SPK-0306 — sync "recalculate all": compute + apply on the caller thread.
+    /// Regenerates every operation node regardless of dirty state. Returns the
+    /// regenerated nodes in tree order.
+    public func recalculateAllToolpaths(
+        vectors: [VectorPath],
+        material: Material?,
+        stockHeightMm: Double,
+        tools: [Tool] = [],
+        heightfield: HeightfieldData? = nil,
+        machineName: String? = nil
+    ) -> [ToolpathTreeNode] {
+        let results = computeAllToolpathResults(
+            vectors: vectors,
+            material: material,
+            stockHeightMm: stockHeightMm,
+            tools: tools,
+            heightfield: heightfield,
+            machineName: machineName
+        )
+        return applyToolpathResults(results)
+    }
+
 
     /// SPK-1133b — apply the assigned tool's linked cut data (SPK-1133b:
     /// feed/plunge/rpm from the resolved geometry→material→machine chain) to

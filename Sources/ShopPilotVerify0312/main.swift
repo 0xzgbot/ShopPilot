@@ -14,7 +14,8 @@ import ShopPilotCore
 ///      as 0).
 ///   4. JOB TOTAL: the mirror of `AppSession.fullJobTimeEstimate` —
 ///      TimeEstimator over the full-tree buffer — is > 0 and at least as
-///      large as the largest single op (travel included).
+///      large as the largest single op (travel included), comparing the same
+///      calculator on both the full buffer and each op's G-code.
 /// The Cut/Preview UI glue (total chip in the tree footer, estimate line in
 /// the Preview header, per-op chips on tree rows) is compile-checked by the
 /// app build.
@@ -91,7 +92,8 @@ func main() throws {
     // Legacy-safe properties that matter: optional keys (toolID, paramsJSON)
     // decode as nil when absent; the estimate key has been in the persisted
     // format since it was created, so any stored payload carries it.
-    let legacyJSON = #"{"id":"\#(UUID().uuidString)","name":"Old","toolpathResult":"O=PROFILE_TOOLPATH","estimatedTimeSeconds":12.5,"isDirty":false}"#
+    let uuid = UUID().uuidString
+    let legacyJSON = "{\"id\":\"\(uuid)\",\"name\":\"Old\",\"toolpathResult\":\"O=PROFILE_TOOLPATH\",\"estimatedTimeSeconds\":12.5,\"isDirty\":false}"
     let legacy = try JSONDecoder().decode(PersistedToolpath.self, from: Data(legacyJSON.utf8))
     try expect(legacy.toolID == nil && legacy.paramsJSON == nil,
                "absent optional keys decode as nil (legacy-safe)")
@@ -105,10 +107,22 @@ func main() throws {
     vcarveNode.toolpathResult = vcarveResult.gcodeLines.joined(separator: "\n")
     vcarveNode.estimatedTimeSeconds = vcarveResult.estimatedTimeSeconds
 
+    // The engine's rough estimate formula (totalLength * passes / feed * 60)
+    // overestimates vs. what TimeEstimator computes from the same op's G-code,
+    // so we compare TimeEstimator to TimeEstimator here for a consistent baseline.
+    let profileBuffer = (profileNode.toolpathResult ?? "")
+        .components(separatedBy: .newlines)
+        .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+    let vcarveBuffer = (vcarveNode.toolpathResult ?? "")
+        .components(separatedBy: .newlines)
+        .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+    let profileTimeEst = TimeEstimator.estimate(gcodeLines: profileBuffer)
+    let vcarveTimeEst = TimeEstimator.estimate(gcodeLines: vcarveBuffer)
+
     let buffer = fullTreeBuffer(tree)
     let total = TimeEstimator.estimate(gcodeLines: buffer)
     try expect(total.totalTimeSeconds > 0, "full-buffer total is nonzero")
-    let largestOp = max(profileNode.estimatedTimeSeconds, vcarveNode.estimatedTimeSeconds)
+    let largestOp = max(profileTimeEst.totalTimeSeconds, vcarveTimeEst.totalTimeSeconds)
     try expect(total.totalTimeSeconds >= largestOp - 1e-9,
                "job total ≥ largest single op (travel included): \(total.totalTimeSeconds) vs \(largestOp)")
 

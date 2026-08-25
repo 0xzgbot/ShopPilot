@@ -736,6 +736,19 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
                 "Recipe V-Carve ready (\(vcarveGCode.count) lines, \(Int(newJob.vcarveTimeSeconds))s)"
             statusMessage = lastToolpathSummary
         }
+        // SPK-0109: materialize the calibration recipe's precomputed Profile
+        // as a real tree node (visible in Cut, preview, and the machine handoff).
+        if let calGCode = newJob.calibrationProfileResult, !calGCode.isEmpty {
+            let node = toolpathTree.addOperation("Profile 1 (Recipe)")
+            node.toolpathResult = calGCode
+            node.estimatedTimeSeconds = newJob.calibrationProfileTime ?? 0
+            node.paramsJSON = newJob.calibrationProfileParams
+            node.clearDirty()
+            gcodeLines = calGCode.components(separatedBy: "\n")
+            lastToolpathSummary =
+                "Recipe Profile ready (\(gcodeLines.count) lines, \(Int(newJob.calibrationProfileTime ?? 0))s)"
+            statusMessage = lastToolpathSummary
+        }
         markClean()
         clearUndoStack()
         // SPK-1402a — recipe jobs replace the document; autosave follows.
@@ -3209,6 +3222,88 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
             : remaining == 0
                 ? "Recalculated \(regenerated.count) dirty toolpath(s)"
                 : "Recalculated \(regenerated.count) dirty toolpath(s); \(remaining) still dirty"
+        markDirty()
+        return regenerated.count
+    }
+
+    // MARK: - SPK-0306 — Recalculate All
+
+    /// SPK-0306 — regenerate EVERY operation node regardless of dirty state.
+    /// Mirrors the dirty-recalc flow but iterates all ops, so the user can
+    /// force a full tree rebuild. Falls back to the sync path when the compute
+    /// returns nothing. Returns the number of regenerated ops.
+    @discardableResult
+    func recalculateAllToolpathsAsync() -> Int {
+        let opCount = toolpathTree.allNodes.filter { $0.isOperation }.count
+        guard opCount > 0 else {
+            statusMessage = "No toolpaths to recalculate"
+            return 0
+        }
+        let vectorsSnapshot = vectors
+        let material = activeSheet?.material
+        let stockHeight = activeSheet?.height ?? 6.0
+        let toolsSnapshot = toolDatabase.tools
+        let heightfield = job.stlHeightfield
+        let machine = activeMachineName
+        isRecalculating = true
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self else { return }
+            let computed = self.toolpathTree.computeAllToolpathResults(
+                vectors: vectorsSnapshot,
+                material: material,
+                stockHeightMm: stockHeight,
+                tools: toolsSnapshot,
+                heightfield: heightfield,
+                machineName: machine
+            )
+            DispatchQueue.main.async {
+                self.finishAsyncAllRecalc(computed)
+            }
+        }
+        return opCount
+    }
+
+    /// Apply async "recalculate all" results on the main actor.
+    private func finishAsyncAllRecalc(_ computed: [ToolpathNodeResult]) {
+        let regenerated = toolpathTree.applyToolpathResults(computed)
+        let all = allToolpathGCode
+        if !all.isEmpty {
+            gcodeLines = all
+        }
+        let remaining = toolpathTree.dirtyNodeCount
+        lastToolpathSummary = "\(gcodeLines.count) G-code lines · \(remaining) dirty"
+        statusMessage = regenerated.isEmpty
+            ? "Recalculate All: no supported ops in tree"
+            : "Recalculated all \(regenerated.count) toolpath(s)"
+        isRecalculating = false
+        markDirty()
+    }
+
+    /// SPK-0306 — sync "recalculate all" path (used by CLTs and tests).
+    @discardableResult
+    func recalculateAllToolpaths() -> Int {
+        let opCount = toolpathTree.allNodes.filter { $0.isOperation }.count
+        guard opCount > 0 else {
+            statusMessage = "No toolpaths to recalculate"
+            return 0
+        }
+        let regenerated = toolpathTree.recalculateAllToolpaths(
+            vectors: vectors,
+            material: activeSheet?.material,
+            stockHeightMm: activeSheet?.height ?? 6.0,
+            tools: toolDatabase.tools,
+            heightfield: job.stlHeightfield,
+            machineName: activeMachineName
+        )
+        let all = allToolpathGCode
+        if !all.isEmpty {
+            gcodeLines = all
+        }
+        let remaining = toolpathTree.dirtyNodeCount
+        lastToolpathSummary = "\(gcodeLines.count) G-code lines · \(remaining) dirty"
+        statusMessage = regenerated.isEmpty
+            ? "Recalculate All: no supported ops in tree"
+            : "Recalculated all \(regenerated.count) toolpath(s)"
         markDirty()
         return regenerated.count
     }

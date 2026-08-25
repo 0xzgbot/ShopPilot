@@ -118,6 +118,15 @@ extension JobRecipe {
             stockDepth: 304.8,   // 12 inches (default)
             stockHeight: 25.4,   // 1 inch (default)
             recommendedStrategy: "User-defined"
+        ),
+        JobRecipe(
+            name: "Calibration",
+            description: "Golden calibration job — 50×50mm closed square on 200×200×18mm stock with a real Profile toolpath.",
+            icon: "checkmark.square",
+            stockWidth: 200.0,   // 200 mm
+            stockDepth: 200.0,   // 200 mm
+            stockHeight: 18.0,   // 18 mm
+            recommendedStrategy: "Profile on cut"
         )
     ]
 }

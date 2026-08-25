@@ -112,8 +112,20 @@ public struct NewJobView: View {
             dismiss()
             return
         }
-        
-        // For other recipes, create a basic job with sheet
+
+        // If calibration recipe, build a golden calibration job with a real
+        // Profile toolpath (mirrors ShopPilotFixtureGen.makeCalibrationPackage).
+        if recipe.name == "Calibration" {
+            let job = createCalibrationJobFromRecipe(recipe)
+            jobCreated = true
+            errorMessage = nil
+            onJobCreated?(job)
+            dismiss()
+            return
+        }
+
+        // For other recipes (Custom, Portrait Relief, Decorative Panel), create
+        // a basic job with sheet
         var job = Job(name: "\(recipe.name) Job")
         var sheet = Sheet(
             name: recipe.name,
@@ -176,6 +188,54 @@ public struct NewJobView: View {
         // Store doc variables
         job.documentVariables = docVars.variables
         
+        return job
+    }
+
+    private func createCalibrationJobFromRecipe(_ recipe: JobRecipe) -> Job {
+        // 50×50 mm closed square at (25,25) on 200×200×18 stock.
+        let layerID = UUID()
+        let square = VectorPath(
+            id: UUID(),
+            name: "Calibration Square",
+            points: [
+                VectorPoint(x: 25, y: 25),
+                VectorPoint(x: 75, y: 25),
+                VectorPoint(x: 75, y: 75),
+                VectorPoint(x: 25, y: 75),
+                VectorPoint(x: 25, y: 25), // close the loop
+            ],
+            isClosed: true,
+            layerId: layerID
+        )
+        let layer = Layer(id: layerID, name: "Cut", vectors: [square])
+        var sheet = Sheet(
+            name: "Calibration Sheet",
+            width: recipe.stockWidth,
+            depth: recipe.stockDepth,
+            height: recipe.stockHeight,
+            layers: [layer]
+        )
+        sheet.material = MaterialStore().defaultMaterial()
+
+        var job = Job(name: "Calibration", sheets: [sheet])
+
+        // Real Profile toolpath on the square (1/4" end mill defaults).
+        let params = ProfileToolpathParams()
+        let result = ProfileToolpathEngine.compute(
+            vectors: [square],
+            params: params,
+            material: nil,
+            stockHeightMm: recipe.stockHeight
+        )
+        job.calibrationProfileResult = result.gcodeLines.joined(separator: "\n")
+        job.calibrationProfileTime = result.estimatedTimeSeconds
+        job.calibrationProfileParams = (try? JSONEncoder().encode(params)).flatMap {
+            String(data: $0, encoding: .utf8)
+        }
+
+        // Store doc variables
+        job.documentVariables = docVars.variables
+
         return job
     }
 }

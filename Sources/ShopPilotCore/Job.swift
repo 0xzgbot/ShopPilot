@@ -49,6 +49,16 @@ public struct Job: Identifiable, Codable, Sendable {
     /// existed decode as nil (no zones).
     public var keepOutZones: [KeepOutZone]?
 
+    /// SPK-0109 — precomputed Profile G-code for the calibration recipe's
+    /// 50×50mm square. Set by `NewJobView.createCalibrationJobFromRecipe`;
+    /// `replaceJob` materializes it into the session toolpath tree. Optional →
+    /// older documents decode unchanged.
+    public var calibrationProfileResult: String?
+    /// Profile time estimate (seconds) for the calibration pass.
+    public var calibrationProfileTime: Double?
+    /// Profile params JSON for the calibration pass.
+    public var calibrationProfileParams: String?
+
     /// Document-level variables (key-value pairs for stock size, material, etc.).
     public var documentVariables: [DocumentVariable] = []
 
