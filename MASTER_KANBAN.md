@@ -2406,7 +2406,7 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
   - Verify: CLT mid-stream line-index sync + Hold freezes both
   - Done 2026-08-23 (Hermes coder): (1) `StreamState.isPaused` helper in Core. (2) Preview stage toolbar gains a LIVE progress block — ProgressView bound to `streamer.currentLine/totalLines` + red LIVE badge, visible while `.streaming`/`.paused`, AX help names the exact line. Rendering from `currentLine` directly means Hold freezing the stream freezes the readout by construction (one source of truth). (3) CLT `ShopPilotVerifyDOGFOOD1920h` PASS — 28-line program through SimulatorTransport: currentLine advances monotonically mid-stream, `pause()` freezes currentLine exactly (zero drift over 250ms), resume runs to completion. App build green.
 
-- [ ] **SPK-1920i** **DOCS** Document contract goldens: Sign + 3D plaque `.shoppilot` save/reopen + Windows round-trip checklist with hashes (contract)
+- [~] **SPK-1920i** **DOCS** Document contract goldens: Sign + 3D plaque `.shoppilot` save/reopen + Windows round-trip checklist with hashes (contract)
   - AC: two goldens saved + reopened on Mac; docs/spec or fixtures/parity emitted with hashes so VectorPilot can verify
   - Out of scope: running VectorPilot tests here
   - Verify: reopen asserts vectors/toolpaths/relief intact + hash file exists
@@ -2562,7 +2562,7 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
 
 ### 2026-08-24 — SHAKE sweep bug cards (Hermes coder, overnight shakedown)
 
-- [ ] **SPK-SHAKE-BUG-ShopPilotVerify1319** **QA** Shakedown failure — `ShopPilotVerify1319`
+- [~] **SPK-SHAKE-BUG-ShopPilotVerify1319** **QA** Shakedown failure — `ShopPilotVerify1319`
   - Repro: `./scripts/verify_locked.sh ShopPilotVerify1319` (log: /tmp/shoppilot-shake-20260824-1829/logs/ShopPilotVerify1319.log; exit $(cat /tmp/shoppilot-shake-20260824-1829/logs/ShopPilotVerify1319.log.exit 2>/dev/null))
   - AC: Engine+UI+Persist+Verify — diagnose root cause (product bug vs harness flake); fix or document; re-run target + nearest regressions green.
 
@@ -2631,7 +2631,7 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
 
 - [ ] **SPK-2024a** **UX** Welcome = sample gallery first screen (reuse SampleProjectsStore + SPK-1403 loader hooks; one click → Design + single "Plan the cuts" CTA). AX walk row gate.
 
-- [ ] **SPK-2024b** **UX** Presets over parameters (Mac parity w/ Win H-501) — Walnut 18 mm + 90° V-bit fills Cut depth/feed/rpm; Advanced discloses all; preset-trusted feeds silence 2023a. Test: `ShopPilotVerify2024b`.
+- [~] **SPK-2024b** **UX** Presets over parameters (Mac parity w/ Win H-501) — Walnut 18 mm + 90° V-bit fills Cut depth/feed/rpm; Advanced discloses all; preset-trusted feeds silence 2023a. Test: `ShopPilotVerify2024b`.
 
 - [ ] **SPK-2024c** **UX** One forward CTA per stage — audit-first (close as audit if already true); coach strip promotes the same action.
 
