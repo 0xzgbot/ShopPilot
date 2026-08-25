@@ -2625,7 +2625,7 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
 
 - [ ] **SPK-2023b** **GEO** T-bones — bit Ø only prompt; along-X/Y/auto-longest-edge; Dogbone.swift TBone variant; existing dogbone fixtures byte-stable. Test: `ShopPilotVerify2023b`.
 
-- [ ] **SPK-2023c** **CAM** ENGINE 2D rest machining (pocket leftover pass) — `previousToolDiameterMm > 0` machines ONLY unreachable areas; 0 = byte-stable today. PocketToolpath has NO rest support today (verified 2026-08-25). Test: `ShopPilotVerify2023c`.
+- [~] **SPK-2023c** **CAM** ENGINE 2D rest machining (pocket leftover pass) — `previousToolDiameterMm > 0` machines ONLY unreachable areas; 0 = byte-stable today. PocketToolpath has NO rest support today (verified 2026-08-25). Test: `ShopPilotVerify2023c`.
 
 - [ ] **SPK-2023d** **UI** Rest fields on Pocket/V-clearance forms · deps: SPK-2023c
 
