@@ -2562,9 +2562,10 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
 
 ### 2026-08-24 — SHAKE sweep bug cards (Hermes coder, overnight shakedown)
 
-- [~] **SPK-SHAKE-BUG-ShopPilotVerify1319** **QA** Shakedown failure — `ShopPilotVerify1319`
+- [x] **SPK-SHAKE-BUG-ShopPilotVerify1319** **QA** Shakedown failure — `ShopPilotVerify1319`
   - Repro: `./scripts/verify_locked.sh ShopPilotVerify1319` (log: /tmp/shoppilot-shake-20260824-1829/logs/ShopPilotVerify1319.log; exit $(cat /tmp/shoppilot-shake-20260824-1829/logs/ShopPilotVerify1319.log.exit 2>/dev/null))
   - AC: Engine+UI+Persist+Verify — diagnose root cause (product bug vs harness flake); fix or document; re-run target + nearest regressions green.
+  - worklog: 2026-08-25 — Hermes orchestrator. Audit-close: re-ran `./scripts/verify_locked.sh ShopPilotVerify1319` at HEAD 023244f → exit 0, `ShopPilotVerify1319: PASS — glyph raster … lettersAndSpacing`. Aug-24 failure was a stale harness (`invalid custom path ShopPilotVerify0109`); that target now exists in Package.swift. No product change. Verify-only card.
 
 - [ ] **SPK-SHAKE-BUG-ShopPilotVerify1320** **QA** Shakedown failure — `ShopPilotVerify1320`
   - Repro: `./scripts/verify_locked.sh ShopPilotVerify1320` (log: /tmp/shoppilot-shake-20260824-1829/logs/ShopPilotVerify1320.log; exit $(cat /tmp/shoppilot-shake-20260824-1829/logs/ShopPilotVerify1320.log.exit 2>/dev/null))
