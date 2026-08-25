@@ -627,6 +627,9 @@ struct MaterialBitPresetPicker: View {
                     plungeFeedRateMmPerMin = picked.data.plungeRateMmPerMin
                     spindleRpm = picked.data.spindleRpm
                     maxDepthOfCutMm?.wrappedValue = picked.data.maxDepthOfCutMm
+                    // SPK-2023a — preset-filled feeds are trusted: the
+                    // chip-load preflight warning skips this node.
+                    node.feedsFromPreset = true
                 }
                 Text("Fills the fields below; nothing is written until you press Apply.")
                     .font(.caption2)

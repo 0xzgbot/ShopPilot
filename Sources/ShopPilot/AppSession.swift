@@ -2756,7 +2756,11 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
             vectors: vectors,
             materialThicknessMm: materialThickness,
             dismissedNodeIDs: toolpathPreflightDismissed,
-            vacuumHoldDown: vacuum
+            vacuumHoldDown: vacuum,
+            // SPK-2023a — chip-load warning tier: needs the assigned tools and
+            // the job material to resolve feed/(rpm×flutes) against the seed.
+            tools: toolDatabase.tools,
+            materialName: activeSheet?.material?.name
         )
         // R017 (FM-10): measured material thickness vs the job setup drifts
         // beyond tolerance → warn with a "Use Measured Value" CTA.

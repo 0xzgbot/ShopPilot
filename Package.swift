@@ -602,6 +602,12 @@ let package = Package(
             dependencies: ["ShopPilotCore"],
             path: "Sources/ShopPilotVerify2022g"
         ),
+        // PHASE X (2026-08-25) — SPK-2023a chip-load preflight warning verifier.
+        .executableTarget(
+            name: "ShopPilotVerify2023a",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify2023a"
+        ),
         // PHASE X (2026-08-25) — SPK-2021a inlay wizard physics verifier.
         .executableTarget(
             name: "ShopPilotVerify2021a",

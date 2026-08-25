@@ -256,18 +256,66 @@ public enum ToolpathPreflight {
         return nil
     }
 
+    // MARK: - SPK-2023a chip-load warning (warning tier only)
+
+    /// SPK-2023a check: computed chip load (feed / (rpm × flutes)) outside the
+    /// seeded per-material window → WARNING. Never blocks export or recalc;
+    /// the fix is informational (.warnOnly). Returns nil when data is missing
+    /// or the value is in range (no false positives at the range edges).
+    public static func chipLoadOutOfRange(
+        materialName: String?,
+        bitDiameterMm: Double,
+        feedRateMmPerMin: Double,
+        rpm: Double,
+        flutes: Int,
+        nodeID: UUID = UUID(),
+        nodeName: String = "Operation",
+        seed: BitFeedsSeed? = BitFeedsLibrary.shared
+    ) -> ToolpathPreflightIssue? {
+        // Resolve the material display name for copy even when verdict is ok.
+        let materialDisplay = seed?.materials.first { $0.matches(materialName ?? "") }?.displayName
+        switch ChipLoadPreflight.evaluate(
+            material: materialName,
+            bitDiameterMm: bitDiameterMm,
+            feedRateMmPerMin: feedRateMmPerMin,
+            rpm: rpm,
+            flutes: flutes,
+            seed: seed
+        ) {
+        case .ok, .noData:
+            return nil
+        case .warning(let computed, let recommended):
+            let matNote = materialDisplay.map { " for \($0)" } ?? ""
+            return ToolpathPreflightIssue(
+                nodeID: nodeID,
+                nodeName: nodeName,
+                ruleID: "CHIP-LOAD",
+                severity: .warning,
+                message: "“\(nodeName)” chip load is "
+                    + String(format: "%.3f", computed) + " mm/tooth — recommended "
+                    + recommended + matNote
+                    + ". Feed ÷ (RPM × flutes) is outside the seeded range; adjust feed or spindle RPM.",
+                fix: .warnOnly
+            )
+        }
+    }
+
     // MARK: - Tree-level runner
 
     /// Run every toolpath preflight rule over the tree's operation nodes.
     /// `dismissedNodeIDs` are expert overrides already accepted this session
     /// (skipped, matching the 0603 override contract). `vacuumHoldDown` comes
-    /// from the active machine profile (R014).
+    /// from the active machine profile (R014). `tools` + `materialName` feed
+    /// the SPK-2023a chip-load warning; ops whose feeds were preset-filled
+    /// (`feedsFromPreset`, H-501 lineage) are trusted and skipped.
     public static func checkTree(
         _ tree: ToolpathTreeManager,
         vectors: [VectorPath],
         materialThicknessMm: Double,
         dismissedNodeIDs: Set<UUID> = [],
-        vacuumHoldDown: Bool = false
+        vacuumHoldDown: Bool = false,
+        tools: [Tool] = [],
+        materialName: String? = nil
     ) -> [ToolpathPreflightIssue] {
         var issues: [ToolpathPreflightIssue] = []
         for node in tree.allNodes {
@@ -299,6 +347,24 @@ public enum ToolpathPreflight {
                 ) {
                     issues.append(issue)
                 }
+            }
+            // SPK-2023a — chip-load warning tier. Requires tool + feed + rpm
+            // resolvable; preset-filled ops (H-501 lineage) are trusted.
+            if !node.feedsFromPreset,
+               let toolID = node.toolID,
+               let tool = tools.first(where: { $0.id == toolID }),
+               let feed = node.paramFeedRate, feed > 0,
+               let rpm = node.paramSpindleRpm, rpm > 0,
+               let issue = chipLoadOutOfRange(
+                materialName: materialName,
+                bitDiameterMm: tool.diameter,
+                feedRateMmPerMin: feed,
+                rpm: rpm,
+                flutes: tool.flutes,
+                nodeID: node.id,
+                nodeName: node.name
+               ) {
+                issues.append(issue)
             }
         }
         return issues

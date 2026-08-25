@@ -1,0 +1,66 @@
+{
+  "metadata": {
+    "source": "docs/planning/research/BIT_FEEDS_LIBRARY.md",
+    "generated": "2026-08-25",
+    "machineClass": "hobby-router (Shapeoko/X-Carve/LongMill class, trim-router spindles)",
+    "status": "seed — test-cut required",
+    "chipLoadSource": "verbatim from BIT_FEEDS_LIBRARY.md section 4 (target chip loads by material)",
+    "rpmSource": "verbatim from BIT_FEEDS_LIBRARY.md section 1 (hobby trim-router class: 16k-24k wood, plastics lower)",
+    "derivedNote": "The doc tabulates ONE point feed per material per bit size (1/8in and 1/4in hobby starter tables) and is silent on feed/plunge RANGES. Feed min/max are +/-25 percent around those doc anchors and plunge ranges are 25-50 percent of feed - both DERIVED, marked in derivedFields. Chip-load and RPM windows are quoted, not derived.",
+    "derivedFields": [
+      "feedRateMinMmPerMin",
+      "feedRateMaxMmPerMin",
+      "plungeRateMinMmPerMin",
+      "plungeRateMaxMmPerMin"
+    ]
+  },
+  "materials": [
+    {
+      "name": "softwood",
+      "displayName": "Softwood (pine / cedar / basswood)",
+      "aliases": ["pine", "cedar", "basswood"],
+      "chipLoadMinMmPerTooth": 0.04,
+      "chipLoadMaxMmPerTooth": 0.06
+    },
+    {
+      "name": "hardwood",
+      "displayName": "Hardwood (maple / cherry / walnut)",
+      "aliases": ["maple", "cherry", "walnut"],
+      "chipLoadMinMmPerTooth": 0.03,
+      "chipLoadMaxMmPerTooth": 0.05
+    },
+    {
+      "name": "plywood",
+      "displayName": "Plywood (baltic birch)",
+      "aliases": ["birch", "baltic birch"],
+      "chipLoadMinMmPerTooth": 0.03,
+      "chipLoadMaxMmPerTooth": 0.05
+    },
+    {
+      "name": "mdf",
+      "displayName": "MDF",
+      "aliases": ["medite"],
+      "chipLoadMinMmPerTooth": 0.03,
+      "chipLoadMaxMmPerTooth": 0.05
+    },
+    {
+      "name": "acrylic",
+      "displayName": "Cast acrylic",
+      "aliases": ["cast acrylic", "extruded acrylic", "plexiglass"],
+      "chipLoadMinMmPerTooth": 0.05,
+      "chipLoadMaxMmPerTooth": 0.08
+    }
+  ],
+  "bands": [
+    { "material": "softwood", "bitDiameterMinMm": 1.0,   "bitDiameterMaxMm": 3.175, "feedRateAnchorMmPerMin": 1200, "feedRateMinMmPerMin": 900,  "feedRateMaxMmPerMin": 1500, "plungeRateMinMmPerMin": 225, "plungeRateMaxMmPerMin": 750,  "spindleRpmMin": 16000, "spindleRpmMax": 24000 },
+    { "material": "softwood", "bitDiameterMinMm": 3.175, "bitDiameterMaxMm": 6.0,   "feedRateAnchorMmPerMin": 2000, "feedRateMinMmPerMin": 1500, "feedRateMaxMmPerMin": 2500, "plungeRateMinMmPerMin": 375, "plungeRateMaxMmPerMin": 1250, "spindleRpmMin": 16000, "spindleRpmMax": 24000 },
+    { "material": "hardwood", "bitDiameterMinMm": 1.0,   "bitDiameterMaxMm": 3.175, "feedRateAnchorMmPerMin": 1000, "feedRateMinMmPerMin": 750,  "feedRateMaxMmPerMin": 1250, "plungeRateMinMmPerMin": 190, "plungeRateMaxMmPerMin": 625,  "spindleRpmMin": 16000, "spindleRpmMax": 24000 },
+    { "material": "hardwood", "bitDiameterMinMm": 3.175, "bitDiameterMaxMm": 6.0,   "feedRateAnchorMmPerMin": 1500, "feedRateMinMmPerMin": 1100, "feedRateMaxMmPerMin": 1900, "plungeRateMinMmPerMin": 275, "plungeRateMaxMmPerMin": 950,  "spindleRpmMin": 16000, "spindleRpmMax": 24000 },
+    { "material": "plywood",  "bitDiameterMinMm": 1.0,   "bitDiameterMaxMm": 3.175, "feedRateAnchorMmPerMin": 1000, "feedRateMinMmPerMin": 750,  "feedRateMaxMmPerMin": 1250, "plungeRateMinMmPerMin": 190, "plungeRateMaxMmPerMin": 625,  "spindleRpmMin": 16000, "spindleRpmMax": 24000 },
+    { "material": "plywood",  "bitDiameterMinMm": 3.175, "bitDiameterMaxMm": 6.0,   "feedRateAnchorMmPerMin": 1500, "feedRateMinMmPerMin": 1100, "feedRateMaxMmPerMin": 1900, "plungeRateMinMmPerMin": 275, "plungeRateMaxMmPerMin": 950,  "spindleRpmMin": 16000, "spindleRpmMax": 24000 },
+    { "material": "mdf",      "bitDiameterMinMm": 1.0,   "bitDiameterMaxMm": 3.175, "feedRateAnchorMmPerMin": 1200, "feedRateMinMmPerMin": 900,  "feedRateMaxMmPerMin": 1500, "plungeRateMinMmPerMin": 225, "plungeRateMaxMmPerMin": 750,  "spindleRpmMin": 16000, "spindleRpmMax": 24000 },
+    { "material": "mdf",      "bitDiameterMinMm": 3.175, "bitDiameterMaxMm": 6.0,   "feedRateAnchorMmPerMin": 1800, "feedRateMinMmPerMin": 1350, "feedRateMaxMmPerMin": 2250, "plungeRateMinMmPerMin": 340, "plungeRateMaxMmPerMin": 1125, "spindleRpmMin": 16000, "spindleRpmMax": 24000 },
+    { "material": "acrylic",  "bitDiameterMinMm": 1.0,   "bitDiameterMaxMm": 3.175, "feedRateAnchorMmPerMin": 800,  "feedRateMinMmPerMin": 600,  "feedRateMaxMmPerMin": 1000, "plungeRateMinMmPerMin": 150, "plungeRateMaxMmPerMin": 500,  "spindleRpmMin": 16000, "spindleRpmMax": 18000 },
+    { "material": "acrylic",  "bitDiameterMinMm": 3.175, "bitDiameterMaxMm": 6.0,   "feedRateAnchorMmPerMin": 1200, "feedRateMinMmPerMin": 900,  "feedRateMaxMmPerMin": 1500, "plungeRateMinMmPerMin": 225, "plungeRateMaxMmPerMin": 750,  "spindleRpmMin": 16000, "spindleRpmMax": 18000 }
+  ]
+}

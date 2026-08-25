@@ -64,6 +64,11 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
     /// (SPK-1136a). Currently populated for Profile operations.
     @Published public var paramsJSON: String?
 
+    /// SPK-2023a — true when this op's feed/plunge/RPM were filled from an
+    /// H-501-style material & bit preset picker (SPK-1920e lineage). Preset-fed
+    /// values are trusted: the chip-load preflight warning skips this node.
+    @Published public var feedsFromPreset: Bool = false
+
     /// Parent node (if any).
     weak var parent: ToolpathTreeNode?
 
