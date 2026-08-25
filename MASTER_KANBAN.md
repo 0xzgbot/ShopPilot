@@ -2523,11 +2523,11 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
   - Out of scope: inlay wizard, feeds library
   - Verify: `python3 scripts/verify_2010d_vcarve_quality.py` + `./scripts/swift_locked.sh build --target ShopPilot`
 
-- [ ] **SPK-2010e** **QA** Sign-recipe + §O regression after valley semantics // P0
+- [x] **SPK-2010e** **QA** Sign-recipe + §O regression after valley semantics // P0
   - Parent: SPK-2010. Assignee: `coder`. `--max-runtime 45m`. Worktree. deps: SPK-2010b
   - AC: 1106a/b + 1136d PASS; goldens updated to valley invariants if they froze Y-shading line counts
   - Out of scope: SPK-0623, hardware photo
-  - Verify: `./scripts/verify_locked.sh ShopPilotVerify1106a` + `1106b` + `1136d` + `VCarveClear`
+  - Verify: 1106a PASS (text→curves→V-Carve flow, node materialized) + 1106b PASS (recipe→…→preflight→start→complete) + 1136d PASS (§O keys + legacy decode + apply-regen on stored params) + VCarveClear PASS — all fresh runs on the post-valley engine. Golden updates landed under SPK-2010b (Golden25D outline-prefix byte-exact + valley invariants).
 
 ### 2026-08-24 — SPK-2010 filed (Cursor)
 - Prompt + board: `docs/planning/SPK-2010_VCARVE_QUALITY_AGENT_PROMPT.md`. Children a–e Ready. Not claimed.
@@ -2546,3 +2546,8 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
 - Claimed: SPK-2010c (deps 2010b met).
 - Did: `VCarveEngine.swift` — added `flatAreaSweep(skeleton:params:maxDepth:)`: ridge points are "flat" when clearance ≥ tipHalfWidthAtMaxDepth × `flatAreaThresholdFactor` (default 1.5); each maximal flat run is swept laterally at −maxDepth with `flatAreaStepOverMm` (default 1.0), offsets straddling the spine perpendicular (+step, −step, +2·step…, capped at the extra half-width), guarded by `(Flat area clearing: regions wider than N.NNNmm tip width)`. Called after a closed vector's spine pass only when `flatAreaClearing` is on (default **off**). `VCarveParams` += `flatAreaClearing`/`flatAreaThresholdFactor`/`flatAreaStepOverMm`, additive decodeIfPresent. New `ShopPilotVerify2010c` CLT: comment+off-spine Z−2 cuts iff flag on; `{}` and pre-2010 legacy JSON decode medial-on/flat-off; full round-trip of all five Valley keys; recalc via `ToolpathTreeManager.computeDirtyToolpathResults` from mutated stored `paramsJSON` changes the G-code and honours the flag. Fixture gotcha worth remembering: `[UUID: Double]` (vectorDepths) round-trips through JSONEncoder as an ARRAY of pairs — legacy fixtures must use `"vectorDepths":[]`, not `{}`.
 - Result: [x] — 2010c PASS (1336 off-spine sweep cuts when on / none off; defaults correct; recalc regenerates) + VCarveClear & 2010b re-run PASS.
+
+### 2026-08-24 — SPK-2010e (Hermes coder)
+- Claimed: SPK-2010e (deps 2010b met; taken before 2010d to avoid colliding with a sibling's in-flight ContentView work).
+- Did: evidence-audit close — re-ran every gate fresh on the post-valley engine: `ShopPilotVerify1106a` PASS, `ShopPilotVerify1106b` PASS (sign recipe still materializes a V-Carve node with cut moves through preflight→start→complete), `ShopPilotVerify1136d` PASS (§O keys + legacy decode + apply-regen on stored paramsJSON — now also exercising the new medial/flat keys via additive decode), VCarveClear PASS. Golden updates were already landed under SPK-2010b: Golden25D's V-Carve sections no longer freeze Y-shading bytes; they assert the byte-exact outline prefix plus valley invariants. Honest note for the record: default medial-on CHANGES closed-shape G-code vs 2010-era jobs — existing saved documents regenerate differently only after dirty+recalc (the established safety model; nothing regenerates silently).
+- Result: [x] — all four regression gates PASS; no code changes needed beyond those shipped in 2010b/c.
