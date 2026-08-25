@@ -2578,33 +2578,33 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
 > Never stamp SPK-0623. Windows mirrors are H-cards on VectorPilot's
 > HERMES_KANBAN.md — file them in the same wave as their Mac twin merges.
 
-- [ ] **SPK-2020a0** **GEO** Polyline join with gap tolerance + zero-span delete // P0 // parallel-ok
+- [x] **SPK-2020a0** **GEO** Polyline join with gap tolerance + zero-span delete // P0 // parallel-ok
   - Modify: `Sources/ShopPilotGeometry/JoinCloseTrim.swift` — `joinAll(shapes:, tolerance:)` merging `.freehand` polylines within tolerance (default 0.1 mm; 0 = today's behavior); `deleteZeroSpan(_:) -> ([kept], [removed])`; one session-facing APPLY entry (mutates shape list, returns counts — not suggestedFix copies).
   - Test: new `Sources/ShopPilotVerify2020a0/main.swift` — two polylines w/ 0.1 mm gap merge; zero-tolerance unchanged; zero-span removed.
   - Gate: `./scripts/verify_locked.sh ShopPilotVerify2020a0` + nearest geometry regression + app builds.
 
-- [ ] **SPK-2020a** **UI** Doctor one-tap repair + V-Carve Fix CTA // P0 · deps: SPK-2020a0
+- [x] **SPK-2020a** **UI** Doctor one-tap repair + V-Carve Fix CTA // P0 · deps: SPK-2020a0
   - Doctor panel (PreflightDoctorView) Join All / Close All / Delete Zero-Span buttons calling the 2020a0 apply API through an undoable AppSession repair entry; "N repaired, M remain"; V-carve open-path failure offers Fix → repair → revalidate.
   - Gate: `./scripts/verify_locked.sh ShopPilotVerify2020a`.
 
-- [ ] **SPK-2021a** **CAM** Inlay wizard physics (tip Ø + glue gap + compression fudge) // P0 // parallel-ok
+- [x] **SPK-2021a** **CAM** Inlay wizard physics (tip Ø + glue gap + compression fudge) // P0 // parallel-ok
   - Extend `InlayToolpath.swift` `InlayPocketParams` (legacy-safe decode): `tipDiameterMm 0.1` floors valley width → straight walls at maxDepth; `glueGapMm 0.05` offsets pocket OUTWARD by gap/2, plug UNCHANGED (V1 choice — Win copies verbatim); `compressionFudge 1.002` scales plug about centroid, fudge=1 byte-identical. One source vector → paired pocket+plug ops, recalc regenerates both.
   - Numeric golden ACs (all asserted): measured offset, depth floor, fudge=1 identity, round-trip, legacy decode.
   - Test: `Sources/ShopPilotVerify2021a/main.swift`. Gate: verify_locked 2021a.
 
-- [ ] **SPK-2022a** **MACHINE** XYZ plate probe cycle on SimulatorTransport // P0 // parallel-ok
+- [x] **SPK-2022a** **MACHINE** XYZ plate probe cycle on SimulatorTransport // P0 // parallel-ok
   - Extend `TouchOff.plan/.gcode` + `MachineController.touchOffZ` surface (~line 393) with X/Y legs: probe → `G10 L20 P1 <axis>[plateHalf+offset]`; abort mid-cycle keeps committed legs' offsets; disconnected = no-op (1920f precedent). Streamer untouched.
   - Test: `Sources/ShopPilotVerify2022a/main.swift`. Gate: verify_locked 2022a.
 
-- [ ] **SPK-2022b** **MACHINE** Tool-length offset: tool change probes Z only · deps: none (shares TouchOff)
+- [x] **SPK-2022b** **MACHINE** Tool-length offset: tool change probes Z only · deps: none (shares TouchOff)
   - After M6: Z-only re-probe → `G10 L20 P1 Z[t]`; XY registers provably untouched in emitted plan + sim state.
   - Test: `ShopPilotVerify2022b`.
 
-- [ ] **SPK-2022c** **MACHINE** Skip-first-M6 send-time filter
+- [x] **SPK-2022c** **MACHINE** Skip-first-M6 send-time filter
   - Checkbox "bit already loaded": suppresses exactly first M6 + its pause at send; later M6s intact. Pure send-path filter.
   - Test: `ShopPilotVerify2022c` (fixture with two M6s).
 
-- [ ] **SPK-2022d** **FEAT** Device profile library // P0 // parallel-ok
+- [x] **SPK-2022d** **FEAT** Device profile library // P0 // parallel-ok
   - New `Sources/ShopPilotCore/DeviceProfiles.swift` + bundled JSON catalog (LongMill, Shapeoko 3/4, Onefinity, WorkBee, Generic GRBL): post flavor, baud, travel X/Y/Z, origin convention. Connection picker sets all in one choice; jog soft-limit warn from travel (§2.4); Generic fallback never blocks connect; last-used persists.
   - Test: `ShopPilotVerify2022d`. Gate: verify_locked 2022d.
 
