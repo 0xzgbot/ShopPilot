@@ -401,11 +401,11 @@ final class VCarveEngineTests: XCTestCase {
         let result = VCarveEngine.compute(vectors: [vector], params: params)
         let gcode = result.gcodeLines.joined(separator: "\n")
         
-        // Shading: the vector's far end (Y=100) must be cut shallower than the
-        // near end (Y=0). For a 90° bit at 2mm depth, 4 passes (width 4.0 /
-        // stepover 1.0); final pass Z = -2.0 * (0.3 + 0.7*normalizedY).
-        XCTAssertTrue(gcode.contains("G1 X50.000 Y100.000 Z-0.600"), "Shallow end (Y=100) should be lighter, got: \(gcode)")
-        XCTAssertTrue(gcode.contains("G1 X50.000 Y0.000"), "Deep end (Y=0) should be cut at full depth")
+        // SPK-2010b: depth comes from local channel WIDTH, not page Y. An
+        // open straight polyline has no interior width, so every point cuts
+        // at this pass's clamp depth — identical Z at both ends.
+        XCTAssertTrue(gcode.contains("G1 X50.000 Y100.000 Z-2.000"), "Far end should cut at the pass depth, got: \(gcode)")
+        XCTAssertTrue(gcode.contains("G1 X50.000 Y0.000"), "Near end should be cut too")
     }
     
     // MARK: - Closed Vector Path

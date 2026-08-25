@@ -221,7 +221,11 @@ func main() throws {
     ]
     try expectGolden(pocketResult.gcodeLines, pocketGolden, "Pocket golden")
 
-    // ── 3. V-CARVE golden — 90° V-bit, 2 passes, shading Z per point. ──────
+    // ── 3. V-Carve golden — 90° V-bit, 2 passes. ───────────────────────────
+    // SPK-2010b: Z now derives from the LOCAL CHANNEL WIDTH (medial-axis
+    // distance) instead of Y-position shading, and closed vectors get a
+    // skeleton pass — so the byte-exact golden is replaced by the hand-
+    // derived OUTLINE PREFIX (still fully deterministic) + VALLEY INVARIANTS.
     let vcarveParams = VCarveParams(
         vBitAngleDegrees: 90.0,
         feedRateMmPerMin: 1000,
@@ -237,10 +241,12 @@ func main() throws {
         params: vcarveParams,
         stockHeightMm: 4.0
     )
-    // Hand-derived: tip width at 2mm depth = 2·2·tan(45°) = 4mm → 4/2 = 2
-    // passes at Z=-1.0 and Z=-2.0. Shading: normalizedY = 1-(y-10)/50, so
-    // bottom edge (y=10) keeps full depth, top edge (y=60) → 30% depth.
-    let vcarveGolden: [String] = [
+    // Hand-derived outline prefix: tip width at 2mm = 4mm → 2 passes at
+    // Z=-1/-2. The square's walls measure 50 mm from each other, so every
+    // vertex bottoms out at the pass clamp; the seam vertex measures the
+    // same (its own wall segments are skipped). Medial spine follows after
+    // the outline passes.
+    let vcarveGoldenPrefix: [String] = [
         "%",
         "O=V_CARVE_TOOLPATH",
         "(V-Bit: 90°)",
@@ -252,8 +258,8 @@ func main() throws {
         "G1 Z-1.000 F300",
         "G1 X10.000 Y10.000 F1000",
         "G1 X60.000 Y10.000 Z-1.000 F1000",
-        "G1 X60.000 Y60.000 Z-0.300 F1000",
-        "G1 X10.000 Y60.000 Z-0.300 F1000",
+        "G1 X60.000 Y60.000 Z-1.000 F1000",
+        "G1 X10.000 Y60.000 Z-1.000 F1000",
         "G1 X10.000 Y10.000 Z-1.000 F1000",
         "G1 X10.000 Y10.000 Z-1.000 F1000",
         "G1 X15.000 Y10.000 Z-1.000 F1000",
@@ -265,17 +271,34 @@ func main() throws {
         "G1 Z-2.000 F300",
         "G1 X10.000 Y10.000 F1000",
         "G1 X60.000 Y10.000 Z-2.000 F1000",
-        "G1 X60.000 Y60.000 Z-0.600 F1000",
-        "G1 X10.000 Y60.000 Z-0.600 F1000",
+        "G1 X60.000 Y60.000 Z-2.000 F1000",
+        "G1 X10.000 Y60.000 Z-2.000 F1000",
         "G1 X10.000 Y10.000 Z-2.000 F1000",
         "G1 X10.000 Y10.000 Z-2.000 F1000",
         "G1 X15.000 Y10.000 Z-2.000 F1000",
         "G0 Z5.0",
-        "",
-        "M30",
-        "%",
     ]
-    try expectGolden(vcarveResult.gcodeLines, vcarveGolden, "V-Carve golden")
+    try expect(vcarveResult.gcodeLines.count > vcarveGoldenPrefix.count,
+               "V-Carve output should carry the outline passes plus the medial spine")
+    for (i, e) in vcarveGoldenPrefix.enumerated() {
+        try expect(vcarveResult.gcodeLines[i] == e,
+                   "V-Carve outline golden line \(i): got \(vcarveResult.gcodeLines[i].debugDescription), want \(e.debugDescription)")
+    }
+    // Valley invariants on the medial section:
+    let medialIdx = vcarveResult.gcodeLines.firstIndex { $0.contains("(Medial axis:") }
+    try expect(medialIdx != nil, "closed square must emit a medial-axis pass")
+    if let mIdx = medialIdx {
+        try expect(mIdx == vcarveGoldenPrefix.count + 1 || vcarveResult.gcodeLines[mIdx - 1].isEmpty,
+                   "medial comment follows a blank line after the outline passes")
+        try expect(vcarveResult.gcodeLines[mIdx].contains("ridge path(s), max clearance"),
+                   "medial comment reports ridge count + max clearance")
+        // Spine of a 50mm square: clearance ≈ 25 → Z = -25/tan(45°) → clamped to -maxDepth.
+        let g = vcarveResult.gcodeLines.filter { $0.hasPrefix("G1 ") && $0.contains("Z-2.000") }
+        try expect(g.count >= 2, "square spine cuts at the clamped full depth -2.000")
+        // Footer intact after the medial section.
+        try expect(vcarveResult.gcodeLines.contains("M30"), "program ends with M30")
+        try expect(vcarveResult.gcodeLines.last == "%", "trailing % closes the program")
+    }
 
     // ── 4. V-CARVE + CLEARANCE golden — board + inner letter. ──────────────
     // Board is 10..60 × 10..30 so the letter sits strictly inside.
@@ -321,7 +344,12 @@ func main() throws {
     // (right gap runs 57→39 because the direction toggles per gap). Then the
     // V-bit detail cuts both vectors at depth 1.0 (tip width 2mm, step 2mm →
     // 1 pass), shaded: board y-range 20, letter y-range 12.
-    let clearanceGolden: [String] = [
+    // SPK-2010b: the clearance raster AND both outline passes are byte-
+    // unchanged (every wall width here clamps to the 1mm depth), so they stay
+    // byte-exact goldens; each closed vector additionally gains a skeleton
+    // pass, asserted by valley invariants.
+    let cg = clearanceResult.gcodeLines
+    let headGolden: [String] = [
         "%",
         "",
         "O=VCARVE_CLEARANCE",
@@ -377,33 +405,52 @@ func main() throws {
         "G1 Z-1.000 F300",
         "G1 X10.000 Y10.000 F1000",
         "G1 X60.000 Y10.000 Z-1.000 F1000",
-        "G1 X60.000 Y30.000 Z-0.300 F1000",
-        "G1 X10.000 Y30.000 Z-0.300 F1000",
+        "G1 X60.000 Y30.000 Z-1.000 F1000",
+        "G1 X10.000 Y30.000 Z-1.000 F1000",
         "G1 X10.000 Y10.000 Z-1.000 F1000",
         "G1 X10.000 Y10.000 Z-1.000 F1000",
         "G1 X15.000 Y10.000 Z-1.000 F1000",
         "G0 Z5.0",
-        "",
+    ]
+    try expect(cg.count > headGolden.count,
+               "clearance output should carry outlines plus medial spines")
+    for (i, e) in headGolden.enumerated() {
+        try expect(cg[i] == e,
+                   "V-Carve+Clearance golden line \(i): got \(cg[i].debugDescription), want \(e.debugDescription)")
+    }
+    // Board spine rides right after the board's outline pass.
+    try expect(cg[headGolden.count].isEmpty && cg[headGolden.count + 1].hasPrefix("(Medial axis:"),
+               "board medial pass must follow the board outline pass")
+    // Letter outline pass (byte-exact) comes after the board spine section.
+    guard let letterPassStart = (headGolden.count + 1..<cg.count)
+        .first(where: { cg[$0] == "(Pass 1/1, Z=-1.000)" }) else {
+        throw VerifyError.failed("letter outline pass not found after board spine")
+    }
+    let letterGolden: [String] = [
         "(Pass 1/1, Z=-1.000)",
         "G0 Z5.0",
         "G0 X20.000 Y14.000",
         "G1 Z-1.000 F300",
         "G1 X25.000 Y14.000 F1000",
         "G1 X35.000 Y14.000 Z-1.000 F1000",
-        "G1 X35.000 Y26.000 Z-0.300 F1000",
-        "G1 X25.000 Y26.000 Z-0.300 F1000",
+        "G1 X35.000 Y26.000 Z-1.000 F1000",
+        "G1 X25.000 Y26.000 Z-1.000 F1000",
         "G1 X25.000 Y14.000 Z-1.000 F1000",
         "G1 X25.000 Y14.000 Z-1.000 F1000",
         "G1 X30.000 Y14.000 Z-1.000 F1000",
         "G0 Z5.0",
-        "",
-        "M30",
-        "%",
     ]
-    try expectGolden(clearanceResult.gcodeLines, clearanceGolden, "V-Carve+Clearance golden")
+    for (k, e) in letterGolden.enumerated() {
+        try expect(cg[letterPassStart + k] == e,
+                   "letter outline golden line +\(k): got \(cg[letterPassStart + k].debugDescription), want \(e.debugDescription)")
+    }
+    // Exactly two spines (board + letter); program closes cleanly.
+    try expect(cg.filter { $0.hasPrefix("(Medial axis:") }.count == 2,
+               "both closed vectors must carry exactly one medial pass each")
+    try expect(cg.contains("M30") && cg.last == "%", "footer intact")
 
     print("ShopPilotVerifyGolden25D: PASS — hand-checked goldens: Profile (2-pass on-cut), "
-          + "Pocket (15-row zigzag), V-Carve (2-pass shaded), V-Carve+Clearance (protected letter bands)")
+          + "Pocket (15-row zigzag), V-Carve (2-pass width-Z + medial spine), V-Carve+Clearance (protected letter bands)")
 }
 
 do {

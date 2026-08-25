@@ -54,8 +54,18 @@ public enum VCarveGeometry {
             for s in 0..<max(0, segCount) {
                 let a = s, b = (s + 1) % pts.count
 
-                // Skip the two segments touching this point.
-                if same && (a == index || b == index) { continue }
+                // Skip every segment that TOUCHES this point — the indexed
+                // pair plus any segment sharing its position. ShopPilot
+                // closed paths duplicate the first point at the seam, so a
+                // seam vertex can have THREE index-neighbours at distance
+                // zero; all of them say nothing about the channel width.
+                if same {
+                    let touchesIndex = (a == index || b == index)
+                    let touchesPosition =
+                        hypot(p.x - pts[a].x, p.y - pts[a].y) < 1e-9 ||
+                        hypot(p.x - pts[b].x, p.y - pts[b].y) < 1e-9
+                    if touchesIndex || touchesPosition { continue }
+                }
 
                 let d = pointToSegment(p, pts[a], pts[b])
                 if d < best { best = d }

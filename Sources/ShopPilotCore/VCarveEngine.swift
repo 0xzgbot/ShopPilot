@@ -57,6 +57,14 @@ public struct VCarveParams: Codable, Sendable {
     // SPK-1133b — linked spindle RPM (0 = not configured; recalc fills it
     // from the assigned tool's cut data and engines emit M3 S).
     public var spindleRpm: Double
+
+    // SPK-2010b — valley-following V-carve: Z derives from the LOCAL channel
+    // half-width (medial-axis distance), and closed vectors additionally get
+    // a skeleton pass so the interior is actually visited. Additive with
+    // defaults so pre-2010 documents decode unchanged.
+    public var medialAxisPass: Bool
+    public var medialAxisCellMm: Double
+
     
     public init(
         vBitAngleDegrees: Double = 90.0,
@@ -79,7 +87,9 @@ public struct VCarveParams: Codable, Sendable {
         clearanceToolDiameterMm: Double = 6.0,
         clearanceDepthMm: Double = 1.0,
         clearanceStepOverMm: Double = 0.4,
-        spindleRpm: Double = 0
+        spindleRpm: Double = 0,
+        medialAxisPass: Bool = true,
+        medialAxisCellMm: Double = 1.0
     ) {
         self.vBitAngleDegrees = vBitAngleDegrees
         self.feedRateMmPerMin = feedRateMmPerMin
@@ -102,6 +112,8 @@ public struct VCarveParams: Codable, Sendable {
         self.clearanceDepthMm = clearanceDepthMm
         self.clearanceStepOverMm = clearanceStepOverMm
         self.spindleRpm = spindleRpm
+        self.medialAxisPass = medialAxisPass
+        self.medialAxisCellMm = medialAxisCellMm
     }
     
     /// Half-angle of the V-bit in radians (used for width calculations).
@@ -127,6 +139,7 @@ public struct VCarveParams: Codable, Sendable {
         case clearancePassEnabled, clearanceToolDiameterMm, clearanceDepthMm
         case clearanceStepOverMm
         case spindleRpm
+        case medialAxisPass, medialAxisCellMm
     }
 
     public init(from decoder: Decoder) throws {
@@ -152,6 +165,8 @@ public struct VCarveParams: Codable, Sendable {
         clearanceDepthMm = try c.decodeIfPresent(Double.self, forKey: .clearanceDepthMm) ?? 1.0
         clearanceStepOverMm = try c.decodeIfPresent(Double.self, forKey: .clearanceStepOverMm) ?? 0.4
         spindleRpm = try c.decodeIfPresent(Double.self, forKey: .spindleRpm) ?? 0
+        medialAxisPass = try c.decodeIfPresent(Bool.self, forKey: .medialAxisPass) ?? true
+        medialAxisCellMm = try c.decodeIfPresent(Double.self, forKey: .medialAxisCellMm) ?? 1.0
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -177,6 +192,8 @@ public struct VCarveParams: Codable, Sendable {
         try c.encode(clearanceDepthMm, forKey: .clearanceDepthMm)
         try c.encode(clearanceStepOverMm, forKey: .clearanceStepOverMm)
         try c.encode(spindleRpm, forKey: .spindleRpm)
+        try c.encode(medialAxisPass, forKey: .medialAxisPass)
+        try c.encode(medialAxisCellMm, forKey: .medialAxisCellMm)
     }
 }
 
@@ -235,13 +252,8 @@ public struct VCarveEngine {
         let boundsMaxX = hasBounds ? globalMaxX : nil
         let boundsMaxY = hasBounds ? globalMaxY : nil
         
-        // Compute per-vector bounding boxes for shading
-        var vectorBounds: [UUID: (minY: Double, maxY: Double)] = [:]
-        for vector in vectors {
-            guard !vector.points.isEmpty else { continue }
-            let ys = vector.points.map { $0.y }
-            vectorBounds[vector.id] = (ys.min()!, ys.max()!)
-        }
+        // SPK-2010b — Y-position shading removed; depth now derives from the
+        // local channel width via VCarveGeometry.
         
         var allGcodeLines: [String] = []
         let feedRate = params.feedRateMmPerMin
@@ -294,10 +306,6 @@ public struct VCarveEngine {
             }
             maxPassCount = max(maxPassCount, passCount)
             
-            // Get bounding box Y-range for shading interpolation
-            let (vecMinY, vecMaxY) = vectorBounds[vector.id] ?? (0, 1)
-            let yRange = vecMaxY - vecMinY
-            
             for pass in 1...passCount {
                 // Scale depth proportionally per pass
                 let depthFactor = Double(pass) / Double(passCount)
@@ -312,13 +320,24 @@ public struct VCarveEngine {
                 // Rapid to safe height
                 allGcodeLines.append("G0 Z5.0")
                 
-                // Move to start point with lead-in
+                // SPK-2010b — the plunge depth at the FIRST point comes from
+                // the local channel width too. Plunging to the raw pass depth
+                // let a 2mm slot and a 12mm channel both bottom out at the
+                // depth limit; width drives the entry as well as the middle.
+                var lastZ = actualZ
                 if let startPoint = vector.points.first {
+                    let startHalfWidth = VCarveGeometry.distanceToNearestOtherEdge(
+                        vector, index: 0, allVectors: vectors)
+                    let widthZ = VCarveGeometry.depthForHalfWidth(
+                        startHalfWidth, angle: params.vBitAngleDegrees, maxDepth: maxDepth)
+                    // Never exceed this pass's depth clamp.
+                    let startZ = max(widthZ, actualZ)
+                    lastZ = startZ
                     let leadInX = startPoint.x - params.leadInDistanceMm
                     allGcodeLines.append(
                         "G0 X\(String(format: "%.3f", leadInX)) Y\(String(format: "%.3f", startPoint.y))"
                     )
-                    allGcodeLines.append("G1 Z\(String(format: "%.3f", actualZ)) F\(Int(plungeFeed))")
+                    allGcodeLines.append("G1 Z\(String(format: "%.3f", startZ)) F\(Int(plungeFeed))")
                     
                     // Move to start with feed rate
                     allGcodeLines.append(
@@ -330,36 +349,37 @@ public struct VCarveEngine {
                 for i in 1..<vector.points.count {
                     let point = vector.points[i]
                     
-                    // V-carve shading: Z varies along the path based on the point's
-                    // Y position relative to the vector's bounding box.
-                    // Higher Y → lighter (shallower Z), Lower Y → darker (deeper Z).
-                    if yRange > 1e-9 {
-                        let normalizedY = 1.0 - (point.y - vecMinY) / yRange
-                        let shadedZ = actualZ * (0.3 + 0.7 * normalizedY)
-                        allGcodeLines.append(
-                            "G1 X\(String(format: "%.3f", point.x)) Y\(String(format: "%.3f", point.y)) Z\(String(format: "%.3f", shadedZ)) F\(Int(feedRate))"
-                        )
-                    } else {
-                        // Single-height vector: constant Z
-                        allGcodeLines.append(
-                            "G1 X\(String(format: "%.3f", point.x)) Y\(String(format: "%.3f", point.y)) Z\(String(format: "%.3f", actualZ)) F\(Int(feedRate))"
-                        )
-                    }
+                    // SPK-2010b — Z from the LOCAL CHANNEL WIDTH (distance to
+                    // the nearest edge that is not this vertex's own two wall
+                    // segments), never from page position. A V-bit can only
+                    // sink as deep as the available width allows:
+                    // z = -(halfWidth / tan(halfAngle)), clamped to the pass.
+                    let halfWidth = VCarveGeometry.distanceToNearestOtherEdge(
+                        vector, index: i, allVectors: vectors)
+                    var z = VCarveGeometry.depthForHalfWidth(
+                        halfWidth, angle: params.vBitAngleDegrees, maxDepth: maxDepth)
+                    // Never exceed this pass's depth clamp (flat-bottom mode
+                    // sets actualZ = -maxDepth, forcing a truly flat pass).
+                    z = max(z, actualZ)
+                    lastZ = z
+                    allGcodeLines.append(
+                        "G1 X\(String(format: "%.3f", point.x)) Y\(String(format: "%.3f", point.y)) Z\(String(format: "%.3f", z)) F\(Int(feedRate))"
+                    )
                 }
                 
                 // Close the path if vector is closed
                 if vector.isClosed && vector.points.count > 2 {
                     let firstPoint = vector.points.first!
                     allGcodeLines.append(
-                        "G1 X\(String(format: "%.3f", firstPoint.x)) Y\(String(format: "%.3f", firstPoint.y)) Z\(String(format: "%.3f", actualZ)) F\(Int(feedRate))"
+                        "G1 X\(String(format: "%.3f", firstPoint.x)) Y\(String(format: "%.3f", firstPoint.y)) Z\(String(format: "%.3f", lastZ)) F\(Int(feedRate))"
                     )
                 }
                 
-                // Lead-out at end point
+                // Lead-out at end point, at the depth the cut ended on.
                 if let endPoint = vector.points.last {
                     let leadOutX = endPoint.x + params.leadOutDistanceMm
                     allGcodeLines.append(
-                        "G1 X\(String(format: "%.3f", leadOutX)) Y\(String(format: "%.3f", endPoint.y)) Z\(String(format: "%.3f", actualZ)) F\(Int(feedRate))"
+                        "G1 X\(String(format: "%.3f", leadOutX)) Y\(String(format: "%.3f", endPoint.y)) Z\(String(format: "%.3f", lastZ)) F\(Int(feedRate))"
                     )
                 }
                 
@@ -368,6 +388,50 @@ public struct VCarveEngine {
             }
             
             totalCuttingLength += vector.length
+            
+            // ---- SPK-2010b: medial-axis (skeleton) pass ----
+            //
+            // Tracing the outline alone leaves the middle of a closed shape
+            // uncut — the V-bit must ride the valley spine, where the shape is
+            // widest. Depth along each ridge point comes from its clearance.
+            if params.medialAxisPass, vector.isClosed, vector.points.count >= 3 {
+                let skeleton = MedialAxis.compute(
+                    outline: vector.points, cellMm: params.medialAxisCellMm)
+                if !skeleton.isEmpty {
+                    allGcodeLines.append("")
+                    allGcodeLines.append(
+                        "(Medial axis: \(skeleton.paths.count) ridge path(s), max clearance \(String(format: "%.3f", skeleton.maxClearanceMm))mm)")
+                    
+                    for path in skeleton.paths where path.count >= 2 {
+                        allGcodeLines.append("G0 Z5.0")
+                        
+                        let head = path[0]
+                        // depthForHalfWidth already returns a negative,
+                        // maxDepth-clamped Z — never negate it again.
+                        let headZ = VCarveGeometry.depthForHalfWidth(
+                            head.clearanceMm, angle: params.vBitAngleDegrees,
+                            maxDepth: maxDepth)
+                        
+                        allGcodeLines.append(
+                            "G0 X\(String(format: "%.3f", head.position.x)) Y\(String(format: "%.3f", head.position.y))"
+                        )
+                        allGcodeLines.append("G1 Z\(String(format: "%.3f", headZ)) F\(Int(plungeFeed))")
+                        
+                        for pt in path.dropFirst() {
+                            // Wide spine = deeper cut; narrow neck stays shallow.
+                            let z = VCarveGeometry.depthForHalfWidth(
+                                pt.clearanceMm, angle: params.vBitAngleDegrees,
+                                maxDepth: maxDepth)
+                            allGcodeLines.append(
+                                "G1 X\(String(format: "%.3f", pt.position.x)) Y\(String(format: "%.3f", pt.position.y)) Z\(String(format: "%.3f", z)) F\(Int(feedRate))"
+                            )
+                        }
+                        
+                        allGcodeLines.append("G0 Z5.0")
+                        totalCuttingLength += medialPathLength(path)
+                    }
+                }
+            }
         }
         
         // Add G-code footer
@@ -388,6 +452,17 @@ public struct VCarveEngine {
             boundsMaxX: boundsMaxX,
             boundsMaxY: boundsMaxY
         )
+    }
+
+    /// Length of a medial-axis ridge polyline (for the time estimate).
+    private static func medialPathLength(_ path: [MedialAxis.RidgePoint]) -> Double {
+        guard path.count > 1 else { return 0 }
+        var total = 0.0
+        for i in 1..<path.count {
+            let a = path[i - 1].position, b = path[i].position
+            total += hypot(b.x - a.x, b.y - a.y)
+        }
+        return total
     }
 
     /// SPK-VCarveClear — clearance pass emitted BEFORE the V-bit detail pass.
