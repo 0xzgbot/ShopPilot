@@ -563,6 +563,13 @@ let package = Package(
             path: "Sources/ShopPilotVerify2010c"
         ),
 
+        // PHASE X (2026-08-25) — SPK-2022a XYZ plate probe verifier.
+        .executableTarget(
+            name: "ShopPilotVerify2022a",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify2022a"
+        ),
+
         // PHASE X (2026-08-25) — SPK-2022d device profile library verifier.
         .executableTarget(
             name: "ShopPilotVerify2022d",

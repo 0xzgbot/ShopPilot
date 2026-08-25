@@ -813,6 +813,17 @@ public struct MachineConnectionView: View {
                             .controlSize(.small)
                             .help("Probe Z with a 3mm touch plate, then zero at the plate top")
 
+                            // SPK-2022a — full XYZ plate probe wizard: three
+                            // legs Z → X → Y, each committing its own G10 L20
+                            // offset as it completes.
+                            Button {
+                                controller.touchOffXYZPlate(plateThickness: 3.0)
+                            } label: {
+                                Label("XYZ plate", systemImage: "axis.3d")
+                            }
+                            .controlSize(.small)
+                            .help("Probe Z, then X, then Y against the 3mm touch plate — each axis's work offset commits as its leg completes")
+
                             // SPK-1920g — wasteboard surfacing as an explicit
                             // Cut-tree op; Run Job discipline applies.
                             Button {

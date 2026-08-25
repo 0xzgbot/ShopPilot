@@ -84,3 +84,90 @@ public enum TouchOff {
         return s
     }
 }
+
+// MARK: - SPK-2022a — XYZ plate probe cycle (Z → X → Y)
+
+/// A validated XYZ plate probing plan. Three legs run in order Z → X → Y;
+/// each leg probes its axis (`G38.2`) and then immediately commits its own
+/// `G10 L20 P1 <axis><offset>` work-offset, so a mid-cycle abort keeps every
+/// already-committed leg's offset while applying nothing from uncompleted legs.
+public struct XYZPlatePlan: Equatable, Sendable {
+    /// Probe feed rate, mm/min.
+    public let probeSpeed: Double
+    /// Maximum probe travel below/beside the start position, mm.
+    public let maxDepth: Double
+    /// Safe Z to rapid to before the Z leg, mm.
+    public let retractHeight: Double
+    /// Zero-plate thickness, mm.
+    public let plateThickness: Double
+    /// Operator X/Y compensation (e.g. tool radius) added on top of the plate
+    /// half-thickness for the X and Y commits, mm.
+    public let userXYOffset: Double
+}
+
+extension TouchOff {
+    /// Build a validated XYZ plate plan, clamping every input into the same
+    /// safe ranges as `plan`.
+    public static func planXYZPlate(
+        plateThickness: Double,
+        probeSpeed: Double = 120,
+        maxDepth: Double = 10,
+        retractHeight: Double = 5,
+        userXYOffset: Double = 0
+    ) -> XYZPlatePlan {
+        XYZPlatePlan(
+            probeSpeed: min(max(probeSpeed, probeSpeedRange.lowerBound), probeSpeedRange.upperBound),
+            maxDepth: min(max(maxDepth, maxDepthRange.lowerBound), maxDepthRange.upperBound),
+            retractHeight: min(max(retractHeight, retractHeightRange.lowerBound), retractHeightRange.upperBound),
+            plateThickness: min(max(plateThickness, plateThicknessRange.lowerBound), plateThicknessRange.upperBound),
+            userXYOffset: userXYOffset
+        )
+    }
+
+    /// The Z-leg commit: current position (= plate top) becomes Z = thickness,
+    /// so the stock surface under the plate reads Z = 0 — identical math to
+    /// `zOffset(probeHitZ: 0, plateThickness:)`.
+    public static func zCommitOffset(plateThickness: Double) -> Double {
+        zOffset(probeHitZ: 0, plateThickness: plateThickness)
+    }
+
+    /// The X/Y-leg commit: the probe contacts the plate edge, whose center is
+    /// half a plate thickness away, plus the operator's tool-radius offset.
+    public static func xyCommitOffset(plateThickness: Double, userXYOffset: Double) -> Double {
+        plateThickness / 2 + userXYOffset
+    }
+
+    /// One leg of the XYZ cycle, as its own all-or-nothing unit:
+    /// 1. `G90` — absolute positioning.
+    /// 2. `G38.2 <axis>-<maxDepth> F<probeSpeed>` — probe until contact.
+    /// 3. `G10 L20 P1 <axis><commit>` — commit this leg's work offset.
+    /// 4. `G91` + `G0 <axis><maxDepth>` + `G90` — back off the contact.
+    public static func xyzPlateLeg(_ plan: XYZPlatePlan, axis: String) -> [String] {
+        let commit: Double
+        switch axis {
+        case "Z": commit = zCommitOffset(plateThickness: plan.plateThickness)
+        case "X", "Y": commit = xyCommitOffset(plateThickness: plan.plateThickness, userXYOffset: plan.userXYOffset)
+        default: fatalError("xyzPlateLeg: unknown axis '\(axis)'")
+        }
+        return [
+            "G90",
+            "G38.2 \(axis)-\(fmt(plan.maxDepth)) F\(fmt(plan.probeSpeed))",
+            "G10 L20 P1 \(axis)\(fmt(commit))",
+            "G91",
+            "G0 \(axis)\(fmt(plan.maxDepth))",
+            "G90",
+        ]
+    }
+
+    /// The three legs in mandatory run order: Z → X → Y.
+    public static func xyzPlateLegs(_ plan: XYZPlatePlan) -> [[String]] {
+        ["Z", "X", "Y"].map { xyzPlateLeg(plan, axis: $0) }
+    }
+
+    /// The full XYZ plate cycle as one flat sequence (legs concatenated in
+    /// Z → X → Y order). Senders that want per-leg abort semantics should use
+    /// `xyzPlateLegs` instead and commit leg-by-leg.
+    public static func xyzPlateGcode(_ plan: XYZPlatePlan) -> [String] {
+        xyzPlateLegs(plan).flatMap { $0 }
+    }
+}

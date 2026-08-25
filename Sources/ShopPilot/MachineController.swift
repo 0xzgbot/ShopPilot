@@ -457,6 +457,46 @@ public final class MachineController: ObservableObject {
         TouchOff.zOffset(probeHitZ: probeHitZ, plateThickness: plateThickness)
     }
 
+    // MARK: - XYZ plate probe cycle (SPK-2022a)
+
+    /// Run the full XYZ plate probe cycle: three legs in order Z → X → Y.
+    /// Each leg probes its axis (`G38.2`) then immediately commits its own
+    /// `G10 L20 P1` work offset, so aborting mid-cycle keeps every
+    /// already-committed leg's offset intact while applying nothing from
+    /// uncompleted legs. SPK-1920f precedent: a disconnected (or busy) machine
+    /// makes this an honest no-op — nothing is queued, the status names why.
+    public func touchOffXYZPlate(plateThickness: Double = 3.0, userXYOffset: Double = 0.0) {
+        guard canSendMotion else {
+            connection.addSystemMessage("XYZ plate probe needs a connected, idle machine — connect first")
+            return
+        }
+        let plan = TouchOff.planXYZPlate(plateThickness: plateThickness, userXYOffset: userXYOffset)
+        let legs = TouchOff.xyzPlateLegs(plan)
+        let legAxes = ["Z", "X", "Y"]
+        Task {
+            var committedLegs = 0
+            for (index, leg) in legs.enumerated() {
+                // All-or-nothing per leg: if the machine dropped between legs,
+                // stop here — committed legs keep their offsets, uncompleted
+                // legs apply nothing.
+                guard connection.connectionState.isConnected else {
+                    connection.addSystemMessage(
+                        "XYZ plate probe stopped after \(committedLegs)/\(legs.count) legs — disconnected; committed offsets kept"
+                    )
+                    return
+                }
+                for line in leg {
+                    await connection.sendCommand(line)
+                }
+                committedLegs += 1
+                connection.addSystemMessage("XYZ plate: \(legAxes[index]) leg committed (\(committedLegs)/\(legs.count))")
+            }
+            connection.addSystemMessage(
+                "XYZ plate cycle complete (plate \(plateThickness)mm) — Z→X→Y zeroed at the plate"
+            )
+        }
+    }
+
     // MARK: - Work offsets (SPK-1304)
 
     /// The G54–G59 registry for this machine session.
