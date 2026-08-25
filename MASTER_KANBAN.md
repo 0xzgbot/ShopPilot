@@ -2446,3 +2446,61 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
 
 ### 2026-08-24 — SPK-2000e closed (Hermes) — PHASE V COMPLETE
 - Audit: docs/planning/PARITY_AUDIT_2026.md. Side-by-side vs VectorPilot@e954552: every row parity or Mac-leads; three honest differences documented (mesh fidelity, plugin-vs-Lua host, no real laser hardware on either machine). a-d all CLT PASS; full sweep re-run at close-out.
+
+---
+
+# PHASE W — V-Carve quality vs Vectric (SPK-2010)
+
+> Filed 2026-08-24 from the family feature review: ShopPilot traces outlines and fakes depth with Y-shading. Vectric (and VectorPilot) ride the **medial-axis valley** with Z from local half-width. Prompt: `docs/planning/SPK-2010_VCARVE_QUALITY_AGENT_PROMPT.md`. Independent Swift — copy VectorPilot **semantics** only. Do **not** edit VectorPilot. Do **not** stamp SPK-0623.
+
+- [ ] **SPK-2010** **EPIC** Parent — V-Carve quality (width-Z + medial axis + optional flat-area)
+  - Parent: lean P0 sign quality. Assignee: `coder`. Worktree.
+  - DoD: Engine + UI + Persist + Verify across children a–e
+  - Out of scope: inlay physics, Photo V-Carve, exact Voronoi, live wood, VectorPilot edits
+  - Verify: children close; parent `[x]` only when a–e `[x]`
+  - deps: none
+
+- [x] **SPK-2010a** **CAM** MedialAxis + VCarveGeometry + CLT — NEW FILES ONLY // P0 // parallel-ok
+  - Parent: SPK-2010. Assignee: `coder`. `--max-runtime 60m`. Worktree.
+  - AC:
+    - Circle r=40 → max clearance within 3 mm of 40; 200×20 slot spine is long-axis; `depthForHalfWidth(10, 90°, 50)` ≈ −10
+    - Degenerate outline empty; dumbbell ridge points inside polygon
+  - Out of scope: `VCarveEngine.swift`, SwiftUI
+  - Verify: `./scripts/verify_locked.sh ShopPilotVerify2010a` — PASS (circle maxClearance 39.6; slot spine w>h·3; −10/−28.87/clamp −12; degenerate empty; 520 dumbbell ridge cells all in-polygon, bulb clearance > neck, 24 spines)
+  - All swift via `swift_locked.sh`; never `rm -rf .build`; worktree-only Sources
+
+- [ ] **SPK-2010b** **CAM** Wire width-Z + medial pass into VCarveEngine // P0
+  - Parent: SPK-2010. Assignee: `coder`. `--max-runtime 60m`. Worktree. deps: SPK-2010a
+  - AC:
+    - Outline Z from local width, not page Y; dumbbell bulbs deeper than neck; interior visited iff medial on
+    - Open path skips medial; `ShopPilotVerifyVCarveClear` still PASS
+  - Out of scope: flat-area sweep, form UI, Photo V-Carve
+  - Verify: `./scripts/verify_locked.sh ShopPilotVerify2010b` and `ShopPilotVerifyVCarveClear`
+
+- [ ] **SPK-2010c** **CAM** Flat-area clearing + additive params persist // P0
+  - Parent: SPK-2010. Assignee: `coder`. `--max-runtime 60m`. Worktree. deps: SPK-2010b
+  - AC:
+    - Wide rect + shallow max-depth emits `(Flat area clearing:` when flag on, not when off
+    - Legacy JSON decodes medial default on / flat default off; recalc from `paramsJSON` changes G-code
+  - Out of scope: new Add-menu strategy
+  - Verify: `./scripts/verify_locked.sh ShopPilotVerify2010c`
+
+- [ ] **SPK-2010d** **UX** Valley group on V-Carve params form // P0
+  - Parent: SPK-2010. Assignee: `coder`. `--max-runtime 45m`. Worktree. deps: SPK-2010c
+  - AC: Cut inspector GroupBox Valley (medial, cell, flat-area fields); Apply regenerates; python gate greps labels
+  - Out of scope: inlay wizard, feeds library
+  - Verify: `python3 scripts/verify_2010d_vcarve_quality.py` + `./scripts/swift_locked.sh build --target ShopPilot`
+
+- [ ] **SPK-2010e** **QA** Sign-recipe + §O regression after valley semantics // P0
+  - Parent: SPK-2010. Assignee: `coder`. `--max-runtime 45m`. Worktree. deps: SPK-2010b
+  - AC: 1106a/b + 1136d PASS; goldens updated to valley invariants if they froze Y-shading line counts
+  - Out of scope: SPK-0623, hardware photo
+  - Verify: `./scripts/verify_locked.sh ShopPilotVerify1106a` + `1106b` + `1136d` + `VCarveClear`
+
+### 2026-08-24 — SPK-2010 filed (Cursor)
+- Prompt + board: `docs/planning/SPK-2010_VCARVE_QUALITY_AGENT_PROMPT.md`. Children a–e Ready. Not claimed.
+
+### 2026-08-24 — SPK-2010a (Hermes coder)
+- Claimed: SPK-2010a (MedialAxis.swift was missing → first Ready child).
+- Did: NEW files only, per Wave A. `Sources/ShopPilotCore/MedialAxis.swift` — discrete clearance-field skeleton ported from the family semantics (interior raster via even-odd point-in-polygon + point-to-edge distance; 4M-cell cap coarsens the cell; ridge = local max along X or Y or either diagonal; greedy 8-connected chaining seeded widest-first; paths longest-first). `Sources/ShopPilotCore/VCarveGeometry.swift` — `depthForHalfWidth(w, angle, maxDepth) = -min(w/tan(A/2), maxDepth)` + `distanceToNearestOtherEdge` (skips the two segments touching the vertex; open polylines don't wrap). Registered `ShopPilotVerify2010a` in Package.swift next to VCarveClear. CLT ports the reference dumbbell fixture verbatim (bulbs r=30 at x=40/160, neck half-width 6, cy=100, cell 1.5). One test-side fix during bring-up: my invented absolute bulb-clearance bound (>25 mm) was wrong — the coarse polygon caps measured clearance at ~22; the reference asserts bulb max > neck max instead, so the CLT now matches that contract.
+- Result: [x] — `verify_locked.sh ShopPilotVerify2010a`: PASS (circle maxClearance within 0.4 of 40; slot spine w>h·3; depth −10 @90°, deeper @30°, clamped; degenerate empty; every dumbbell ridge cell inside polygon; bulb wider than neck). No engine-file or UI edits.

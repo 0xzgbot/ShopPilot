@@ -543,6 +543,11 @@ let package = Package(
             path: "Sources/ShopPilotVerifyVCarveClear"
         ),
         .executableTarget(
+            name: "ShopPilotVerify2010a",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify2010a"
+        ),
+        .executableTarget(
             name: "ShopPilotVerify1137",
             dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
             path: "Sources/ShopPilotVerify1137"
