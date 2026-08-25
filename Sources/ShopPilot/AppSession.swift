@@ -56,6 +56,19 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
         return nodeLines.isEmpty ? gcodeLines : nodeLines
     }
 
+    /// SPK-2022e — the program handed to the Machine stage / queue: ENABLED
+    /// ops' G-code only, in tree order. When no tree node holds a computed
+    /// result at all (fixture / single-op flow) the existing buffer passes
+    /// through unchanged; disabled ops are excluded without regeneration.
+    var machineProgramGCode: [String] {
+        guard toolpathTree.allNodes.contains(where: { $0.toolpathResult != nil }) else {
+            return allToolpathGCode
+        }
+        return ToolpathTreeManager.program(from: toolpathTree.allNodes)
+            .components(separatedBy: .newlines)
+            .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+    }
+
     /// SPK-1210 — per-node wireframe segments: each operation node's G-code
     /// rendered to segments keyed by node id. The Preview canvas uses this
     /// to highlight exactly one op when its Cut row is hovered.
@@ -3070,6 +3083,22 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
         CutLayerTableBuilder.build(tree: toolpathTree) { [weak self] toolID in
             self?.toolDatabase.tool(withID: toolID)?.name
         }
+    }
+
+    /// SPK-2022e — per-op send-enable toggle from the cut table / tree rows.
+    /// Pure flag flip: the stored G-code is untouched, so re-enabling
+    /// restores byte-identical output at the next send.
+    @discardableResult
+    func setToolpathEnabled(_ enabled: Bool, nodeID: UUID) -> Bool {
+        guard let node = toolpathTree.findNode(id: nodeID),
+              case .operation = node.type else { return false }
+        guard node.isEnabled != enabled else { return true }
+        node.isEnabled = enabled
+        objectWillChange.send()
+        statusMessage = enabled
+            ? "\(node.name) enabled for send"
+            : "\(node.name) disabled — excluded from the send program"
+        return true
     }
 
     /// Inline feed-rate edit from the table: dispatches on the node's

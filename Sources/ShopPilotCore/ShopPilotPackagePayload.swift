@@ -13,6 +13,9 @@ public struct PersistedToolpath: Codable, Sendable, Equatable, Identifiable {
     public var toolID: UUID?
     /// Strategy params JSON for this operation (nil = defaults; SPK-1136a).
     public var paramsJSON: String?
+    /// SPK-2022e — per-op send-enable flag. Optional so legacy packages
+    /// written before the key decode cleanly (restored as enabled = true).
+    public var isEnabled: Bool?
 
     public init(
         id: UUID = UUID(),
@@ -21,7 +24,8 @@ public struct PersistedToolpath: Codable, Sendable, Equatable, Identifiable {
         estimatedTimeSeconds: Double = 0,
         isDirty: Bool = false,
         toolID: UUID? = nil,
-        paramsJSON: String? = nil
+        paramsJSON: String? = nil,
+        isEnabled: Bool? = nil
     ) {
         self.id = id
         self.name = name
@@ -30,6 +34,7 @@ public struct PersistedToolpath: Codable, Sendable, Equatable, Identifiable {
         self.isDirty = isDirty
         self.toolID = toolID
         self.paramsJSON = paramsJSON
+        self.isEnabled = isEnabled
     }
 
     /// Build from a live toolpath tree operation node.
@@ -41,6 +46,7 @@ public struct PersistedToolpath: Codable, Sendable, Equatable, Identifiable {
         self.isDirty = node.isDirty
         self.toolID = node.toolID
         self.paramsJSON = node.paramsJSON
+        self.isEnabled = node.isEnabled
     }
 }
 
@@ -72,6 +78,10 @@ public struct ShopPilotPackagePayload: Codable, Sendable {
             node.isDirty = persisted.isDirty
             node.toolID = persisted.toolID
             node.paramsJSON = persisted.paramsJSON
+            // SPK-2022e — legacy payloads without the key stay enabled (default).
+            if let isEnabled = persisted.isEnabled {
+                node.isEnabled = isEnabled
+            }
         }
         return manager
     }

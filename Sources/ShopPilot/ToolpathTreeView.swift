@@ -131,6 +131,10 @@ struct ToolpathTreeView: View {
             pickerTools: session.toolDatabase.tools(ofTypes: [.endMill, .vBit]),
             onAssignTool: { toolID in
                 session.assignTool(toolID, toToolpath: node.id)
+            },
+            // SPK-2022e — per-op send-enable toggle routed to the session.
+            onSetEnabled: { enabled in
+                session.setToolpathEnabled(enabled, nodeID: node.id)
             }
         )
 
@@ -197,6 +201,8 @@ private struct ToolpathRow: View {
     /// Tools offered by the picker (already filtered to supported types).
     let pickerTools: [Tool]
     let onAssignTool: (UUID?) -> Void
+    /// SPK-2022e — per-op send-enable toggle.
+    var onSetEnabled: (Bool) -> Void = { _ in }
 
     @State private var hovering = false
 
@@ -212,6 +218,19 @@ private struct ToolpathRow: View {
             } else {
                 Color.clear
                     .frame(width: 10, height: 10)
+            }
+            if case .operation = node.type {
+                // SPK-2022e — enable checkbox: unchecked ops are excluded from Send.
+                Toggle("Enable \(node.name)", isOn: Binding(
+                    get: { node.isEnabled },
+                    set: onSetEnabled
+                ))
+                .toggleStyle(.checkbox)
+                .labelsHidden()
+                .accessibilityLabel("Enable \(node.name)")
+                .controlSize(.mini)
+                .help(node.isEnabled ? "Enabled — included in Send. Uncheck to exclude “\(node.name)”"
+                                     : "Disabled — excluded from Send. Check to include “\(node.name)”")
             }
 
             Image(systemName: iconName)

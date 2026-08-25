@@ -24,6 +24,11 @@ public final class ToolpathTreeNode: Identifiable, ObservableObject {
     
     /// Whether this node's toolpath needs recalculation.
     @Published public var isDirty: Bool = false
+
+    /// SPK-2022e — whether this op's computed G-code is included when the
+    /// program is assembled for Send to Machine / queue. Recalc and export
+    /// IGNORE this flag; only the send path filters on it.
+    @Published public var isEnabled: Bool = true
     
     /// The computed toolpath result (if any).
     @Published public var toolpathResult: String? = nil
@@ -1220,6 +1225,25 @@ public final class ToolpathTreeManager: ObservableObject {
     /// Get count of dirty nodes.
     public var dirtyNodeCount: Int {
         root.allDirtyNodes.count
+    }
+}
+
+// MARK: - Send-time program filter (SPK-2022e)
+
+extension ToolpathTreeManager {
+    /// Assemble the program handed to the Machine stage / queue from ENABLED
+    /// operations only, in tree order (SPK-2022e). Pure: nodes are read,
+    /// never mutated — each op's stored `toolpathResult` is untouched, so
+    /// toggling an op OFF→ON restores byte-identical output with no
+    /// regeneration. Disabled ops keep their results and still recalculate;
+    /// they are skipped only here.
+    public static func program(from nodes: [ToolpathTreeNode]) -> String {
+        let lines = nodes
+            .filter { $0.isEnabled }
+            .compactMap { $0.toolpathResult }
+            .flatMap { $0.components(separatedBy: .newlines) }
+            .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+        return lines.joined(separator: "\n")
     }
 }
 

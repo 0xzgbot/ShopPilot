@@ -194,7 +194,8 @@ struct ContentView: View {
             // it to the controller.
             let profile = session.machineProfiles.profiles.first ?? MachineProfile.simulatorProfile
             MachineConnectionView(
-                pendingGCode: session.allToolpathGCode,
+                // SPK-2022e — Send carries ENABLED ops only.
+                pendingGCode: session.machineProgramGCode,
                 controller: session.machine,
                 simTravelLimitMM: min(profile.travelXMM, profile.travelYMM),
                 onSurfaceWasteboard: {
@@ -1053,7 +1054,8 @@ private struct CutStageView: View {
                         Button("Post Studio…") { showPostStudio = true }
                             .help("Create and edit post templates with $variable blocks")
                         Button("Enqueue") {
-                            let gcode = session.allToolpathGCode
+                            // SPK-2022e — the queue receives ENABLED ops only.
+                            let gcode = session.machineProgramGCode
                             guard !gcode.isEmpty else {
                                 session.statusMessage = "Queue: no G-code to enqueue — generate toolpaths first"
                                 return

@@ -123,7 +123,24 @@ struct CutLayersTableView: View {
     }
 
     private func rowView(_ row: CutLayerRow) -> some View {
-        HStack(spacing: 6) {
+        // SPK-2022e — per-op send-enable state drives both the checkbox and
+        // the row dimming.
+        let enabled = session.toolpathTree.findNode(id: row.id)?.isEnabled ?? true
+        return HStack(spacing: 6) {
+            // SPK-2022e — enable checkbox: unchecked ops are excluded from
+            // the program sent to the Machine stage / queue.
+            Toggle("Enable \(row.name)", isOn: Binding(
+                get: { session.toolpathTree.findNode(id: row.id)?.isEnabled ?? true },
+                set: { session.setToolpathEnabled($0, nodeID: row.id) }
+            ))
+            .toggleStyle(.checkbox)
+            .labelsHidden()
+            .accessibilityLabel("Enable \(row.name)")
+            .controlSize(.mini)
+            .help(enabled ? "Enabled — included in Send. Uncheck to exclude “\(row.name)”"
+                          : "Disabled — excluded from Send. Check to include “\(row.name)”")
+            .frame(width: 16)
+
             // Status dot (SPK-1207).
             statusDot(row.status)
                 .frame(width: 8)
@@ -132,7 +149,7 @@ struct CutLayersTableView: View {
                 .font(.caption2.monospaced())
                 .foregroundStyle(.tertiary)
                 .frame(width: 16, alignment: .trailing)
-            // Name + strategy.
+            // Name + strategy (dimmed while the op is send-disabled).
             VStack(alignment: .leading, spacing: 0) {
                 Text(row.name)
                     .font(.caption)
@@ -141,6 +158,7 @@ struct CutLayersTableView: View {
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
+            .opacity(enabled ? 1 : 0.45)
             .frame(maxWidth: .infinity, alignment: .leading)
 
             // Feed — inline edit on the four core strategies.

@@ -590,6 +590,12 @@ let package = Package(
             dependencies: ["ShopPilotCore"],
             path: "Sources/ShopPilotVerify2022d"
         ),
+        // PHASE X (2026-08-25) — SPK-2022e per-op enable + send filter verifier.
+        .executableTarget(
+            name: "ShopPilotVerify2022e",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify2022e"
+        ),
         // PHASE X (2026-08-25) — SPK-2021a inlay wizard physics verifier.
         .executableTarget(
             name: "ShopPilotVerify2021a",
