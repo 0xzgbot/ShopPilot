@@ -2570,3 +2570,70 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
   - Repro: `./scripts/verify_locked.sh ShopPilotVerify1320` (log: /tmp/shoppilot-shake-20260824-1829/logs/ShopPilotVerify1320.log; exit $(cat /tmp/shoppilot-shake-20260824-1829/logs/ShopPilotVerify1320.log.exit 2>/dev/null))
   - AC: Engine+UI+Persist+Verify — diagnose root cause (product bug vs harness flake); fix or document; re-run target + nearest regressions green.
 
+# PHASE X — Family quality wave (SPK-2020 series)
+
+> Filed 2026-08-25 from `docs/planning/FAMILY_QUALITY_IMPLEMENTATION_PLAN_2026-08-25.md`
+> (rev 2 — read it before claiming any card below). Gate for every card:
+> `./scripts/verify_locked.sh ShopPilotVerifyXXXX`. Never `swift test --filter`.
+> Never stamp SPK-0623. Windows mirrors are H-cards on VectorPilot's
+> HERMES_KANBAN.md — file them in the same wave as their Mac twin merges.
+
+- [ ] **SPK-2020a0** **GEO** Polyline join with gap tolerance + zero-span delete // P0 // parallel-ok
+  - Modify: `Sources/ShopPilotGeometry/JoinCloseTrim.swift` — `joinAll(shapes:, tolerance:)` merging `.freehand` polylines within tolerance (default 0.1 mm; 0 = today's behavior); `deleteZeroSpan(_:) -> ([kept], [removed])`; one session-facing APPLY entry (mutates shape list, returns counts — not suggestedFix copies).
+  - Test: new `Sources/ShopPilotVerify2020a0/main.swift` — two polylines w/ 0.1 mm gap merge; zero-tolerance unchanged; zero-span removed.
+  - Gate: `./scripts/verify_locked.sh ShopPilotVerify2020a0` + nearest geometry regression + app builds.
+
+- [ ] **SPK-2020a** **UI** Doctor one-tap repair + V-Carve Fix CTA // P0 · deps: SPK-2020a0
+  - Doctor panel (PreflightDoctorView) Join All / Close All / Delete Zero-Span buttons calling the 2020a0 apply API through an undoable AppSession repair entry; "N repaired, M remain"; V-carve open-path failure offers Fix → repair → revalidate.
+  - Gate: `./scripts/verify_locked.sh ShopPilotVerify2020a`.
+
+- [ ] **SPK-2021a** **CAM** Inlay wizard physics (tip Ø + glue gap + compression fudge) // P0 // parallel-ok
+  - Extend `InlayToolpath.swift` `InlayPocketParams` (legacy-safe decode): `tipDiameterMm 0.1` floors valley width → straight walls at maxDepth; `glueGapMm 0.05` offsets pocket OUTWARD by gap/2, plug UNCHANGED (V1 choice — Win copies verbatim); `compressionFudge 1.002` scales plug about centroid, fudge=1 byte-identical. One source vector → paired pocket+plug ops, recalc regenerates both.
+  - Numeric golden ACs (all asserted): measured offset, depth floor, fudge=1 identity, round-trip, legacy decode.
+  - Test: `Sources/ShopPilotVerify2021a/main.swift`. Gate: verify_locked 2021a.
+
+- [ ] **SPK-2022a** **MACHINE** XYZ plate probe cycle on SimulatorTransport // P0 // parallel-ok
+  - Extend `TouchOff.plan/.gcode` + `MachineController.touchOffZ` surface (~line 393) with X/Y legs: probe → `G10 L20 P1 <axis>[plateHalf+offset]`; abort mid-cycle keeps committed legs' offsets; disconnected = no-op (1920f precedent). Streamer untouched.
+  - Test: `Sources/ShopPilotVerify2022a/main.swift`. Gate: verify_locked 2022a.
+
+- [ ] **SPK-2022b** **MACHINE** Tool-length offset: tool change probes Z only · deps: none (shares TouchOff)
+  - After M6: Z-only re-probe → `G10 L20 P1 Z[t]`; XY registers provably untouched in emitted plan + sim state.
+  - Test: `ShopPilotVerify2022b`.
+
+- [ ] **SPK-2022c** **MACHINE** Skip-first-M6 send-time filter
+  - Checkbox "bit already loaded": suppresses exactly first M6 + its pause at send; later M6s intact. Pure send-path filter.
+  - Test: `ShopPilotVerify2022c` (fixture with two M6s).
+
+- [ ] **SPK-2022d** **FEAT** Device profile library // P0 // parallel-ok
+  - New `Sources/ShopPilotCore/DeviceProfiles.swift` + bundled JSON catalog (LongMill, Shapeoko 3/4, Onefinity, WorkBee, Generic GRBL): post flavor, baud, travel X/Y/Z, origin convention. Connection picker sets all in one choice; jog soft-limit warn from travel (§2.4); Generic fallback never blocks connect; last-used persists.
+  - Test: `ShopPilotVerify2022d`. Gate: verify_locked 2022d.
+
+- [ ] **SPK-2022e** **UI** Per-op enable flag + filter at send (toggle-ops, no resume)
+  - `ToolpathTree` per-node `enabled` (legacy-safe decode, persisted), toggle column in tree/layers UI, send emits enabled ops only without re-post; re-enable restores prior G-code byte-for-byte. Crash resume is deliberately NOT here (parked card).
+  - Test: `ShopPilotVerify2022e`.
+
+- [ ] **SPK-2022f** **BACKLOG** Resume at line N (parked until 2022e merges) — safe-entry state machine: rapid-to-start of target line at/below current Z or safe Z lift first; position sync; "Resume from line…" UI post-abort.
+
+- [ ] **SPK-2022g** **MACHINE** Macros + alarm decode banner
+  - User-editable macro buttons (park / bit-change / surface) through existing ok-gated sender, no auto-run on connect; `AlarmDecoder` GRBL 1.1 table → plain-text banner ("ALARM:2 — hard limit; clear switches, then home"); unknown codes raw fallback; raw TX/RX console unchanged.
+  - Test: `ShopPilotVerify2022g`.
+
+- [ ] **SPK-2023a** **QA** Chip-load preflight warning
+  - Create `Sources/ShopPilotCore/Resources/bit_feeds_seed.json` FROM `docs/planning/research/BIT_FEEDS_LIBRARY.md`; preflight warns when feed/(rpm×flutes) outside material range; warning tier only; preset-filled jobs trusted (no warn). Test: `ShopPilotVerify2023a`.
+
+- [ ] **SPK-2023b** **GEO** T-bones — bit Ø only prompt; along-X/Y/auto-longest-edge; Dogbone.swift TBone variant; existing dogbone fixtures byte-stable. Test: `ShopPilotVerify2023b`.
+
+- [ ] **SPK-2023c** **CAM** ENGINE 2D rest machining (pocket leftover pass) — `previousToolDiameterMm > 0` machines ONLY unreachable areas; 0 = byte-stable today. PocketToolpath has NO rest support today (verified 2026-08-25). Test: `ShopPilotVerify2023c`.
+
+- [ ] **SPK-2023d** **UI** Rest fields on Pocket/V-clearance forms · deps: SPK-2023c
+
+- [ ] **SPK-2023e** **GEO** Copy along path — N-or-spacing along curve, tangent-follow toggle; generalizes ArrayCopy. Test: `ShopPilotVerify2023e`.
+
+- [ ] **SPK-2024a** **UX** Welcome = sample gallery first screen (reuse SampleProjectsStore + SPK-1403 loader hooks; one click → Design + single "Plan the cuts" CTA). AX walk row gate.
+
+- [ ] **SPK-2024b** **UX** Presets over parameters (Mac parity w/ Win H-501) — Walnut 18 mm + 90° V-bit fills Cut depth/feed/rpm; Advanced discloses all; preset-trusted feeds silence 2023a. Test: `ShopPilotVerify2024b`.
+
+- [ ] **SPK-2024c** **UX** One forward CTA per stage — audit-first (close as audit if already true); coach strip promotes the same action.
+
+Claim order: 2020a0 → 2021a → 2022a → 2022d → (1920i goldens + Win trochoid H-card) → Phase 5 trio → joinery. Do not reopen medial-axis.
+
