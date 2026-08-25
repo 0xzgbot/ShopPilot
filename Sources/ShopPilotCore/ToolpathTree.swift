@@ -882,15 +882,36 @@ public final class ToolpathTreeManager: ObservableObject {
                 ))
 
             case .inlay:
-                let params = node.inlayParams()
-                let result = params.variant == .pocket
-                    ? InlayToolpathEngine.computePocket(paths: vectors, params: params, stockHeightMm: stockHeightMm)
-                    : InlayToolpathEngine.computePlug(paths: vectors, params: params, stockHeightMm: stockHeightMm)
-                results.append(ToolpathNodeResult(
-                    nodeID: node.id,
-                    gcode: result.gcodeLines.joined(separator: "\n"),
-                    estimatedTimeSeconds: result.estimatedTimeSeconds
-                ))
+                // SPK-2021a — paired wizard ops: a node storing the wizard's
+                // InlayPocketParams blob (JSON carries "inlayType", a key the
+                // InlayToolpathParams variant blobs never have) with
+                // .fullInlay regenerates BOTH the pocket and the plug op
+                // from the ONE source vector, concatenated into one result.
+                var pairedEmitted = false
+                if let json = node.paramsJSON,
+                   json.contains("\"inlayType\""),
+                   let wizard = try? JSONDecoder().decode(InlayPocketParams.self, from: Data(json.utf8)),
+                   wizard.inlayType == .fullInlay {
+                    let paired = InlayEngine.generatePairedOps(vectors: vectors, params: wizard)
+                    let gcode = (paired.pocket.gcodeLines + [""] + paired.plug.gcodeLines).joined(separator: "\n")
+                    let time = paired.pocket.estimatedTimeSeconds + paired.plug.estimatedTimeSeconds
+                    results.append(ToolpathNodeResult(
+                        nodeID: node.id,
+                        gcode: gcode,
+                        estimatedTimeSeconds: time))
+                    pairedEmitted = true
+                }
+                if !pairedEmitted {
+                    let params = node.inlayParams()
+                    let result = params.variant == .pocket
+                        ? InlayToolpathEngine.computePocket(paths: vectors, params: params, stockHeightMm: stockHeightMm)
+                        : InlayToolpathEngine.computePlug(paths: vectors, params: params, stockHeightMm: stockHeightMm)
+                    results.append(ToolpathNodeResult(
+                        nodeID: node.id,
+                        gcode: result.gcodeLines.joined(separator: "\n"),
+                        estimatedTimeSeconds: result.estimatedTimeSeconds
+                    ))
+                }
 
             case .quickEngrave:
                 let result = QuickEngraveToolpathEngine.compute(
