@@ -7,12 +7,35 @@ public struct JoinResult: Identifiable, Codable {
     public let operation: String
     public private(set) var outputShapes: [VectorShape]
     public let timestamp: Date
-    
+
     public init(id: UUID = UUID(), operation: String, outputShapes: [VectorShape]) {
         self.id = id
         self.operation = operation
         self.outputShapes = outputShapes
         self.timestamp = Date()
+    }
+}
+
+// MARK: - Apply Result (SPK-2020a0)
+
+/// Counts returned by `ShapeJoinEngine.applyJoinAndCleanup(_:tolerance:)`.
+public struct JoinApplyResult: Equatable {
+    /// Number of polyline merge operations performed (each reduces the shape
+    /// count by one).
+    public let joinedCount: Int
+    /// Number of resulting polylines whose start/end lie within tolerance,
+    /// i.e. chains that now form a closed loop (first ≈ last).
+    public let closedCount: Int
+    /// Number of zero-span/degenerate shapes deleted.
+    public let removedCount: Int
+    /// Shape count after the mutation (`shapes.count` post-call).
+    public let remaining: Int
+
+    public init(joinedCount: Int, closedCount: Int, removedCount: Int, remaining: Int) {
+        self.joinedCount = joinedCount
+        self.closedCount = closedCount
+        self.removedCount = removedCount
+        self.remaining = remaining
     }
 }
 
@@ -89,6 +112,216 @@ public final class ShapeJoinEngine {
         }
 
         return nil
+    }
+
+    // MARK: - Gap-tolerance join + zero-span delete (SPK-2020a0)
+
+    /// Legacy exact-coincidence epsilon used by `joinLines`/`joinPolylines`.
+    /// `tolerance = 0` clamps up to this so zero-tolerance calls reproduce
+    /// today's behaviour bit-for-bit.
+    private static let legacyEpsilon: Double = 1e-6
+
+    /// Epsilon below which a shape is considered degenerate (zero span).
+    private static let zeroSpanEpsilon: Double = 1e-9
+
+    private static func near(_ a: VectorPoint, _ b: VectorPoint, _ eps: Double) -> Bool {
+        hypot(a.x - b.x, a.y - b.y) <= eps
+    }
+
+    /// Chain freehand polylines whose endpoints lie within `tolerance`
+    /// (default 0.1 mm) into single polylines. Non-freehand shapes and
+    /// unattached polylines pass through untouched, in original order.
+    ///
+    /// `tolerance = 0` reproduces today's behaviour exactly (clamped to the
+    /// legacy 1e-6 exact-coincidence epsilon used by `joinPolylines`).
+    ///
+    /// Returns `(joined, remaining)` — merged chains first, then everything
+    /// that was not part of a chain — mirroring `joinLines(_:)`'s shape.
+    @discardableResult
+    public static func joinAll(shapes: [VectorShape], tolerance: Double = 0.1)
+        -> ([VectorShape], [VectorShape])
+    {
+        let detailed = joinAllDetailed(shapes: shapes, tolerance: tolerance)
+        return (detailed.chains, detailed.remaining)
+    }
+
+    /// Internal worker that also reports how many merge operations occurred.
+    private static func joinAllDetailed(shapes: [VectorShape], tolerance: Double)
+        -> (chains: [VectorShape], remaining: [VectorShape], mergeCount: Int)
+    {
+        guard !shapes.isEmpty else { return ([], [], 0) }
+        let eps = Swift.max(tolerance, legacyEpsilon)
+
+        struct PolyInfo {
+            let points: [VectorPoint]
+            let sourceIndex: Int
+        }
+
+        var polys: [PolyInfo] = []
+        for (index, shape) in shapes.enumerated() {
+            if case .freehand(let p) = shape, p.count >= 2 {
+                polys.append(PolyInfo(points: p, sourceIndex: index))
+            }
+        }
+
+        var chains: [VectorShape] = []
+        var remaining: [VectorShape] = []
+        var usedSource: Set<Int> = []
+        var mergedSource: Set<Int> = []   // sources absorbed into a multi-shape chain
+        var totalMerges = 0
+
+        for i in polys.indices where !usedSource.contains(polys[i].sourceIndex) {
+            var chain = polys[i].points
+            var chainMerges = 0
+            var chainSources: Set<Int> = [polys[i].sourceIndex]
+            usedSource.insert(polys[i].sourceIndex)
+
+            var changed = true
+            while changed {
+                changed = false
+                for j in polys.indices where !usedSource.contains(polys[j].sourceIndex) {
+                    let cStart = chain[0]
+                    let cEnd = chain[chain.count - 1]
+                    let pStart = polys[j].points[0]
+                    let pEnd = polys[j].points[polys[j].points.count - 1]
+
+                    if near(cEnd, pStart, eps) {
+                        // chain-end → candidate-start: plain concatenation,
+                        // dropping the coincident duplicate.
+                        chain.append(contentsOf: polys[j].points.dropFirst())
+                        usedSource.insert(polys[j].sourceIndex)
+                        chainSources.insert(polys[j].sourceIndex)
+                        chainMerges += 1
+                        changed = true
+                    } else if near(cEnd, pEnd, eps) {
+                        // chain-end → candidate-end: append candidate reversed.
+                        chain.append(contentsOf: polys[j].points.reversed().dropFirst())
+                        usedSource.insert(polys[j].sourceIndex)
+                        chainSources.insert(polys[j].sourceIndex)
+                        chainMerges += 1
+                        changed = true
+                    } else if near(cStart, pStart, eps) {
+                        // chain-start → candidate-start: prepend reversed chain.
+                        var merged = Array(chain.reversed().dropLast())
+                        merged.append(contentsOf: polys[j].points)
+                        chain = merged
+                        usedSource.insert(polys[j].sourceIndex)
+                        chainSources.insert(polys[j].sourceIndex)
+                        chainMerges += 1
+                        changed = true
+                    } else if near(cStart, pEnd, eps) {
+                        // chain-start → candidate-end: run from candidate start
+                        // through the coincident pair to chain end.
+                        var merged = Array(polys[j].points.reversed().dropLast())
+                        merged.append(contentsOf: chain)
+                        chain = merged
+                        usedSource.insert(polys[j].sourceIndex)
+                        chainSources.insert(polys[j].sourceIndex)
+                        chainMerges += 1
+                        changed = true
+                    }
+                }
+            }
+
+            // A chain that absorbed nothing is NOT a join result — it passes
+            // through untouched (mirrors joinLines' semantics).
+            if chainMerges > 0 {
+                chains.append(.freehand(points: chain))
+                mergedSource.formUnion(chainSources)
+                totalMerges += chainMerges
+            }
+        }
+
+        // Non-polyline shapes and unattached/unmerged polylines pass through
+        // untouched, in original input order.
+        for (index, shape) in shapes.enumerated() where !mergedSource.contains(index) {
+            remaining.append(shape)
+        }
+
+        return (chains, remaining, totalMerges)
+    }
+
+    /// True when `shape` is degenerate: zero length/area footprint, fewer
+    /// than two usable points, or non-positive radii/dimensions.
+    public static func isZeroSpan(_ shape: VectorShape) -> Bool {
+        let eps = zeroSpanEpsilon
+        switch shape {
+        case .line(let s, let e):
+            return hypot(s.x - e.x, s.y - e.y) <= eps
+        case .circle(_, let radius):
+            return radius <= eps
+        case .rectangle(_, let width, let height):
+            return width <= eps || height <= eps
+        case .arc(_, let radius, _, _):
+            return radius <= eps
+        case .ellipse(_, let radiusX, let radiusY, _):
+            return radiusX <= eps || radiusY <= eps
+        case .polygon(_, let radius, let sides, _):
+            return radius <= eps || sides < 3
+        case .star(_, let outerRadius, let innerRadius, let points, _):
+            return outerRadius <= eps || innerRadius <= eps || points < 3
+        case .freehand(let points):
+            guard points.count >= 2, let first = points.first else { return true }
+            for p in points where hypot(p.x - first.x, p.y - first.y) > eps {
+                return false
+            }
+            return true
+        }
+    }
+
+    /// Partition `shapes` into non-degenerate and degenerate (zero-span)
+    /// shapes. Returns `(kept, removed)` with both lists in input order.
+    public static func deleteZeroSpan(_ shapes: [VectorShape])
+        -> (kept: [VectorShape], removed: [VectorShape])
+    {
+        var kept: [VectorShape] = []
+        var removed: [VectorShape] = []
+        kept.reserveCapacity(shapes.count)
+        for shape in shapes {
+            if isZeroSpan(shape) {
+                removed.append(shape)
+            } else {
+                kept.append(shape)
+            }
+        }
+        return (kept, removed)
+    }
+
+    /// Session-facing APPLY entry point (SPK-2020a0): joins gap-tolerant
+    /// freehand polylines, deletes zero-span shapes, mutates `shapes` in
+    /// place, and reports what happened so callers never apply a
+    /// suggestedFix copy themselves.
+    ///
+    /// - Parameters:
+    ///   - shapes: The session's live shape array; replaced with the cleaned result.
+    ///   - tolerance: Endpoint gap tolerance in mm (`0` = legacy exact match).
+    /// - Returns: `(joinedCount, closedCount, removedCount, remaining)` counts.
+    @discardableResult
+    public static func applyJoinAndCleanup(_ shapes: inout [VectorShape], tolerance: Double = 0.1)
+        -> JoinApplyResult
+    {
+        let eps = Swift.max(tolerance, legacyEpsilon)
+
+        let detail = joinAllDetailed(shapes: shapes, tolerance: tolerance)
+        var output = detail.chains + detail.remaining
+
+        // Count chains whose endpoints now meet within tolerance → closed loops.
+        var closedCount = 0
+        for shape in output {
+            guard case .freehand(let p) = shape, p.count >= 2 else { continue }
+            if near(p[0], p[p.count - 1], eps) { closedCount += 1 }
+        }
+
+        let (kept, removed) = deleteZeroSpan(output)
+        output = kept
+        shapes = output
+
+        return JoinApplyResult(
+            joinedCount: detail.mergeCount,
+            closedCount: closedCount,
+            removedCount: removed.count,
+            remaining: output.count
+        )
     }
 
     /// Close an open polyline (freehand with 2+ points) by appending a
