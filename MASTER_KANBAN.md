@@ -1704,6 +1704,9 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 
 ## 12. Work log
 
+### 2026-08-24 — SPK-0508 TP Job sheet PDF (Hermes coder, kanban t_44ac5e72)
+- **SPK-0508 [x]** — no-op verification. AC already met by prior work. Engine: `JobSheetGenerator` (pure Swift PDF writer — objects/xref/trailer, no external deps) + `JobSheetHTMLTemplateEngine` (bundled A4 HTML template with `{{TOKEN}}` placeholders, HTML-escaped substitution, per-toolpath `<tr>` rows). UI: Cut-stage "Job Sheet…" button → `exportJobSheet()` renders HTML to PDF via WebKit `createPDF` with HTML-file fallback. Persist: template bundled; `JobSheetData`/`ToolpathInfo` Codable. Verify: `JobSheetGeneratorTests` 21/21 PASS (file creation, empty/multiple toolpaths, PDF structure, content validation, special chars, Codable round-trip) + `ShopPilotVerify1135` PASS (golden HTML content, toolpath rows, escaping, strategy mapping, node accessors). MASTER_KANBAN.md card already [x]; §12 worklog updated.
+
 ### 2026-08-24 — SPK-0318 UX Coach follow-source copy (Hermes coder, kanban t_92acf05d)
 - **SPK-0318 [x]** — no-op verification. AC already met by 2026-08-04 work. Engine: `CoachCopy.followSourceCutMessage(mode:activeLinkCount:)` (Core) — OFF copy warns toolpaths don't follow art; ON copy explains stale→dirty→export-block + never-silent, quotes link count. UI: CoachPanelView takes session follow-source state; ContentView wires it. Re-ran `ShopPilotVerify0318` PASS — copy claims verified against the real 0319 engine (dirty on sourcesDidChange, G-code untouched). MASTER_KANBAN.md card already [x]; §12 worklog updated.
 
@@ -2506,13 +2509,13 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
   - Out of scope: flat-area sweep, form UI, Photo V-Carve
   - Verify: `./scripts/verify_locked.sh ShopPilotVerify2010b` — PASS (bulb −20.0 < neck −6.0; neck+bulb interiors visited iff medial on; circle-vs-slot width-Z proven at same sheet Y; open path no medial marker; no M6/G28, M3 iff rpm>0, deterministic). VCarveClear PASS. Sweep: 0312/1102d/1136d/DOGFOOD01/SHAKEf all PASS; Golden25D re-derived (outline prefix byte-exact + valley invariants) PASS.
 
-- [ ] **SPK-2010c** **CAM** Flat-area clearing + additive params persist // P0
+- [x] **SPK-2010c** **CAM** Flat-area clearing + additive params persist // P0
   - Parent: SPK-2010. Assignee: `coder`. `--max-runtime 60m`. Worktree. deps: SPK-2010b
   - AC:
     - Wide rect + shallow max-depth emits `(Flat area clearing:` when flag on, not when off
     - Legacy JSON decodes medial default on / flat default off; recalc from `paramsJSON` changes G-code
   - Out of scope: new Add-menu strategy
-  - Verify: `./scripts/verify_locked.sh ShopPilotVerify2010c`
+  - Verify: `./scripts/verify_locked.sh ShopPilotVerify2010c` — PASS (80×40 rect @90°/2mm: 1336 off-spine Z−2 lateral cuts when on, none when off; `{}` and pre-2010 JSON decode medial-on/flat-off; round-trip keeps all five Valley keys; computeDirtyToolpathResults regenerates from mutated stored paramsJSON). VCarveClear + 2010b re-run PASS.
 
 - [ ] **SPK-2010d** **UX** Valley group on V-Carve params form // P0
   - Parent: SPK-2010. Assignee: `coder`. `--max-runtime 45m`. Worktree. deps: SPK-2010c
@@ -2538,3 +2541,8 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
 - Claimed: SPK-2010b (deps 2010a met).
 - Did: `VCarveEngine.swift` — Y-position shading REMOVED (`normalizedY`/`shadedZ`/vectorBounds scaffolding deleted); outline Z now = `VCarveGeometry.depthForHalfWidth(distanceToNearestOtherEdge(vertex), angle, maxDepth)` clamped per pass via `max(z, actualZ)` (flat-bottom mode forces a truly flat pass); plunge + lead-out ride width-Z too; closed vectors gain a skeleton pass after their outline passes: `(Medial axis: N ridge path(s), max clearance X.XXXmm)` comment, G0 Z5.0 / G0 XY / G1 Z headZ / G1 per ridge point at clearance-derived Z / G0 Z5.0, added to the time estimate. `VCarveParams` += `medialAxisPass` (default **true**) + `medialAxisCellMm` (default 1.0), additive decodeIfPresent — pre-2010 JSON decodes unchanged. `VCarveGeometry.distanceToNearestOtherEdge` hardening: segment skip is now spatial (touches-index OR touches-position <1e-9) because ShopPilot closed paths duplicate the first point at the seam — an index-only skip left the seam vertex measuring zero width and cutting air-shallow. New `ShopPilotVerify2010b` CLT ports all five reference engine asserts. Collateral honestly re-derived: Golden25D V-Carve goldens froze Y-shading bytes → replaced with byte-exact outline prefix (unchanged semantics where widths clamp) + valley invariants (spine presence, clamped-depth spine cuts, footer); stale XCTest `testVCarveShadingZVariation` updated to width semantics. Sweep: 0312/1102d/1136d/DOGFOOD01/SHAKEf/VCarveClear all PASS on new engine. Note: a sibling's time-estimate wave (AppSession/ToolpathTree/Job edits) was in-flight in the same worktree — committed only this disjoint slice around it.
 - Result: [x] — 2010b PASS (bulb −20.0 < neck −6.0; interiors iff medial on; deterministic; G-code hygiene clean) + VCarveClear PASS + Golden25D PASS.
+
+### 2026-08-24 — SPK-2010c (Hermes coder)
+- Claimed: SPK-2010c (deps 2010b met).
+- Did: `VCarveEngine.swift` — added `flatAreaSweep(skeleton:params:maxDepth:)`: ridge points are "flat" when clearance ≥ tipHalfWidthAtMaxDepth × `flatAreaThresholdFactor` (default 1.5); each maximal flat run is swept laterally at −maxDepth with `flatAreaStepOverMm` (default 1.0), offsets straddling the spine perpendicular (+step, −step, +2·step…, capped at the extra half-width), guarded by `(Flat area clearing: regions wider than N.NNNmm tip width)`. Called after a closed vector's spine pass only when `flatAreaClearing` is on (default **off**). `VCarveParams` += `flatAreaClearing`/`flatAreaThresholdFactor`/`flatAreaStepOverMm`, additive decodeIfPresent. New `ShopPilotVerify2010c` CLT: comment+off-spine Z−2 cuts iff flag on; `{}` and pre-2010 legacy JSON decode medial-on/flat-off; full round-trip of all five Valley keys; recalc via `ToolpathTreeManager.computeDirtyToolpathResults` from mutated stored `paramsJSON` changes the G-code and honours the flag. Fixture gotcha worth remembering: `[UUID: Double]` (vectorDepths) round-trips through JSONEncoder as an ARRAY of pairs — legacy fixtures must use `"vectorDepths":[]`, not `{}`.
+- Result: [x] — 2010c PASS (1336 off-spine sweep cuts when on / none off; defaults correct; recalc regenerates) + VCarveClear & 2010b re-run PASS.
