@@ -9,6 +9,8 @@ import ShopPilotCore
 /// on the canvas (and shows the suggested fix in the status bar).
 struct PreflightDoctorView: View {
     @ObservedObject var session: AppSession
+    /// SPK-2020a — result copy of the last one-tap repair ("N repaired, M remain").
+    @State private var repairResultText: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -27,6 +29,8 @@ struct PreflightDoctorView: View {
             .padding(.vertical, 8)
 
             Divider()
+
+            repairRow
 
             if let report = session.lastPreflightReport, !report.issues.isEmpty {
                 ScrollView {
@@ -92,6 +96,62 @@ struct PreflightDoctorView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+    }
+
+    // MARK: - SPK-2020a — one-tap repair row
+
+    /// Join All / Close All / Delete Zero-Span — all route through the
+    /// session's undoable `repairVectors()` entry (join + close-count +
+    /// zero-span delete), then the preflight report revalidates automatically,
+    /// so remaining issues keep the list visible. Disabled when zero problems.
+    private var repairRow: some View {
+        VStack(spacing: 6) {
+            HStack(spacing: 6) {
+                Button("Join All") { performRepair() }
+                    .buttonStyle(.bordered)
+                Button("Close All") { performRepair() }
+                    .buttonStyle(.bordered)
+                Button("Delete Zero-Span") { performRepair() }
+                    .buttonStyle(.bordered)
+                Spacer()
+                if hasOpenPathIssues {
+                    Button {
+                        let r = session.fixOpenVectorsAndReVCarve()
+                        noteRepairResult(joined: r.joined, closed: r.closed,
+                                         removed: r.removed, remaining: r.remaining)
+                    } label: {
+                        Label("Fix Open Vectors", systemImage: "wrench.and.screwdriver.fill")
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+            }
+            .controlSize(.small)
+            if let text = repairResultText {
+                Text(text)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .disabled((session.lastPreflightReport?.issues.isEmpty ?? true))
+    }
+
+    private var hasOpenPathIssues: Bool {
+        session.lastPreflightReport?.issues.contains { $0.issue == .openPath } ?? false
+    }
+
+    private func performRepair() {
+        let result = session.repairVectors()
+        noteRepairResult(joined: result.joined, closed: result.closed,
+                         removed: result.removed, remaining: result.remaining)
+    }
+
+    private func noteRepairResult(joined: Int = 0, closed: Int = 0,
+                                  removed: Int = 0, remaining: Int = 0) {
+        let repaired = joined + closed + removed
+        repairResultText = "\(repaired) repaired, \(remaining) remain"
     }
 
     private var summaryText: String {

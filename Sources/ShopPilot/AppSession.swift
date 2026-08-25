@@ -2590,7 +2590,111 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
         statusMessage = issue.suggestedFix ?? issue.message
     }
 
+    // MARK: - One-tap vector repair (SPK-2020a)
+
+    /// True when a V-Carve attempt was blocked by the open-vector gate
+    /// (`generateVCarveToolpath`). The doctor's Fix CTA clears it by repairing
+    /// the vectors and auto-retrying the carve.
+    @Published private(set) var vCarvePendingRetry = false
+
+    /// One-tap vector repair behind the Preflight Doctor's Join All / Close All /
+    /// Delete Zero-Span buttons: registers an undo point, applies the SPK-2020a0
+    /// gap-tolerance join + zero-span cleanup to the live design shapes,
+    /// revalidates the preflight report automatically, marks the document dirty,
+    /// and returns `(joined, closed, removed, remaining)` counts.
+    @discardableResult
+    func repairVectors(tolerance: Double = 0.1)
+        -> (joined: Int, closed: Int, removed: Int, remaining: Int)
+    {
+        registerUndoPoint()
+        var repaired = shapes
+        let result = ShapeJoinEngine.applyJoinAndCleanup(&repaired, tolerance: tolerance)
+        shapeLayerIDs = rebuiltRepairLayerIDs(
+            oldShapes: shapes, oldIDs: shapeLayerIDs, newShapes: repaired)
+        shapes = repaired
+        selectedShapeIndices = []
+        syncLayerVectors()
+        markDirty()
+        // Revalidate automatically so the doctor list reflects M remaining.
+        runPreflight()
+        let repairedCount = result.joinedCount + result.closedCount + result.removedCount
+        statusMessage = "\(repairedCount) repaired, \(result.remaining) remain"
+        return (joined: result.joinedCount, closed: result.closedCount,
+                removed: result.removedCount, remaining: result.remaining)
+    }
+
+    /// Rebuild the parallel `shapeLayerIDs` after a repair: surviving shapes
+    /// keep their source layer (matched by value against the old array);
+    /// merged/deleted provenance collapses onto the first layer.
+    private func rebuiltRepairLayerIDs(oldShapes: [VectorShape], oldIDs: [UUID],
+                                       newShapes: [VectorShape]) -> [UUID] {
+        let fallback = layers.first?.id ?? oldIDs.first ?? UUID()
+        var used = Set<Int>()
+        used.reserveCapacity(oldShapes.count)
+        var rebuilt: [UUID] = []
+        rebuilt.reserveCapacity(newShapes.count)
+        for shape in newShapes {
+            if let source = oldShapes.indices.first(where: { !used.contains($0) && oldShapes[$0] == shape }) {
+                used.insert(source)
+                rebuilt.append(oldIDs.indices.contains(source) ? oldIDs[source] : fallback)
+            } else {
+                rebuilt.append(fallback)
+            }
+        }
+        return rebuilt
+    }
+
+    /// SPK-2020a — V-Carve Fix CTA from the open-path gate failure path:
+    /// one-tap repair (undoable + dirty), automatic revalidation, and when the
+    /// open-vector gate clears, an auto-retry of the pending V-Carve.
+    @discardableResult
+    func fixOpenVectorsAndReVCarve()
+        -> (joined: Int, closed: Int, removed: Int, remaining: Int)
+    {
+        let result = repairVectors()
+        guard lastPreflightReport?.issues.isEmpty == true,
+              vCarvePendingRetry else { return result }
+        generateVCarveToolpath()
+        return result
+    }
+
     var hasSelection: Bool { !selectedVectorIDs.isEmpty || !selectedShapeIndices.isEmpty }
+
+    // MARK: - VectorRepairSessionLike (SPK-2020a — test-driver surface)
+
+    var repairShapes: [VectorShape] {
+        get { shapes }
+        set { shapes = newValue }
+    }
+
+    var repairShapeLayerIDs: [UUID] {
+        get { shapeLayerIDs }
+        set { shapeLayerIDs = newValue }
+    }
+
+    var repairIsDirty: Bool { isDirty }
+
+    var repairCanUndo: Bool { canUndo }
+
+    var repairStatusMessage: String { statusMessage }
+
+    var repairPreflightIssueCount: Int? {
+        lastPreflightReport.map { $0.issues.count }
+    }
+
+    @discardableResult
+    func performRepair(tolerance: Double)
+        -> (joined: Int, closed: Int, removed: Int, remaining: Int)
+    {
+        repairVectors(tolerance: tolerance)
+    }
+
+    @discardableResult
+    func repairUndo() -> Bool { undo() }
+
+    func repairRunPreflight() {
+        _ = runPreflight()
+    }
 
     // MARK: - Expanded vector validator (SPK-0806)
 
@@ -3866,11 +3970,13 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
         if let gateReport = VectorPreflight.vCarveGate(shapes: shapes) {
             lastPreflightReport = gateReport
             preflightPanelVisible = true
+            vCarvePendingRetry = true  // SPK-2020a — the doctor Fix CTA retries
             let openCount = gateReport.issues.filter { $0.issue == .openPath }.count
-            statusMessage = "V-Carve blocked: \(openCount) open vector(s) — close them in Design first"
+            statusMessage = "V-Carve blocked: \(openCount) open vector(s) — use Fix Open Vectors in the preflight doctor"
             selectedStage = .design
             return
         }
+        vCarvePendingRetry = false
         let vectorsSnapshot = vectors
         let stockHeight = activeSheet?.height ?? 25.0
         let nodeCount = toolpathTree.allNodes.count

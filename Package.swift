@@ -601,6 +601,12 @@ let package = Package(
             dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
             path: "Sources/ShopPilotVerify2020a0"
         ),
+        // PHASE X (2026-08-25) — SPK-2020a doctor one-tap repair + vcarve Fix CTA.
+        .executableTarget(
+            name: "ShopPilotVerify2020a",
+            dependencies: ["ShopPilotCore", "ShopPilotGeometry", "ShopPilot"],
+            path: "Sources/ShopPilotVerify2020a"
+        ),
         .executableTarget(
             name: "ShopPilotVerify1137",
             dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
