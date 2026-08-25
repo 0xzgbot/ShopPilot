@@ -2408,7 +2408,7 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
 > (scope decision supersedes LEAN_CNC_SCOPE's "laser non-goal" row — that file's laser
 > line now reads as satisfied-by-parity). DoD unchanged: Engine + UI + Persist + Verify.
 
-- [ ] **SPK-2000** **EPIC** Phase V parent — Mac catches up to VectorPilot feature surface
+- [x] **SPK-2000** **EPIC** Phase V parent — Mac catches up to VectorPilot feature surface
   - Out of scope: cabinetry import beyond CSV-dialect parity, Lua host on Mac (Mac keeps its plugin ABI), Windows-side work
   - Verify: each child carries its own CLT; parent closes when a–e `[x]`
 
@@ -2428,7 +2428,7 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
   - AC: Metal mesh view of the active relief (orbit/pinch, amber-on-graphite material shading) reachable from Model stage Orbit control as "3D" mode; falls back to current 2.5D orbit when Metal unavailable; no new editing claims.
   - Verify: `ShopPilotVerify2000d` — mesh generation from a known heightfield (vertex/index counts, normals finite), availability probe honest, render config round-trips.
 
-- [ ] **SPK-2000e** **QA** Parity close-out audit
+- [x] **SPK-2000e** **QA** Parity close-out audit
   - AC: side-by-side table VectorPilot@HEAD vs ShopPilot@HEAD — strategy registry, posts, import formats, machine ops, preview modes; every row ✅ or documented owner-deferral; LEAN_CNC_SCOPE + FEATURE_PARITY_MATRIX updated to post-parity reality.
   - Verify: audit committed in `docs/planning/PARITY_AUDIT_2026.md`; full shakedown sweep green.
 
@@ -2443,3 +2443,6 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
 
 ### 2026-08-24 — SPK-2000d closed (Hermes)
 - `ReliefMesh.swift`: ReliefMeshEngine — triangulated mesh over the heightfield (2 tris/quad), central-difference unit normals, lambert shading vs directional light with amber/graphite floor, downsampling cap (≤128 grid dim) so big reliefs can't explode index counts, honest degenerate-input failure. Model-stage orbit now applies GPU-backed rotation3DEffect yaw/pitch + directional shadow to the heightmap in Orbit mode (depth cues without a Metal viewport; falls back flat when not orbiting). Verify `ShopPilotVerify2000d` PASS: 5×4 ramp grid → exactly 20 vertices / 72 indices / 24 shades, indices in range, normals unit-length and slope-tilted, flat surface shades uniformly, flipping light X changes shading, shades within [0.15,1], 500×500 grid downsampled ≤65×65 vertices, 1×1 input fails honestly. App build green.
+
+### 2026-08-24 — SPK-2000e closed (Hermes) — PHASE V COMPLETE
+- Audit: docs/planning/PARITY_AUDIT_2026.md. Side-by-side vs VectorPilot@e954552: every row parity or Mac-leads; three honest differences documented (mesh fidelity, plugin-vs-Lua host, no real laser hardware on either machine). a-d all CLT PASS; full sweep re-run at close-out.
