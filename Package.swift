@@ -576,6 +576,12 @@ let package = Package(
             dependencies: ["ShopPilotCore"],
             path: "Sources/ShopPilotVerify2022d"
         ),
+        // PHASE X (2026-08-25) — SPK-2021a inlay wizard physics verifier.
+        .executableTarget(
+            name: "ShopPilotVerify2021a",
+            dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
+            path: "Sources/ShopPilotVerify2021a"
+        ),
         .executableTarget(
             name: "ShopPilotVerify2020a0",
             dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
