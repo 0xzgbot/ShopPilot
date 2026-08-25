@@ -76,9 +76,15 @@ public struct DocumentLoader {
         let jobMetadata = try readManifest(from: packageURL)
         let (loadedSheets, sheetWarnings) = try loadSheets(from: packageURL)
         let toolpaths = try loadToolpaths(from: packageURL)
+        // SPK-1920i — optional relief section. Absent file = legacy document
+        // with no relief (decode unchanged); present file restores the
+        // ACTIVE relief + component stack verbatim.
+        let relief = try loadRelief(from: packageURL)
 
         var job = Job(id: jobMetadata.id, name: jobMetadata.name, sheets: loadedSheets)
         job.documentVariables = jobMetadata.documentVariables
+        if let hf = relief?.stlHeightfield { job.stlHeightfield = hf }
+        if let components = relief?.reliefComponents { job.reliefComponents = components }
 
         let payload = ShopPilotPackagePayload(job: job, toolpaths: toolpaths)
         return DocumentLoadResult(payload: payload, warnings: sheetWarnings)
@@ -134,6 +140,16 @@ public struct DocumentLoader {
         }
         let data = try Data(contentsOf: toolpathsURL)
         return try JSONDecoder().decode([PersistedToolpath].self, from: data)
+    }
+
+    /// SPK-1920i — read the optional relief section. Returns nil when the
+    /// package has no `relief.json` (legacy documents, or documents with no
+    /// relief data at save time). A corrupt file fails the open.
+    private func loadRelief(from packageURL: URL) throws -> PersistedRelief? {
+        let reliefURL = packageURL.appendingPathComponent("relief.json")
+        guard fileManager.fileExists(atPath: reliefURL.path) else { return nil }
+        let data = try Data(contentsOf: reliefURL)
+        return try JSONDecoder().decode(PersistedRelief.self, from: data)
     }
 
     /// Read the manifest.json file and extract job metadata.

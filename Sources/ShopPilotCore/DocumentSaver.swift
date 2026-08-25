@@ -20,6 +20,7 @@ public struct DocumentSaver {
 
         try writeManifest(payload.job, to: packageURL)
         try writeToolpaths(payload.toolpaths, to: packageURL)
+        try writeRelief(payload.job, to: packageURL)
 
         let sheetsDir = packageURL.appendingPathComponent("sheets")
         for sheet in payload.job.sheets {
@@ -86,6 +87,38 @@ public struct DocumentSaver {
         let data = try encoder.encode(toolpaths)
         let toolpathsURL = packageURL.appendingPathComponent("toolpaths.json")
         try data.write(to: toolpathsURL, options: .atomic)
+    }
+
+    /// SPK-1920i — write `relief.json` (document-level relief) ONLY when the
+    /// job actually carries relief data. Legacy packages have no such file
+    /// and stay byte-identical; older app builds ignore the unknown file.
+    private func writeRelief(_ job: Job, to packageURL: URL) throws {
+        guard job.stlHeightfield != nil || !(job.reliefComponents ?? []).isEmpty else { return }
+        let section = PersistedRelief(
+            stlHeightfield: job.stlHeightfield,
+            reliefComponents: job.reliefComponents
+        )
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(section)
+        let reliefURL = packageURL.appendingPathComponent("relief.json")
+        try data.write(to: reliefURL, options: .atomic)
+    }
+}
+
+// MARK: - Persisted relief section (SPK-1920i)
+
+/// Document-level relief payload of a `.shoppilot` package (`relief.json`).
+/// Additive + legacy-safe: written only when the document carries relief;
+/// a missing file decodes as no relief (exactly pre-1920i behavior), and
+/// readers that do not know the file ignore it.
+public struct PersistedRelief: Codable, Sendable {
+    public var stlHeightfield: HeightfieldData?
+    public var reliefComponents: [ReliefComponent]?
+
+    public init(stlHeightfield: HeightfieldData?, reliefComponents: [ReliefComponent]?) {
+        self.stlHeightfield = stlHeightfield
+        self.reliefComponents = reliefComponents
     }
 }
 
