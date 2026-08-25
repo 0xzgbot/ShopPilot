@@ -332,6 +332,10 @@ public struct MachineConnectionView: View {
             // else on the stage (Safety Req #1: never buried).
             safetyChrome
 
+            // SPK-2022g — decoded alarm banner: GRBL ALARM:/error: codes shown
+            // as plain text (raw console stays verbatim).
+            alarmBanner
+
             // SPK-1800g: large Machine DRO — X/Y/Z from parsed mPos.
             machineDRO
 
@@ -349,6 +353,10 @@ public struct MachineConnectionView: View {
             // SPK-1302/1303/1304 — live run controls: feed override,
             // spindle on/off, touch-off probing, work-offset switching.
             runControlsPanel
+
+            // SPK-2022g — user-editable macro buttons (park / bit-change /
+            // surface defaults), sent through the ok-gated sender on click.
+            macroStrip
 
             Divider()
 
@@ -884,7 +892,126 @@ public struct MachineConnectionView: View {
         }
     }
 
-    /// Short label for a jog step, so "0.01 mm" doesn't render as "0.010000".
+    // MARK: - Alarm Banner (SPK-2022g)
+
+    /// Plain-language alarm banner. `latchedAlarm` already carries the
+    /// AlarmDecoder text ("ALARM:1 — hard limit triggered; …"); it stays on
+    /// screen until Reset or reconnect so the fault can't quietly disappear.
+    /// The raw TX/RX console below still shows the untouched wire tokens.
+    private var alarmBanner: some View {
+        Group {
+            if chromeState.isLive, let alarmText = controller.latchedAlarm, !alarmText.isEmpty {
+                HStack(alignment: .firstTextBaseline, spacing: SP.Space.s) {
+                    Image(systemName: "exclamationmark.octagon.fill")
+                        .foregroundStyle(SP.Tint.safety)
+                        .font(.system(size: 13, weight: .bold))
+
+                    Text(alarmText)
+                        .font(.caption.weight(.medium))
+                        .textSelection(.enabled)
+
+                    Spacer(minLength: 0)
+
+                    Button {
+                        resetMachine()
+                    } label: {
+                        Label("Reset", systemImage: "arrow.counterclockwise")
+                            .font(.caption.weight(.semibold))
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .help("Stop the machine and clear the alarm")
+                }
+                .padding(.horizontal, SP.Space.m)
+                .padding(.vertical, SP.Space.s)
+                .background(SP.Tint.safety.opacity(0.12))
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Machine alarm banner: \(alarmText)")
+            }
+        }
+        .animation(SP.Motion.state, value: controller.latchedAlarm)
+    }
+
+    // MARK: - Macro Strip (SPK-2022g)
+
+    @State private var editingMacros = false
+
+    /// User-editable macro buttons on the machine dock. Each click sends that
+    /// macro's stored lines through the same ok-gated sender the touch-off
+    /// controls use; nothing fires automatically — not on connect, not on
+    /// launch (Safety Req #9).
+    private var macroStrip: some View {
+        Group {
+            if connectionManager.connectionState.isConnected {
+                VStack(alignment: .leading, spacing: SP.Space.xs) {
+                    HStack(spacing: SP.Space.s) {
+                        SectionLabel("Macros")
+
+                        Spacer()
+
+                        Button {
+                            editingMacros.toggle()
+                        } label: {
+                            Label(editingMacros ? "Done" : "Edit",
+                                  systemImage: editingMacros ? "checkmark" : "slider.horizontal.3")
+                                .font(.caption)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .help("Edit the macro buttons — names and their G-code lines")
+
+                        Button("Reset defaults") { controller.resetMacros() }
+                            .controlSize(.small)
+                            .help("Restore the suggested Park / Bit change / Surface prep macros")
+                    }
+
+                    HStack(spacing: SP.Space.s) {
+                        ForEach(controller.macroButtons) { macro in
+                            Button {
+                                controller.runMacro(macro)
+                            } label: {
+                                Label(macro.name, systemImage: "play.circle.fill")
+                                    .font(.caption.weight(.medium))
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(!controller.canSendMotion || macro.lines.isEmpty)
+                            .help("Send \(macro.lines.count) G-code line\(macro.lines.count == 1 ? "" : "s") through the ok-gated sender. Macros only fire when you click.")
+                        }
+
+                        if editingMacros {
+                            Button {
+                                controller.addMacro()
+                            } label: {
+                                Label("Add", systemImage: "plus.circle")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.bordered)
+                            .help("Add a new macro button")
+                        }
+
+                        Spacer(minLength: 0)
+                    }
+
+                    if editingMacros {
+                        ForEach(controller.macroButtons) { macro in
+                            MacroEditorRow(
+                                macro: macro,
+                                onUpdate: { name, lines in
+                                    controller.updateMacro(id: macro.id, name: name, lines: lines)
+                                },
+                                onDelete: { controller.deleteMacro(id: macro.id) }
+                            )
+                        }
+                    }
+                }
+                .padding(.horizontal, SP.Space.m)
+                .padding(.vertical, SP.Space.s)
+            }
+        }
+        .animation(SP.Motion.state, value: editingMacros)
+    }
+
+    // MARK: - Short label for a jog step, so "0.01 mm" doesn't render as "0.010000".
     private func stepLabel(_ size: Double) -> String {
         size >= 1 ? String(format: "%.0f mm", size) : String(format: "%g mm", size)
     }
@@ -1097,6 +1224,73 @@ extension ConnectionState {
         case .connected: return .green
         case .error: return .red
         }
+    }
+}
+
+// MARK: - SPK-2022g — macro editor row
+
+/// Editor for one macro button: name field + one-line-per-G-code text area.
+/// Changes persist to UserDefaults on every keystroke via `onUpdate`.
+private struct MacroEditorRow: View {
+    let macro: MacroButton
+    let onUpdate: (_ name: String, _ lines: [String]) -> Void
+    let onDelete: () -> Void
+
+    @State private var name: String
+    @State private var linesText: String
+
+    init(macro: MacroButton, onUpdate: @escaping (_ name: String, _ lines: [String]) -> Void,
+         onDelete: @escaping () -> Void) {
+        self.macro = macro
+        self.onUpdate = onUpdate
+        self.onDelete = onDelete
+        _name = State(initialValue: macro.name)
+        _linesText = State(initialValue: macro.lines.joined(separator: "\n"))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: SP.Space.s) {
+                TextField("Macro name", text: $name)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 160)
+                    .onChange(of: name) { persist() }
+
+                Spacer()
+
+                Button(role: .destructive) {
+                    onDelete()
+                } label: {
+                    Image(systemName: "trash")
+                }
+                .buttonStyle(.borderless)
+                .controlSize(.small)
+                .help("Delete this macro button")
+            }
+
+            TextEditor(text: $linesText)
+                .font(.system(.caption, design: .monospaced))
+                .frame(minHeight: 44, maxHeight: 88)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 4)
+                        .strokeBorder(Color.secondary.opacity(0.3), lineWidth: 0.5)
+                )
+                .onChange(of: linesText) { persist() }
+
+            Text("One G-code line per row — sent top-to-bottom through the ok-gated sender when you click the button")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Edit macro \(macro.name)")
+    }
+
+    private func persist() {
+        let lines = linesText
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        onUpdate(name, lines)
     }
 }
 

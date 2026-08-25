@@ -596,6 +596,12 @@ let package = Package(
             dependencies: ["ShopPilotCore"],
             path: "Sources/ShopPilotVerify2022e"
         ),
+        // PHASE X (2026-08-25) — SPK-2022g macros + alarm decode banner verifier.
+        .executableTarget(
+            name: "ShopPilotVerify2022g",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify2022g"
+        ),
         // PHASE X (2026-08-25) — SPK-2021a inlay wizard physics verifier.
         .executableTarget(
             name: "ShopPilotVerify2021a",

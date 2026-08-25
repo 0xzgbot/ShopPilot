@@ -188,7 +188,16 @@ public final class MachineController: ObservableObject {
     }
 
     /// Shop-floor phrasing for a raw controller code.
+    ///
+    /// SPK-2022g — GRBL 1.1 codes decode through the Core `AlarmDecoder`
+    /// ("ALARM:1 — hard limit triggered; …"); the decoded text surfaces in the
+    /// machine dock's alarm banner via `latchedAlarm` → chromeState. Unknown
+    /// codes keep the raw-line fallback below, and the raw TX/RX console is
+    /// untouched either way.
     private func plainAlarmText(_ raw: String) -> String {
+        if let decoded = AlarmDecoder.decode(raw) {
+            return "\(decoded). Motion stopped; press Reset to clear."
+        }
         let cleaned = raw.trimmingCharacters(in: CharacterSet(charactersIn: "<>"))
         if cleaned.uppercased().contains("ALARM") {
             return "Machine alarm — \(cleaned). Motion stopped; press Reset to clear."
@@ -529,6 +538,67 @@ public final class MachineController: ObservableObject {
                 "Tool length offset sent (T\(toolNumber), plate \(plateThickness)mm) — Z re-probed after tool change; XY untouched"
             )
         }
+    }
+
+    // MARK: - Macro buttons (SPK-2022g)
+
+    /// User-editable macro buttons on the machine dock, persisted in
+    /// UserDefaults via `MacroStore`. Loaded once at init; edits go through
+    /// the mutators below so storage and UI stay in sync.
+    @Published public private(set) var macroButtons: [MacroButton] = MacroStore.load()
+
+    /// Send a macro's ordered G-code lines through the EXISTING ok-gated
+    /// sender path — exactly what `touchOffZ`/`touchOffXYZPlate` use. Macros
+    /// fire ONLY on an explicit button click: nothing here is reachable from
+    /// `connect()` or app launch (Safety Req #9 — no auto-run on connect).
+    /// A disconnected or busy machine makes this an honest no-op.
+    public func runMacro(_ macro: MacroButton) {
+        guard canSendMotion else {
+            connection.addSystemMessage("Macro '\(macro.name)' needs a connected, idle machine — connect first")
+            return
+        }
+        let lines = macro.lines
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard !lines.isEmpty else { return }
+        Task {
+            for line in lines {
+                await connection.sendCommand(line)
+            }
+            connection.addSystemMessage("Macro '\(macro.name)' sent — \(lines.count) line\(lines.count == 1 ? "" : "s")")
+        }
+    }
+
+    /// Replace a macro's name + lines (from the dock editor) and persist.
+    public func updateMacro(id: UUID, name: String, lines: [String]) {
+        var next = macroButtons
+        guard let index = next.firstIndex(where: { $0.id == id }) else { return }
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        next[index].name = trimmedName.isEmpty ? "Macro" : trimmedName
+        next[index].lines = lines
+        macroButtons = next
+        MacroStore.save(next)
+    }
+
+    /// Add a blank macro button and persist.
+    public func addMacro() {
+        var next = macroButtons
+        next.append(MacroButton(name: "New macro", lines: []))
+        macroButtons = next
+        MacroStore.save(next)
+    }
+
+    /// Delete a macro button and persist.
+    public func deleteMacro(id: UUID) {
+        let next = macroButtons.filter { $0.id != id }
+        macroButtons = next
+        MacroStore.save(next)
+    }
+
+    /// Restore the suggested defaults (Park / Bit change / Surface prep).
+    public func resetMacros() {
+        macroButtons = MacroStore.resetToSuggestedDefaults()
+        connection.addSystemMessage("Macros reset to suggested defaults")
     }
 
     // MARK: - Work offsets (SPK-1304)
