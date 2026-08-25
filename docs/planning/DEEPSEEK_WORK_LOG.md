@@ -56,3 +56,19 @@ RESULT: PASS
 - Verdict: worker claim CONFIRMED. Card closed by orchestrator.
 
 **Status:** COMPLETE — PASS confirmed independently.
+
+---
+
+## Task 2 — SPK-2023c: 2D rest machining engine (PocketToolpath.swift)
+
+- **Dispatched:** 2026-08-25 ~18:00 MDT
+- **Scope allowed:** Sources/ShopPilotCore/PocketToolpath.swift + Sources/ShopPilotVerify2023c/main.swift (target pre-registered). Commit card files only.
+- **Forbidden:** MASTER_KANBAN.md, push, swift test, rm -rf .build, UI/forms (SPK-2023d owns those), SpecialtyParamsForms.swift, AppSession.swift.
+- **Baseline:** HEAD at dispatch — b9e0df0 or later.
+- **Status:** RUNNING
+
+### Worker output — VERBATIM
+(pending)
+
+### Orchestrator verification (separate from worker output)
+- PENDING
