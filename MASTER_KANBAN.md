@@ -2608,7 +2608,7 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
   - New `Sources/ShopPilotCore/DeviceProfiles.swift` + bundled JSON catalog (LongMill, Shapeoko 3/4, Onefinity, WorkBee, Generic GRBL): post flavor, baud, travel X/Y/Z, origin convention. Connection picker sets all in one choice; jog soft-limit warn from travel (§2.4); Generic fallback never blocks connect; last-used persists.
   - Test: `ShopPilotVerify2022d`. Gate: verify_locked 2022d.
 
-- [ ] **SPK-2022e** **UI** Per-op enable flag + filter at send (toggle-ops, no resume)
+- [x] **SPK-2022e** **UI** Per-op enable flag + filter at send (toggle-ops, no resume)
   - `ToolpathTree` per-node `enabled` (legacy-safe decode, persisted), toggle column in tree/layers UI, send emits enabled ops only without re-post; re-enable restores prior G-code byte-for-byte. Crash resume is deliberately NOT here (parked card).
   - Test: `ShopPilotVerify2022e`.
 
