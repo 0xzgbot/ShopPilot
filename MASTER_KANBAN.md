@@ -2614,7 +2614,7 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
 
 - [ ] **SPK-2022f** **BACKLOG** Resume at line N (parked until 2022e merges) — safe-entry state machine: rapid-to-start of target line at/below current Z or safe Z lift first; position sync; "Resume from line…" UI post-abort.
 
-- [ ] **SPK-2022g** **MACHINE** Macros + alarm decode banner
+- [x] **SPK-2022g** **MACHINE** Macros + alarm decode banner
   - User-editable macro buttons (park / bit-change / surface) through existing ok-gated sender, no auto-run on connect; `AlarmDecoder` GRBL 1.1 table → plain-text banner ("ALARM:2 — hard limit; clear switches, then home"); unknown codes raw fallback; raw TX/RX console unchanged.
   - Test: `ShopPilotVerify2022g`.
 
