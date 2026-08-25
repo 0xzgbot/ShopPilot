@@ -2618,7 +2618,7 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
   - User-editable macro buttons (park / bit-change / surface) through existing ok-gated sender, no auto-run on connect; `AlarmDecoder` GRBL 1.1 table → plain-text banner ("ALARM:2 — hard limit; clear switches, then home"); unknown codes raw fallback; raw TX/RX console unchanged.
   - Test: `ShopPilotVerify2022g`.
 
-- [ ] **SPK-2023a** **QA** Chip-load preflight warning
+- [x] **SPK-2023a** **QA** Chip-load preflight warning
   - Create `Sources/ShopPilotCore/Resources/bit_feeds_seed.json` FROM `docs/planning/research/BIT_FEEDS_LIBRARY.md`; preflight warns when feed/(rpm×flutes) outside material range; warning tier only; preset-filled jobs trusted (no warn). Test: `ShopPilotVerify2023a`.
 
 - [ ] **SPK-2023b** **GEO** T-bones — bit Ø only prompt; along-X/Y/auto-longest-edge; Dogbone.swift TBone variant; existing dogbone fixtures byte-stable. Test: `ShopPilotVerify2023b`.
