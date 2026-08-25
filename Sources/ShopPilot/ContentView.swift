@@ -2170,6 +2170,32 @@ private struct VCarveParamsForm: View {
                 }
             }
 
+            // SPK-2010 — valley-following strategy: the V-bit rides the
+            // medial-axis spine with Z from local channel width. This is the
+            // DEFAULT V-carve behaviour, not a pro-only gadget, so the group
+            // stays visible in beginner mode.
+            GroupBox("Valley") {
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle("Medial axis pass (carve interiors)", isOn: $params.medialAxisPass)
+                        .accessibilityLabel("Medial axis pass")
+                    if params.medialAxisPass {
+                        Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                            numRow("Skeleton cell size (mm)", $params.medialAxisCellMm)
+                        }
+                    }
+                    Toggle("Flat area clearing", isOn: $params.flatAreaClearing)
+                        .accessibilityLabel("Flat area clearing")
+                    if params.flatAreaClearing {
+                        Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                            numRow("Width threshold ×", $params.flatAreaThresholdFactor)
+                            numRow("Sweep step-over (mm)", $params.flatAreaStepOverMm)
+                        }
+                    }
+                }
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("vcarve.valley")
+            }
+
             Button("Apply Params — Regenerate") {
                 onApply(params)
             }
