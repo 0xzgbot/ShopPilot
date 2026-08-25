@@ -2485,11 +2485,11 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
 
 > Filed 2026-08-24 from the family feature review: ShopPilot traces outlines and fakes depth with Y-shading. Vectric (and VectorPilot) ride the **medial-axis valley** with Z from local half-width. Prompt: `docs/planning/SPK-2010_VCARVE_QUALITY_AGENT_PROMPT.md`. Independent Swift — copy VectorPilot **semantics** only. Do **not** edit VectorPilot. Do **not** stamp SPK-0623.
 
-- [ ] **SPK-2010** **EPIC** Parent — V-Carve quality (width-Z + medial axis + optional flat-area)
+- [x] **SPK-2010** **EPIC** Parent — V-Carve quality (width-Z + medial axis + optional flat-area)
   - Parent: lean P0 sign quality. Assignee: `coder`. Worktree.
   - DoD: Engine + UI + Persist + Verify across children a–e
   - Out of scope: inlay physics, Photo V-Carve, exact Voronoi, live wood, VectorPilot edits
-  - Verify: children close; parent `[x]` only when a–e `[x]`
+  - Verify: children close; parent `[x]` only when a–e `[x]` — a–e all `[x]` 2026-08-24. Final gate set: 2010a/b/c CLTs PASS, VCarveClear PASS, Golden25D PASS (re-derived), 1106a/b + 1136d PASS, python 2010d gate 10/10, Core + app swift_locked builds PASS.
   - deps: none
 
 - [x] **SPK-2010a** **CAM** MedialAxis + VCarveGeometry + CLT — NEW FILES ONLY // P0 // parallel-ok
@@ -2517,11 +2517,11 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
   - Out of scope: new Add-menu strategy
   - Verify: `./scripts/verify_locked.sh ShopPilotVerify2010c` — PASS (80×40 rect @90°/2mm: 1336 off-spine Z−2 lateral cuts when on, none when off; `{}` and pre-2010 JSON decode medial-on/flat-off; round-trip keeps all five Valley keys; computeDirtyToolpathResults regenerates from mutated stored paramsJSON). VCarveClear + 2010b re-run PASS.
 
-- [ ] **SPK-2010d** **UX** Valley group on V-Carve params form // P0
+- [x] **SPK-2010d** **UX** Valley group on V-Carve params form // P0
   - Parent: SPK-2010. Assignee: `coder`. `--max-runtime 45m`. Worktree. deps: SPK-2010c
   - AC: Cut inspector GroupBox Valley (medial, cell, flat-area fields); Apply regenerates; python gate greps labels
   - Out of scope: inlay wizard, feeds library
-  - Verify: `python3 scripts/verify_2010d_vcarve_quality.py` + `./scripts/swift_locked.sh build --target ShopPilot`
+  - Verify: `python3 scripts/verify_2010d_vcarve_quality.py` — PASS (10/10: Valley GroupBox, all five bindings, AX labels on both toggles, onApply hook, unconditional visibility) + `swift_locked.sh build --target ShopPilot` PASS. Committed as a selective stage (only the Valley hunk) so the sibling's in-flight Recalculate-All hunk in ContentView stayed unstaged.
 
 - [x] **SPK-2010e** **QA** Sign-recipe + §O regression after valley semantics // P0
   - Parent: SPK-2010. Assignee: `coder`. `--max-runtime 45m`. Worktree. deps: SPK-2010b
@@ -2551,3 +2551,22 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
 - Claimed: SPK-2010e (deps 2010b met; taken before 2010d to avoid colliding with a sibling's in-flight ContentView work).
 - Did: evidence-audit close — re-ran every gate fresh on the post-valley engine: `ShopPilotVerify1106a` PASS, `ShopPilotVerify1106b` PASS (sign recipe still materializes a V-Carve node with cut moves through preflight→start→complete), `ShopPilotVerify1136d` PASS (§O keys + legacy decode + apply-regen on stored paramsJSON — now also exercising the new medial/flat keys via additive decode), VCarveClear PASS. Golden updates were already landed under SPK-2010b: Golden25D's V-Carve sections no longer freeze Y-shading bytes; they assert the byte-exact outline prefix plus valley invariants. Honest note for the record: default medial-on CHANGES closed-shape G-code vs 2010-era jobs — existing saved documents regenerate differently only after dirty+recalc (the established safety model; nothing regenerates silently).
 - Result: [x] — all four regression gates PASS; no code changes needed beyond those shipped in 2010b/c.
+
+### 2026-08-24 — SPK-2010d (Hermes coder)
+- Claimed: SPK-2010d (deps 2010c met; last child).
+- Did: `ContentView.swift` `VCarveParamsForm` — new GroupBox **Valley** after Clearance: "Medial axis pass (carve interiors)" toggle (AX label "Medial axis pass") + skeleton cell-size field when on; "Flat area clearing" toggle (AX label "Flat area clearing") + width-threshold × and sweep step-over fields when on. Group carries `.accessibilityIdentifier("vcarve.valley")` and is UNCONDITIONAL — visible in beginner mode because medial-on is the default V-carve, not a pro gadget. Apply → existing `onApply(params)` → applyVCarveParams regenerates. New repo python gate `scripts/verify_2010d_vcarve_quality.py` (brace-counting structural scan, not naive regex): 10 checks covering the GroupBox, all five bindings, both AX labels, the Apply hook, and no beginner/pro mode gate wrapping Valley. App target builds via swift_locked. Committed as a selective stage — only my Valley hunk of ContentView.swift, leaving the sibling's in-flight Recalculate-All hunk unstaged.
+- Result: [x] — python gate 10/10 PASS + ShopPilot app-target build PASS.
+
+### PHASE W parent close (SPK-2010)
+- Children a–e all `[x]`: a (MedialAxis+VCarveGeometry+CLT), b (width-Z + spine wired into VCarveEngine), c (flat-area sweep + additive persist), d (Valley form group), e (sign/§O regressions). Gates green at close: 2010a/b/c CLTs, VCarveClear, Golden25D (re-derived valley invariants), 1106a/b, 1136d, python 2010d gate, Core + app builds. Honest remaining gap per the prompt: grid medial axis is still not an exact continuous Voronoi axis — letters will look close, not identical; finer-cell/exact-MA is a future card outside this parent.
+
+### 2026-08-24 — SHAKE sweep bug cards (Hermes coder, overnight shakedown)
+
+- [ ] **SPK-SHAKE-BUG-ShopPilotVerify1319** **QA** Shakedown failure — `ShopPilotVerify1319`
+  - Repro: `./scripts/verify_locked.sh ShopPilotVerify1319` (log: /tmp/shoppilot-shake-20260824-1829/logs/ShopPilotVerify1319.log; exit $(cat /tmp/shoppilot-shake-20260824-1829/logs/ShopPilotVerify1319.log.exit 2>/dev/null))
+  - AC: Engine+UI+Persist+Verify — diagnose root cause (product bug vs harness flake); fix or document; re-run target + nearest regressions green.
+
+- [ ] **SPK-SHAKE-BUG-ShopPilotVerify1320** **QA** Shakedown failure — `ShopPilotVerify1320`
+  - Repro: `./scripts/verify_locked.sh ShopPilotVerify1320` (log: /tmp/shoppilot-shake-20260824-1829/logs/ShopPilotVerify1320.log; exit $(cat /tmp/shoppilot-shake-20260824-1829/logs/ShopPilotVerify1320.log.exit 2>/dev/null))
+  - AC: Engine+UI+Persist+Verify — diagnose root cause (product bug vs harness flake); fix or document; re-run target + nearest regressions green.
+
