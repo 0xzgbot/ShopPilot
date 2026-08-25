@@ -1,0 +1,10 @@
+{
+  "description": "Golden calibration job — 50×50mm closed square on 200×200×18mm stock with a real Profile toolpath.",
+  "icon": "checkmark.square",
+  "id": "C1B2A3D4-EEEE-4F5A-9B8C-7D6E5F4A3B2C",
+  "name": "Calibration",
+  "recommendedStrategy": "Profile on cut",
+  "stockDepth": 200.0,
+  "stockHeight": 18.0,
+  "stockWidth": 200.0
+}
