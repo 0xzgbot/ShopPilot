@@ -189,6 +189,61 @@ func main() {
            "inlay pocket cut order V-walls→floor — got \(cuttingSections(inlay.gcodeLines))")
     programEndSane(inlay.gcodeLines, "inlay pocket")
 
+    // GAP MY OWN AUDIT MISSED (caught by Cursor, guarded here):
+    // interior floor-filling must NOT apply to an ordinary sign board, or
+    // vFirst would pocket out the letters. `inlayInteriorFloor` gates it and
+    // only `computePocket` sets it. A lone-rect fixture cannot see this —
+    // the board needs a letter strictly inside.
+    let boardOutline = VectorPath(points: [
+        VectorPoint(x: 0, y: 0), VectorPoint(x: 30, y: 0),
+        VectorPoint(x: 30, y: 18), VectorPoint(x: 0, y: 18),
+    ], isClosed: true)
+    let letter = VectorPath(points: [
+        VectorPoint(x: 12, y: 7), VectorPoint(x: 18, y: 7),
+        VectorPoint(x: 18, y: 11), VectorPoint(x: 12, y: 11),
+    ], isClosed: true)
+
+    var signVFirst = VCarveParams()
+    signVFirst.clearancePassEnabled = true
+    signVFirst.vFirst = true            // interior floor NOT requested
+    expect(signVFirst.inlayInteriorFloor == false,
+           "inlayInteriorFloor defaults OFF (sign boards never interior-fill)")
+    let signG = VCarveEngine.compute(vectors: [boardOutline, letter], params: signVFirst).gcodeLines
+    expect(cuttingSections(signG) == ["V_CARVE_TOOLPATH", "VCARVE_CLEARANCE"],
+           "sign board vFirst: V then AROUND-letter clearance — got \(cuttingSections(signG))")
+    programEndSane(signG, "sign board vFirst")
+
+    // The letter interior must survive: no clearance cut may cross its middle.
+    let letterMidY = 9.0, letterMidX = 15.0
+    var insideLetterCuts = 0
+    var section = ""
+    for l in signG {
+        if l.hasPrefix("O=") { section = String(l.dropFirst(2)); continue }
+        guard section == "VCARVE_CLEARANCE", l.hasPrefix("G1"), l.contains("X") else { continue }
+        // Parse "G1 X.. Y.. F.." — flag rows crossing the letter's centre.
+        let parts = l.split(separator: " ")
+        var x: Double?, y: Double?
+        for p in parts {
+            if p.hasPrefix("X") { x = Double(p.dropFirst()) }
+            if p.hasPrefix("Y") { y = Double(p.dropFirst()) }
+        }
+        if let yy = y, abs(yy - letterMidY) < 1.0, let xx = x, abs(xx - letterMidX) < 2.0 {
+            insideLetterCuts += 1
+        }
+    }
+    expect(insideLetterCuts == 0,
+           "sign board vFirst: clearance never cuts through the letter interior (\(insideLetterCuts) hits)")
+
+    // And the inlay path DOES fill its interior (the complementary case).
+    var inlayInterior = VCarveParams()
+    inlayInterior.clearancePassEnabled = true
+    inlayInterior.vFirst = true
+    inlayInterior.inlayInteriorFloor = true
+    let fillG = VCarveEngine.compute(vectors: [square], params: inlayInterior).gcodeLines
+    expect(cutCount(fillG) > cutCount(
+        VCarveEngine.compute(vectors: [square], params: signVFirst).gcodeLines),
+        "inlayInteriorFloor=true fills the interior (more cuts than around-mode)")
+
     print("")
     print(failures == 0
           ? "ShopPilotVerifyPhaseYAudit: PASS"
