@@ -122,14 +122,17 @@ public struct HeightfieldFinishParams: Codable, Sendable, ToolFeedApplicable {
 
     public init(
         toolDiameterMm: Double = 3.175,
-        stepOverMm: Double = 0.8,
+        stepOverMm: Double? = nil,
         feedRateMmPerMin: Double = 1000,
         plungeFeedRateMmPerMin: Double = 300,
         safeZHeightMm: Double = 5.0,
         spindleRpm: Double = 0
     ) {
         self.toolDiameterMm = toolDiameterMm
-        self.stepOverMm = stepOverMm
+        // SPK-2100a — default finish stepover is 10% of D (Aspire's documented
+        // 8-12% finish quality band); an explicit value still wins. The legacy
+        // DECODE path below keeps 0.8 for pre-existing stored paramsJSON.
+        self.stepOverMm = stepOverMm ?? (toolDiameterMm * 0.10)
         self.feedRateMmPerMin = feedRateMmPerMin
         self.plungeFeedRateMmPerMin = plungeFeedRateMmPerMin
         self.safeZHeightMm = safeZHeightMm
@@ -294,9 +297,52 @@ public enum HeightfieldRoughEngine {
 // MARK: - Finish engine
 
 /// SPK-3D-spine-b — real surface-following finish from a heightfield. Raster
-/// rows at `stepOver` spacing; along each row the Z axis follows the bilinear
-/// heightfield surface (Z = h - stockTop), so the tool skims the relief.
+/// rows at `stepOver` spacing.
+/// SPK-2100a — drop-cutter / ball-nose compensation: the G-code traces the
+/// tool CENTER, not the surface contact point. For a ball of radius
+/// R = D/2 resting on the heightfield at (cx, cy), the center height must
+/// satisfy zc >= h(px, py) + sqrt(R^2 - d^2) for every sampled surface point
+/// within horizontal reach d <= R. Tracing the bare surface instead overcuts
+/// concave valleys by ~R and leaves cusps on convex peaks; with compensation
+/// the emitted Z is NOT the surface Z (on a flat it rides +R above).
 public enum HeightfieldFinishEngine {
+
+    /// SPK-2100a — relief-space height of the ball CENTER at (cx, cy) so the
+    /// ball rests ON the heightfield without gouging: max over grid samples
+    /// within horizontal distance R of [surface + sqrt(R^2 - d^2)]. The query
+    /// point is always a cell center, so its own sample (d = 0) is included.
+    /// R <= 0 degenerates to the raw surface (point cutter).
+    static func ballCenterHeight(
+        heightfield: HeightfieldData,
+        x cx: Double,
+        y cy: Double,
+        radiusMm R: Double
+    ) -> Double {
+        let ownHeight = heightfield.heightInterpolated(atX: cx, y: cy)
+        guard R > 1e-9 else { return ownHeight }
+        let cell = heightfield.cellSizeMm
+        let reach = Int(ceil(R / cell))
+        let ci = Int((cx - heightfield.minX) / cell)
+        let cj = Int((cy - heightfield.minY) / cell)
+        var required = -Double.infinity
+        let jLo = max(0, cj - reach), jHi = min(heightfield.height - 1, cj + reach)
+        let iLo = max(0, ci - reach), iHi = min(heightfield.width - 1, ci + reach)
+        if jLo <= jHi && iLo <= iHi {
+            for dj in jLo...jHi {
+                let py = heightfield.minY + (Double(dj) + 0.5) * cell
+                let dy = py - cy
+                for di in iLo...iHi {
+                    let px = heightfield.minX + (Double(di) + 0.5) * cell
+                    let dx = px - cx
+                    let d2 = dx * dx + dy * dy
+                    if d2 > R * R { continue }
+                    let h = heightfield.heightInterpolated(atX: px, y: py)
+                    required = max(required, h + (R * R - d2).squareRoot())
+                }
+            }
+        }
+        return max(required, ownHeight)
+    }
 
     public static func compute(
         heightfield: HeightfieldData,
@@ -305,13 +351,15 @@ public enum HeightfieldFinishEngine {
         let b = heightfield.bounds
         let stockTop = heightfield.maxHeight + 0.0 // finish cuts exactly the surface
         let stepOver = max(0.1, params.stepOverMm)
+        // SPK-2100a — ball radius R = D/2 drives the drop-cutter offset.
+        let ballRadiusMm = max(0, params.toolDiameterMm * 0.5)
 
         var lines: [String] = ["%", "O=FINISH_3D"]
         // SPK-1133b — linked spindle RPM from the assigned tool's cut data.
         if params.spindleRpm > 0 {
             lines.append("M3 S\(Int(params.spindleRpm))")
         }
-        lines.append("(Finish: \(String(format: "%.1f", params.toolDiameterMm))mm ball nose)")
+        lines.append("(Finish: \(String(format: "%.1f", params.toolDiameterMm))mm ball nose, drop-cutter compensated)")
         var totalLength = 0.0
         var row = 0
         var passCount = 0
@@ -329,8 +377,11 @@ public enum HeightfieldFinishEngine {
             var col = 0
             while col < heightfield.width {
                 let cx = heightfield.minX + (Double(col) + 0.5) * heightfield.cellSizeMm
-                let h = heightfield.heightInterpolated(atX: cx, y: cy)
-                let z = -(stockTop - h)
+                // SPK-2100a — trace the compensated tool CENTER, not the surface.
+                let centerH = ballCenterHeight(
+                    heightfield: heightfield, x: cx, y: cy, radiusMm: ballRadiusMm
+                )
+                let z = -(stockTop - centerH)
                 if first {
                     lines.append("G0 X\(String(format: "%.3f", cx)) Y\(String(format: "%.3f", cy))")
                     lines.append("G1 Z\(String(format: "%.3f", z)) F\(Int(params.plungeFeedRateMmPerMin))")

@@ -137,44 +137,50 @@ func main() throws {
         safeZHeightMm: 5.0
     )
     let finish = HeightfieldFinishEngine.compute(heightfield: hf, params: finishParams)
-    // Hand-derived:
-    //   stockTop = maxHeight = 2.0 (no allowance). 1mm raster → 3 rows at
-    //   y = 0.5, 1.5, 2.5. Z = h − 2.0: row 0/2 flat → −2.000 everywhere;
-    //   row 1: −2.000 at x=0.5, 0.000 at the peak x=1.5, −2.000 at x=2.5.
+    // Hand-derived (SPK-2100a drop-cutter semantics, R = 1.5):
+    //   stockTop = maxHeight = 2.0. 1mm raster → 3 rows at y = 0.5, 1.5, 2.5.
+    //   The emitted Z is the BALL CENTER height, zc − stockTop, where
+    //   zc = max over grid points within d ≤ R of [h + sqrt(R² − d²)]:
+    //     • query at a flat corner cell (e.g. (0.5,0.5)): the peak cell sits
+    //       at d = √2 → 2 + sqrt(2.25−2) = 2.5 → Z = +0.500;
+    //     • query adjacent to the peak (d = 1): 2 + sqrt(1.25) ≈ 3.118
+    //       → Z = +1.118;
+    //     • query AT the apex: 2 + 1.5 = 3.5 → Z = +1.500.
+    //   Compensated Z is NOT the surface Z (naive trace would be −2/0).
     //   First point of each row: G0 position then G1 plunge (F300); rest cut
     //   (F1000). G0 Z5.000 at the top of every row (%.3f safe-Z).
     let finishGolden: [String] = [
         "%",
         "O=FINISH_3D",
-        "(Finish: 3.0mm ball nose)",
+        "(Finish: 3.0mm ball nose, drop-cutter compensated)",
         "",
         "(Pass 1, Y=0.500)",
         "G0 Z5.000",
         "G0 X0.500 Y0.500",
-        "G1 Z-2.000 F300",
-        "G1 X1.500 Y0.500 Z-2.000 F1000",
-        "G1 X2.500 Y0.500 Z-2.000 F1000",
+        "G1 Z0.500 F300",
+        "G1 X1.500 Y0.500 Z1.118 F1000",
+        "G1 X2.500 Y0.500 Z0.500 F1000",
         "",
         "(Pass 2, Y=1.500)",
         "G0 Z5.000",
         "G0 X0.500 Y1.500",
-        "G1 Z-2.000 F300",
-        "G1 X1.500 Y1.500 Z-0.000 F1000",
-        "G1 X2.500 Y1.500 Z-2.000 F1000",
+        "G1 Z1.118 F300",
+        "G1 X1.500 Y1.500 Z1.500 F1000",
+        "G1 X2.500 Y1.500 Z1.118 F1000",
         "",
         "(Pass 3, Y=2.500)",
         "G0 Z5.000",
         "G0 X0.500 Y2.500",
-        "G1 Z-2.000 F300",
-        "G1 X1.500 Y2.500 Z-2.000 F1000",
-        "G1 X2.500 Y2.500 Z-2.000 F1000",
+        "G1 Z0.500 F300",
+        "G1 X1.500 Y2.500 Z1.118 F1000",
+        "G1 X2.500 Y2.500 Z0.500 F1000",
         "",
         "M30",
         "%",
     ]
     try expectGolden(finish.gcodeLines, finishGolden, "3D Finish golden")
 
-    print("ShopPilotVerify3DGolden: PASS — hand-checked goldens: 3D rough (3 z-levels, peak-cell skip, run Z/feeds), 3D finish (surface Z incl. 0 at peak)")
+    print("ShopPilotVerify3DGolden: PASS — hand-checked goldens: 3D rough (3 z-levels, peak-cell skip, run Z/feeds), 3D finish (drop-cutter center Z: +R at apex, wall-lifted flats)")
 }
 
 do {

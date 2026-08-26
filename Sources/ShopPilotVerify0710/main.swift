@@ -110,7 +110,7 @@ func main() throws {
     // ── 3. PARAMS_DEFAULTS: defaults are reasonable and serializable. ────────
     let defaults = HeightfieldFinishParams()
     try expect(abs(defaults.toolDiameterMm - 3.175) < 0.001, "default toolDiameterMm = 3.175")
-    try expect(abs(defaults.stepOverMm - 0.8) < 0.001, "default stepOverMm = 0.8")
+    try expect(abs(defaults.stepOverMm - 0.3175) < 0.001, "default stepOverMm = 10% of D (SPK-2100a)")
     try expect(abs(defaults.feedRateMmPerMin - 1000) < 0.001, "default feedRateMmPerMin = 1000")
     try expect(abs(defaults.plungeFeedRateMmPerMin - 300) < 0.001, "default plungeFeedRateMmPerMin = 300")
     try expect(abs(defaults.safeZHeightMm - 5.0) < 0.001, "default safeZHeightMm = 5.0")
@@ -119,7 +119,7 @@ func main() throws {
     let encoder = JSONEncoder()
     let decoded = try JSONDecoder().decode(HeightfieldFinishParams.self, from: try encoder.encode(defaults))
     try expect(abs(decoded.toolDiameterMm - 3.175) < 0.001, "params JSON round-trip preserves toolDiameterMm")
-    try expect(abs(decoded.stepOverMm - 0.8) < 0.001, "params JSON round-trip preserves stepOverMm")
+    try expect(abs(decoded.stepOverMm - 0.3175) < 0.001, "params JSON round-trip preserves stepOverMm (10% of D)")
 
     // ── 4. RESULT_STRUCTURE: result carries all required fields. ─────────────
     try expect(result.gcodeLines.count > 0, "gcodeLines is non-empty")

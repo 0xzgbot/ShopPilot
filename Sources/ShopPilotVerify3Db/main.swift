@@ -106,23 +106,28 @@ func main() throws {
     let finishMoves = motionLines(finish.gcodeLines)
     try expect(!finishMoves.isEmpty, "finish has motion")
 
-    // At the peak row (y=10.5), the surface is ~8 → Z = 8 − 8 = 0 at x=10.5.
-    // At a corner row the surface is ~0 → Z = −8.
+    // SPK-2100a — drop-cutter: the G-code traces the ball CENTER. At the peak
+    // row (y=10.5) the surface is ~8 = stock top, so the naive trace would be
+    // Z=0; the compensated center rides ~R = D/2 above it.
+    // At a corner row the surface is ~0 → naive −8, compensated ≈ −8 + R.
+    let ballRadiusMm = 3.175 / 2.0
     let finishPeakRow = finishMoves.filter { abs($0.y - 10.5) < 0.01 }
     try expect(finishPeakRow.contains { m in
-        if let z = m.z, abs(m.x - 10.5) < 0.01 { return abs(z) < 0.1 }
+        if let z = m.z, abs(m.x - 10.5) < 0.01 { return abs(z - ballRadiusMm) < 0.1 }
         return false
-    }, "finish Z at the peak follows the surface (~0 = stock top)")
+    }, "finish center at the peak rides ~R above the surface (compensated, not 0)")
     let finishCornerRow = finishMoves.filter { abs($0.y - 0.5) < 0.01 }
-    let expectedCornerZ = -(hf.maxHeight - hf.heightInterpolated(atX: 1.5, y: 0.5))
+    let naiveCornerZ = -(hf.maxHeight - hf.heightInterpolated(atX: 1.5, y: 0.5))
     try expect(finishCornerRow.contains { m in
-        if let z = m.z, abs(m.x - 1.5) < 0.01 { return abs(z - expectedCornerZ) < 0.1 }
+        if let z = m.z, abs(m.x - 1.5) < 0.01 {
+            return z >= naiveCornerZ + ballRadiusMm * 0.9 // lifted ~R off the contact point
+        }
         return false
-    }, "finish Z at the corner follows the surface (\(expectedCornerZ))")
+    }, "finish center at the corner lifts ~R above its surface contact")
     try expect(finishMoves.allSatisfy { m in
         let z = m.z ?? -8.0
-        return z <= 0.0 || abs(z - 5.0) < 0.001 // cuts ≤ 0; only safe-Z rapids are positive
-    }, "finish Z is never positive (stock top = 0 convention)")
+        return z <= ballRadiusMm + 0.05 || abs(z - 5.0) < 0.001 // cuts ≤ max center lift; only safe-Z rapids higher
+    }, "finish cut Z stays under the max ball-center lift (+R)")
 
     // ── 3. Tree / recalc wiring. ────────────────────────────────────────────
     let tree = ToolpathTreeManager()

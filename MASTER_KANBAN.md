@@ -1704,10 +1704,14 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 
 ## 12. Work log
 
+### 2026-08-25 — SPK-2100a claimed (Hermes coder, kanban subagent)
+- Claimed: SPK-2100a `[~]` — drop-cutter / ball compensation on `HeightfieldFinishEngine` + stepOver default 10% of D. Engine+CLT only (no UI; 2100b owns the form). Gate: `./scripts/verify_locked.sh ShopPilotVerify2100a`.
+
 ### 2026-08-25 — Cut quality bar filed (Cursor)
 - Product bar override: V-carve / 3D / photo **cut quality**, not more features. Research: `docs/planning/CUT_QUALITY_RESEARCH_2026-08-25.md`. Canvas: `cut-quality-bar.canvas.tsx`. Hermes paste: `docs/planning/CUT_QUALITY_HERMES_ORCHESTRATOR_PROMPT.md`.
 - Smoking gun (Sources): `HeightfieldFinishEngine` traces tool-center Z = surface, default `stepOverMm = 0.8` on 3.175 mm ≈ 25% of D (Aspire finish 8–12%); `PhotoVCarveToolpath` stores V-angle but rasters luminance→depth only; `VCarveGeometry` is sharp-point (tip Ø on inlay only).
-- Filed PHASE Y: parent SPK-2100 `[ ]` + children 2100a–d, 2110a–b, 2120a–c `[ ]`. Next claim: **2100a**. Week-plan first-hour/joinery parked after 2024b. No Sources this pass.
+- Filed PHASE Y: parent SPK-2100 `[ ]` + children 2100a–d, 2110a–b, 2120a–c `[ ]`. Next claim: **2100a**.
+- Audit same night: Finish 3D has **no** inspector / `applyFinish3DParams` (Rough 3D does). Split 2100a = engine+CLT only; 2100b = create form + raster angle. Claim-order text that still said “let 2024b finish” was stale — 1920i / 2023a–d / 2024a–c already `[x]`.
 
 ### 2026-08-24 — SPK-0508 TP Job sheet PDF (Hermes coder, kanban t_44ac5e72)
 - **SPK-0508 [x]** — no-op verification. AC already met by prior work. Engine: `JobSheetGenerator` (pure Swift PDF writer — objects/xref/trailer, no external deps) + `JobSheetHTMLTemplateEngine` (bundled A4 HTML template with `{{TOKEN}}` placeholders, HTML-escaped substitution, per-toolpath `<tr>` rows). UI: Cut-stage "Job Sheet…" button → `exportJobSheet()` renders HTML to PDF via WebKit `createPDF` with HTML-file fallback. Persist: template bundled; `JobSheetData`/`ToolpathInfo` Codable. Verify: `JobSheetGeneratorTests` 21/21 PASS (file creation, empty/multiple toolpaths, PDF structure, content validation, special chars, Codable round-trip) + `ShopPilotVerify1135` PASS (golden HTML content, toolpath rows, escaping, strategy mapping, node accessors). MASTER_KANBAN.md card already [x]; §12 worklog updated.
@@ -2649,7 +2653,7 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
 - [x] **SPK-2024c** **UX** One forward CTA per stage — audit-first (close as audit if already true); coach strip promotes the same action.
   - worklog: 2026-08-25 — Hermes coder (Nous; hit 429 AFTER committing — orchestrator verified + flipped). AUDIT-CLOSE: all five stage-rail stages documented compliant (Design/Cut-forms/Preview/Machine each have exactly one .borderedProminent primary; coach promotions Try a sample / Cut out / Connect match). scripts/verify_2024c_cta.py freezes the audited inventory via brace-counting attribution of every borderedProminent in the app target. No Swift changes needed. Gate re-run by orchestrator: verify_2024c_cta.py PASS. Commit 36a7cda.
 
-Claim order (2026-08-25 evening **override**): **cut quality** first — `docs/planning/CUT_QUALITY_RESEARCH_2026-08-25.md` + Hermes paste `docs/planning/CUT_QUALITY_HERMES_ORCHESTRATOR_PROMPT.md`. Next Mac card = **SPK-2100a** (one coder). Park week-plan Wave 2+ (2024a/c, 2023b/e) until Q1 lands. Let 2024b / 1920i / 2023c finish if still `[~]`. Do not reopen medial-axis. 2022f stays parked. Never 0623 / 1900g.
+Claim order (2026-08-25 night): **SPK-2100a** next (engine-only drop-cutter). PHASE X first-hour/joinery already `[x]` except parked **2022f** and optional **2023e**. Do not reopen medial-axis. Never 0623 / 1900g. Hermes paste: `docs/planning/CUT_QUALITY_HERMES_ORCHESTRATOR_PROMPT.md`.
 
 ---
 
@@ -2668,22 +2672,26 @@ Claim order (2026-08-25 evening **override**): **cut quality** first — `docs/p
   - Verify: parent `[x]` only when listed children `[x]`
   - deps: none
 
-- [ ] **SPK-2100a** **CAM** Drop-cutter / ball compensation on HeightfieldFinishEngine // P0
-  - Parent: SPK-2100. Assignee: `coder`. `--max-runtime 90m`. Worktree. // parallel-ok after 2024b commits
+- [x] **SPK-2100a** **CAM** Drop-cutter / ball compensation on HeightfieldFinishEngine // P0
+  - Parent: SPK-2100. Assignee: `coder`. `--max-runtime 90m`. Worktree.
   - AC:
-    - Tool center offset by ball radius R = D/2; dome CLT: compensated Z is not surface Z; concave valley not overcut by ~R
-    - Default `stepOverMm = 0.10 * toolDiameterMm`; missing JSON key still decodes 0.8 (legacy-safe)
-    - Finish 3D form shows stepover as % of D + computed scallop `h ≈ s²/(8R)`
-  - Out of scope: Fusion scallop, steep/shallow split, pencil, Offset-along-surface
-  - Files: `Sources/ShopPilotCore/HeightfieldToolpath.swift` (finish engine + `HeightfieldFinishParams`), Finish 3D form, new `Sources/ShopPilotVerify2100a/main.swift`, `Package.swift`
+    - ✅ Tool center offset by ball radius R = D/2 (drop-cutter on the heightfield); dome CLT: compensated Z is not surface Z; concave valley not overcut by ~R
+    - ✅ Default `stepOverMm = 0.10 * toolDiameterMm` on `init`; **decode** missing key still 0.8 (legacy-safe). New `HeightfieldFinishParams()` jobs get 10% of D.
+  - worklog: 2026-08-25 — Hermes coder (kanban subagent). Engine: `HeightfieldFinishEngine.compute` now traces the tool CENTER via grid-sampled drop-cutter (`ballCenterHeight`: max over cell-center samples within d ≤ R of `h + sqrt(R²−d²)`, R = D/2; header comment now says "drop-cutter compensated"). `HeightfieldFinishParams` init takes `stepOverMm: Double? = nil` → defaults to `0.10 * toolDiameterMm` (3.175 mm bit → 0.3175); legacy `init(from:)` decode keeps 0.8 for stored paramsJSON. CLT `ShopPilotVerify2100a` proves: init default 10% of D + explicit wins + missing-key decode 0.8 + round-trip; flat relief → every cut Z = +R ≠ surface Z; dome fixture → apex center ≈ surface+R with a per-move no-gouge sweep; 3 mm groove → centerline lift vs naive trace ≈ R (no ~R overcut). Gate: `./scripts/verify_locked.sh ShopPilotVerify2100a` PASS. Regression sweep: 3DUI/SHAKEf/1920i PASS untouched; 0710 (default stepover), 3Db (peak/corner compensated-Z + positivity bound), 3DGolden (finish golden re-derived by hand under drop-cutter semantics) updated to the verified engine — all PASS. No UI (2100b owns the Finish 3D form).
+  - Out of scope: Finish 3D inspector (none exists today — that is **2100b**), Fusion scallop, steep/shallow, pencil, Offset-along-surface
+  - Files: `Sources/ShopPilotCore/HeightfieldToolpath.swift` (finish engine + `HeightfieldFinishParams` defaults), new `Sources/ShopPilotVerify2100a/main.swift`, `Package.swift`
   - Verify: `./scripts/verify_locked.sh ShopPilotVerify2100a`
   - All swift via `swift_locked.sh`; never `rm -rf .build`; worktree-only Sources
+  - Honest gap (audit 2026-08-25): there is **no** `Finish3DParamsForm` and **no** `applyFinish3DParams`. Rough 3D has both. Do not invent the form on this card.
 
-- [ ] **SPK-2100b** **CAM** Raster angle 0 / 45 / 90 (Aspire Raster) // P0 · deps: SPK-2100a
+- [ ] **SPK-2100b** **CAM+UI** Create Finish 3D form + raster angle 0/45/90 // P0 · deps: SPK-2100a
   - Parent: SPK-2100. Assignee: `coder`. `--max-runtime 60m`. Worktree.
-  - AC: Default 0 = today's Y-lace; 45° visits a diagonal ridge the 0° pass misses; persist + form picker
-  - Out of scope: Aspire Offset finish with retract
-  - Files: `HeightfieldFinishParams` + finish engine + form. Verify: `./scripts/verify_locked.sh ShopPilotVerify2100b`
+  - AC:
+    - NEW `Finish3DParamsForm` (mirror `Rough3DParamsForm`) + `AppSession.applyFinish3DParams` + Cut inspector branch for `.finish3D` (today the inspector has none)
+    - Stepover shown as **% of D** + computed scallop `h ≈ s²/(8R)`; raster angle 0 / 45 / 90 (default 0 = today's Y-lace)
+    - 45° visits a diagonal ridge the 0° pass misses; persist + legacy decode default 0
+  - Out of scope: Aspire Offset finish with retract; Fusion scallop
+  - Files: `HeightfieldFinishParams` + finish engine angle; `SpecialtyParamsForms.swift` (new form); `AppSession.swift` apply; `ContentView.swift` inspector branch (~1674, next to Rough 3D). Verify: `./scripts/verify_locked.sh ShopPilotVerify2100b` + `swift_locked.sh build --target ShopPilot`
 
 - [ ] **SPK-2100c** **PREV** Scallop-height leftover in Preview // P1 · deps: SPK-2100a
   - Parent: SPK-2100. Assignee: `coder`. `--max-runtime 60m`. Worktree.
@@ -2697,13 +2705,13 @@ Claim order (2026-08-25 evening **override**): **cut quality** first — `docs/p
   - Out of scope: Fusion pencil
   - Files: finish params + engine. Verify: `./scripts/verify_locked.sh ShopPilotVerify2100d`
 
-- [ ] **SPK-2110a** **CAM** PhotoVCarve groove width + depth + 45° raster // P0 · deps: SPK-2100a optional
+- [ ] **SPK-2110a** **CAM** PhotoVCarve groove width + depth + 45° raster // P0 // parallel-ok vs 2100a (different files)
   - Parent: SPK-2100. Assignee: `coder`. `--max-runtime 60m`. Worktree.
   - AC:
     - Groove **width** from V-angle + tip Ø + depth; luminance still drives depth
     - Default raster 45°; invert on Photo form; stepover so adjacent grooves overlap (no uncut ridge wider than tip)
-  - Out of scope: cross-hatch; new photo SKU
-  - Files: `Sources/ShopPilotCore/PhotoVCarveToolpath.swift`, `PhotoVCarveParamsForm`. Verify: `./scripts/verify_locked.sh ShopPilotVerify2110a`
+  - Out of scope: cross-hatch; new photo SKU; ball-nose compensation (that is 2100a)
+  - Files: `Sources/ShopPilotCore/PhotoVCarveToolpath.swift`, `PhotoVCarveParamsForm` (already exists). Verify: `./scripts/verify_locked.sh ShopPilotVerify2110a`
 
 - [ ] **SPK-2110b** **CAM** Photo/litho two-pass (rough ~50% / finish 8–12%) // P1 · deps: SPK-2110a
   - Parent: SPK-2100. Assignee: `coder`. `--max-runtime 60m`. Worktree.
@@ -2713,7 +2721,7 @@ Claim order (2026-08-25 evening **override**): **cut quality** first — `docs/p
 
 - [ ] **SPK-2120a** **CAM** V-bit tip Ø on VCarveGeometry / VCarveParams // P0
   - Parent: SPK-2100. Assignee: `coder`. `--max-runtime 60m`. Worktree. // parallel-ok vs 2100* (different files)
-  - AC: `tipDiameterMm` on general V-carve (new-job default 0.1); missing JSON key = 0 so SPK-2010 goldens stay byte-stable; wide valley depth changes when tip > 0
+  - AC: `tipDiameterMm` on general V-carve (new-job default 0.1); missing JSON key = 0 so SPK-2010 goldens stay byte-stable; wide valley depth changes when tip > 0. Reuse inlay semantics: `d = (W − t) / (2·tan(A/2))` for full width W (equivalent to half-width `w − t/2`). Lift or share with `InlayToolpath.depthForValleyWidth` (today `fileprivate`).
   - Out of scope: Voronoi MA rewrite (do not edit `MedialAxis.swift` algorithm)
   - Files: `VCarveGeometry.swift`, `VCarveEngine.swift`, Valley form. Verify: `./scripts/verify_locked.sh ShopPilotVerify2120a`
 
