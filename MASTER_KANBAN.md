@@ -1716,6 +1716,10 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 ### 2026-08-25 — SPK-2100b claimed (Cursor)
 - Claimed: SPK-2100b `[~]` — Finish 3D form + raster 0/45/90. Hermes had `[~]` with params field only (engine still Y-lace; no form). Absorbing: engine lace + `Finish3DParamsForm` + `applyFinish3DParams`. Gate: `./scripts/verify_locked.sh ShopPilotVerify2100b`.
 
+### 2026-08-26 — SPK-2100d [x] rest finish (orchestrator direct)
+- **SPK-2100d [x]** — `HeightfieldFinishParams.previousToolDiameterMm` (init default 0; decode missing key 0). Engine rest test: skip sample iff our machined surface `centerH - R` >= previous ball's `prevCenterH - Rprev` — flats the big ball already cleaned are skipped; narrow valleys/cusps it bridged stay. Rest header line only when active (plain-finish output byte-stable vs 2100a). Verify: ShopPilotVerify2100d PASS 12/12 (byte-stability, rest header, 42 vs 420 cuts, retained cuts confined to cusp region + reach groove floor); regressions 2100a / 2100c / 3DGolden / 0710 PASS; app build green.
+- Claimed: SPK-2100d `[~]` — rest finish: `previousToolDiameterMm` on `HeightfieldFinishParams` (decode default 0); engine skips samples the previous ball already cleaned (only leftover cusps); 0 = byte-stable vs 2100a. Gate: `./scripts/verify_locked.sh ShopPilotVerify2100d`.
+
 ### 2026-08-25 — SPK-2100a claimed (Hermes coder, kanban subagent)
 - Claimed: SPK-2100a `[~]` — drop-cutter / ball compensation on `HeightfieldFinishEngine` + stepOver default 10% of D. Engine+CLT only (no UI; 2100b owns the form). Gate: `./scripts/verify_locked.sh ShopPilotVerify2100a`.
 
@@ -2714,7 +2718,7 @@ Claim order (2026-08-25 night): **SPK-2100a** next (engine-only drop-cutter). PH
   - Verify: `./scripts/verify_locked.sh ShopPilotVerify2100c` (or python grep gate + `swift_locked.sh build --target ShopPilot`)
   - Shipped 2026-08-25 (Hermes coder, retry #1 after dead worker): absorbed the dead worker's uncommitted partials and audited each against AC — `ScallopPreview.swift` (pure formula engine: `ScallopLeftoverTint.compute`, 0.02 mm `ScallopShopBand`, green→amber→red severity tint, translucent RGBA overlay wash, legend text), `ToolpathPreviewView.swift` legend chip (live off stored Finish 3D params; honors Rough 3D sibling's `stockAllowanceMm`; no finish op → no tint), CLT + Package.swift target. Fixed three defects found by running the never-run gates: (1) band-edge float noise (`sqrt` round-trip put severity at 1+4e-16 → relative-epsilon band compare, documented contract "exactly-at-band IS in-band" now holds); (2) tint palette receded — amber red-channel 0.95 > old red endpoint 0.88 so warning color went BACKWARD past amber; red endpoint raised to (0.96, 0.16, 0.13) for a strictly monotonic ramp; (3) CLT's uniform-raster assertion zipped bytes against whole-pixel arrays — replaced with correctly flattened expectation. Gates: `./scripts/verify_locked.sh ShopPilotVerify2100c` PASS (formula/band/live-stepover/stock-to-leave/tint/params-wiring) + `./scripts/swift_locked.sh build --target ShopPilot` PASS.
 
-- [ ] **SPK-2100d** **CAM** Rest finish from previous tool // P1 · deps: SPK-2100a
+- [x] **SPK-2100d** **CAM** Rest finish from previous tool // P1 · deps: SPK-2100a
   - Parent: SPK-2100. Assignee: `coder`. `--max-runtime 60m`. Worktree.
   - AC: `previousToolDiameterMm > 0` finish-machines only leftover cusps; 0 = compensated finish without rest (stable vs 2100a)
   - Out of scope: Fusion pencil

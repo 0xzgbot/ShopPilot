@@ -122,6 +122,11 @@ public struct HeightfieldFinishParams: Codable, Sendable, ToolFeedApplicable {
     /// SPK-2100b — raster lace direction in degrees (0 = today's Y-lace rows
     /// running along X, 90 = X-stepover with runs along Y, 45 = diagonal).
     public var rasterAngleDegrees: Double
+    /// SPK-2100d — rest finish: diameter of the PREVIOUS (larger) ball whose
+    /// pass already cleaned the open areas. 0 = plain compensated finish
+    /// (byte-stable vs SPK-2100a). Only regions the previous ball could not
+    /// reach (narrow valleys, cusp leftovers) are finish-machined.
+    public var previousToolDiameterMm: Double
 
     public init(
         toolDiameterMm: Double = 3.175,
@@ -130,7 +135,8 @@ public struct HeightfieldFinishParams: Codable, Sendable, ToolFeedApplicable {
         plungeFeedRateMmPerMin: Double = 300,
         safeZHeightMm: Double = 5.0,
         spindleRpm: Double = 0,
-        rasterAngleDegrees: Double = 0
+        rasterAngleDegrees: Double = 0,
+        previousToolDiameterMm: Double = 0
     ) {
         self.toolDiameterMm = toolDiameterMm
         // SPK-2100a — default finish stepover is 10% of D (Aspire's documented
@@ -142,12 +148,15 @@ public struct HeightfieldFinishParams: Codable, Sendable, ToolFeedApplicable {
         self.safeZHeightMm = safeZHeightMm
         self.spindleRpm = spindleRpm
         self.rasterAngleDegrees = rasterAngleDegrees
+        // SPK-2100d — rest-finish previous ball; default 0 (no rest region).
+        self.previousToolDiameterMm = previousToolDiameterMm
     }
 
     private enum CodingKeys: String, CodingKey {
         case toolDiameterMm, stepOverMm, feedRateMmPerMin
         case plungeFeedRateMmPerMin, safeZHeightMm, spindleRpm
         case rasterAngleDegrees
+        case previousToolDiameterMm
     }
 
     public init(from decoder: Decoder) throws {
@@ -161,6 +170,9 @@ public struct HeightfieldFinishParams: Codable, Sendable, ToolFeedApplicable {
         // SPK-2100b — legacy-safe: pre-existing stored paramsJSON has no angle;
         // decode defaults to 0 so old jobs regenerate the same Y-lace path.
         rasterAngleDegrees = try c.decodeIfPresent(Double.self, forKey: .rasterAngleDegrees) ?? 0
+        // SPK-2100d — legacy-safe: missing key decodes to 0 (no rest region),
+        // so pre-existing jobs stay byte-stable.
+        previousToolDiameterMm = try c.decodeIfPresent(Double.self, forKey: .previousToolDiameterMm) ?? 0
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -172,6 +184,7 @@ public struct HeightfieldFinishParams: Codable, Sendable, ToolFeedApplicable {
         try c.encode(safeZHeightMm, forKey: .safeZHeightMm)
         try c.encode(spindleRpm, forKey: .spindleRpm)
         try c.encode(rasterAngleDegrees, forKey: .rasterAngleDegrees)
+        try c.encode(previousToolDiameterMm, forKey: .previousToolDiameterMm)
     }
 
     /// SPK-2100b — leftover scallop for shallow ball lace: h ≈ s² / (8R).
@@ -386,6 +399,12 @@ public enum HeightfieldFinishEngine {
         let stepOver = max(0.1, params.stepOverMm)
         // SPK-2100a — ball radius R = D/2 drives the drop-cutter offset.
         let ballRadiusMm = max(0, params.toolDiameterMm * 0.5)
+        // SPK-2100d — rest finish: the previous (larger) ball's machined
+        // surface is its center trace minus ITS radius. Where that surface
+        // already sits at/below ours, our pass would cut air — skip it and
+        // machine only the leftover cusps / narrow valleys it could not reach.
+        let prevRadiusMm = max(0, params.previousToolDiameterMm * 0.5)
+        let isRestFinish = prevRadiusMm > ballRadiusMm + 1e-9
 
         var lines: [String] = ["%", "O=FINISH_3D"]
         // SPK-1133b — linked spindle RPM from the assigned tool's cut data.
@@ -401,6 +420,11 @@ public enum HeightfieldFinishEngine {
             lines.append("(Finish: \(String(format: "%.1f", params.toolDiameterMm))mm ball nose, drop-cutter compensated)")
         } else {
             lines.append("(Finish: \(String(format: "%.1f", params.toolDiameterMm))mm ball nose, drop-cutter compensated, raster \(Int(rasterAngleDeg.rounded()))°)")
+        }
+        // SPK-2100d — separate line so the plain-finish header stays
+        // byte-stable vs SPK-2100a (rest only announces itself).
+        if isRestFinish {
+            lines.append("(Rest finish: only cusps left by \(String(format: "%.1f", params.previousToolDiameterMm))mm previous ball)")
         }
         var totalLength = 0.0
         var passCount = 0
@@ -426,6 +450,17 @@ public enum HeightfieldFinishEngine {
                     heightfield: heightfield, x: cx, y: cy, radiusMm: ballRadiusMm
                 )
                 let z = -(stockTop - centerH)
+                // SPK-2100d — rest skip: the previous ball cleaned this sample.
+                if isRestFinish {
+                    let prevCenterH = ballCenterHeight(
+                        heightfield: heightfield, x: cx, y: cy,
+                        radiusMm: prevRadiusMm
+                    )
+                    if centerH - ballRadiusMm >= (prevCenterH - prevRadiusMm) - 1e-9 {
+                        col += rowStride
+                        continue
+                    }
+                }
                 if first {
                     lines.append("G0 X\(String(format: "%.3f", cx)) Y\(String(format: "%.3f", cy))")
                     lines.append("G1 Z\(String(format: "%.3f", z)) F\(Int(params.plungeFeedRateMmPerMin))")
@@ -507,6 +542,18 @@ public enum HeightfieldFinishEngine {
                             heightfield: heightfield, x: sx, y: sy, radiusMm: ballRadiusMm
                         )
                         let z = -(stockTop - centerH)
+                        // SPK-2100d — rest skip (same test as the 0° branch):
+                        // the previous ball already machined at/below ours here.
+                        if isRestFinish {
+                            let prevCenterH = ballCenterHeight(
+                                heightfield: heightfield, x: sx, y: sy,
+                                radiusMm: prevRadiusMm
+                            )
+                            if centerH - ballRadiusMm >= (prevCenterH - prevRadiusMm) - 1e-9 {
+                                t += cell
+                                continue
+                            }
+                        }
                         if firstPt {
                             lines.append("G0 X\(String(format: "%.3f", sx)) Y\(String(format: "%.3f", sy))")
                             lines.append("G1 Z\(String(format: "%.3f", z)) F\(Int(params.plungeFeedRateMmPerMin))")
