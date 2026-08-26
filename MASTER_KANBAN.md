@@ -1720,6 +1720,10 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 - **SPK-2100d [x]** — `HeightfieldFinishParams.previousToolDiameterMm` (init default 0; decode missing key 0). Engine rest test: skip sample iff our machined surface `centerH - R` >= previous ball's `prevCenterH - Rprev` — flats the big ball already cleaned are skipped; narrow valleys/cusps it bridged stay. Rest header line only when active (plain-finish output byte-stable vs 2100a). Verify: ShopPilotVerify2100d PASS 12/12 (byte-stability, rest header, 42 vs 420 cuts, retained cuts confined to cusp region + reach groove floor); regressions 2100a / 2100c / 3DGolden / 0710 PASS; app build green.
 - Claimed: SPK-2100d `[~]` — rest finish: `previousToolDiameterMm` on `HeightfieldFinishParams` (decode default 0); engine skips samples the previous ball already cleaned (only leftover cusps); 0 = byte-stable vs 2100a. Gate: `./scripts/verify_locked.sh ShopPilotVerify2100d`.
 
+### 2026-08-26 — SPK-2110a [x] photo V-carve width/depth/raster (orchestrator direct)
+- **SPK-2110a [x]** — `PhotoVCarveToolpathParams`: +`tipDiameterMm` (init 0.1, decode 0), +`invertLuminance` (decode false), +`rasterAngleDegrees` (init 45°, legacy decode 0 = byte-stable). `grooveWidthMm` w = tip + 2·d·tan(θ/2); init stepover default 50% of widest groove (overlap, no ridge wider than tip). Engine: rotated-lace diagonal passes share the depth-from-luminance rule; invert flips which luminance end carves deep; header announces tip Ø + derived width. Form: Tip Ø / Raster angle rows + Invert toggle on PhotoVCarveParamsForm. Verify: ShopPilotVerify2110a PASS 19/19 (width formula, overlap default, legacy byte-stability, diagonal-vs-straight, monotonic luminance→Z, invert flip) + app build green.
+- Claimed: SPK-2110a `[~]` — PhotoVCarve groove WIDTH from V-angle + tip Ø + depth (`w = tip + 2·d·tan(θ/2)`); depth-from-luminance kept; init default raster 45° / legacy decode 0 (byte-stable); invert on the Photo form; init stepover = 50% of widest groove (adjacent grooves overlap). Gate: `./scripts/verify_locked.sh ShopPilotVerify2110a`.
+
 ### 2026-08-25 — SPK-2100a claimed (Hermes coder, kanban subagent)
 - Claimed: SPK-2100a `[~]` — drop-cutter / ball compensation on `HeightfieldFinishEngine` + stepOver default 10% of D. Engine+CLT only (no UI; 2100b owns the form). Gate: `./scripts/verify_locked.sh ShopPilotVerify2100a`.
 
@@ -2724,7 +2728,7 @@ Claim order (2026-08-25 night): **SPK-2100a** next (engine-only drop-cutter). PH
   - Out of scope: Fusion pencil
   - Files: finish params + engine. Verify: `./scripts/verify_locked.sh ShopPilotVerify2100d`
 
-- [ ] **SPK-2110a** **CAM** PhotoVCarve groove width + depth + 45° raster // P0 // parallel-ok vs 2100a (different files)
+- [x] **SPK-2110a** **CAM** PhotoVCarve groove width + depth + 45° raster // P0 // parallel-ok vs 2100a (different files)
   - Parent: SPK-2100. Assignee: `coder`. `--max-runtime 60m`. Worktree.
   - AC:
     - Groove **width** from V-angle + tip Ø + depth; luminance still drives depth

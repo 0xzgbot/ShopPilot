@@ -247,10 +247,17 @@ struct PhotoVCarveParamsForm: View {
             GroupBox("Photo V-Carve") {
                 Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
                     SpecialtyNumRow(label: "V-bit angle (°)", value: $params.vBitAngleDegrees)
+                    // SPK-2110a — flat tip at the V-bit point; groove width =
+                    // tip + 2·depth·tan(θ/2).
+                    SpecialtyNumRow(label: "Tip Ø (mm)", value: $params.tipDiameterMm)
                     SpecialtyNumRow(label: "Max depth (mm)", value: $params.maxDepthMm)
                     SpecialtyNumRow(label: "Step-over (mm)", value: $params.stepOverMm)
+                    SpecialtyNumRow(label: "Raster angle (°)", value: $params.rasterAngleDegrees)
                     SpecialtyNumRow(label: "Safe Z (mm)", value: $params.safeZHeightMm)
                 }
+                // SPK-2110a — white-on-dark artwork without editing the image.
+                Toggle("Invert luminance (dark = shallow)", isOn: $params.invertLuminance)
+                    .font(.caption)
             }
             GroupBox("Feeds") {
                 Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
