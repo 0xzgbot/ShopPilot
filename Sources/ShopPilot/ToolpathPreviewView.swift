@@ -107,6 +107,36 @@ struct ToolpathPreviewView: View {
         return WireframeRenderer.generateSegments(from: lines)
     }
 
+    /// SPK-2100c — the Finish 3D op whose scallop leftover the preview tints:
+    /// the SELECTED node when it is a finish 3D op, else the first one in the
+    /// tree. nil when the job has no Finish 3D op (no tint, no legend).
+    private var scallopFinishNode: ToolpathTreeNode? {
+        if let node = selectedToolpathNode, node.strategyKind == .finish3D { return node }
+        return session.toolpathTree.allNodes.first { $0.strategyKind == .finish3D }
+    }
+
+    /// SPK-2100c — rough stock-to-leave honored by the scallop verdict: when
+    /// a Rough 3D sibling op carries an allowance, the finish pass cannot
+    /// machine below what roughing left. nil → no Rough 3D sibling.
+    private var roughStockToLeaveMm: Double? {
+        guard let finish = scallopFinishNode else { return nil }
+        let siblingScope: [ToolpathTreeNode] =
+            session.toolpathTree.parent(of: finish.id)?.children
+            ?? session.toolpathTree.root.children
+        guard let rough = siblingScope.first(where: { $0.strategyKind == .rough3D && $0.id != finish.id })
+        else { return nil }
+        let allowance = rough.rough3DParams().stockAllowanceMm
+        return allowance > 0 ? allowance : nil
+    }
+
+    /// SPK-2100c — the honest formula verdict shown over the preview. Pure
+    /// math off the LIVE stored params, so it re-renders (and recolors) the
+    /// moment the step-over changes and Apply regenerates the tree.
+    private var scallopTint: ScallopLeftoverTint? {
+        guard let node = scallopFinishNode else { return nil }
+        return node.finish3DParams().leftoverTint(roughStockToLeaveMm: roughStockToLeaveMm ?? 0)
+    }
+
     /// SPK-0316 — ghost diff: when the selected node was regenerated, diff its
     /// previous G-code against the current one. The removed/moved geometry is
     /// rendered as a dashed cyan ghost overlay so the user sees what changed.
@@ -326,6 +356,43 @@ struct ToolpathPreviewView: View {
             // SPK-1206 — mini view gizmo: cube faces map to orientations.
             ViewGizmoView(orientation: $viewOrientation)
                 .padding(12)
+        }
+        .overlay(alignment: .bottomLeading) {
+            // SPK-2100c — honest scallop-leftover legend over the preview:
+            // a formula-tinted chip (green in the 0.02 mm shop band, warming
+            // to red past it) plus the exact numbers. Derived live from the
+            // stored Finish 3D params, so it updates the moment the
+            // step-over changes and Apply regenerates. Not photoreal — the
+            // color IS the verdict, computed from h ≈ s²/(8R).
+            if let tint = scallopTint {
+                let rgb = tint.tintRGB
+                HStack(spacing: 8) {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color(red: rgb.r, green: rgb.g, blue: rgb.b))
+                        .frame(width: 18, height: 18)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 4)
+                                .stroke(Color.primary.opacity(0.25))
+                        )
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(tint.verdictText)
+                            .font(.caption.weight(.semibold))
+                        Text(tint.legendText)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(8)
+                .background(RoundedRectangle(cornerRadius: 8).fill(.thinMaterial))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.primary.opacity(0.15))
+                )
+                .padding(12)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Scallop leftover: \(tint.verdictText). \(tint.legendText)")
+                .help("Leftover between finish passes: h ≈ s²/(8R) vs the 0.02 mm shop-quality band (SPK-2100c). Honors rough stock-to-leave when a Rough 3D sibling carries one.")
+            }
         }
         .onKeyPress { keyPress in
             // ⌘⌥1…3 — keyboard view presets (macOS onKeyPress).

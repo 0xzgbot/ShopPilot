@@ -1704,6 +1704,9 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 
 ## 12. Work log
 
+### 2026-08-25 — SPK-2100c claimed (Hermes coder, kanban subagent)
+- Claimed: SPK-2100c `[~]` — scallop-leftover preview: honest formula tint `h ≈ s²/(8R)` vs the 0.02 mm shop band, live off the finish stepover; honors rough stock-to-leave when a Rough 3D sibling carries one. No shaded-metal, no rest finish (2100d). Gate: `./scripts/verify_locked.sh ShopPilotVerify2100c`.
+
 ### 2026-08-25 — SPK-2100b done (Hermes coder, retry #1 after dead worker)
 - Absorbed: dead worker's uncommitted partials — engine rotated-lace (+107), `Finish3DParamsForm`, `applyFinish3DParams`, inspector branch. Verified each against AC before trusting.
 - Fixed: stray `}` in `Finish3DParamsForm` (dead-worker compile break); finish header comment re-split so angle-0 output stays BYTE-identical to pre-2100b (`ShopPilotVerify3DGolden` asserts the exact `(Finish: …mm ball nose, drop-cutter compensated)` line).
@@ -2704,11 +2707,12 @@ Claim order (2026-08-25 night): **SPK-2100a** next (engine-only drop-cutter). PH
   - Files: `HeightfieldFinishParams` + finish engine angle; `SpecialtyParamsForms.swift` (new form); `AppSession.swift` apply; `ContentView.swift` inspector branch (~1674, next to Rough 3D). Verify: `./scripts/verify_locked.sh ShopPilotVerify2100b` + `swift_locked.sh build --target ShopPilot`
   - Shipped 2026-08-25 (Hermes coder, retry #1): engine rotated-lace raster honored by `HeightfieldFinishEngine` (0° byte-identical to the pre-2100b path incl. header comment; 45/90 run parallel passes with the same drop-cutter compensation); `Finish3DParamsForm` (stepover as % of D with live scallop h ≈ s²/(8R) readout, raster picker 0/45/90, feeds/levels mirroring `Rough3DParamsForm`); `applyFinish3DParams` (undo + paramsJSON persist + real-engine regen); `.finish3D` inspector branch. Legacy decode default 0. CLT proves 45° rides a diagonal crest the 0° lattice misses by ≥0.7 mm.
 
-- [ ] **SPK-2100c** **PREV** Scallop-height leftover in Preview // P1 · deps: SPK-2100a
+- [x] **SPK-2100c** **PREV** Scallop-height leftover in Preview // P1 · deps: SPK-2100a
   - Parent: SPK-2100. Assignee: `coder`. `--max-runtime 60m`. Worktree.
   - AC: Preview colors leftover `h ≈ s²/(8R)` vs a 0.02 mm shop band; updates when stepover changes; honest, not photoreal
   - Out of scope: Fusion-style shaded metal
   - Verify: `./scripts/verify_locked.sh ShopPilotVerify2100c` (or python grep gate + `swift_locked.sh build --target ShopPilot`)
+  - Shipped 2026-08-25 (Hermes coder, retry #1 after dead worker): absorbed the dead worker's uncommitted partials and audited each against AC — `ScallopPreview.swift` (pure formula engine: `ScallopLeftoverTint.compute`, 0.02 mm `ScallopShopBand`, green→amber→red severity tint, translucent RGBA overlay wash, legend text), `ToolpathPreviewView.swift` legend chip (live off stored Finish 3D params; honors Rough 3D sibling's `stockAllowanceMm`; no finish op → no tint), CLT + Package.swift target. Fixed three defects found by running the never-run gates: (1) band-edge float noise (`sqrt` round-trip put severity at 1+4e-16 → relative-epsilon band compare, documented contract "exactly-at-band IS in-band" now holds); (2) tint palette receded — amber red-channel 0.95 > old red endpoint 0.88 so warning color went BACKWARD past amber; red endpoint raised to (0.96, 0.16, 0.13) for a strictly monotonic ramp; (3) CLT's uniform-raster assertion zipped bytes against whole-pixel arrays — replaced with correctly flattened expectation. Gates: `./scripts/verify_locked.sh ShopPilotVerify2100c` PASS (formula/band/live-stepover/stock-to-leave/tint/params-wiring) + `./scripts/swift_locked.sh build --target ShopPilot` PASS.
 
 - [ ] **SPK-2100d** **CAM** Rest finish from previous tool // P1 · deps: SPK-2100a
   - Parent: SPK-2100. Assignee: `coder`. `--max-runtime 60m`. Worktree.
