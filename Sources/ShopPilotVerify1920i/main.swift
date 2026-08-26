@@ -24,7 +24,11 @@ func expect(_ cond: Bool, _ msg: String) throws {
 }
 
 func jsonOf<T: Encodable>(_ value: T) throws -> String {
-    let data = try JSONEncoder().encode(value)
+    let encoder = JSONEncoder()
+    // Sorted keys → paramsJSON strings are byte-stable across runs/processes,
+    // which is what makes toolpaths.json a hashable contract file.
+    encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+    let data = try encoder.encode(value)
     return String(data: data, encoding: .utf8) ?? ""
 }
 

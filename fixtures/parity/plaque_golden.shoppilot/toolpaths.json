@@ -4,7 +4,7 @@
     "id" : "11111111-2222-3333-4444-555555555555",
     "isDirty" : false,
     "name" : "Rough 3D — Plaque",
-    "paramsJSON" : "{\"inverseMill\":false,\"safeZHeightMm\":4,\"feedRateMmPerMin\":900,\"stepDownMm\":1.8,\"toolDiameterMm\":6.35,\"stepOverMm\":1.2,\"stockAllowanceMm\":0.4,\"spindleRpm\":18000,\"plungeFeedRateMmPerMin\":250,\"previousToolDiameterMm\":0}",
+    "paramsJSON" : "{\n  \"feedRateMmPerMin\" : 900,\n  \"inverseMill\" : false,\n  \"plungeFeedRateMmPerMin\" : 250,\n  \"previousToolDiameterMm\" : 0,\n  \"safeZHeightMm\" : 4,\n  \"spindleRpm\" : 18000,\n  \"stepDownMm\" : 1.8,\n  \"stepOverMm\" : 1.2,\n  \"stockAllowanceMm\" : 0.4,\n  \"toolDiameterMm\" : 6.35\n}",
     "toolpathResult" : "; golden rough pass (hand-written contract text)\nG0 Z4.000\nG0 X10.000 Y10.000\nG1 Z-1.800 F250\nG1 X290.000 F900\n"
   },
   {
@@ -12,7 +12,7 @@
     "id" : "66666666-7777-8888-9999-A00000000000",
     "isDirty" : false,
     "name" : "Finish 3D — Plaque",
-    "paramsJSON" : "{\"spindleRpm\":21000,\"safeZHeightMm\":4,\"plungeFeedRateMmPerMin\":220,\"toolDiameterMm\":1.5,\"feedRateMmPerMin\":1200,\"stepOverMm\":0.35}",
+    "paramsJSON" : "{\n  \"feedRateMmPerMin\" : 1200,\n  \"plungeFeedRateMmPerMin\" : 220,\n  \"safeZHeightMm\" : 4,\n  \"spindleRpm\" : 21000,\n  \"stepOverMm\" : 0.35,\n  \"toolDiameterMm\" : 1.5\n}",
     "toolpathResult" : "; golden finish pass (hand-written contract text)\nG0 Z4.000\nG1 Z-0.350 F220\nG1 X10.000 Y190.000 F1200\n"
   }
 ]
