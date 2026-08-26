@@ -1,6 +1,6 @@
 # ShopPilot — Master Kanban (single source of truth)
 
-**Last updated:** 2026-08-24
+**Last updated:** 2026-08-25
 **Project root:** `~/Desktop/ShopPilot`  
 **Status:** Living board — agents work **only** from this file until ship  
 
@@ -1704,6 +1704,11 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 
 ## 12. Work log
 
+### 2026-08-25 — Cut quality bar filed (Cursor)
+- Product bar override: V-carve / 3D / photo **cut quality**, not more features. Research: `docs/planning/CUT_QUALITY_RESEARCH_2026-08-25.md`. Canvas: `cut-quality-bar.canvas.tsx`. Hermes paste: `docs/planning/CUT_QUALITY_HERMES_ORCHESTRATOR_PROMPT.md`.
+- Smoking gun (Sources): `HeightfieldFinishEngine` traces tool-center Z = surface, default `stepOverMm = 0.8` on 3.175 mm ≈ 25% of D (Aspire finish 8–12%); `PhotoVCarveToolpath` stores V-angle but rasters luminance→depth only; `VCarveGeometry` is sharp-point (tip Ø on inlay only).
+- Filed PHASE Y: parent SPK-2100 `[ ]` + children 2100a–d, 2110a–b, 2120a–c `[ ]`. Next claim: **2100a**. Week-plan first-hour/joinery parked after 2024b. No Sources this pass.
+
 ### 2026-08-24 — SPK-0508 TP Job sheet PDF (Hermes coder, kanban t_44ac5e72)
 - **SPK-0508 [x]** — no-op verification. AC already met by prior work. Engine: `JobSheetGenerator` (pure Swift PDF writer — objects/xref/trailer, no external deps) + `JobSheetHTMLTemplateEngine` (bundled A4 HTML template with `{{TOKEN}}` placeholders, HTML-escaped substitution, per-toolpath `<tr>` rows). UI: Cut-stage "Job Sheet…" button → `exportJobSheet()` renders HTML to PDF via WebKit `createPDF` with HTML-file fallback. Persist: template bundled; `JobSheetData`/`ToolpathInfo` Codable. Verify: `JobSheetGeneratorTests` 21/21 PASS (file creation, empty/multiple toolpaths, PDF structure, content validation, special chars, Codable round-trip) + `ShopPilotVerify1135` PASS (golden HTML content, toolpath rows, escaping, strategy mapping, node accessors). MASTER_KANBAN.md card already [x]; §12 worklog updated.
 
@@ -2406,10 +2411,11 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
   - Verify: CLT mid-stream line-index sync + Hold freezes both
   - Done 2026-08-23 (Hermes coder): (1) `StreamState.isPaused` helper in Core. (2) Preview stage toolbar gains a LIVE progress block — ProgressView bound to `streamer.currentLine/totalLines` + red LIVE badge, visible while `.streaming`/`.paused`, AX help names the exact line. Rendering from `currentLine` directly means Hold freezing the stream freezes the readout by construction (one source of truth). (3) CLT `ShopPilotVerifyDOGFOOD1920h` PASS — 28-line program through SimulatorTransport: currentLine advances monotonically mid-stream, `pause()` freezes currentLine exactly (zero drift over 250ms), resume runs to completion. App build green.
 
-- [~] **SPK-1920i** **DOCS** Document contract goldens: Sign + 3D plaque `.shoppilot` save/reopen + Windows round-trip checklist with hashes (contract)
+- [x] **SPK-1920i** **DOCS** Document contract goldens: Sign + 3D plaque `.shoppilot` save/reopen + Windows round-trip checklist with hashes (contract)
   - AC: two goldens saved + reopened on Mac; docs/spec or fixtures/parity emitted with hashes so VectorPilot can verify
   - Out of scope: running VectorPilot tests here
   - Verify: reopen asserts vectors/toolpaths/relief intact + hash file exists
+  - worklog: 2026-08-25 — Hermes coder (Nous subagent hit 429/max_iterations AFTER landing; orchestrator verified + committed). ShopPilotVerify1920i CLT builds Sign + plaque + inlay jobs, saves fixtures/parity/*.shoppilot (fmt 0.2) via DocumentSaver, reopens via DocumentLoader, asserts vectors/toolpaths/relief/inlay round-trip. Orchestrator gate re-run: exit 0 "PASS — 3 fixtures reopened". docs/planning/CONTRACT_GOLDENS.md has fixture inventory + sha256 hashes + VectorPilot checklist.
 
 - [ ] **SPK-1920j** **OPTIONAL** Split/fade only if Model+Design fight for space (Windows H-303) — skip if lean UX fine
 - [ ] **SPK-1920k** **OPTIONAL** Rotary wrap exposure only if engine exists (Windows H-403 semantics) — else `[-]` with note
@@ -2625,7 +2631,8 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
 
 - [ ] **SPK-2023b** **GEO** T-bones — bit Ø only prompt; along-X/Y/auto-longest-edge; Dogbone.swift TBone variant; existing dogbone fixtures byte-stable. Test: `ShopPilotVerify2023b`.
 
-- [~] **SPK-2023c** **CAM** ENGINE 2D rest machining (pocket leftover pass) — `previousToolDiameterMm > 0` machines ONLY unreachable areas; 0 = byte-stable today. PocketToolpath has NO rest support today (verified 2026-08-25). Test: `ShopPilotVerify2023c`.
+- [x] **SPK-2023c** **CAM** ENGINE 2D rest machining (pocket leftover pass) — `previousToolDiameterMm > 0` machines ONLY unreachable areas; 0 = byte-stable today. PocketToolpath has NO rest support today (verified 2026-08-25). Test: `ShopPilotVerify2023c`.
+  - worklog: 2026-08-25 — Hermes orchestrator (in-session absorb; DeepSeek dispatch approval-blocked, owner chose absorb). PocketToolpathParams gains legacy-safe previousToolDiameterMm (decodeIfPresent default 0). prev>0 zigzag routes through generateRestBandZigzag: full-width rows in top/bottom leftover bands, side-band-only middle rows between cleared region (prev-radius inset) and current-tool reach; per-segment retract/re-plunge so no cut crosses cleared floor; prev=0 keeps original path BYTE-STABLE (CLT-asserted). ShopPilotVerify2023c PASS: byte-stability, 50-endpoint band containment (1/4in cleared → 1/16in rest), depth levels, round-trip + legacy decode, rest distance 231mm < full re-clear 1474mm. Sweep PASS: 1102h/1102c/1102d/1136b/Golden25D/FMR019.
 
 - [ ] **SPK-2023d** **UI** Rest fields on Pocket/V-clearance forms · deps: SPK-2023c
 
@@ -2633,9 +2640,91 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
 
 - [ ] **SPK-2024a** **UX** Welcome = sample gallery first screen (reuse SampleProjectsStore + SPK-1403 loader hooks; one click → Design + single "Plan the cuts" CTA). AX walk row gate.
 
-- [~] **SPK-2024b** **UX** Presets over parameters (Mac parity w/ Win H-501) — Walnut 18 mm + 90° V-bit fills Cut depth/feed/rpm; Advanced discloses all; preset-trusted feeds silence 2023a. Test: `ShopPilotVerify2024b`.
+- [x] **SPK-2024b** **UX** Presets over parameters (Mac parity w/ Win H-501) — Walnut 18 mm + 90° V-bit fills Cut depth/feed/rpm; Advanced discloses all; preset-trusted feeds silence 2023a. Test: `ShopPilotVerify2024b`.
+  - worklog: 2026-08-25 — Hermes coder (Nous subagent hit 429/max_iterations AFTER landing; orchestrator verified + committed). Core MaterialBitPresets.swift named presets incl. Walnut 18 mm + 90° V-bit; MaterialBitPresetPicker EXTENDED into Profile/Pocket/V-Carve forms with depth/feed/plunge/rpm bindings; sets feedsFromPreset=true so ShopPilotVerify2023a stays silent preset-trusted; Advanced disclosure untouched. Gates re-run by orchestrator: ShopPilotVerify2024b PASS + build --target ShopPilot EXIT=0.
 
 - [ ] **SPK-2024c** **UX** One forward CTA per stage — audit-first (close as audit if already true); coach strip promotes the same action.
 
-Claim order (week of 2026-08-25): see `docs/planning/WEEK_PLAN_2026-08-25.md` + Hermes paste `docs/planning/WEEK_PLAN_HERMES_ORCHESTRATOR_PROMPT.md`. Wave 1 = 1920i + 2024b + SHAKE-1319 + Win H-610/H-601. Do not retry 2023b until Wave 3. Do not reopen medial-axis. 2022f stays parked.
+Claim order (2026-08-25 evening **override**): **cut quality** first — `docs/planning/CUT_QUALITY_RESEARCH_2026-08-25.md` + Hermes paste `docs/planning/CUT_QUALITY_HERMES_ORCHESTRATOR_PROMPT.md`. Next Mac card = **SPK-2100a** (one coder). Park week-plan Wave 2+ (2024a/c, 2023b/e) until Q1 lands. Let 2024b / 1920i / 2023c finish if still `[~]`. Do not reopen medial-axis. 2022f stays parked. Never 0623 / 1900g.
+
+---
+
+# PHASE Y — Cut quality bar (SPK-2100 / 2110 / 2120)
+
+> Filed 2026-08-25. **Overrides** PHASE X first-hour / joinery as the next claim.
+> Research: [`docs/planning/CUT_QUALITY_RESEARCH_2026-08-25.md`](./docs/planning/CUT_QUALITY_RESEARCH_2026-08-25.md).
+> Hermes paste: [`docs/planning/CUT_QUALITY_HERMES_ORCHESTRATOR_PROMPT.md`](./docs/planning/CUT_QUALITY_HERMES_ORCHESTRATOR_PROMPT.md).
+> Do **not** reopen SPK-2010. Gate: `./scripts/verify_locked.sh ShopPilotVerifyXXXX`.
+> Never `swift test`. Never stamp SPK-0623. Win mirrors H-701…H-704 after each Mac twin `[x]`.
+
+- [ ] **SPK-2100** **EPIC** Parent — Cut quality (ball finish + photo grooves + V-bit tip)
+  - Parent: lean P0 cut look. Assignee: `coder`. Worktree.
+  - DoD: Engine + UI + Persist + Verify across children 2100a–d, 2110a–b, 2120a–c
+  - Out of scope: Fusion Adaptive 3D, steep/shallow split, pencil, Aspire Offset finish, Voronoi MA rewrite, 2022f, welcome gallery, T-bones
+  - Verify: parent `[x]` only when listed children `[x]`
+  - deps: none
+
+- [ ] **SPK-2100a** **CAM** Drop-cutter / ball compensation on HeightfieldFinishEngine // P0
+  - Parent: SPK-2100. Assignee: `coder`. `--max-runtime 90m`. Worktree. // parallel-ok after 2024b commits
+  - AC:
+    - Tool center offset by ball radius R = D/2; dome CLT: compensated Z is not surface Z; concave valley not overcut by ~R
+    - Default `stepOverMm = 0.10 * toolDiameterMm`; missing JSON key still decodes 0.8 (legacy-safe)
+    - Finish 3D form shows stepover as % of D + computed scallop `h ≈ s²/(8R)`
+  - Out of scope: Fusion scallop, steep/shallow split, pencil, Offset-along-surface
+  - Files: `Sources/ShopPilotCore/HeightfieldToolpath.swift` (finish engine + `HeightfieldFinishParams`), Finish 3D form, new `Sources/ShopPilotVerify2100a/main.swift`, `Package.swift`
+  - Verify: `./scripts/verify_locked.sh ShopPilotVerify2100a`
+  - All swift via `swift_locked.sh`; never `rm -rf .build`; worktree-only Sources
+
+- [ ] **SPK-2100b** **CAM** Raster angle 0 / 45 / 90 (Aspire Raster) // P0 · deps: SPK-2100a
+  - Parent: SPK-2100. Assignee: `coder`. `--max-runtime 60m`. Worktree.
+  - AC: Default 0 = today's Y-lace; 45° visits a diagonal ridge the 0° pass misses; persist + form picker
+  - Out of scope: Aspire Offset finish with retract
+  - Files: `HeightfieldFinishParams` + finish engine + form. Verify: `./scripts/verify_locked.sh ShopPilotVerify2100b`
+
+- [ ] **SPK-2100c** **PREV** Scallop-height leftover in Preview // P1 · deps: SPK-2100a
+  - Parent: SPK-2100. Assignee: `coder`. `--max-runtime 60m`. Worktree.
+  - AC: Preview colors leftover `h ≈ s²/(8R)` vs a 0.02 mm shop band; updates when stepover changes; honest, not photoreal
+  - Out of scope: Fusion-style shaded metal
+  - Verify: `./scripts/verify_locked.sh ShopPilotVerify2100c` (or python grep gate + `swift_locked.sh build --target ShopPilot`)
+
+- [ ] **SPK-2100d** **CAM** Rest finish from previous tool // P1 · deps: SPK-2100a
+  - Parent: SPK-2100. Assignee: `coder`. `--max-runtime 60m`. Worktree.
+  - AC: `previousToolDiameterMm > 0` finish-machines only leftover cusps; 0 = compensated finish without rest (stable vs 2100a)
+  - Out of scope: Fusion pencil
+  - Files: finish params + engine. Verify: `./scripts/verify_locked.sh ShopPilotVerify2100d`
+
+- [ ] **SPK-2110a** **CAM** PhotoVCarve groove width + depth + 45° raster // P0 · deps: SPK-2100a optional
+  - Parent: SPK-2100. Assignee: `coder`. `--max-runtime 60m`. Worktree.
+  - AC:
+    - Groove **width** from V-angle + tip Ø + depth; luminance still drives depth
+    - Default raster 45°; invert on Photo form; stepover so adjacent grooves overlap (no uncut ridge wider than tip)
+  - Out of scope: cross-hatch; new photo SKU
+  - Files: `Sources/ShopPilotCore/PhotoVCarveToolpath.swift`, `PhotoVCarveParamsForm`. Verify: `./scripts/verify_locked.sh ShopPilotVerify2110a`
+
+- [ ] **SPK-2110b** **CAM** Photo/litho two-pass (rough ~50% / finish 8–12%) // P1 · deps: SPK-2110a
+  - Parent: SPK-2100. Assignee: `coder`. `--max-runtime 60m`. Worktree.
+  - AC: Linked two-pass or one form with two tools; lithophane leftover-thickness warning if `stock − maxDepth < minThickness`
+  - Out of scope: new lithophane heightfield
+  - Verify: `./scripts/verify_locked.sh ShopPilotVerify2110b`
+
+- [ ] **SPK-2120a** **CAM** V-bit tip Ø on VCarveGeometry / VCarveParams // P0
+  - Parent: SPK-2100. Assignee: `coder`. `--max-runtime 60m`. Worktree. // parallel-ok vs 2100* (different files)
+  - AC: `tipDiameterMm` on general V-carve (new-job default 0.1); missing JSON key = 0 so SPK-2010 goldens stay byte-stable; wide valley depth changes when tip > 0
+  - Out of scope: Voronoi MA rewrite (do not edit `MedialAxis.swift` algorithm)
+  - Files: `VCarveGeometry.swift`, `VCarveEngine.swift`, Valley form. Verify: `./scripts/verify_locked.sh ShopPilotVerify2120a`
+
+- [ ] **SPK-2120b** **CAM** Inlay rim order: V-walls then floor clearance // P1
+  - Parent: SPK-2100. Assignee: `coder`. `--max-runtime 45m`. Worktree.
+  - AC: Toggle, default **V-first** on inlay; ordinary V-carve keeps clearance-before-V; first cut moves are V then endmill floor
+  - Out of scope: new inlay wizard
+  - Files: `InlayToolpath.swift` + inlay form. Verify: `./scripts/verify_locked.sh ShopPilotVerify2120b`
+
+- [ ] **SPK-2120c** **GEO** Crisp-letters medial cell preset (not a new algorithm) // P2
+  - Parent: SPK-2100. Assignee: `coder`. `--max-runtime 45m`. Worktree.
+  - AC: Valley form preset sets `medialAxisCellMm = 0.2` with a time warning; letter fixture differs vs 1.0 mm cell
+  - Out of scope: rewrite `MedialAxis.swift`
+  - Verify: `./scripts/verify_locked.sh ShopPilotVerify2010a` + `./scripts/verify_locked.sh ShopPilotVerify2120c`
+
+### 2026-08-25 — PHASE Y filed (Cursor)
+- Cards 2100 / 2100a–d / 2110a–b / 2120a–c Ready. Next claim **2100a** only (serialize `HeightfieldToolpath.swift`). Win H-701 after 2100a `[x]`.
 
