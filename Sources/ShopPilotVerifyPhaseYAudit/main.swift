@@ -35,6 +35,41 @@ func cutCount(_ g: [String]) -> Int {
     g.filter { $0.hasPrefix("G1") && ($0.contains("X") || $0.contains("Y")) }.count
 }
 
+func word(_ l: String, _ w: Character) -> Double? {
+    for p in l.split(separator: " ") where p.first == w { return Double(p.dropFirst()) }
+    return nil
+}
+
+/// Cut segments within one O= section as ((x0,y0),(x1,y1)). Tracks the last
+/// commanded XY so each G1's TRUE span is known — endpoint-only checks miss a
+/// full-width row whose ends sit outside the region of interest.
+func cutSegments(_ g: [String], section want: String) -> [((Double, Double), (Double, Double))] {
+    var section = "", cx = 0.0, cy = 0.0
+    var out: [((Double, Double), (Double, Double))] = []
+    for l in g {
+        if l.hasPrefix("O=") { section = String(l.dropFirst(2)); continue }
+        guard l.hasPrefix("G0") || l.hasPrefix("G1") else { continue }
+        let nx = word(l, "X") ?? cx, ny = word(l, "Y") ?? cy
+        if l.hasPrefix("G1"), section == want, l.contains("X") || l.contains("Y") {
+            out.append(((cx, cy), (nx, ny)))
+        }
+        cx = nx; cy = ny
+    }
+    return out
+}
+
+/// True when the segment passes through the rect (sampled along the span).
+func segmentEntersRect(_ s: ((Double, Double), (Double, Double)),
+                       minX: Double, maxX: Double, minY: Double, maxY: Double) -> Bool {
+    let (a, b) = s
+    for i in 0...200 {
+        let t = Double(i) / 200.0
+        let x = a.0 + (b.0 - a.0) * t, y = a.1 + (b.1 - a.1) * t
+        if x > minX, x < maxX, y > minY, y < maxY { return true }
+    }
+    return false
+}
+
 /// No cutting may be stranded after the program end.
 func programEndSane(_ g: [String], _ label: String) {
     guard let m30 = g.firstIndex(of: "M30") else {
@@ -213,26 +248,23 @@ func main() {
            "sign board vFirst: V then AROUND-letter clearance — got \(cuttingSections(signG))")
     programEndSane(signG, "sign board vFirst")
 
-    // The letter interior must survive: no clearance cut may cross its middle.
-    let letterMidY = 9.0, letterMidX = 15.0
-    var insideLetterCuts = 0
-    var section = ""
-    for l in signG {
-        if l.hasPrefix("O=") { section = String(l.dropFirst(2)); continue }
-        guard section == "VCARVE_CLEARANCE", l.hasPrefix("G1"), l.contains("X") else { continue }
-        // Parse "G1 X.. Y.. F.." — flag rows crossing the letter's centre.
-        let parts = l.split(separator: " ")
-        var x: Double?, y: Double?
-        for p in parts {
-            if p.hasPrefix("X") { x = Double(p.dropFirst()) }
-            if p.hasPrefix("Y") { y = Double(p.dropFirst()) }
-        }
-        if let yy = y, abs(yy - letterMidY) < 1.0, let xx = x, abs(xx - letterMidX) < 2.0 {
-            insideLetterCuts += 1
-        }
+    // The letter interior must survive. Endpoint proximity is NOT enough: a
+    // full-width raster row at the letter's Y has endpoints far outside it and
+    // would slip through. Reconstruct each cut SPAN (last commanded XY → G1
+    // target) and test true overlap.
+    let through = cutSegments(signG, section: "VCARVE_CLEARANCE").filter {
+        segmentEntersRect($0, minX: 12, maxX: 18, minY: 7, maxY: 11)
     }
-    expect(insideLetterCuts == 0,
-           "sign board vFirst: clearance never cuts through the letter interior (\(insideLetterCuts) hits)")
+    expect(through.isEmpty,
+           "sign board vFirst: no clearance SPAN enters the letter (\(through.count) violations)")
+
+    // SELF-CHECK — the span guard must be able to FAIL. A synthetic full-width
+    // row at the letter's Y (endpoints outside it) is exactly what an
+    // endpoint-proximity check would wave through.
+    let synthetic = ["O=VCARVE_CLEARANCE", "G0 X1.000 Y9.000", "G1 X29.000 Y9.000 F1000"]
+    expect(cutSegments(synthetic, section: "VCARVE_CLEARANCE").contains {
+        segmentEntersRect($0, minX: 12, maxX: 18, minY: 7, maxY: 11)
+    }, "SELF-CHECK: span guard catches a full-width through-cut")
 
     // And the inlay path DOES fill its interior (the complementary case).
     var inlayInterior = VCarveParams()
