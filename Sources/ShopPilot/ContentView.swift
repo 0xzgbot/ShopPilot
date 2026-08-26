@@ -1,5 +1,6 @@
 import SwiftUI
 import ShopPilotCore
+import ShopPilotGeometry
 import AppKit
 import ShopPilotSerial
 import UniformTypeIdentifiers
@@ -463,6 +464,10 @@ private struct DesignStageView: View {
     /// SPK-1301 — dogbone corner-relief dialog state.
     @State private var showDogboneDialog = false
     @State private var dogboneBitDiameter = 6.0
+    /// SPK-2023b — corner-relief kind (0 = dogbone, 1 = T-bone) and T-bone
+    /// orientation (0 = auto-longest-edge, 1 = along X, 2 = along Y).
+    @State private var reliefKind = 0
+    @State private var tboneOrientation = 0
     @State private var offsetDistance = "3.0"
     @State private var showFilletDialog = false
     @State private var filletRadius = "3.0"
@@ -593,14 +598,43 @@ private struct DesignStageView: View {
         } message: {
             Text("Positive = outward, negative = inward.")
         }
-        .alert("Dogbone Corner Relief", isPresented: $showDogboneDialog) {
-            TextField("Bit Diameter (mm)", value: $dogboneBitDiameter, format: .number)
-            Button("Add Reliefs") {
-                _ = session.addDogboneReliefs(bitDiameter: dogboneBitDiameter)
+        .sheet(isPresented: $showDogboneDialog) {
+            // SPK-1301 + SPK-2023b — corner relief: circular dogbone or T-bone.
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Corner Relief").font(.headline)
+                Picker("Style", selection: $reliefKind) {
+                    Text("Dogbone").tag(0)
+                    Text("T-bone").tag(1)
+                }
+                .pickerStyle(.segmented)
+                if reliefKind == 1 {
+                    Picker("Orientation", selection: $tboneOrientation) {
+                        Text("Auto").tag(0)
+                        Text("Along X").tag(1)
+                        Text("Along Y").tag(2)
+                    }
+                    .pickerStyle(.segmented)
+                }
+                HStack {
+                    Text("Bit Diameter (mm)")
+                    TextField("", value: $dogboneBitDiameter, format: .number)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 90)
+                }
+                Text(reliefKind == 1
+                     ? "Adds T-shaped corner notches so a round bit can cut the pocket's square corners."
+                     : "Adds corner-relief circles so a round bit can cut the pocket's square corners.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                HStack {
+                    Button(reliefKind == 1 ? "Add T-Bones" : "Add Reliefs") { applyCornerRelief() }
+                        .keyboardShortcut(.defaultAction)
+                    Button("Cancel", role: .cancel) { showDogboneDialog = false }
+                }
+                Spacer()
             }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Adds corner-relief circles so a round bit can cut the pocket's square corners.")
+            .padding()
+            .frame(width: 340)
         }
         .alert("Fillet Corners", isPresented: $showFilletDialog) {
             TextField("Radius (mm)", text: $filletRadius)
@@ -831,6 +865,22 @@ private struct DesignStageView: View {
             return
         }
         _ = session.applyOffset(distance: distance)
+    }
+
+    /// SPK-2023b — dispatch the corner-relief sheet to dogbone or T-bone.
+    private func applyCornerRelief() {
+        if reliefKind == 1 {
+            let orientation: TBoneOrientation
+            switch tboneOrientation {
+            case 1: orientation = .alongX
+            case 2: orientation = .alongY
+            default: orientation = .autoLongestEdge
+            }
+            _ = session.addTBoneReliefs(bitDiameter: dogboneBitDiameter, orientation: orientation)
+        } else {
+            _ = session.addDogboneReliefs(bitDiameter: dogboneBitDiameter)
+        }
+        showDogboneDialog = false
     }
 
     private func applyFillet() {

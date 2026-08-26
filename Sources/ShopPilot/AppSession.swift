@@ -4861,6 +4861,50 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
         return added
     }
 
+    // MARK: - T-bone corner relief (SPK-2023b)
+
+    /// Add T-bone corner-relief notches to a selected rectangle pocket so a
+    /// round bit can cut square corners. Parameterized by bit diameter only;
+    /// `orientation` resolves alongX / alongY / auto-longest-edge.
+    /// Returns the count added.
+    @discardableResult
+    func addTBoneReliefs(bitDiameter: Double, orientation: TBoneOrientation) -> Int {
+        // Find the selected rectangle (first selected shape that is one).
+        guard let index = selectedShapeIndices.first,
+              shapes.indices.contains(index) else {
+            statusMessage = "Select a rectangle pocket first"
+            return 0
+        }
+        let shape = shapes[index]
+        guard case .rectangle(let origin, let width, let height) = shape else {
+            statusMessage = "T-bone works on a rectangle pocket — select one"
+            return 0
+        }
+        let bounds = Rect(
+            minX: origin.x, minY: origin.y,
+            maxX: origin.x + width, maxY: origin.y + height
+        )
+        let reliefs = TBone.cornerReliefs(for: bounds, bitDiameter: bitDiameter,
+                                          orientation: orientation)
+        guard !reliefs.isEmpty else {
+            statusMessage = "T-bone: invalid bit diameter"
+            return 0
+        }
+        registerUndoPoint()
+        var added = 0
+        for relief in reliefs {
+            var points = relief.polygon()
+            if let first = points.first, points.count > 1 {
+                points.append(first)  // close the notch outline
+            }
+            shapes.append(.freehand(points: points))
+            added += 1
+        }
+        statusMessage = "T-bone: \(added) corner notch(es) added (\(bitDiameter)mm bit)"
+        markDirty()
+        return added
+    }
+
     // MARK: - Rest machining (SPK-1305)
 
     /// Generate a Rest Machining op: after a rough pass, clear leftover
