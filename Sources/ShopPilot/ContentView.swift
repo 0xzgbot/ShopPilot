@@ -1681,6 +1681,16 @@ private struct CutStageView: View {
                     .frame(maxHeight: 320)
                 }
 
+                // SPK-2100b — Finish 3D inspector (none existed; Rough 3D had the only 3D form).
+                if node.strategyKind == .finish3D {
+                    ScrollView {
+                        Finish3DParamsForm(node: node, tools: session.toolDatabase.tools) { newParams in
+                            _ = session.applyFinish3DParams(newParams, to: node.id)
+                        }
+                    }
+                    .frame(maxHeight: 320)
+                }
+
                 let lines = (node.toolpathResult ?? "")
                     .components(separatedBy: .newlines)
                     .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }

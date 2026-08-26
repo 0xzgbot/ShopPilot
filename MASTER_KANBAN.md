@@ -1704,6 +1704,15 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 
 ## 12. Work log
 
+### 2026-08-25 — SPK-2100b done (Hermes coder, retry #1 after dead worker)
+- Absorbed: dead worker's uncommitted partials — engine rotated-lace (+107), `Finish3DParamsForm`, `applyFinish3DParams`, inspector branch. Verified each against AC before trusting.
+- Fixed: stray `}` in `Finish3DParamsForm` (dead-worker compile break); finish header comment re-split so angle-0 output stays BYTE-identical to pre-2100b (`ShopPilotVerify3DGolden` asserts the exact `(Finish: …mm ball nose, drop-cutter compensated)` line).
+- Added: `Sources/ShopPilotVerify2100b/main.swift` + Package.swift target. CLT covers default/legacy-decode/round-trip/snap {0,45,90}/scallop math, constant-Y (0°), constant-X (90°), diagonal G1s (45°), ridge-coverage 45-vs-0, and 0° golden stability.
+- Result: `[x]`. Gates: `./scripts/verify_locked.sh ShopPilotVerify2100b` PASS; `./scripts/swift_locked.sh build --target ShopPilot` PASS; sweep 3DGolden / 2100a / 3Da / 3Db / 3DUI / SHAKEf all PASS.
+
+### 2026-08-25 — SPK-2100b claimed (Cursor)
+- Claimed: SPK-2100b `[~]` — Finish 3D form + raster 0/45/90. Hermes had `[~]` with params field only (engine still Y-lace; no form). Absorbing: engine lace + `Finish3DParamsForm` + `applyFinish3DParams`. Gate: `./scripts/verify_locked.sh ShopPilotVerify2100b`.
+
 ### 2026-08-25 — SPK-2100a claimed (Hermes coder, kanban subagent)
 - Claimed: SPK-2100a `[~]` — drop-cutter / ball compensation on `HeightfieldFinishEngine` + stepOver default 10% of D. Engine+CLT only (no UI; 2100b owns the form). Gate: `./scripts/verify_locked.sh ShopPilotVerify2100a`.
 
@@ -2684,14 +2693,16 @@ Claim order (2026-08-25 night): **SPK-2100a** next (engine-only drop-cutter). PH
   - All swift via `swift_locked.sh`; never `rm -rf .build`; worktree-only Sources
   - Honest gap (audit 2026-08-25): there is **no** `Finish3DParamsForm` and **no** `applyFinish3DParams`. Rough 3D has both. Do not invent the form on this card.
 
-- [ ] **SPK-2100b** **CAM+UI** Create Finish 3D form + raster angle 0/45/90 // P0 · deps: SPK-2100a
+- [x] **SPK-2100b** **CAM+UI** Create Finish 3D form + raster angle 0/45/90 // P0 · deps: SPK-2100a
   - Parent: SPK-2100. Assignee: `coder`. `--max-runtime 60m`. Worktree.
+  - claimed: 2026-08-25 — Cursor absorbing Hermes `[~]` (params field only; engine/form incomplete).
   - AC:
     - NEW `Finish3DParamsForm` (mirror `Rough3DParamsForm`) + `AppSession.applyFinish3DParams` + Cut inspector branch for `.finish3D` (today the inspector has none)
     - Stepover shown as **% of D** + computed scallop `h ≈ s²/(8R)`; raster angle 0 / 45 / 90 (default 0 = today's Y-lace)
     - 45° visits a diagonal ridge the 0° pass misses; persist + legacy decode default 0
   - Out of scope: Aspire Offset finish with retract; Fusion scallop
   - Files: `HeightfieldFinishParams` + finish engine angle; `SpecialtyParamsForms.swift` (new form); `AppSession.swift` apply; `ContentView.swift` inspector branch (~1674, next to Rough 3D). Verify: `./scripts/verify_locked.sh ShopPilotVerify2100b` + `swift_locked.sh build --target ShopPilot`
+  - Shipped 2026-08-25 (Hermes coder, retry #1): engine rotated-lace raster honored by `HeightfieldFinishEngine` (0° byte-identical to the pre-2100b path incl. header comment; 45/90 run parallel passes with the same drop-cutter compensation); `Finish3DParamsForm` (stepover as % of D with live scallop h ≈ s²/(8R) readout, raster picker 0/45/90, feeds/levels mirroring `Rough3DParamsForm`); `applyFinish3DParams` (undo + paramsJSON persist + real-engine regen); `.finish3D` inspector branch. Legacy decode default 0. CLT proves 45° rides a diagonal crest the 0° lattice misses by ≥0.7 mm.
 
 - [ ] **SPK-2100c** **PREV** Scallop-height leftover in Preview // P1 · deps: SPK-2100a
   - Parent: SPK-2100. Assignee: `coder`. `--max-runtime 60m`. Worktree.

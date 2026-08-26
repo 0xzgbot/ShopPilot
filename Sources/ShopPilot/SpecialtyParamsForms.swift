@@ -720,3 +720,91 @@ struct Rough3DParamsForm: View {
         .padding(8)
     }
 }
+
+// MARK: - SPK-2100b: Finish 3D form (% stepover + scallop readout + raster angle)
+
+/// Strategy form for surface-following Finish 3D operations (mirrors
+/// Rough3DParamsForm). SPK-2100b additions: stepover edited as a **% of tool
+/// diameter** (the 8\u{2013}12% finish quality band) with the computed cusp
+/// scallop h \u{2248} s\u{00B2}/(8R) shown live, and a raster-angle picker
+/// (0\u{00B0} = today's Y-lace, 45\u{00B0}, 90\u{00B0}) honored by
+/// HeightfieldFinishEngine.
+struct Finish3DParamsForm: View {
+    let node: ToolpathTreeNode
+    let tools: [Tool]
+    let onApply: (HeightfieldFinishParams) -> Void
+
+    @State private var params: HeightfieldFinishParams
+
+    init(node: ToolpathTreeNode, tools: [Tool], onApply: @escaping (HeightfieldFinishParams) -> Void) {
+        self.node = node
+        self.tools = tools
+        self.onApply = onApply
+        _params = State(initialValue: node.finish3DParams())
+    }
+
+    /// Stepover as a percentage of the tool diameter (write clamps into the
+    /// sane finish range).
+    private var stepoverPercent: Binding<Double> {
+        Binding(
+            get: {
+                guard params.toolDiameterMm > 1e-9 else { return 10 }
+                return params.stepOverMm / params.toolDiameterMm * 100
+            },
+            set: { pct in
+                let d = max(0.1, params.toolDiameterMm)
+                params.stepOverMm = max(0.05, d * pct / 100)
+            }
+        )
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            MaterialBitPresetPicker(
+                node: node,
+                tools: tools,
+                feedRateMmPerMin: $params.feedRateMmPerMin,
+                plungeFeedRateMmPerMin: $params.plungeFeedRateMmPerMin,
+                spindleRpm: $params.spindleRpm,
+                maxDepthOfCutMm: nil
+            )
+            GroupBox("Tool & finish") {
+                Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                    SpecialtyNumRow(label: "Tool \u{00D8} (mm)", value: $params.toolDiameterMm)
+                    SpecialtyNumRow(label: "Step-over (% of \u{00D8})", value: stepoverPercent)
+                }
+                Text("Step-over \(String(format: "%.3f", params.stepOverMm)) mm \u{2022} scallop h \u{2248} \(String(format: "%.4f", params.scallopHeightMm)) mm")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            GroupBox("Raster") {
+                Picker("Raster angle", selection: $params.rasterAngleDegrees) {
+                    Text("0\u{00B0} (Y lace)").tag(0.0)
+                    Text("45\u{00B0}").tag(45.0)
+                    Text("90\u{00B0}").tag(90.0)
+                }
+                .accessibilityLabel("Raster angle")
+                Text("45\u{00B0} visits diagonal ridges the straight passes miss; 0\u{00B0} is today's Y lace.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            GroupBox("Feeds") {
+                Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                    SpecialtyNumRow(label: "Feed (mm/min)", value: $params.feedRateMmPerMin)
+                    SpecialtyNumRow(label: "Plunge (mm/min)", value: $params.plungeFeedRateMmPerMin)
+                    SpecialtyNumRow(label: "Spindle (RPM, 0 = off)", value: $params.spindleRpm)
+                }
+            }
+            GroupBox("Levels") {
+                SpecialtyNumRow(label: "Safe Z (mm)", value: $params.safeZHeightMm)
+            }
+
+            Button("Apply Params \u{2014} Regenerate") {
+                onApply(params)
+            }
+            .buttonStyle(.borderedProminent)
+            .frame(maxWidth: .infinity)
+        }
+        .padding(8)
+    }
+}

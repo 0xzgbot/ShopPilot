@@ -3774,6 +3774,34 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
         return true
     }
 
+    /// SPK-2100b — apply Finish 3D params (% stepover, raster angle) to an
+    /// operation: store + regenerate with the REAL engine (drop-cutter
+    /// compensated, angle-honoring), clearing the dirty badge (mirrors
+    /// applyRough3DParams).
+    @discardableResult
+    func applyFinish3DParams(_ params: HeightfieldFinishParams, to nodeID: UUID) -> Bool {
+        guard let node = toolpathTree.findNode(id: nodeID),
+              node.strategyKind == .finish3D else {
+            statusMessage = "Apply params: select a Finish 3D operation"
+            return false
+        }
+        guard let hf = job.stlHeightfield else {
+            statusMessage = "No relief — import an STL or image first"
+            return false
+        }
+        registerUndoPoint()
+        node.paramsJSON = encodeParams(params)
+        let result = HeightfieldFinishEngine.compute(heightfield: hf, params: params)
+        node.toolpathResult = result.gcodeLines.joined(separator: "\n")
+        node.estimatedTimeSeconds = result.estimatedTimeSeconds
+        node.clearDirty()
+        let all = allToolpathGCode
+        if !all.isEmpty { gcodeLines = all }
+        statusMessage = "Finish 3D (\(Int(params.rasterAngleDegrees))° raster): \(result.passCount) rows, ~\(Int(result.estimatedTimeSeconds))s"
+        markDirty()
+        return true
+    }
+
     /// Generate a Drill toolpath at the center of every closed vector
     /// (bounding-box centroid, default peck cycle) and add it to the tree.
     /// SPK-UI-BUG-03: engine compute runs off the main thread.

@@ -119,6 +119,9 @@ public struct HeightfieldFinishParams: Codable, Sendable, ToolFeedApplicable {
     public var plungeFeedRateMmPerMin: Double
     public var safeZHeightMm: Double
     public var spindleRpm: Double
+    /// SPK-2100b — raster lace direction in degrees (0 = today's Y-lace rows
+    /// running along X, 90 = X-stepover with runs along Y, 45 = diagonal).
+    public var rasterAngleDegrees: Double
 
     public init(
         toolDiameterMm: Double = 3.175,
@@ -126,7 +129,8 @@ public struct HeightfieldFinishParams: Codable, Sendable, ToolFeedApplicable {
         feedRateMmPerMin: Double = 1000,
         plungeFeedRateMmPerMin: Double = 300,
         safeZHeightMm: Double = 5.0,
-        spindleRpm: Double = 0
+        spindleRpm: Double = 0,
+        rasterAngleDegrees: Double = 0
     ) {
         self.toolDiameterMm = toolDiameterMm
         // SPK-2100a — default finish stepover is 10% of D (Aspire's documented
@@ -137,11 +141,13 @@ public struct HeightfieldFinishParams: Codable, Sendable, ToolFeedApplicable {
         self.plungeFeedRateMmPerMin = plungeFeedRateMmPerMin
         self.safeZHeightMm = safeZHeightMm
         self.spindleRpm = spindleRpm
+        self.rasterAngleDegrees = rasterAngleDegrees
     }
 
     private enum CodingKeys: String, CodingKey {
         case toolDiameterMm, stepOverMm, feedRateMmPerMin
         case plungeFeedRateMmPerMin, safeZHeightMm, spindleRpm
+        case rasterAngleDegrees
     }
 
     public init(from decoder: Decoder) throws {
@@ -152,6 +158,9 @@ public struct HeightfieldFinishParams: Codable, Sendable, ToolFeedApplicable {
         plungeFeedRateMmPerMin = try c.decodeIfPresent(Double.self, forKey: .plungeFeedRateMmPerMin) ?? 300
         safeZHeightMm = try c.decodeIfPresent(Double.self, forKey: .safeZHeightMm) ?? 5.0
         spindleRpm = try c.decodeIfPresent(Double.self, forKey: .spindleRpm) ?? 0
+        // SPK-2100b — legacy-safe: pre-existing stored paramsJSON has no angle;
+        // decode defaults to 0 so old jobs regenerate the same Y-lace path.
+        rasterAngleDegrees = try c.decodeIfPresent(Double.self, forKey: .rasterAngleDegrees) ?? 0
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -162,6 +171,30 @@ public struct HeightfieldFinishParams: Codable, Sendable, ToolFeedApplicable {
         try c.encode(plungeFeedRateMmPerMin, forKey: .plungeFeedRateMmPerMin)
         try c.encode(safeZHeightMm, forKey: .safeZHeightMm)
         try c.encode(spindleRpm, forKey: .spindleRpm)
+        try c.encode(rasterAngleDegrees, forKey: .rasterAngleDegrees)
+    }
+
+    /// SPK-2100b — leftover scallop for shallow ball lace: h ≈ s² / (8R).
+    public var scallopHeightMm: Double {
+        let r = max(1e-9, toolDiameterMm * 0.5)
+        return (stepOverMm * stepOverMm) / (8.0 * r)
+    }
+
+    /// SPK-2100b — shipped raster set is {0, 45, 90}.
+    public var snappedRasterAngleDegrees: Double {
+        Self.snapRasterAngle(rasterAngleDegrees)
+    }
+
+    public static func snapRasterAngle(_ degrees: Double) -> Double {
+        var a = degrees.truncatingRemainder(dividingBy: 180.0)
+        if a < 0 { a += 180.0 }
+        if a >= 135 { return 0 }
+        let d0 = min(a, 180 - a)
+        let d45 = abs(a - 45)
+        let d90 = abs(a - 90)
+        if d90 <= d45 && d90 <= d0 { return 90 }
+        if d45 <= d0 { return 45 }
+        return 0
     }
 }
 
@@ -359,12 +392,23 @@ public enum HeightfieldFinishEngine {
         if params.spindleRpm > 0 {
             lines.append("M3 S\(Int(params.spindleRpm))")
         }
-        lines.append("(Finish: \(String(format: "%.1f", params.toolDiameterMm))mm ball nose, drop-cutter compensated)")
+        // SPK-2100b — raster angle dispatch. 0 keeps today's Y-lace path
+        // BYTE-FOR-BYTE (goldens stay stable, header comment included); any
+        // other angle rotates the lace direction (45 diagonal, 90 transposed)
+        // and re-runs the same drop-cutter compensation at each sampled XY.
+        let rasterAngleDeg = params.snappedRasterAngleDegrees
+        if rasterAngleDeg < 0.01 {
+            lines.append("(Finish: \(String(format: "%.1f", params.toolDiameterMm))mm ball nose, drop-cutter compensated)")
+        } else {
+            lines.append("(Finish: \(String(format: "%.1f", params.toolDiameterMm))mm ball nose, drop-cutter compensated, raster \(Int(rasterAngleDeg.rounded()))°)")
+        }
         var totalLength = 0.0
-        var row = 0
         var passCount = 0
 
         let rowStride = max(1, Int(round(stepOver / heightfield.cellSizeMm)))
+
+        if rasterAngleDeg < 0.01 {
+        var row = 0
         while row < heightfield.height {
             passCount += 1
             let cy = heightfield.minY + (Double(row) + 0.5) * heightfield.cellSizeMm
@@ -394,6 +438,90 @@ public enum HeightfieldFinishEngine {
                 col += rowStride
             }
             row += rowStride
+        }
+        } else {
+            // Rotated lace: parallel passes along direction u spaced stepOver
+            // apart on the perpendicular n, clipped to the grid rectangle of
+            // cell centers. Samples every cell along each pass and traces the
+            // SAME ballCenterHeight drop-cutter offset as the 0-degree path,
+            // so a 45-degree pass visits diagonal ridges straight rows miss.
+            let theta = rasterAngleDeg * Double.pi / 180.0
+            let ux = cos(theta), uy = sin(theta)
+            let nx = -uy, ny = ux
+            let cell = heightfield.cellSizeMm
+            let cxMin = heightfield.minX + 0.5 * cell
+            let cxMax = heightfield.minX + (Double(heightfield.width) - 0.5) * cell
+            let cyMin = heightfield.minY + 0.5 * cell
+            let cyMax = heightfield.minY + (Double(heightfield.height) - 0.5) * cell
+            let corners = [(cxMin, cyMin), (cxMax, cyMin), (cxMin, cyMax), (cxMax, cyMax)]
+            var dMin = Double.infinity
+            var dMax = -Double.infinity
+            for corner in corners {
+                let d = nx * corner.0 + ny * corner.1
+                dMin = min(dMin, d)
+                dMax = max(dMax, d)
+            }
+
+            let strideMm = Double(rowStride) * cell
+            var dOffset = dMin + 0.5 * strideMm
+            while dOffset <= dMax {
+                var tLo = -Double.infinity
+                var tHi = Double.infinity
+                var inside = true
+                // X slab of the clip rectangle.
+                if abs(ux) < 1e-12 {
+                    inside = (nx * dOffset) >= cxMin && (nx * dOffset) <= cxMax
+                } else {
+                    var a = (cxMin - nx * dOffset) / ux
+                    var b = (cxMax - nx * dOffset) / ux
+                    if a > b { swap(&a, &b) }
+                    tLo = max(tLo, a); tHi = min(tHi, b)
+                }
+                // Y slab of the clip rectangle.
+                if inside {
+                    if abs(uy) < 1e-12 {
+                        inside = (ny * dOffset) >= cyMin && (ny * dOffset) <= cyMax
+                    } else {
+                        var a = (cyMin - ny * dOffset) / uy
+                        var b = (cyMax - ny * dOffset) / uy
+                        if a > b { swap(&a, &b) }
+                        tLo = max(tLo, a); tHi = min(tHi, b)
+                    }
+                }
+                if inside && tLo <= tHi {
+                    passCount += 1
+                    lines.append("")
+                    let degLabel = Int(rasterAngleDeg.rounded())
+                    lines.append("(Pass \(passCount), raster \(degLabel)deg)")
+                    lines.append("G0 Z\(String(format: "%.3f", params.safeZHeightMm))")
+                    var firstPt = true
+                    var prevX = 0.0
+                    var prevY = 0.0
+                    var t = tLo
+                    while t <= tHi + 1e-9 {
+                        var sx = nx * dOffset + ux * t
+                        var sy = ny * dOffset + uy * t
+                        sx = min(max(sx, cxMin), cxMax)
+                        sy = min(max(sy, cyMin), cyMax)
+                        let centerH = ballCenterHeight(
+                            heightfield: heightfield, x: sx, y: sy, radiusMm: ballRadiusMm
+                        )
+                        let z = -(stockTop - centerH)
+                        if firstPt {
+                            lines.append("G0 X\(String(format: "%.3f", sx)) Y\(String(format: "%.3f", sy))")
+                            lines.append("G1 Z\(String(format: "%.3f", z)) F\(Int(params.plungeFeedRateMmPerMin))")
+                            firstPt = false
+                        } else {
+                            lines.append("G1 X\(String(format: "%.3f", sx)) Y\(String(format: "%.3f", sy)) Z\(String(format: "%.3f", z)) F\(Int(params.feedRateMmPerMin))")
+                            totalLength += ((sx - prevX) * (sx - prevX) + (sy - prevY) * (sy - prevY)).squareRoot()
+                        }
+                        prevX = sx
+                        prevY = sy
+                        t += cell
+                    }
+                }
+                dOffset += strideMm
+            }
         }
 
         lines.append("")
