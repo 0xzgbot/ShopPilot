@@ -36,8 +36,14 @@ check("flatCommands(beginnerMode:" in cmds and "search(_ query: String, beginner
 check(KEY in palette and "flatCommands(beginnerMode: beginnerMode)" in palette,
       "palette consumes the filtered list")
 
-check("Start from a Photo…" in welcome, "Welcome gains the Photo starter")
-check("generateLithophaneFromPanel()" in welcome, "Photo starter routes through the real import path")
+# SPK-2024a: the welcome landing carries ONLY sample starters + one primary
+# "Plan the cuts" CTA + Import Artwork — the Photo starter moved off it. The
+# lithophane path is still wired: it routes through generateLithophaneFromPanel
+# from the Model stage.
+check("Start from a Photo" not in welcome, "Photo starter off the landing (2024a single-CTA discipline)")
+model_stage = read("Sources/ShopPilot/ModelStageView.swift")
+check("generateLithophaneFromPanel()" in model_stage, "Photo starter lives in the Model stage")
+check("generateLithophaneFromPanel()" not in welcome, "welcome no longer owns the photo path")
 check("loadSampleProject(id:" in welcome, "sample starters intact")
 
 print()

@@ -149,11 +149,13 @@ struct ContentView: View {
             }
         }
         .onAppear {
-            if FirstRunGate.isFirstRun {
-                showWelcome = true
-            }
+            // SPK-2024a — the sample gallery is the LANDING VIEW: shown at
+            // every launch, not gated to the first run. FirstRunGate now only
+            // persists the acknowledgement (and powers the status-bar
+            // "Start Making" re-show + reset, SPK-1603).
+            showWelcome = true
             // SPK-1402d — offer recovery whenever a pending snapshot exists;
-            // the Welcome sheet (first run) and the recovery sheet are
+            // the Welcome landing and the recovery sheet are
             // independent, so a first-run recovery offer still appears.
             if session.pendingRecovery != nil {
                 showRecoveryOffer = true
@@ -161,7 +163,8 @@ struct ContentView: View {
         }
     }
 
-    /// UI-polish cluster — first-run onboarding sheet (shown once).
+    /// SPK-2024a — the welcome sample-gallery LANDING view (shown at every
+    /// launch; re-presentable from the status bar).
     @State private var showWelcome = false
     /// SPK-1402d — launch-time "Recover unsaved work?" offer.
     @State private var showRecoveryOffer = false
@@ -225,10 +228,11 @@ struct ContentView: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
 
-            // SPK-1603 — "Start Making" can return after first-run: a small
-            // chrome control re-presents the same WelcomeSheetView. The gate
-            // reset IS the persist (the sheet would re-open on next launch);
-            // dismiss still acknowledges it away.
+            // SPK-1603 / SPK-2024a — "Start Making" can return after any
+            // launch: a small chrome control re-presents the same
+            // WelcomeSheetView. The gate reset IS the persist (with the
+            // landing now shown every launch, the gate only records that the
+            // user has acknowledged once); dismiss still acknowledges it away.
             Button {
                 FirstRunGate.reset()
                 showWelcome = true
@@ -1460,7 +1464,7 @@ private struct CutStageView: View {
                 // SPK-1136a: Profile strategy form — installer-verified §R2 fields.
                 if node.isProfileOperation {
                     ScrollView {
-                        ProfileParamsForm(node: node, variables: session.docVars.variables, tools: session.toolDatabase.tools) { newParams in
+                        ProfileParamsForm(node: node, tools: session.toolDatabase.tools, variables: session.docVars.variables) { newParams in
                             _ = session.applyProfileParams(newParams, to: node.id)
                         }
                     }
@@ -1470,7 +1474,7 @@ private struct CutStageView: View {
                 // SPK-1136b: Pocket strategy form — installer-verified §M fields.
                 if node.isPocketOperation {
                     ScrollView {
-                        PocketParamsForm(node: node, variables: session.docVars.variables, tools: session.toolDatabase.tools) { newParams in
+                        PocketParamsForm(node: node, tools: session.toolDatabase.tools, variables: session.docVars.variables) { newParams in
                             _ = session.applyPocketParams(newParams, to: node.id)
                         }
                     }
@@ -1490,7 +1494,7 @@ private struct CutStageView: View {
                 // SPK-1136d: V-Carve strategy form — installer-verified §O fields.
                 if node.isVCarveOperation {
                     ScrollView {
-                        VCarveParamsForm(node: node, variables: session.docVars.variables, tools: session.toolDatabase.tools) { newParams in
+                        VCarveParamsForm(node: node, tools: session.toolDatabase.tools, variables: session.docVars.variables) { newParams in
                             _ = session.applyVCarveParams(newParams, to: node.id)
                         }
                     }

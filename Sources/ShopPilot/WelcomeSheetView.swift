@@ -3,17 +3,17 @@ import ShopPilotCore
 
 // MARK: - Welcome Sheet (SPK-1400a: "Start Making")
 
-/// First-run welcome sheet: a "Start Making" sheet — headline, then a sample
-/// gallery of the four bundled projects from `SampleProjectsStore` (name +
-/// tagline, one click loads the sample into the session and dismisses the
-/// sheet), then New Job / Open / Import as secondary rows, plus the safety
-/// primer. Shown once per machine (FirstRunGate).
+/// Landing view (SPK-2024a): shown at EVERY launch — not a FirstRunGate-only
+/// one-shot sheet — and re-presentable from the status-bar "Start Making"
+/// control (SPK-1603). Headline, then a sample gallery of the four bundled
+/// projects from `SampleProjectsStore` — one click loads the sample through
+/// the SPK-1403 loader hooks and lands in the Design stage — then exactly ONE
+/// primary forward CTA ("Plan the cuts", into Setup) with "Import Artwork…"
+/// as the single secondary, plus the safety primer.
 ///
-/// SPK-1400a: the sample list is read straight from `SampleProjectsStore` —
-/// never a second hardcoded catalog. "Open…" routes through the real package
-/// open path (`session.handleCommand(.openJob)`, the same session routing the
-/// File menu uses), and "Import…" presents the same `ImportHubView` flow the
-/// Design stage uses — neither is a bare stage switch.
+/// The sample list is read straight from `SampleProjectsStore` — never a
+/// second hardcoded catalog. "Import Artwork…" presents the same
+/// `ImportHubView` flow the Design stage uses — not a bare stage switch.
 struct WelcomeSheetView: View {
     @ObservedObject var session: AppSession
     var onDone: () -> Void
@@ -49,7 +49,12 @@ struct WelcomeSheetView: View {
             ) {
                 ForEach(Self.samples) { sample in
                     Button {
+                        // SPK-2024a — one click lands IN the Design stage with
+                        // the sample loaded. The load itself still goes through
+                        // the single SPK-1403 entry point (loadSampleProject →
+                        // SampleProjectLoader) — hooks unchanged.
                         if session.loadSampleProject(id: sample.id) {
+                            session.selectedStage = .design
                             onDone()
                         }
                     } label: {
@@ -85,43 +90,25 @@ struct WelcomeSheetView: View {
             }
             .frame(maxWidth: 420)
 
+            // SPK-2024a — exactly ONE primary forward CTA ("Plan the cuts",
+            // into the Setup stage) with "Import Artwork…" as the single
+            // secondary. New Job / Open / Photo live in the normal chrome
+            // (File menu, ⌘O, Model stage), not on the landing view.
             VStack(spacing: 8) {
-                Button {
-                    // SPK-1900c — Photo starter: straight into the photo
-                    // import (lithophane mapping), landing in the Model stage.
-                    session.generateLithophaneFromPanel()
-                    onDone()
-                } label: {
-                    Label("Start from a Photo…", systemImage: "photo")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-
                 Button {
                     session.selectedStage = .setup
                     onDone()
                 } label: {
-                    Label("Start a New Job", systemImage: "plus.rectangle.on.rectangle")
+                    Label("Plan the cuts", systemImage: "hammer")
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.bordered)
-
-                Button {
-                    // Real package open path — the same session routing the
-                    // File menu (⌘O) uses (openPackage → FileOperations
-                    // loader → applyPackagePayload). Not a stage switch.
-                    session.handleCommand(.openJob)
-                    onDone()
-                } label: {
-                    Label("Open a Job…", systemImage: "folder")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.defaultAction)
 
                 Button {
                     showImportHub = true
                 } label: {
-                    Label("Import SVG / DXF / STL…", systemImage: "square.and.arrow.down")
+                    Label("Import Artwork…", systemImage: "square.and.arrow.down")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
@@ -136,9 +123,6 @@ struct WelcomeSheetView: View {
                     .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 16)
-
-            Button("Get Started", action: onDone)
-                .keyboardShortcut(.defaultAction)
         }
         .padding(28)
         .frame(width: 500)

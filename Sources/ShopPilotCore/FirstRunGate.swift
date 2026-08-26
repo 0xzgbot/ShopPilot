@@ -2,11 +2,12 @@ import Foundation
 
 // MARK: - FirstRunGate (UI-polish cluster: onboarding / Kickstarter)
 
-/// First-launch gate for the welcome/onboarding sheet. Pure UserDefaults
-/// state so a CLT can prove the transition (first run → acknowledged →
-/// subsequent launches skip the sheet). The reference calls this the
-/// "Kickstarter / onboarding" surface; this is the minimal honest slice:
-/// one welcome sheet with quick-start CTAs, shown once.
+/// Launch-gate state for the welcome sample gallery. SPK-2024a: the gallery
+/// is the LANDING VIEW and is shown at every launch, so the gate no longer
+/// gates the launch presentation — it persists that the user acknowledged
+/// the welcome once (`acknowledge`) and powers the status-bar "Start Making"
+/// re-show control (`reset` + re-present, SPK-1603). Pure UserDefaults state
+/// so a CLT can prove the transitions.
 public enum FirstRunGate {
     private static let key = "shop_pilot_first_run_acknowledged"
 
