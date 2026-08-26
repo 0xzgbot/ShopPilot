@@ -121,7 +121,137 @@ public struct MergedToolpathResult: Codable, Sendable {
     }
 }
 
-// MARK: - ArrayCopyAndMergeEngine
+// MARK: - Path Array Copy (SPK-2023e)
+
+/// Mode for distributing copies along a path.
+public enum PathArrayCopyMode: Codable, Sendable {
+    /// Place exactly N copies evenly spaced by arc length.
+    case count(Int)
+    /// Place copies at fixed arc-length spacing along the path.
+    case spacing(Double)
+}
+
+/// Distribute array copies along an arbitrary path.
+public struct PathArrayCopyParams: Codable, Sendable {
+    public var targetPathID: UUID
+    public var mode: PathArrayCopyMode
+    /// Rotate each copy to align with the path tangent at its position.
+    public var followTangent: Bool
+
+    public init(
+        targetPathID: UUID,
+        mode: PathArrayCopyMode = .count(4),
+        followTangent: Bool = false
+    ) {
+        self.targetPathID = targetPathID
+        self.mode = mode
+        self.followTangent = followTangent
+    }
+}
+
+public struct PathArrayCopyPosition: Codable, Sendable {
+    public var x: Double
+    public var y: Double
+}
+
+/// Result of a path array copy: each entry is the position + tangent angle.
+public struct PathArrayCopyResult: Codable, Sendable {
+    public var positions: [PathArrayCopyPosition]
+    public var angles: [Double]
+    public var success: Bool
+    public var errorMessage: String?
+}
+
+extension ArrayCopyAndMergeEngine {
+
+    /// Distribute copies along a polyline (array of points).
+    ///
+    /// - Parameters:
+    ///   - points: the path vertices in order (the polyline to follow).
+    ///   - params: path array copy parameters.
+    /// - Returns: positions and optional tangent angles along the path.
+    public static func createPathArray(
+        points: [VectorPoint],
+        params: PathArrayCopyParams
+    ) -> PathArrayCopyResult {
+        guard points.count >= 2 else {
+            return PathArrayCopyResult(
+                positions: [], angles: [], success: false,
+                errorMessage: "Path must have at least 2 points")
+        }
+
+        // Cumulative arc length at each vertex.
+        var cum: [Double] = [0]
+        for i in 1..<points.count {
+            let dx = points[i].x - points[i - 1].x
+            let dy = points[i].y - points[i - 1].y
+            cum.append(cum.last! + (dx * dx + dy * dy).squareRoot())
+        }
+        let totalLength = cum.last!
+        guard totalLength > 1e-9 else {
+            return PathArrayCopyResult(
+                positions: [], angles: [], success: false,
+                errorMessage: "Path has zero length")
+        }
+
+        // Target positions along the path.
+        let targetS: [Double]
+        switch params.mode {
+        case .count(let n):
+            let n = max(1, n)
+            if n == 1 {
+                targetS = [0]
+            } else {
+                targetS = (0..<n).map { i in
+                    totalLength * Double(i) / Double(n - 1)
+                }
+            }
+        case .spacing(let s):
+            guard s > 1e-9 else {
+                return PathArrayCopyResult(
+                    positions: [], angles: [], success: false,
+                    errorMessage: "Spacing must be positive")
+            }
+            var accum = 0.0
+            var ts: [Double] = []
+            while accum <= totalLength + 1e-9 {
+                ts.append(min(accum, totalLength))
+                accum += s
+            }
+            targetS = ts
+        }
+
+        // Interpolate positions and compute tangent angles.
+        var positions: [PathArrayCopyPosition] = []
+        var angles: [Double] = []
+        var segIdx = 0
+        for s in targetS {
+            while segIdx < cum.count - 2 && cum[segIdx + 1] < s - 1e-9 {
+                segIdx += 1
+            }
+            let s0 = cum[segIdx]
+            let s1 = cum[segIdx + 1]
+            let segLen = s1 - s0
+            let t = segLen > 1e-9 ? (s - s0) / segLen : 0
+            let a = points[segIdx]
+            let b = points[segIdx + 1]
+            positions.append(PathArrayCopyPosition(
+                x: a.x + t * (b.x - a.x),
+                y: a.y + t * (b.y - a.y)
+            ))
+            if params.followTangent {
+                let angle = atan2(b.y - a.y, b.x - a.x) * 180 / .pi
+                angles.append(angle)
+            }
+        }
+
+        return PathArrayCopyResult(
+            positions: positions,
+            angles: params.followTangent ? angles : [],
+            success: true,
+            errorMessage: nil)
+    }
+}
 
 // Generates array copies and merges toolpaths.
 public final class ArrayCopyAndMergeEngine {

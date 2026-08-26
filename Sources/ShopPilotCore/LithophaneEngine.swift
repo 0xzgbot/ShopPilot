@@ -176,4 +176,17 @@ public enum LithophaneEngine {
             heights: heights
         )
     }
+
+    /// SPK-2110b — check whether the stock is thick enough for the requested
+    /// depth. Returns a human-readable warning when
+    /// `stockThicknessMm − maxDepthMm < minThicknessMm`, nil when OK.
+    public static func leftoverThicknessWarning(
+        stockThicknessMm: Double, params: LithophaneParams
+    ) -> String? {
+        let leftover = stockThicknessMm - params.maxDepthMm
+        if leftover < params.minThicknessMm {
+            return "Lithophane: stock (\(String(format: "%.1f", stockThicknessMm))mm) − maxDepth (\(String(format: "%.1f", params.maxDepthMm))mm) = \(String(format: "%.1f", leftover))mm leftover — below minThickness \(String(format: "%.1f", params.minThicknessMm))mm"
+        }
+        return nil
+    }
 }

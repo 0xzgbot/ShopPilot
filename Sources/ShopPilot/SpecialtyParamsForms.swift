@@ -170,6 +170,9 @@ struct InlayParamsForm: View {
                     SpecialtyNumRow(label: "Inlay depth (mm)", value: $params.inlayDepthMm)
                     SpecialtyNumRow(label: "V-bit angle (°)", value: $params.vBitAngleDegrees)
                     SpecialtyNumRow(label: "Safe Z (mm)", value: $params.safeZHeightMm)
+                    // SPK-2120b — inlay rim order: V-walls first, then floor.
+                    Toggle("V-walls first (inlay)", isOn: $params.vFirst)
+                        .help("V-bit cuts walls first, then floor clearance. Ordinary V-carve: clearance before V-bit.")
                 }
             }
             GroupBox("Feeds") {
@@ -258,6 +261,18 @@ struct PhotoVCarveParamsForm: View {
                 // SPK-2110a — white-on-dark artwork without editing the image.
                 Toggle("Invert luminance (dark = shallow)", isOn: $params.invertLuminance)
                     .font(.caption)
+            }
+            // SPK-2110b — linked two-pass: rough clears bulk, finish cleans.
+            GroupBox("Two-pass (SPK-2110b)") {
+                Toggle("Enable two-pass", isOn: $params.twoPass)
+                if params.twoPass {
+                    SpecialtyNumRow(label: "Rough stepover (%)", value: Binding(
+                        get: { params.roughStepOverFraction * 100 },
+                        set: { params.roughStepOverFraction = $0 / 100 }))
+                    SpecialtyNumRow(label: "Finish stepover (%)", value: Binding(
+                        get: { params.finishStepOverFraction * 100 },
+                        set: { params.finishStepOverFraction = $0 / 100 }))
+                }
             }
             GroupBox("Feeds") {
                 Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {

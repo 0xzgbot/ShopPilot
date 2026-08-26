@@ -519,6 +519,9 @@ public struct InlayToolpathParams: Codable, Sendable {
     public var plungeRateMmPerMin: Double
     public var toolDiameterMm: Double
     public var spindleRpm: Double
+    /// SPK-2120b — inlay rim order: V-walls first, then floor clearance
+    /// (default ON for inlay). Ordinary V-carve keeps clearance-before-V.
+    public var vFirst: Bool
 
     public init(
         variant: Variant = .pocket,
@@ -528,7 +531,8 @@ public struct InlayToolpathParams: Codable, Sendable {
         feedRateMmPerMin: Double = 1200,
         plungeRateMmPerMin: Double = 300,
         toolDiameterMm: Double = 6.0,
-        spindleRpm: Double = 0
+        spindleRpm: Double = 0,
+        vFirst: Bool = true
     ) {
         self.variant = variant
         self.inlayDepthMm = inlayDepthMm
@@ -538,11 +542,13 @@ public struct InlayToolpathParams: Codable, Sendable {
         self.plungeRateMmPerMin = plungeRateMmPerMin
         self.toolDiameterMm = toolDiameterMm
         self.spindleRpm = spindleRpm
+        self.vFirst = vFirst
     }
 
     private enum CodingKeys: String, CodingKey {
         case variant, inlayDepthMm, vBitAngleDegrees, safeZHeightMm
         case feedRateMmPerMin, plungeRateMmPerMin, toolDiameterMm, spindleRpm
+        case vFirst
     }
 
     public init(from decoder: Decoder) throws {
@@ -555,6 +561,7 @@ public struct InlayToolpathParams: Codable, Sendable {
         plungeRateMmPerMin = try c.decodeIfPresent(Double.self, forKey: .plungeRateMmPerMin) ?? 300
         toolDiameterMm = try c.decodeIfPresent(Double.self, forKey: .toolDiameterMm) ?? 6.0
         spindleRpm = try c.decodeIfPresent(Double.self, forKey: .spindleRpm) ?? 0
+        vFirst = try c.decodeIfPresent(Bool.self, forKey: .vFirst) ?? true
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -567,6 +574,7 @@ public struct InlayToolpathParams: Codable, Sendable {
         try c.encode(plungeRateMmPerMin, forKey: .plungeRateMmPerMin)
         try c.encode(toolDiameterMm, forKey: .toolDiameterMm)
         try c.encode(spindleRpm, forKey: .spindleRpm)
+        try c.encode(vFirst, forKey: .vFirst)
     }
 }
 
@@ -587,7 +595,12 @@ public enum InlayToolpathEngine {
             flatBottomMode: true,
             flatDepthMm: params.inlayDepthMm,
             safeZHeightMm: params.safeZHeightMm,
-            spindleRpm: params.spindleRpm
+            clearancePassEnabled: true,
+            clearanceToolDiameterMm: params.toolDiameterMm,
+            clearanceDepthMm: params.inlayDepthMm,
+            spindleRpm: params.spindleRpm,
+            vFirst: params.vFirst,
+            inlayInteriorFloor: params.vFirst
         )
         let result = VCarveEngine.compute(vectors: paths, params: vc, stockHeightMm: stockHeightMm)
         return SpecialtyResult(

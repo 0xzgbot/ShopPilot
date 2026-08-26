@@ -2481,6 +2481,11 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
         var params = LithophaneParams()
         params.mode = .lithophaneThickness
         params.gridResolution = 600 // match the importer's ~600-cell budget
+        // SPK-2110b — warn if the stock is too thin for the requested depth.
+        let stock = activeSheet?.height ?? 25.0
+        if let warning = LithophaneEngine.leftoverThicknessWarning(stockThicknessMm: stock, params: params) {
+            statusMessage = warning
+        }
         adoptGeneratedRelief(LithophaneEngine.generateHeightfield(luminance: rows, params: params),
                              label: "Lithophane")
     }

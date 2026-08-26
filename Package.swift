@@ -1329,6 +1329,31 @@ let package = Package(
             path: "Sources/ShopPilotVerify2110a"
         ),
         .executableTarget(
+            name: "ShopPilotVerify2110b",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify2110b"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify2120a",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify2120a"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify2120b",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify2120b"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify2120c",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify2120c"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify2023e",
+            dependencies: ["ShopPilotCore"],
+            path: "Sources/ShopPilotVerify2023e"
+        ),
+        .executableTarget(
             name: "ShopPilotVerifyDOGFOOD02",
             dependencies: ["ShopPilotCore", "ShopPilot"],
             path: "Sources/ShopPilotVerifyDOGFOOD02"

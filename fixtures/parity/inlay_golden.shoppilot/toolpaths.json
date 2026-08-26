@@ -4,13 +4,13 @@
     "id" : "A0C6A0C6-1920-1920-1920-000000000001",
     "isDirty" : false,
     "name" : "Inlay Pocket",
-    "paramsJSON" : "{\n  \"feedRateMmPerMin\" : 800,\n  \"inlayDepthMm\" : 2.4,\n  \"plungeRateMmPerMin\" : 150,\n  \"safeZHeightMm\" : 3,\n  \"spindleRpm\" : 24000,\n  \"toolDiameterMm\" : 3.175,\n  \"vBitAngleDegrees\" : 60,\n  \"variant\" : \"pocket\"\n}"
+    "paramsJSON" : "{\n  \"feedRateMmPerMin\" : 800,\n  \"inlayDepthMm\" : 2.4,\n  \"plungeRateMmPerMin\" : 150,\n  \"safeZHeightMm\" : 3,\n  \"spindleRpm\" : 24000,\n  \"toolDiameterMm\" : 3.175,\n  \"vBitAngleDegrees\" : 60,\n  \"vFirst\" : true,\n  \"variant\" : \"pocket\"\n}"
   },
   {
     "estimatedTimeSeconds" : 84.5,
     "id" : "B0A6A0C6-1920-1920-1920-000000000002",
     "isDirty" : false,
     "name" : "Inlay Plug",
-    "paramsJSON" : "{\n  \"feedRateMmPerMin\" : 700,\n  \"inlayDepthMm\" : 2.4,\n  \"plungeRateMmPerMin\" : 140,\n  \"safeZHeightMm\" : 3,\n  \"spindleRpm\" : 24000,\n  \"toolDiameterMm\" : 3.175,\n  \"vBitAngleDegrees\" : 60,\n  \"variant\" : \"plug\"\n}"
+    "paramsJSON" : "{\n  \"feedRateMmPerMin\" : 700,\n  \"inlayDepthMm\" : 2.4,\n  \"plungeRateMmPerMin\" : 140,\n  \"safeZHeightMm\" : 3,\n  \"spindleRpm\" : 24000,\n  \"toolDiameterMm\" : 3.175,\n  \"vBitAngleDegrees\" : 60,\n  \"vFirst\" : true,\n  \"variant\" : \"plug\"\n}"
   }
 ]

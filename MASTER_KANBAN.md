@@ -1721,8 +1721,26 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 - Claimed: SPK-2100d `[~]` — rest finish: `previousToolDiameterMm` on `HeightfieldFinishParams` (decode default 0); engine skips samples the previous ball already cleaned (only leftover cusps); 0 = byte-stable vs 2100a. Gate: `./scripts/verify_locked.sh ShopPilotVerify2100d`.
 
 ### 2026-08-26 — SPK-2110a [x] photo V-carve width/depth/raster (orchestrator direct)
+
+### 2026-08-26 — SPK-2110b [x] photo/litho two-pass + litho warning (orchestrator direct)
+- **SPK-2110b [x]** — `PhotoVCarveToolpathParams`: +`twoPass` (default OFF, byte-stable), +`roughStepOverFraction` (50%), +`finishStepOverFraction` (10%). Engine: shared `emitLace` for single-pass and both two-pass legs (rough clears bulk at 50%, finish cleans at 10%); diagonal raster supported in both modes. `LithophaneEngine.leftoverThicknessWarning` returns a warning when `stock − maxDepth < minThickness`; wired into `generateLithophaneFromPanel` via `statusMessage`. Form: Two-pass GroupBox with Enable toggle + rough/finish % rows. Verify: ShopPilotVerify2110b PASS 12/12 (lithophane warning boundary, two-pass byte-stability, rough/finish markers, more total cuts, diagonal two-pass); 2110a PASS; app build green.
+- Claimed: SPK-2110b `[~]` — photo/litho two-pass (rough ~50% / finish 8–12%); lithophane leftover-thickness warning if stock − maxDepth < minThickness. Gate: `./scripts/verify_locked.sh ShopPilotVerify2110b`.
 - **SPK-2110a [x]** — `PhotoVCarveToolpathParams`: +`tipDiameterMm` (init 0.1, decode 0), +`invertLuminance` (decode false), +`rasterAngleDegrees` (init 45°, legacy decode 0 = byte-stable). `grooveWidthMm` w = tip + 2·d·tan(θ/2); init stepover default 50% of widest groove (overlap, no ridge wider than tip). Engine: rotated-lace diagonal passes share the depth-from-luminance rule; invert flips which luminance end carves deep; header announces tip Ø + derived width. Form: Tip Ø / Raster angle rows + Invert toggle on PhotoVCarveParamsForm. Verify: ShopPilotVerify2110a PASS 19/19 (width formula, overlap default, legacy byte-stability, diagonal-vs-straight, monotonic luminance→Z, invert flip) + app build green.
 - Claimed: SPK-2110a `[~]` — PhotoVCarve groove WIDTH from V-angle + tip Ø + depth (`w = tip + 2·d·tan(θ/2)`); depth-from-luminance kept; init default raster 45° / legacy decode 0 (byte-stable); invert on the Photo form; init stepover = 50% of widest groove (adjacent grooves overlap). Gate: `./scripts/verify_locked.sh ShopPilotVerify2110a`.
+
+### 2026-08-26 — SPK-2120c [x] crisp-letters preset + 2120b leftovers (Cursor)
+- **SPK-2120c [x]** — Valley "Crisp Letters (0.2 mm cell)" button already existed; the CLT only assigned 0.2 in memory. Now: `VCarveParams.showsMedialCellTimeWarning` (cell < 0.5) wired into the Valley warning; `ShopPilotVerify2120c` runs a capital-T letter fixture at 0.2 vs 1.0 mm (`MedialAxis.compute` ridge count + `VCarveEngine` G1 count both denser at 0.2) and greps the form. `MedialAxis.swift` not edited. Gate: `./scripts/verify_locked.sh ShopPilotVerify2010a` + `ShopPilotVerify2120c`.
+- **SPK-2120b leftovers** — Valley-form `vFirst` was routing every closed path through `inlayFloorGcode` (would pocket-out sign letters). New `inlayInteriorFloor` (default false; `computePocket` sets it when `vFirst`). Ordinary vFirst = around-letter `clearanceGcode` after V. `computePocket` copies `toolDiameterMm` → `clearanceToolDiameterMm`. Parent SPK-2100 DoD now actually covered by children.
+
+### 2026-08-26 — SPK-2120b [x] inlay rim order audit bugs fixed (Hermes coder)
+- **SPK-2120b [x]** — independent audit found CLT green on wrong object; **three** bugs fixed. (1) `InlayToolpathEngine.computePocket` built `VCarveParams` and never copied `InlayToolpathParams.vFirst` (default true) nor set `clearancePassEnabled` — the inlay form toggle was persist-only. Now wires `vFirst`, `clearancePassEnabled: true`, `clearanceDepthMm: inlayDepthMm`. (2) `VCarveEngine.compute` appended floor clearance AFTER the first `M30`/`%` when `vFirst` ON — GRBL would stop and skip the floor. Now emits V-walls → clearance → a single program end. (3) **Found by an ad-hoc probe that attributed CUT MOVES to their owning `O=` section, not markers:** the enabled floor section emitted ZERO cut moves. `clearanceGcode` is sign-board semantics (clear AROUND protected letters); with a lone inlay outline nothing is strictly inside, so all shapes are protected and every raster gap vanishes. An inlay pocket's interior IS the floor → new `inlayFloorGcode` scanline-fills each closed vector (reusing `SpecialtyBoundary.insideRuns`) inset by the tool radius so the V-walls stay untouched. CLT hardened accordingly: `cuttingSections()` asserts cut-move order `["V_CARVE_TOOLPATH","VCARVE_CLEARANCE"]`, exactly one `M30`, and a 30×18 sign-board fixture proves the ordinary clearance-before-V path is unchanged.
+- Verify: `ShopPilotVerify2120b` PASS; sweep PASS — VCarveClear, Specialty, InlayRecipe, 2120a, 2010a/b/c, 1136d, Golden25D, 1920i, 2021a, 2023d, 1106a, 1102d (15/15); `./scripts/swift_locked.sh build --target ShopPilot` exit 0.
+
+### 2026-08-26 — SPK-2120c claimed (orchestrator direct)
+
+### 2026-08-26 — SPK-2023e claimed (orchestrator direct)
+- Claimed: SPK-2023e `[~]` — Copy along path: N-or-spacing along curve, tangent-follow toggle; generalizes ArrayCopy. Gate: `./scripts/verify_locked.sh ShopPilotVerify2023e`.
+- Claimed: SPK-2120c `[~]` — crisp-letters medial cell preset (0.2 mm cell with time warning); no MedialAxis rewrite. Gate: `./scripts/verify_locked.sh ShopPilotVerify2120c`.
 
 ### 2026-08-25 — SPK-2100a claimed (Hermes coder, kanban subagent)
 - Claimed: SPK-2100a `[~]` — drop-cutter / ball compensation on `HeightfieldFinishEngine` + stepOver default 10% of D. Engine+CLT only (no UI; 2100b owns the form). Gate: `./scripts/verify_locked.sh ShopPilotVerify2100a`.
@@ -2662,7 +2680,7 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
 - [x] **SPK-2023d** **UI** Rest fields on Pocket/V-clearance forms · deps: SPK-2023c
   - worklog: 2026-08-25 — Hermes coder (Nous, completed clean; orchestrator verified + flipped). PocketParamsForm (ContentView.swift:1960 — form lives there, not SpecialtyParamsForms): "Rest machining" GroupBox with Previous-tool picker (session tool DB via existing `tools:` wiring from 2024b) + manual Ø numRow; None/0 = full clear; picker selection derives from Ø ±1µm; also fixed a pre-existing `\\(` double-escape breaking the Recalculate Dirty button label. V-carve left untouched (no leftover support in its params struct — audit-first respected, no invented engine work). Gates re-run by orchestrator: ShopPilotVerify2023d PASS + ShopPilotVerify2024b regression PASS. Commit 26bbad0.
 
-- [ ] **SPK-2023e** **GEO** Copy along path — N-or-spacing along curve, tangent-follow toggle; generalizes ArrayCopy. Test: `ShopPilotVerify2023e`.
+- [x] **SPK-2023e** **GEO** Copy along path — N-or-spacing along curve, tangent-follow toggle; generalizes ArrayCopy. Test: `ShopPilotVerify2023e`.
 
 - [x] **SPK-2024a** **UX** Welcome = sample gallery first screen (reuse SampleProjectsStore + SPK-1403 loader hooks; one click → Design + single "Plan the cuts" CTA). AX walk row gate.
   - worklog: 2026-08-25 — Hermes coder (Nous, verified + flipped by orchestrator). SampleProjectsStore gallery is now the EVERY-LAUNCH landing view (FirstRunGate one-shot condition removed); sample tap → loadSampleProject(id:) → Design stage; exactly ONE "Plan the cuts" borderedProminent primary + Import Artwork secondary; SPK-1403 loader hooks preserved. Gates re-run by orchestrator: verify_1603_welcome.py PASS ("Welcome is the every-launch sample-gallery landing…") + swift_locked build --target ShopPilot exit 0. Commit 219f5d5.
@@ -2685,7 +2703,7 @@ Claim order (2026-08-25 night): **SPK-2100a** next (engine-only drop-cutter). PH
 > Do **not** reopen SPK-2010. Gate: `./scripts/verify_locked.sh ShopPilotVerifyXXXX`.
 > Never `swift test`. Never stamp SPK-0623. Win mirrors H-701…H-704 after each Mac twin `[x]`.
 
-- [ ] **SPK-2100** **EPIC** Parent — Cut quality (ball finish + photo grooves + V-bit tip)
+- [x] **SPK-2100** **EPIC** Parent — Cut quality (ball finish + photo grooves + V-bit tip)
   - Parent: lean P0 cut look. Assignee: `coder`. Worktree.
   - DoD: Engine + UI + Persist + Verify across children 2100a–d, 2110a–b, 2120a–c
   - Out of scope: Fusion Adaptive 3D, steep/shallow split, pencil, Aspire Offset finish, Voronoi MA rewrite, 2022f, welcome gallery, T-bones
@@ -2736,29 +2754,30 @@ Claim order (2026-08-25 night): **SPK-2100a** next (engine-only drop-cutter). PH
   - Out of scope: cross-hatch; new photo SKU; ball-nose compensation (that is 2100a)
   - Files: `Sources/ShopPilotCore/PhotoVCarveToolpath.swift`, `PhotoVCarveParamsForm` (already exists). Verify: `./scripts/verify_locked.sh ShopPilotVerify2110a`
 
-- [ ] **SPK-2110b** **CAM** Photo/litho two-pass (rough ~50% / finish 8–12%) // P1 · deps: SPK-2110a
+- [x] **SPK-2110b** **CAM** Photo/litho two-pass (rough ~50% / finish 8–12%) // P1 · deps: SPK-2110a
   - Parent: SPK-2100. Assignee: `coder`. `--max-runtime 60m`. Worktree.
   - AC: Linked two-pass or one form with two tools; lithophane leftover-thickness warning if `stock − maxDepth < minThickness`
   - Out of scope: new lithophane heightfield
   - Verify: `./scripts/verify_locked.sh ShopPilotVerify2110b`
 
-- [ ] **SPK-2120a** **CAM** V-bit tip Ø on VCarveGeometry / VCarveParams // P0
+- [x] **SPK-2120a** **CAM** V-bit tip Ø on VCarveGeometry / VCarveParams // P0
   - Parent: SPK-2100. Assignee: `coder`. `--max-runtime 60m`. Worktree. // parallel-ok vs 2100* (different files)
   - AC: `tipDiameterMm` on general V-carve (new-job default 0.1); missing JSON key = 0 so SPK-2010 goldens stay byte-stable; wide valley depth changes when tip > 0. Reuse inlay semantics: `d = (W − t) / (2·tan(A/2))` for full width W (equivalent to half-width `w − t/2`). Lift or share with `InlayToolpath.depthForValleyWidth` (today `fileprivate`).
   - Out of scope: Voronoi MA rewrite (do not edit `MedialAxis.swift` algorithm)
   - Files: `VCarveGeometry.swift`, `VCarveEngine.swift`, Valley form. Verify: `./scripts/verify_locked.sh ShopPilotVerify2120a`
 
-- [ ] **SPK-2120b** **CAM** Inlay rim order: V-walls then floor clearance // P1
+- [x] **SPK-2120b** **CAM** Inlay rim order: V-walls then floor clearance // P1
   - Parent: SPK-2100. Assignee: `coder`. `--max-runtime 45m`. Worktree.
   - AC: Toggle, default **V-first** on inlay; ordinary V-carve keeps clearance-before-V; first cut moves are V then endmill floor
   - Out of scope: new inlay wizard
   - Files: `InlayToolpath.swift` + inlay form. Verify: `./scripts/verify_locked.sh ShopPilotVerify2120b`
 
-- [ ] **SPK-2120c** **GEO** Crisp-letters medial cell preset (not a new algorithm) // P2
+- [x] **SPK-2120c** **GEO** Crisp-letters medial cell preset (not a new algorithm) // P2
   - Parent: SPK-2100. Assignee: `coder`. `--max-runtime 45m`. Worktree.
   - AC: Valley form preset sets `medialAxisCellMm = 0.2` with a time warning; letter fixture differs vs 1.0 mm cell
   - Out of scope: rewrite `MedialAxis.swift`
   - Verify: `./scripts/verify_locked.sh ShopPilotVerify2010a` + `./scripts/verify_locked.sh ShopPilotVerify2120c`
+  - Shipped 2026-08-26 (Cursor audit close): `VCarveParams.showsMedialCellTimeWarning` (cell < 0.5); Valley Crisp Letters button already set 0.2 mm; CLT now runs a capital-T fixture at 0.2 vs 1.0 mm (denser skeleton + more G1s) and greps the form. `MedialAxis.swift` untouched. Also closed 2120b leftovers: `inlayInteriorFloor` so Valley-form vFirst does around-letter clearance (not pocket-out glyphs); `computePocket` copies `toolDiameterMm` onto the floor mill.
 
 ### 2026-08-25 — PHASE Y filed (Cursor)
 - Cards 2100 / 2100a–d / 2110a–b / 2120a–c Ready. Next claim **2100a** only (serialize `HeightfieldToolpath.swift`). Win H-701 after 2100a `[x]`.

@@ -15,18 +15,27 @@ public enum VCarveGeometry {
     ///   - halfWidth: clearance to the nearest other edge (mm).
     ///   - toolAngleDegrees: full included angle of the V-bit.
     ///   - maxDepth: maximum carve depth in mm (positive magnitude).
+    ///   - tipDiameterMm: flat tip diameter at the V-bit point (0 = sharp).
+    ///     SPK-2120a — a flat tip cannot sink past where its shoulders touch
+    ///     the walls, so effective half-width is reduced by tip/2.
     public static func depthForHalfWidth(
         _ halfWidth: Double,
         angle toolAngleDegrees: Double,
-        maxDepth: Double
+        maxDepth: Double,
+        tipDiameterMm: Double = 0
     ) -> Double {
         guard halfWidth > 0 else { return 0 }
+
+        // SPK-2120a — flat tip reduces the effective half-width the V can
+        // sink into. Equivalent to the inlay formula d = (W − t)/(2·tan(A/2))
+        // for full width W.
+        let effectiveHalf = max(0, halfWidth - max(0, tipDiameterMm) / 2)
 
         let halfAngleRad = max(1e-6, toolAngleDegrees / 2.0 * .pi / 180.0)
         let tan = Foundation.tan(halfAngleRad)
         if tan <= 1e-9 { return -maxDepth }
 
-        let depth = halfWidth / tan
+        let depth = effectiveHalf / tan
         return -min(depth, maxDepth)
     }
 

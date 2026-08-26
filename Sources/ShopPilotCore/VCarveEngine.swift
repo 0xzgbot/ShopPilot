@@ -73,7 +73,21 @@ public struct VCarveParams: Codable, Sendable {
     public var flatAreaThresholdFactor: Double
     public var flatAreaStepOverMm: Double
 
-    
+    // SPK-2120b — flat tip diameter at the V-bit point. 0 = sharp point
+    // (today's goldens stay byte-stable). Wide valley depth changes when
+    // tip > 0: z = -((halfWidth − tip/2) / tan(halfAngle)). Reuses the
+    // inlay formula: d = (W − t) / (2·tan(A/2)) for full width W.
+    public var tipDiameterMm: Double
+    /// SPK-2120b — inlay rim order toggle. Default OFF (ordinary V-carve:
+    // clearance-pass first if enabled, then V-bit). When ON, the V-bit
+    // cuts first; the follow-up pass is around-letter clearance unless
+    // `inlayInteriorFloor` is also on.
+    public var vFirst: Bool
+    /// SPK-2120b — when true (inlay pocket only), the follow-up pass
+    /// scanline-fills each closed interior. Ordinary V-carve must leave
+    /// this false so a sign's letters are not pocketed out.
+    public var inlayInteriorFloor: Bool
+
     public init(
         vBitAngleDegrees: Double = 90.0,
         feedRateMmPerMin: Double = 1000,
@@ -100,7 +114,10 @@ public struct VCarveParams: Codable, Sendable {
         medialAxisCellMm: Double = 1.0,
         flatAreaClearing: Bool = false,
         flatAreaThresholdFactor: Double = 1.5,
-        flatAreaStepOverMm: Double = 1.0
+        flatAreaStepOverMm: Double = 1.0,
+        tipDiameterMm: Double = 0.1,
+        vFirst: Bool = false,
+        inlayInteriorFloor: Bool = false
     ) {
         self.vBitAngleDegrees = vBitAngleDegrees
         self.feedRateMmPerMin = feedRateMmPerMin
@@ -128,7 +145,14 @@ public struct VCarveParams: Codable, Sendable {
         self.flatAreaClearing = flatAreaClearing
         self.flatAreaThresholdFactor = flatAreaThresholdFactor
         self.flatAreaStepOverMm = flatAreaStepOverMm
+        // SPK-2120a — tip Ø default 0 keeps today's goldens byte-stable.
+        self.tipDiameterMm = tipDiameterMm
+        self.vFirst = vFirst
+        self.inlayInteriorFloor = inlayInteriorFloor
     }
+
+    /// SPK-2120c — Valley form shows a time warning below this cell size.
+    public var showsMedialCellTimeWarning: Bool { medialAxisCellMm < 0.5 }
     
     /// Half-angle of the V-bit in radians (used for width calculations).
     public var halfAngleRadians: Double {
@@ -155,6 +179,9 @@ public struct VCarveParams: Codable, Sendable {
         case spindleRpm
         case medialAxisPass, medialAxisCellMm
         case flatAreaClearing, flatAreaThresholdFactor, flatAreaStepOverMm
+        case tipDiameterMm
+        case vFirst
+        case inlayInteriorFloor
     }
 
     public init(from decoder: Decoder) throws {
@@ -185,6 +212,12 @@ public struct VCarveParams: Codable, Sendable {
         flatAreaClearing = try c.decodeIfPresent(Bool.self, forKey: .flatAreaClearing) ?? false
         flatAreaThresholdFactor = try c.decodeIfPresent(Double.self, forKey: .flatAreaThresholdFactor) ?? 1.5
         flatAreaStepOverMm = try c.decodeIfPresent(Double.self, forKey: .flatAreaStepOverMm) ?? 1.0
+        // SPK-2120a — legacy decode: missing key = 0 (sharp point) so today's
+        // goldens regenerate byte-identical.
+        tipDiameterMm = try c.decodeIfPresent(Double.self, forKey: .tipDiameterMm) ?? 0
+        // SPK-2120b — legacy decode: missing key = false (clearance-before-V).
+        vFirst = try c.decodeIfPresent(Bool.self, forKey: .vFirst) ?? false
+        inlayInteriorFloor = try c.decodeIfPresent(Bool.self, forKey: .inlayInteriorFloor) ?? false
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -215,6 +248,9 @@ public struct VCarveParams: Codable, Sendable {
         try c.encode(flatAreaClearing, forKey: .flatAreaClearing)
         try c.encode(flatAreaThresholdFactor, forKey: .flatAreaThresholdFactor)
         try c.encode(flatAreaStepOverMm, forKey: .flatAreaStepOverMm)
+        try c.encode(tipDiameterMm, forKey: .tipDiameterMm)
+        try c.encode(vFirst, forKey: .vFirst)
+        try c.encode(inlayInteriorFloor, forKey: .inlayInteriorFloor)
     }
 }
 
@@ -291,13 +327,25 @@ public struct VCarveEngine {
         if params.clearancePassEnabled,
            let minX = boundsMinX, let minY = boundsMinY,
            let maxX = boundsMaxX, let maxY = boundsMaxY {
-            // SPK-VCarveClear: clearance pass FIRST (flat end mill clears the
-            // wide open areas), then the V-bit detail pass.
-            allGcodeLines.append(contentsOf: clearanceGcode(
-                vectors: vectors,
-                params: params,
-                bounds: (minX, minY, maxX, maxY)
-            ))
+            // SPK-2120b — inlay rim order: when vFirst is ON, the V-bit cuts
+            // the walls FIRST, then the floor is cleared. Ordinary V-carve
+            // (vFirst OFF) keeps clearance-before-V.
+            if params.vFirst {
+                // V-bit detail pass first (appended after this block below).
+                if params.inlayInteriorFloor {
+                    allGcodeLines.append("(Inlay: V-walls first, then floor clearance)")
+                } else {
+                    allGcodeLines.append("(V-walls first, then around-letter clearance)")
+                }
+            } else {
+                // SPK-VCarveClear: clearance pass FIRST (flat end mill clears
+                // the wide open areas), then the V-bit detail pass.
+                allGcodeLines.append(contentsOf: clearanceGcode(
+                    vectors: vectors,
+                    params: params,
+                    bounds: (minX, minY, maxX, maxY)
+                ))
+            }
         }
         allGcodeLines.append("O=V_CARVE_TOOLPATH")
         allGcodeLines.append("(V-Bit: \(Int(params.vBitAngleDegrees))°)")
@@ -350,7 +398,8 @@ public struct VCarveEngine {
                     let startHalfWidth = VCarveGeometry.distanceToNearestOtherEdge(
                         vector, index: 0, allVectors: vectors)
                     let widthZ = VCarveGeometry.depthForHalfWidth(
-                        startHalfWidth, angle: params.vBitAngleDegrees, maxDepth: maxDepth)
+                        startHalfWidth, angle: params.vBitAngleDegrees, maxDepth: maxDepth,
+                        tipDiameterMm: params.tipDiameterMm)
                     // Never exceed this pass's depth clamp.
                     let startZ = max(widthZ, actualZ)
                     lastZ = startZ
@@ -378,7 +427,8 @@ public struct VCarveEngine {
                     let halfWidth = VCarveGeometry.distanceToNearestOtherEdge(
                         vector, index: i, allVectors: vectors)
                     var z = VCarveGeometry.depthForHalfWidth(
-                        halfWidth, angle: params.vBitAngleDegrees, maxDepth: maxDepth)
+                        halfWidth, angle: params.vBitAngleDegrees, maxDepth: maxDepth,
+                        tipDiameterMm: params.tipDiameterMm)
                     // Never exceed this pass's depth clamp (flat-bottom mode
                     // sets actualZ = -maxDepth, forcing a truly flat pass).
                     z = max(z, actualZ)
@@ -431,7 +481,7 @@ public struct VCarveEngine {
                         // maxDepth-clamped Z — never negate it again.
                         let headZ = VCarveGeometry.depthForHalfWidth(
                             head.clearanceMm, angle: params.vBitAngleDegrees,
-                            maxDepth: maxDepth)
+                            maxDepth: maxDepth, tipDiameterMm: params.tipDiameterMm)
                         
                         allGcodeLines.append(
                             "G0 X\(String(format: "%.3f", head.position.x)) Y\(String(format: "%.3f", head.position.y))"
@@ -442,7 +492,7 @@ public struct VCarveEngine {
                             // Wide spine = deeper cut; narrow neck stays shallow.
                             let z = VCarveGeometry.depthForHalfWidth(
                                 pt.clearanceMm, angle: params.vBitAngleDegrees,
-                                maxDepth: maxDepth)
+                                maxDepth: maxDepth, tipDiameterMm: params.tipDiameterMm)
                             allGcodeLines.append(
                                 "G1 X\(String(format: "%.3f", pt.position.x)) Y\(String(format: "%.3f", pt.position.y)) Z\(String(format: "%.3f", z)) F\(Int(feedRate))"
                             )
@@ -461,7 +511,27 @@ public struct VCarveEngine {
             }
         }
         
-        // Add G-code footer
+        // SPK-2120b — vFirst follow-up runs BEFORE the final program end so
+        // GRBL actually cuts it (not stranded after M30/%).
+        // Inlay pocket: interior floor fill. Ordinary V-carve: around-letter
+        // clearance so a sign's glyphs are not pocketed out.
+        if params.clearancePassEnabled, params.vFirst {
+            allGcodeLines.append("")
+            if params.inlayInteriorFloor {
+                allGcodeLines.append("(Inlay: floor clearance after V-walls)")
+                allGcodeLines.append(contentsOf: inlayFloorGcode(vectors: vectors, params: params))
+            } else if let minX = boundsMinX, let minY = boundsMinY,
+                      let maxX = boundsMaxX, let maxY = boundsMaxY {
+                allGcodeLines.append("(V-walls first, then around-letter clearance)")
+                allGcodeLines.append(contentsOf: clearanceGcode(
+                    vectors: vectors,
+                    params: params,
+                    bounds: (minX, minY, maxX, maxY)
+                ))
+            }
+        }
+
+        // Add G-code footer — single program end AFTER everything ran.
         allGcodeLines.append("")
         allGcodeLines.append("M30")
         allGcodeLines.append("%")
@@ -555,6 +625,61 @@ public struct VCarveEngine {
         }
 
         return g
+    }
+
+    /// SPK-2120b — inlay FLOOR pass: raster the shape INTERIOR flat at
+    /// `clearanceDepthMm` with the endmill, after the V-bit has cut the walls.
+    /// Unlike `clearanceGcode` (sign-board semantics: clear AROUND protected
+    /// letters), an inlay pocket's interior IS the floor, so each closed
+    /// vector is scanline-filled, inset by the tool radius to leave the
+    /// V-walls untouched.
+    private static func inlayFloorGcode(
+        vectors: [VectorPath],
+        params: VCarveParams
+    ) -> [String] {
+        let toolR = params.clearanceToolDiameterMm / 2.0
+        let step = max(params.clearanceStepOverMm * params.clearanceToolDiameterMm, 1e-3)
+        guard toolR > 1e-9 else { return [] }
+
+        let z = -params.clearanceDepthMm
+        let feed = Int(params.feedRateMmPerMin), plunge = Int(params.plungeFeedRateMmPerMin)
+        func f(_ v: Double) -> String { String(format: "%.3f", v) }
+
+        var lines: [String] = []
+        var leftToRight = true
+
+        for vector in vectors {
+            guard vector.isClosed, let poly = SpecialtyBoundary.polygonPoints(of: vector) else { continue }
+            let ys = poly.map(\.y)
+            guard let minY = ys.min(), let maxY = ys.max(), maxY - minY > 2 * toolR else { continue }
+
+            var rows: [String] = []
+            var y = minY + toolR
+            while y <= maxY - toolR {
+                for run in SpecialtyBoundary.insideRuns(of: poly, y: y) {
+                    // Inset each run so the endmill never touches the V-walls.
+                    let x0 = run.x0 + toolR, x1 = run.x1 - toolR
+                    guard x1 - x0 > 1e-6 else { continue }
+                    let (a, b) = leftToRight ? (x0, x1) : (x1, x0)
+                    rows.append("G0 Z5.0")
+                    rows.append("G0 X\(f(a)) Y\(f(y))")
+                    rows.append("G1 Z\(f(z)) F\(plunge)")
+                    rows.append("G1 X\(f(b)) Y\(f(y)) F\(feed)")
+                    leftToRight.toggle()
+                }
+                y += step
+            }
+            guard !rows.isEmpty else { continue }
+
+            if lines.isEmpty {
+                lines.append("O=VCARVE_CLEARANCE")
+                lines.append("(Clearance tool: \(String(format: "%.1f", params.clearanceToolDiameterMm))mm)")
+                lines.append("(Floor depth: \(String(format: "%.2f", params.clearanceDepthMm))mm)")
+            }
+            lines.append(contentsOf: rows)
+        }
+        if !lines.isEmpty { lines.append("G0 Z5.0") }
+        return lines
     }
 
     /// SPK-VCarveClear — clearance pass emitted BEFORE the V-bit detail pass.

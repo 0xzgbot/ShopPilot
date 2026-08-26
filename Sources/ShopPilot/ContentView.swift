@@ -2259,6 +2259,9 @@ private struct VCarveParamsForm: View {
             GroupBox("Tool") {
                 Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
                     numRow("V-bit angle (°)", $params.vBitAngleDegrees)
+                    // SPK-2120a — flat tip at the V-bit point; wide valley depth
+                    // changes when tip > 0.
+                    numRow("Tip Ø (mm)", $params.tipDiameterMm)
                     numRow("Feed (mm/min)", $params.feedRateMmPerMin)
                     numRow("Plunge (mm/min)", $params.plungeFeedRateMmPerMin)
                     numRow("Spindle (RPM, 0 = off)", $params.spindleRpm)
@@ -2309,7 +2312,10 @@ private struct VCarveParamsForm: View {
             GroupBox("Clearance (before V-Bit)") {
                 VStack(alignment: .leading, spacing: 4) {
                     Toggle("Clearance pass enabled", isOn: $params.clearancePassEnabled)
+                    // SPK-2120b — inlay rim order: V-walls first, then floor.
                     if params.clearancePassEnabled {
+                        Toggle("V-walls first (inlay)", isOn: $params.vFirst)
+                            .help("Inlay: V-bit cuts walls first, then floor is cleared. Ordinary V-carve: clearance before V-bit.")
                         Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
                             numRow("Tool dia (mm)", $params.clearanceToolDiameterMm)
                             numRow("Clear depth (mm)", $params.clearanceDepthMm)
@@ -2330,6 +2336,18 @@ private struct VCarveParamsForm: View {
                     if params.medialAxisPass {
                         Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
                             numRow("Skeleton cell size (mm)", $params.medialAxisCellMm)
+                        }
+                        // SPK-2120c — crisp-letters preset: fine medial cell for
+                        // sharp interior corners. Small cells = long compute.
+                        Button("Crisp Letters (0.2 mm cell)") {
+                            params.medialAxisCellMm = 0.2
+                        }
+                        .font(.caption)
+                        .buttonStyle(.bordered)
+                        if params.showsMedialCellTimeWarning {
+                            Text("Small cell size — long compute time")
+                                .font(.caption2)
+                                .foregroundStyle(.orange)
                         }
                     }
                     Toggle("Flat area clearing", isOn: $params.flatAreaClearing)
