@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Design tool palette
 
-/// Photoshop / Aspire / LightBurn-style vertical tool rail for the Design
+/// Image-editor-style vertical tool rail for the Design
 /// stage. Each canvas create tool is an icon button; the active tool gets the
 /// brand capsule. Option-key shortcuts (⌥V / ⌥R / ⌥O / ⌥L / ⌥P) match
 /// Photoshop muscle memory without colliding with typing in text fields.

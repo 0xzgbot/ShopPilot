@@ -244,7 +244,7 @@ Agents: claim `[~]`, done `[x]`, human `[!]`. Prefer **simulator** and golden fi
 
 - [ ] **STU-500** Multi-sheet  
 - [ ] **STU-501** Double-sided job + multi-sided view  
-- [ ] **STU-502** Inlay + VCarve inlay recipes  
+- [ ] **STU-502** Inlay + V-carve inlay recipes  
 - [ ] **STU-503** Array/merged toolpaths  
 - [ ] **STU-504** Nest advanced  
 - [ ] **STU-505** Tiling manager  

@@ -7,7 +7,7 @@ import ShopPilotCore
 /// 10%-of-D default finish stepover:
 ///
 ///   1. PARAMS: `HeightfieldFinishParams()` init defaults stepOverMm to
-///      0.10 * toolDiameterMm (10% of D, Aspire finish band); an explicit
+///      0.10 * toolDiameterMm (10% of D, industry finish band); an explicit
 ///      stepOverMm still wins; DECODE of a legacy paramsJSON missing the key
 ///      still yields 0.8 (legacy-safe).
 ///   2. FLAT: on a flat relief the emitted cut Z is the tool CENTER at

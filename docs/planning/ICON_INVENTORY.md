@@ -357,7 +357,7 @@ Every `CommandID` in [Commands.swift](../../Sources/ShopPilot/Commands.swift) ne
 | CO-07 | Photo V-Carve | Cut overflow | 3 | `photo` | maybe | |
 | CO-08 | Sketch carving | Cut overflow | 3 | `pencil.tip` | maybe | |
 | CO-09 | Inlay pocket / plug | Cut overflow | 3 | — | yes | |
-| CO-10 | VCarve inlay | Cut overflow | 3 | — | yes | |
+| CO-10 | V-carve inlay | Cut overflow | 3 | — | yes | |
 | CO-11 | Thread milling | Cut overflow | 3 | — | yes | |
 | CO-12 | Array copy TP | Cut overflow | 3 | `square.grid.3x3` | no | |
 | CO-13 | Merged toolpath | Cut overflow | 3 | `arrow.triangle.merge` | maybe | |

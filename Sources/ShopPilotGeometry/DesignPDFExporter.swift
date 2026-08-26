@@ -5,7 +5,7 @@ import ShopPilotCore
 // MARK: - Design PDF export (SPK-1322)
 
 /// Exports the design vectors as a real PDF document (vector strokes, not a
-/// bitmap) so users can share or print their designs — Vectric-class CAD
+/// bitmap) so users can share or print their designs — professional CAD
 /// exports PDF; ShopPilot previously only produced job-sheet PDFs.
 ///
 /// Every `VectorShape` case is stroked as a Core Graphics path: lines and

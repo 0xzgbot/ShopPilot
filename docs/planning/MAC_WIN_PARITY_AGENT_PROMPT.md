@@ -21,7 +21,7 @@ If a Windows feature **already exists** on Mac (engine or UI), **audit first**: 
 
 ## Mission (what “up to speed” means)
 
-Match VectorPilot on the **shared product bar**, not on Aspire tourism.
+Match VectorPilot on the **shared product bar**, not on the incumbent suite tourism.
 
 **Must match (port or finish on Mac):**
 
@@ -76,7 +76,7 @@ Report: `docs/planning/DOGFOOD_REPORT_20260822.md`.
 
 ```
 # PHASE U — Windows shared-bar parity (SPK-1920)
-Bring Mac to VectorPilot *shared* bar (not Aspire combo-box parity).
+Bring Mac to VectorPilot *shared* bar (not the incumbent suite combo-box parity).
 Sibling: ~/Desktop/VectorPilot HERMES_KANBAN H-211, H-301–304, H-401–403, H-501, H-503.
 Prompt: docs/planning/MAC_WIN_PARITY_AGENT_PROMPT.md
 ```

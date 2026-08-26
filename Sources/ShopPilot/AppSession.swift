@@ -2987,7 +2987,7 @@ final class AppSession: ObservableObject, AutosaveSessionLike, SampleLoadingSess
 
     /// Select the whole PART a shape belongs to: closed shapes that touch or
     /// overlap (within 0.5 mm) are one part. Single click → whole assembly,
-    /// no manual grouping — the Aspire 12.5 smart-selection pattern.
+    /// no manual grouping — the standard CAM smart-selection pattern.
     @discardableResult
     func smartSelectPart(containing shapeIndex: Int) -> Bool {
         guard shapes.indices.contains(shapeIndex) else { return false }

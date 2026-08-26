@@ -31,7 +31,7 @@ The vendor’s surface is several things people mix up:
 - Full product **module map** (Getting Started → Interface → Design → Layers → Clipart → 3D tools → Toolpaths → Tooling/Posts → Gadgets → Laser → Menus).
 - **Workflow logic** the vendor teaches: job structure, vectors vs bitmaps, toolpath independence from art + explicit recalculate, preview = trust model, post = translation.
 - **3D architecture**: Components, Levels, combine modes (Add/Subtract/Merge/Low/Multiply), mirror modes, multi-sided view.
-- **Strategy list** at product level (Profile through Laser Picture, V12 Sketch Carving, VCarve Inlay, Keep-outs).
+- **Strategy list** at product level (Profile through Laser Picture, V12 Sketch Carving, V-carve inlay, Keep-outs).
 - File types and job types (single / double / rotary).
 
 ### Corners that were cut (explicit)
@@ -336,7 +336,7 @@ Market research above is **real but not exhaustive**. Next passes:
 
 See [`research/MARKET_GAPS_2026.md`](./research/MARKET_GAPS_2026.md) for the full competitive gap pass (4 ingested transcripts + MillMage/Spark/gSender/Carbide/V1E sources). Short version:
 
-- **Vectric Spark** is native Mac **entry-level + GRBL streamer**, not Aspire. Core VCarve/Aspire stay Windows.
+- **the incumbent Spark** is native Mac **entry-level + GRBL streamer**, not the incumbent suite. Core incumbent desktop CAM stay Windows.
 - **MillMage** is the closest paid Mac rival: design + CAM + GRBL send, $99/$199, V-carve/relief/nest in 0.9, still Rosetta until 1.0.
 - **Constant undelivered asks** (not more strategies): CAM+control in one app, probe/M6 that does not crash Z, V-inlay that actually fits (bit tip + fudge), vector doctor, chip-load Tool DB for *this* router, rest machining, spoilboard surfacer in the sender.
 - **Do not chase:** AI credit 3D, V13 assembly view, 964 posts, cabinet software.

@@ -57,7 +57,7 @@ Track 5 v1 gate → Track 6 H–K (post-v1)
 ## 5. Data-first deliverables (spec from reports)
 
 - **Presets (SPK-1132):** exactly 72 — the six imperial sheets and six metric sheets with six thicknesses each (full list in `/tmp/installer_reports/03_assets.md` §2 / breakdown §3). Our own JSON asset, same dimensions.
-- **Default tools (SPK-1133):** the 17 assignment table (`/tmp/installer_reports/01_toolpaths.md` §1) — strategy → tool class → canonical default (e.g. `VCarve → mcVBitTool → V-Bit (90°, 1¼")`). These are industry-typical defaults, not third-party IP.
+- **Default tools (SPK-1133):** the 17 assignment table (`/tmp/installer_reports/01_toolpaths.md` §1) — strategy → tool class → canonical default (e.g. `V-carve → mcVBitTool → V-Bit (90°, 1¼")`). These are industry-typical defaults, not third-party IP.
 - **Post grammar (SPK-1134):** own format modeled on the observed pattern: identity header (`POST_NAME`/`FILE_EXTENSION`/`UNITS`), line-ending + block numbering options, per-variable format specifiers (prefix/alignment/text/decimals), tool-change + spindle blocks, optional A-axis for rotary. Two templates ship in v1.
 - **Job sheet (SPK-1135):** own A4 HTML template with CSS vars; content = job dims, per-toolpath: name, tool, feed/plunge/speed, depth, time estimate (from SPK-0312), total.
 

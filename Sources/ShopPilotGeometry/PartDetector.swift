@@ -4,7 +4,7 @@ import Foundation
 
 /// Detects "parts" from a set of closed shapes: shapes that touch or overlap
 /// (share an edge point within tolerance) belong to the same part. This is
-/// the Aspire 12.5 "smart part selection" pattern — click one shape, select
+/// the standard "smart part selection" pattern — click one shape, select
 /// the whole connected assembly without manual grouping.
 public enum PartDetector {
 

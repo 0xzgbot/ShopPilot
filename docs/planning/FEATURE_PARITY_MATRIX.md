@@ -164,7 +164,7 @@ Track ownership in your PM tool; keep this file as the living checklist.
 | F13 | Photo V-Carve | P1 | [x] | **Key fields:** Bitmap import, threshold/contrast settings, tool selection (V-bit), feed/speed, step-over, operation mode (standard/photo), material setup. Converts grayscale bitmap to depth-mapped vectors automatically. Form refs: Photo V-Carve Toolpath.
 | F14 | Sketch carving | P1 | [x] |
 | F15 | Inlay pocket/plug | P1 | [x] |
-| F16 | VCarve inlay | P1 | [x] |
+| F16 | V-carve inlay | P1 | [x] |
 | F17 | Thread milling | P2 | [x] |
 | F18 | 3D rough | P0 | [x] | **Key fields:** Mesh selection (STL/OBJ), tool selection (ball nose/flat end mill diameter), strategy (adaptive/clearing/parallel/z-level), depth range (top/bottom of stock), step-over (% of tool dia), feed/speed, rapid clearance, rest-roughing option. Form refs: 3D Rough Toolpath.
 | F19 | 3D finish | P0 | [x] | **Key fields:** Mesh selection, tool selection (ball nose diameter), strategy (parallel/offset-perimeter/multi-axis/scallop-height), scallop height target, step-over calculated from scallop + tool dia, feed/speed, rapid clearance, direction (bidirectional/unidirectional), lead-in/out. Form refs: 3D Finish Toolpath.
@@ -439,7 +439,7 @@ Full breakdown: `docs/planning/INSTALLER_BREAKDOWN.md`. Reports: `/tmp/installer
 | F39 | Laser Sketch Engraving | P2 | V12.5 — `uiLaserSketchCarve` |
 | F40 | Plasma Profile Toolpath | P2 | `mcPlasmaCuttingTool`, plasma fillet type |
 | F41 | Create Component from Toolpath Preview | P2 | Component from preview simulation |
-| F42 | Toolpath import (PVC/V3M/V3D) | P2 | PhotoVCarve/Machinist/Cut3D toolpaths |
+| F42 | Toolpath import (PVC/V3M/V3D) | P2 | photo-relief / machinist / 3D-import tools toolpaths |
 | F43 | Wrapped toolpath drawing toggle | P1 | Must be off to calculate rotary toolpaths |
 | F44 | Toolpath templates | P1 | `*.ToolpathTemplate` save/load/all-visible |
 | G11 | Post database (964) + GRBL posts | P0 | `postp.ppdb` SQLite: Grbl in/mm, Grbl WrapY2A, Easel-Grbl, Shapeoko, BobsCNC, Avid, X-Carve Pro, Openbuilds, LinuxCNC, Mach2/3, Centroid, Masso, Duet, ShopBot×28 |

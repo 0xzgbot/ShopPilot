@@ -1,13 +1,13 @@
 # Sign-Shop Operator Ops — forum proxy evidence + interview guide
 
 **Date:** 2026-08-04 · **Method:** this pass has **no live interviews yet** — it provides (a) proxy evidence harvested from public CNC forums/communities, and (b) a ready-to-run interview guide for 5–10 real operators. Interviews are a human task (recruiting); the guide is the deliverable.
-**Proxy sources:** Vectric transcripts (workflow habits), Carbide3D community, Onefinity forum, Avid CNC forum, Sienci forum, r/CNC, Shapeoko enthusiast guide, Facebook CNC groups (all public posts).
+**Proxy sources:** the incumbent transcripts (workflow habits), Carbide3D community, Onefinity forum, Avid CNC forum, Sienci forum, r/CNC, Shapeoko enthusiast guide, Facebook CNC groups (all public posts).
 
 ---
 
 ## 1. What proxy evidence already says (order of ops, zeroing, preview, naming)
 
-### Order of ops (consistent across Vectric videos + community)
+### Order of ops (consistent across the incumbent videos + community)
 1. Set up job (size ≈ material, units, datum, Z0 mode).
 2. Design/import; clean vectors.
 3. **Check material setup** — the single most-repeated habit.
@@ -24,12 +24,12 @@
 - **Takeaway for ShopPilot:** the Z0 contract must be displayed on the job setup, on the save sheet, and in the machine panel ("Z0 = material surface — set on machine"). Software cannot detect physical zero mismatch, but it can stop *silently assuming* it.
 
 ### Preview habits [proxy]
-- Forum/community users cite preview for: checking pocket clearance into corners, confirming tabs, spotting through-cuts, and customer-facing renders (Vectric's material textures/surface colors are explicitly for "send off to a customer").
+- Forum/community users cite preview for: checking pocket clearance into corners, confirming tabs, spotting through-cuts, and customer-facing renders (the incumbent's material textures/surface colors are explicitly for "send off to a customer").
 - Board-path preview / CAM preview is a named workflow in CNC groups — preview-before-cut is culturally expected, not optional.
 
 ### File naming / tool change [proxy]
 - Carbide3D community: "split the file into two, dividing it at the point of tool change and saving the toolpaths as two separate files and running them one [after the other]" — file-per-tool is the universal habit.
-- Vectric transcripts: multi-file save names `project_1, project_2…` in cut order; toolpath names appear in filenames and setup sheets.
+- the incumbent transcripts: multi-file save names `project_1, project_2…` in cut order; toolpath names appear in filenames and setup sheets.
 - Shop implication: operators run **one file at a time, swapping bits between files**; the sender must make "next file" trivial and show the required tool per file.
 
 ---
@@ -40,7 +40,7 @@ Use for recruiting: local sign shops, CNC router groups (Facebook/r/CNC/forums),
 
 ### A. Demographics & stack
 1. What do you cut (signs, plaques, dimensional letters, 3D relief) and on what machine (make, controller: GRBL/FluidNC/other)?
-2. Which design/CAM tools today (VCarve/Aspire, Carbide Create, Estlcam, Fusion, other)? Which do you *actually* use per job type?
+2. Which design/CAM tools today (incumbent desktop CAM, Carbide Create, Estlcam, Fusion, other)? Which do you *actually* use per job type?
 3. Do you design in one tool and CAM in another? Where does the handoff happen (DXF/SVG/STL)?
 
 ### B. Order of operations (core)

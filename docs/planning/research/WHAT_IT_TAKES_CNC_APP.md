@@ -1,14 +1,14 @@
 # What it really takes to create a lean CNC / V-Carve / 3D carving app
 
-> Research memo distilled from 67 Vectric (V12/V12.5) tutorial transcripts, fetched as captions only
-> (no media downloaded). Source: `research/raw/vectric_yt_captions/`, catalog:
-> `vectric_yt_catalog.csv`, per-video extractions: `extractions/`.
+> Research memo distilled from 67 the incumbent (V12/V12.5) tutorial transcripts, fetched as captions only
+> (no media downloaded). Source: `research/raw/vendor_captions/`, catalog:
+> `vendor_tutorial_catalog.csv` (removed), per-video extractions: `extractions/`.
 > Written for ShopPilot's lean bar (LEAN_CNC_SCOPE.md): offline Mac app, GRBL-class posts,
 > V-Carve + clearance, 3D rough/finish, sheet-aware preview. Research evidence, not marketing.
 
 ---
 
-## 1. Core workflow (from transcripts, not Aspire marketing)
+## 1. Core workflow (from transcripts, not the incumbent suite marketing)
 
 Every Getting-Started video follows the same spine. Tutors repeat it so consistently it is the
 product's skeleton:
@@ -185,7 +185,7 @@ Top gotchas the tutors actually warn about (full list in per-video extractions):
 Wave-1 selection deliberately excluded (catalog `skip_reason` column + LEAN_CNC_SCOPE.md):
 
 - **Laser** (incl. hybrid CNC-laser projects) — separate module, excluded.
-- **PhotoVCarve / lithophane** — photo-2-relief is excluded from lean.
+- **photo V-carve tooling / lithophane** — photo-2-relief is excluded from lean.
 - **Rotary / wrapped / two-sided** — post-lean (Track 5 in FINISH_ROADMAP).
 - **Cabinet import / nesting / plate production / AMM (Advanced Machining Module)** — kitchen/
   production territory.
@@ -193,7 +193,7 @@ Wave-1 selection deliberately excluded (catalog `skip_reason` column + LEAN_CNC_
   not capability evidence (we used them for workflow only, never assets).
 - **Online tool database / machine search / cloud posts** — ShopPilot is offline by design;
   the *concepts* (machine→post mapping, default post) stay, the cloud transport goes.
-- **Sculpt brushes / texture painting / turn-and-spin / extrude-weave** — Aspire modeling
+- **Sculpt brushes / texture painting / turn-and-spin / extrude-weave** — the incumbent suite modeling
   luxury, not lean 3D carving.
 - **EasyCarve/EasyCreate** — consumer line; teaches nothing about CAM internals beyond what
   the full videos cover (we still cataloged their setup videos for the machine/material/tool
@@ -205,13 +205,13 @@ This memo is transcript evidence only; mapping to ShopPilot's current state is N
 against MASTER_KANBAN/Sources in this pass (research card scope). Candidate blind spots a
 follow-up should check:
 
-- **Dirty/recalc UX** — Vectric makes recalc explicit and granular (selected/visible/all) with
+- **Dirty/recalc UX** — the incumbent makes recalc explicit and granular (selected/visible/all) with
   confirmation; ShopPilot's dirty-flag design should match this contract.
-- **Preview material fidelity** — Vectric's preview is a deliverable (textures, surface
+- **Preview material fidelity** — the incumbent's preview is a deliverable (textures, surface
   color, per-path colors, animated tool, waste removal). ShopPilot's sheet-aware preview
   (SPK-1103) is the right investment; consider per-toolpath color and waste click-to-remove.
 - **Job templates + toolpath setup sheet** — small but repeatedly featured; cheap wins.
-- **Vector validator** — Vectric treats import validation as a first-class tool with
+- **Vector validator** — the incumbent treats import validation as a first-class tool with
   auto-fix (zero-length spans) and toolpath-type-aware rules (V-Carve mode). ShopPilot has no
   equivalent in the lean list; SVG/DXF import will need it.
 - **Model-in-material positioning** (gap above/below) — a distinct 3D concept from Z-zero;

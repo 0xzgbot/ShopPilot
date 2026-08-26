@@ -46,7 +46,7 @@ public struct ManufacturerPreset: Codable, Equatable, Sendable {
 
 /// SPK-1315 — bundled catalog of REAL, common Amana + Whiteside router bits
 /// (catalog part numbers, imperial dims converted to mm) so the app can offer
-/// "Import manufacturer catalog" into the tool database — Vectric's classic
+/// "Import manufacturer catalog" into the tool database — the classic
 /// advantage over hand-typing every bit.
 public enum ManufacturerToolCatalog {
 

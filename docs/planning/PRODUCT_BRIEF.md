@@ -22,7 +22,7 @@ ShopPilot is a SwiftUI Mac app that:
 ## Users
 
 - Small shop / garage CNC router operators on Mac
-- Makers who already generate G-code elsewhere (Fusion, VCarve, etc.)
+- Makers who already generate G-code elsewhere (Fusion, V-carve, etc.)
 - Local AI agents (Hermes) implementing features against the task board
 
 ## MVP success

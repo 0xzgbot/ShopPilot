@@ -1,7 +1,7 @@
 # Tool DB Seed Spec — loadable schema for SPK-1146 / SPK-1133
 
 **Date:** 2026-08-05 · **Input:** `BIT_FEEDS_LIBRARY.md` (seed values, sources cited per row). **Purpose:** exact schema + values Hermes can load for the Tool DB seed without re-interpreting research. No Swift wiring here (build waves own that).
-**Data model (from Vectric research, 0FkoKHrktJE):** one tool **geometry** row × many **cutting_data** rows (per material+machine). A tool with no cutting_data for the active material+machine is **grayed out** in the picker (Vectric UX, verified).
+**Data model (from the incumbent research, 0FkoKHrktJE):** one tool **geometry** row × many **cutting_data** rows (per material+machine). A tool with no cutting_data for the active material+machine is **grayed out** in the picker (the incumbent UX, verified).
 
 ## 1. Schema
 
@@ -116,12 +116,12 @@ Materials: softwood · hardwood · plywood · mdf · acrylic.
 | `derived` | computed from cited chip loads or 40% rule | marked `status: seed` + flag in UI |
 | `grbl-matrix` | GRBL_DIALECT_MATRIX.md (`$110–$112` machine max-rate clamp) | clamp feed ≤ machine max at post time |
 
-## 4. Grayed-out UX (from Vectric research, 0FkoKHrktJE + tmaTxrZZv6Y)
+## 4. Grayed-out UX (from the incumbent research, 0FkoKHrktJE + tmaTxrZZv6Y)
 
 - Tool is **grayed out** in the picker when `cutting_data` has no row for (materialKey, machineKey).
-- Right panel shows geometry (diameter/flutes/angle — unchanged) but no feeds/speeds; an "Add feeds & speeds" action copies from another material or opens the editor (Vectric's `copy settings from`).
-- `hide unset tools` toggle to declutter (Vectric right-click option).
-- At toolpath creation time, if the selected tool is grayed out → inline prompt to add feeds/speeds (Vectric: "there is an option to add the tool settings and feeds and speeds when creating toolpaths").
+- Right panel shows geometry (diameter/flutes/angle — unchanged) but no feeds/speeds; an "Add feeds & speeds" action copies from another material or opens the editor (the incumbent's `copy settings from`).
+- `hide unset tools` toggle to declutter (the incumbent right-click option).
+- At toolpath creation time, if the selected tool is grayed out → inline prompt to add feeds/speeds (the incumbent: "there is an option to add the tool settings and feeds and speeds when creating toolpaths").
 - Warn at calculate: chip load outside the material's target range and/or feed > machine max (`$110–$112`) — maps to R022/R008 in PREFLIGHT_FM_MAPPING.md.
 
 ## 5. Loader contract for build waves

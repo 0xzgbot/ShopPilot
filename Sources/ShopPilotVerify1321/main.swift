@@ -3,7 +3,7 @@ import ShopPilotCore
 import ShopPilotGeometry
 
 /// SPK-1321 verify (CLT machine, no XCTest).
-/// Proves the VECTOR BOUNDARY contract (Vectric C17):
+/// Proves the VECTOR BOUNDARY contract (parity item C17):
 ///   1. SAMPLING: 2 rectangles → dense point cloud (> 40 points).
 ///   2. CONVEX HULL: 4-corner rect cloud → exactly 4 hull points, CCW
 ///      (positive signed shoelace), bounding box matches the rect,

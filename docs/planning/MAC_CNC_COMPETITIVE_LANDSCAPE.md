@@ -7,16 +7,16 @@
 
 ## 1. Competitor Breakdown
 
-### 1.1 Vectric (VCarve / Aspire / Cut2D / EasyCarve)
+### 1.1 the incumbent (V-carve / the incumbent suite / entry-tier desktop CAM / EasyCarve)
 
 | Field | Value |
 | --- | --- |
 | **Platform** | Windows only (Mac users need Parallels) |
-| **Products** | Cut2D ($199), VCarve Desktop ($349), VCarve Pro ($799), Aspire ($1,995) |
+| **Products** | entry-tier desktop CAM ($199), V-carve Desktop ($349), incumbent desktop CAM ($799), the incumbent suite ($1,995) |
 | **UI Pattern** | Classic Windows MDI — left panel = project tree, center = 2D/3D canvas, right panel = toolpath parameters, bottom = status bar |
-| **Easy/Expert Mode** | **No toggle.** Single interface. Vectric Spark (announced for Mac) is the "entry-level" product — essentially a separate "easy" app |
+| **Easy/Expert Mode** | **No toggle.** Single interface. the incumbent Spark (announced for Mac) is the "entry-level" product — essentially a separate "easy" app |
 | **Key Strengths** | V-Carve is the gold standard; 2.5D decorative carving; 3D relief tools; 600+ pre-made relief models; extensive gadget ecosystem; 964+ post processors |
-| **Key Weaknesses** | Windows-only; expensive ($349–$1,995); VCarve Pro is bloated for hobbyists; no native Mac support; cloud-dependent tutorials |
+| **Key Weaknesses** | Windows-only; expensive ($349–$1,995); incumbent desktop CAM is bloated for hobbyists; no native Mac support; cloud-dependent tutorials |
 
 **UI Layout:** Left sidebar (project tree with vectors/toolpaths), center canvas (2D top-down + 3D view toggle), right panel (toolpath parameters with strategy-specific forms), bottom status bar. Dense, feature-packed interface.
 
@@ -33,7 +33,7 @@
 | **Key Strengths** | 3D sculpting tools (Smooth/Erase); Shape Editor; AI tools (Prompt to Relief, Image to Relief); nesting; 600+ relief models; 3D PDF export; material simulation; 300+ post processors |
 | **Key Weaknesses** | Windows-only; subscription model ($50/mo); expensive; AI tools require subscription; no native Mac |
 
-**UI Layout:** Palette-based floating panels (can be docked or floating). Central canvas. Toolpath parameters on right. More modern/clean than Vectric but still Windows-style.
+**UI Layout:** Palette-based floating panels (can be docked or floating). Central canvas. Toolpath parameters on right. More modern/clean than the incumbent but still Windows-style.
 
 ---
 
@@ -43,12 +43,12 @@
 | --- | --- |
 | **Platform** | **Windows AND macOS** (native on both) |
 | **Products** | Core ($99), Pro ($199), $50/year for updates |
-| **UI Pattern** | Single-window layout — left panel = project tree, center = canvas, right panel = toolpath parameters. Modern, clean UI. Similar to Vectric but more streamlined |
+| **UI Pattern** | Single-window layout — left panel = project tree, center = canvas, right panel = toolpath parameters. Modern, clean UI. Similar to the incumbent but more streamlined |
 | **Easy/Expert Mode** | **Yes — Core vs Pro.** Core is the "easy" tier (basic 2D CAM), Pro adds V-Carving, Relief, nesting, and advanced features. Most direct parallel to ShopPilot's planned $99/$199 pricing |
 | **Key Strengths** | One of the few Mac-native CNC apps; affordable ($99/$199); single-window design; combines design/CAM/control in one; from LightBurn team (proven track record); perpetual licensing |
 | **Key Weaknesses** | New product (launched Feb 2026); limited feature set in Core; V-Carving only in Pro; smaller ecosystem; fewer posts; less mature |
 
-**UI Layout:** Clean single-window. Left panel = tree (vectors + toolpaths), center = canvas, right = parameters. Modern, minimal chrome. More streamlined than Vectric.
+**UI Layout:** Clean single-window. Left panel = tree (vectors + toolpaths), center = canvas, right = parameters. Modern, minimal chrome. More streamlined than the incumbent.
 
 ---
 
@@ -145,7 +145,7 @@
 | **Carbide Create** | Core (free, 2D/2.5D) | Pro ($120/yr, adds 3D) | Separate products, not a toggle |
 | **Easel** | Free (basic) | Pro (advanced) | Subscription tiers |
 | **MeshCAM** | Wizard mode | Manual mode | **Toggle within the same app** |
-| **Vectric** | Spark (Mac entry-level) | VCarve Pro / Aspire | Separate products |
+| **the incumbent** | Spark (Mac entry-level) | incumbent desktop CAM / the incumbent suite | Separate products |
 | **ShopPilot** | Recipe-driven onboarding + progressive chrome | Full stage-rail UI | **Progressive disclosure** (not separate modes) |
 
 **Key insight:** Most competitors use **separate products** (Maker vs Maker Plus, Core vs Pro) rather than a toggle within a single app. MeshCAM is the notable exception with an in-app wizard/manual toggle. ShopPilot's approach of **progressive disclosure** (recipe-driven onboarding for beginners, full stage-rail for experts) is actually more elegant — one app, no confusion about which version you have.
@@ -161,7 +161,7 @@
 | **Native Mac** | ✅ SwiftUI, Apple Silicon native | ❌ Most are Windows-only; Fusion is the only other Mac-native option |
 | **All-in-one** | ✅ Design + CAM + Control in one app | ❌ Most are split (CAM app + separate control app like gSender) |
 | **Offline-first** | ✅ No cloud dependency | ❌ Fusion requires subscription/cloud; Easel is web-only |
-| **Pricing** | ✅ $99/$199 perpetual | ❌ Vectric $349–$1,995; Carveco $900–$1,500; Fusion $635/yr |
+| **Pricing** | ✅ $99/$199 perpetual | ❌ the incumbent $349–$1,995; Carveco $900–$1,500; Fusion $635/yr |
 | **Recipe-driven onboarding** | ✅ Sign/Cabinet/Relief/Inlay recipes | ❌ None offer this approach |
 | **Stage-rail UI** | ✅ Progressive chrome, no clutter | ❌ Most have dense, feature-heavy interfaces |
 | **Machine control built-in** | ✅ Sim + serial, Hold/Reset always visible | ❌ Most CAM apps only export G-code |
@@ -170,16 +170,16 @@
 
 | Area | ShopPilot Status | Competitor Baseline |
 | --- | --- | --- |
-| **2D design** | ✅ Profile/Pocket/Drill/V-Carve + boolean ops + layers | ✅ Vectric/Carveco have mature 2D editors |
-| **V-Carve** | ✅ Clearance tool + V-bit (lean implementation) | ✅ Vectric is the gold standard |
-| **3D carving** | ✅ STL→heightfield→rough/finish G-code (in progress) | ✅ Vectric/Carveco have mature 3D |
-| **Preview** | ✅ Wireframe + draft sim (in progress) | ✅ Vectric/Carveco have material simulation |
-| **Posts** | ✅ GRBL-class (in progress) | ✅ 964+ posts (Vectric), 300+ (Carveco) |
-| **Nesting** | ❌ Not yet | ✅ Carveco/Vectric Pro |
-| **Rotary/4-axis** | ❌ Not yet | ✅ Vectric/Carveco |
-| **Laser** | ❌ Not yet | ✅ Vectric laser module |
-| **Toolpath templates** | ❌ Not yet | ✅ Carveco/Vectric |
-| **Double-sided** | ❌ Not yet | ✅ Vectric/Carveco |
+| **2D design** | ✅ Profile/Pocket/Drill/V-Carve + boolean ops + layers | ✅ Carveco have mature 2D editors |
+| **V-Carve** | ✅ Clearance tool + V-bit (lean implementation) | ✅ the incumbent is the gold standard |
+| **3D carving** | ✅ STL→heightfield→rough/finish G-code (in progress) | ✅ Carveco have mature 3D |
+| **Preview** | ✅ Wireframe + draft sim (in progress) | ✅ Carveco have material simulation |
+| **Posts** | ✅ GRBL-class (in progress) | ✅ 964+ posts (the incumbent), 300+ (Carveco) |
+| **Nesting** | ❌ Not yet | ✅ Carveco Pro |
+| **Rotary/4-axis** | ❌ Not yet | ✅ Carveco |
+| **Laser** | ❌ Not yet | ✅ the incumbent laser module |
+| **Toolpath templates** | ❌ Not yet | ✅ Carveco |
+| **Double-sided** | ❌ Not yet | ✅ Carveco |
 
 ---
 
@@ -188,7 +188,7 @@
 | App | Layout Style | Panels | Canvas | Learning Curve |
 | --- | --- | --- | --- | --- |
 | **ShopPilot** | Stage-rail (Design→Cut→Preview→Machine) | Left browser, right inspector | Full canvas per stage | Moderate (progressive) |
-| **Vectric** | Classic MDI | Left tree, right params | Center canvas (2D/3D toggle) | Steep |
+| **the incumbent** | Classic MDI | Left tree, right params | Center canvas (2D/3D toggle) | Steep |
 | **Carveco** | Palette-based | Floating palettes, right params | Center canvas | Moderate |
 | **MillMage** | Single-window | Left tree, right params | Center canvas | Gentle |
 | **Carbide Create** | Simplified | Left sidebar, right params | Center canvas | Very gentle |
@@ -223,10 +223,10 @@ This is better than a toggle because:
 
 ### 5.3 Priority features to close gaps
 
-1. **V-Carve quality** — Match Vectric's clearance tool chain (lean implementation)
+1. **V-Carve quality** — Match the incumbent's clearance tool chain (lean implementation)
 2. **3D relief pipeline** — STL→heightfield→rough/finish G-code (in progress)
 3. **Material simulation** — Sheet-aware preview (in progress)
-4. **Toolpath templates** — Carveco/Vectric have this
+4. **Toolpath templates** — Carveco have this
 5. **Nesting** — Production feature, post-v1
 
 ---
@@ -238,10 +238,10 @@ This is better than a toggle because:
 | **Carbide Create** | Free | $120/yr or $360 perpetual | Freemium |
 | **MillMage** | $99 (Core) | $199 (Pro) | Perpetual |
 | **ShopPilot (planned)** | $99 (Core) | $199 (Pro) | Perpetual |
-| **Vectric Cut2D** | $199 | $199 | Perpetual |
-| **Vectric VCarve Desktop** | $349 | $349 | Perpetual |
-| **Vectric VCarve Pro** | — | $799 | Perpetual |
-| **Vectric Aspire** | — | $1,995 | Perpetual |
+| **the incumbent entry-tier desktop CAM** | $199 | $199 | Perpetual |
+| **the incumbent V-carve Desktop** | $349 | $349 | Perpetual |
+| **the incumbent incumbent desktop CAM** | — | $799 | Perpetual |
+| **the incumbent suite** | — | $1,995 | Perpetual |
 | **Carveco Maker** | $40/mo | $900 perpetual | Sub or perpetual |
 | **Carveco Maker Plus** | $50/mo | $1,500 perpetual | Sub or perpetual |
 | **Autodesk Fusion** | Free (limited) | $635/yr | Subscription only |

@@ -1,4 +1,4 @@
-# Hermes mega-prompt — Vectric-like Preview playback (SPK-1700) + BUG-03 first
+# Hermes mega-prompt — incumbent-style Preview playback (SPK-1700) + BUG-03 first
 
 Copy everything below the line into one Hermes session. Outer wall-clock may be long; **implement internally as 45–90 minute slices**. Do **not** rubber-stamp SPK-0623. Laser/LightBurn is **held**. Simulator only — never live serial jobs.
 
@@ -47,7 +47,7 @@ Work log + `[x]` BUG-03 before starting 1700a.
 ### 1) SPK-1700a — filled heightfield raster (drop /40 display stride)
 Parent: SPK-1700.
 
-Today: `ToolpathSimulator.materialSimulation` / `draftHeightSamples` subsample with `max(1, hm.width / 40)` and `ToolpathPreviewView` draws **4×4 ellipses** per sample (sparse dots). Vectric-like Preview needs a **filled** raster of the full heightmap.
+Today: `ToolpathSimulator.materialSimulation` / `draftHeightSamples` subsample with `max(1, hm.width / 40)` and `ToolpathPreviewView` draws **4×4 ellipses** per sample (sparse dots). incumbent-style Preview needs a **filled** raster of the full heightmap.
 
 AC:
 1. Preview heightfield/combined modes draw the **full** heightmap as a filled image (NSImage/CGImage from cell colors, or Canvas rects at **cell size**, not a 40-stride scatter). Display stride default **1** (every cell). Keep optional coarse stride only for draft if you must, but **Simulate** (material sim) must be dense.

@@ -1,7 +1,7 @@
 # Failure-Mode Lab — bad G-code outcomes → preflight rules + preview warnings
 
-**Date:** 2026-08-04 · **Method:** synthesis of 20 Vectric transcripts read in full (getting-started series, V-Carve/clearance, 3D rough/finish, toolpath FAQ, validator, profile/pocket/drill, chamfer) + GRBL dialect research + feeds/speeds sources.
-**Relationship to existing docs:** complements `docs/planning/PREFLIGHT_RULES.md` (which maps Aspire *error strings* to vector-geometry preflight). This doc adds the **machine-outcome layer**: what actually breaks on the machine, and which warnings the app should raise before/at preview.
+**Date:** 2026-08-04 · **Method:** synthesis of 20 the incumbent transcripts read in full (getting-started series, V-Carve/clearance, 3D rough/finish, toolpath FAQ, validator, profile/pocket/drill, chamfer) + GRBL dialect research + feeds/speeds sources.
+**Relationship to existing docs:** complements `docs/planning/PREFLIGHT_RULES.md` (which maps the incumbent suite *error strings* to vector-geometry preflight). This doc adds the **machine-outcome layer**: what actually breaks on the machine, and which warnings the app should raise before/at preview.
 **Notation:** FM-### = failure mode; each has trigger, mechanism, worst case, detection, and the ShopPilot warning to implement.
 
 ---
@@ -13,7 +13,7 @@
 - **Mechanism:** tool runs down the center of "opposing vectors" — an open chain has no closed region; depth undefined.
 - **Worst case:** garbage toolpath or error at post.
 - **Detection:** closed-ness check at toolpath calculation.
-- **ShopPilot rule:** mirror Aspire's enforced error — *"V-carving can only be done with closed vectors."* Block, highlight gap endpoints, offer Join. (PREFLIGHT_RULES R001.)
+- **ShopPilot rule:** mirror the incumbent's enforced error — *"V-carving can only be done with closed vectors."* Block, highlight gap endpoints, offer Join. (PREFLIGHT_RULES R001.)
 
 ### FM-02 Duplicate / overlapping contours
 - **Trigger:** import (or trace) produces two coincident vectors; user welds nothing.
@@ -33,7 +33,7 @@
 - **Trigger:** duplicate nodes on top of each other (node-edit or import artifact).
 - **Mechanism:** parser produces a zero-length move — harmless or confusing, but signals broken geometry.
 - **Worst case:** minor, but masks other issues; auto-fixable.
-- **ShopPilot rule:** warning + one-click fix (Aspire's "fix zero length spans"). (R003.)
+- **ShopPilot rule:** warning + one-click fix (the incumbent's "fix zero length spans"). (R003.)
 
 ### FM-05 Toolpath outside stock bounds
 - **Trigger:** vectors extend past material; or boundary/offset math wrong.
@@ -65,14 +65,14 @@
 - **Mechanism:** climb pulls the tool into the cut; with backlash the tool digs in, grabbing more material.
 - **Worst case:** chatter, gouge, snapped bit.
 - **Detection:** can't be fully detected in software; but can warn on climb + high backlash machine profiles, and always expose direction.
-- **ShopPilot rule:** expose climb/conventional per toolpath (Vectric does; tutors say "run test cuts… if the finish looks better on the waste material, switch direction"). Consider a machine-profile "backlash" hint that warns on climb.
+- **ShopPilot rule:** expose climb/conventional per toolpath (the incumbent does; tutors say "run test cuts… if the finish looks better on the waste material, switch direction"). Consider a machine-profile "backlash" hint that warns on climb.
 
 ### FM-09 Wrong Z-zero / wrong datum (setup mismatch)
 - **Trigger:** software says Z0 = material surface, operator zeros off the bed (or vice versa); or XY datum set bottom-left but operator picks a corner differently.
 - **Mechanism:** whole job is offset in Z by material thickness → first pass cuts air or plunges 0.75" into the bed; XY shift cuts off the part.
 - **Worst case:** bit into wasteboard, part ruined.
 - **Detection:** none at generation — it's a setup contract.
-- **ShopPilot rule:** make the material setup form mirror the machine (as Vectric does); surface a **pre-flight checklist** at job start and at save: "Z0 = material surface — set on machine before running." (Every getting-started video: "this is where we're going to set our tool… off the top of our material… just like I had told the software.")
+- **ShopPilot rule:** make the material setup form mirror the machine (as the incumbent does); surface a **pre-flight checklist** at job start and at save: "Z0 = material surface — set on machine before running." (Every getting-started video: "this is where we're going to set our tool… off the top of our material… just like I had told the software.")
 
 ### FM-10 Wrong material thickness (0.5" entered, 0.455" actual)
 - **Trigger:** guessing thickness at job setup, not measuring; through-cut depth = entered thickness < actual.
@@ -85,7 +85,7 @@
 - **Trigger:** edit vectors (resize/move/offset) after calculating; then save/run without recalculating.
 - **Mechanism:** G-code still reflects the old geometry.
 - **Worst case:** cuts wrong size/position; may cut into neighboring features.
-- **Detection:** dirty flag on toolpath vs source vector change (Vectric: explicit recalc selected/visible/all + success popup).
+- **Detection:** dirty flag on toolpath vs source vector change (the incumbent: explicit recalc selected/visible/all + success popup).
 - **ShopPilot rule:** dirty badge + recalc required before save; block stale save. (WHFiP-5FMYU.)
 
 ### FM-12 Tool-change collision in single-file save
@@ -93,13 +93,13 @@
 - **Mechanism:** controller never gets M6; operator may not realize a tool change is expected mid-file.
 - **Worst case:** runs second toolpath with wrong bit → broken bit/part.
 - **Detection:** compare tool per toolpath vs post ATC capability at save.
-- **ShopPilot rule:** exactly Vectric's error: *"visible toolpaths use different tools and the selected post processor does not support tool changing."* Offer split-to-multiple-files (ordered) or ATC post. (Txafg3oN8c0.)
+- **ShopPilot rule:** exactly the incumbent's error: *"visible toolpaths use different tools and the selected post processor does not support tool changing."* Offer split-to-multiple-files (ordered) or ATC post. (Txafg3oN8c0.)
 
 ### FM-13 Cutting off your own chamfer/feature (allowance offset)
 - **Trigger:** profile cutout on the border line after chamfering the edge.
 - **Mechanism:** cutout removes the chamfer (bit follows the vector line through the bevel).
 - **Worst case:** beveled edge destroyed on final pass.
-- **Detection:** none automatic in Vectric; the tutor works around by offsetting cutout by chamfer width.
+- **Detection:** none automatic in the incumbent; the tutor works around by offsetting cutout by chamfer width.
 - **ShopPilot rule:** when a profile-through cutout follows a chamfer toolpath on the same vector, warn: *"this cutout will remove the chamfer — offset it by the chamfer width."* (deMB2pc9-pY: "if we do that we're going to end up cutting off our chamfer… remember that 0.15.")
 
 ### FM-14 Ramp/plunge misuse (straight plunge stress)
@@ -164,8 +164,8 @@ Consolidated from the 20 transcripts — every one of these was stated as a habi
 ## E. Preview warnings (what the 3D preview should flag visually)
 
 - Highlight segments **outside stock bounds** (red).
-- Highlight **open/duplicate/intersecting** vectors on selection (validator colors: Aspire uses pink duplicates, red overlaps).
+- Highlight **open/duplicate/intersecting** vectors on selection (validator colors: the incumbent suite uses pink duplicates, red overlaps).
 - On V-Carve preview: show **max emergent depth** readout vs material thickness + flat-depth cap.
 - On through-cuts: show **tabs** as visible bridges; if none and no vacuum, surface the fly-out warning banner.
 - Show **chip load + feed vs machine max** in the toolpath summary line.
-- Post-save: print an **operator sheet** (Vectric setup sheet analog): datum, Z0, tool list, order, safe gaps.
+- Post-save: print an **operator sheet** (the incumbent setup sheet analog): datum, Z0, tool list, order, safe gaps.

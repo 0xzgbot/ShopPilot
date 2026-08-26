@@ -1,7 +1,7 @@
 # ShopPilot Phase L — UX Overhaul (v2.1)
 
 **Date:** 2026-08-10
-**Scope:** 10 UX/ease-of-use features closing the gap vs Vectric Aspire 12.5 +
+**Scope:** 10 UX/ease-of-use features closing the gap vs the incumbent suite +
 forum pain points, plus pain-point alleviation baked into the same wave.
 **DoD (repo convention):** Engine + UI + Persist + Verify CLT per card
 (`ShopPilotVerify120x` PASS, whole-package build green, board `[x]` + worklog).
@@ -12,16 +12,16 @@ forum pain points, plus pain-point alleviation baked into the same wave.
 
 | Pain point (source) | Alleviated by |
 | --- | --- |
-| Toolpath tree is opaque — can't see status/order/feeds at a glance (Aspire 12.5 "visual toolpath status" is the #1 tree complaint) | **SPK-1207** status chips + **SPK-1201** cut-layers table |
-| "What you see isn't what you cut" — preview trust gap (forum theme #5, Aspire surface-color sim) | **SPK-1202** material-surface preview + **SPK-1210** toolpath-on-hover |
+| Toolpath tree is opaque — can't see status/order/feeds at a glance (the incumbent suite "visual toolpath status" is the #1 tree complaint) | **SPK-1207** status chips + **SPK-1201** cut-layers table |
+| "What you see isn't what you cut" — preview trust gap (forum theme #5, the incumbent suite surface-color sim) | **SPK-1202** material-surface preview + **SPK-1210** toolpath-on-hover |
 | Slow recalc on complex designs (forum theme #4) | **SPK-1207** Recalc-All + per-op status (see what's stale, fix only that) |
-| Form-hopping: change a dim → find the form (Aspire 12.5 editable dimensions, smart part selection) | **SPK-1203** canvas dimension handles + smart part selection |
-| Actions hidden in top bars (Aspire 12.5 sheet-transfer/bake/duplicate right-click pattern) | **SPK-1204** context menus everywhere |
-| New users lost on first run (forum theme #8 docs/tutorials; Aspire 3D interactive help) | **SPK-1205** inline coach strip |
-| 3D views feel flat/uncontrolled (Aspire V12 view control + orthographic) | **SPK-1206** nav gizmo + ortho toggle |
-| Multi-sheet: copying a sheet/op is manual (Aspire 12.5 sheet duplication + toolpath transfer) | **SPK-1208** sheet duplication + toolpath sheet transfer |
-| Import friction: formats + re-importing work (Aspire 12.5 WebP + unified import) | **SPK-1209** WebP import + recent-files rail |
-| Peck drills invisible in sim; which op is that path? (Aspire 12.5 peck viz) | **SPK-1210** peck-drill viz + toolpath-on-hover |
+| Form-hopping: change a dim → find the form (the incumbent suite editable dimensions, smart part selection) | **SPK-1203** canvas dimension handles + smart part selection |
+| Actions hidden in top bars (the incumbent suite sheet-transfer/bake/duplicate right-click pattern) | **SPK-1204** context menus everywhere |
+| New users lost on first run (forum theme #8 docs/tutorials; the incumbent suite 3D interactive help) | **SPK-1205** inline coach strip |
+| 3D views feel flat/uncontrolled (the incumbent suite V12 view control + orthographic) | **SPK-1206** nav gizmo + ortho toggle |
+| Multi-sheet: copying a sheet/op is manual (the incumbent suite sheet duplication + toolpath transfer) | **SPK-1208** sheet duplication + toolpath sheet transfer |
+| Import friction: formats + re-importing work (the incumbent suite WebP + unified import) | **SPK-1209** WebP import + recent-files rail |
+| Peck drills invisible in sim; which op is that path? (the incumbent suite peck viz) | **SPK-1210** peck-drill viz + toolpath-on-hover |
 
 ## 2. Cards (SPK-1201 … SPK-1210)
 
@@ -168,7 +168,7 @@ whole-package build + full sweep at wave end. Board rows added under a new
 
 ## 4. Out of scope (intentionally)
 
-- 3D-view editing (Aspire's node-edit-in-3D) — big engine lift, defer.
+- 3D-view editing (the incumbent's node-edit-in-3D) — big engine lift, defer.
 - 3D text — defer (2D text + relief path exists).
 - Acceleration-aware time estimation — needs per-controller accel profiles,
   defer to machine-profiles wave.

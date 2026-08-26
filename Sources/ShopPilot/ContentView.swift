@@ -24,7 +24,7 @@ struct ContentView: View {
                 HSplitView {
                     if session.selectedStage == .design {
                         // Design stage: the left edge is the tool palette +
-                        // slim layers panel (Photoshop/Aspire/LightBurn model),
+                        // slim layers panel (image-editor / CAM tool-rail model),
                         // not the document tree.
                         HStack(spacing: 0) {
                             DesignToolPaletteView(tool: $session.designTool)
@@ -720,7 +720,7 @@ private struct DesignStageView: View {
         }
     }
 
-    /// Design ops — slim context bar (Aspire/LightBurn pattern). The wall of
+    /// Design ops — slim context bar (CAM context-bar pattern). The wall of
     /// text buttons is gone: boolean/transform/import ops live in grouped
     /// menus, the active draw tool is a chip up front, and the left rail
     /// (DesignToolPaletteView) owns tool selection.

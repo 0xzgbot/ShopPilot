@@ -34,7 +34,7 @@ public struct PhotoVCarveToolpathParams: Codable, Sendable {
     /// (default 50%).
     public var roughStepOverFraction: Double
     /// SPK-2110b — finish pass stepover as a fraction of the widest groove
-    /// (default 10%, inside Aspire's 8–12% finish band).
+    /// (default 10%, inside the industry 8–12% finish band).
     public var finishStepOverFraction: Double
 
     public init(

@@ -6,9 +6,9 @@
 **User complaint addressed:** *"The UI still has a closed off ultra pro elitist look and
 feel to it. New users of a CNC app will not want this."*
 **Context:** Phase L (SPK-1201…1210) and the visual wave fixed the *"AI-built / bare-bones"*
-problem by benchmarking against **Vectric Aspire 12.5** and polishing the chrome. That
-benchmark is exactly the problem: Aspire is a $2,000 pro CAM suite, and ShopPilot now reads
-like a *small Aspire* — dense, uppercase, panel-heavy, jargon-forward. This doc re-benchmarks
+problem by benchmarking against **the incumbent suite** and polishing the chrome. That
+benchmark is exactly the problem: the incumbent suite is a $2,000 pro CAM suite, and ShopPilot now reads
+like a *small the incumbent suite* — dense, uppercase, panel-heavy, jargon-forward. This doc re-benchmarks
 against the apps real first-time CNC **and** laser buyers actually open: LightBurn, xTool
 Creative Space/Studio, Snapmaker Luban, Estlcam, Easel, Carbide Create.
 
@@ -20,7 +20,7 @@ make their first thing this afternoon.
 
 ## 1. Executive summary
 
-1. **The "elitist" read is real and it comes from the Aspire benchmark.** Three-pane pro shell,
+1. **The "elitist" read is real and it comes from the incumbent suite benchmark.** Three-pane pro shell,
    UPPERCASE section labels, 8 stacked Setup panels, "Stock, origin and machine" intents,
    dry legal-tone first run. Everything is *correct*, nothing is *inviting*.
 2. **The top combined laser+CNC apps split into two UX camps**: LightBurn / Estlcam /
@@ -106,7 +106,7 @@ Inspector 220–320pt) → 24pt status bar. Plus coach strip, ⌘K command palet
 safety disclaimer sheet.
 
 Design vocabulary (`DesignSystem.swift`): amber brand tint (0.93, 0.60, 0.18), `SectionLabel`
-= **UPPERCASE + tracking** (Aspire/Xcode pattern), `.thinMaterial` sidebars with hairline
+= **UPPERCASE + tracking** (the incumbent suite/Xcode pattern), `.thinMaterial` sidebars with hairline
 dividers, rounded-monospaced DRO numerals, spring animations. All tasteful, all *professional*,
 none of it *welcoming*.
 
@@ -189,5 +189,5 @@ cuts". Machine stage keeps the full safety discipline unchanged.
 
 - No easy/expert product split (already decided; progressive disclosure chosen).
 - No lightening of machine-stage safety chrome — E-stop/Hold/Reset stay fixed.
-- No copy of Fusion's ribbon or Vectric's form-per-strategy spawning (Aspire benchmark doc §5).
+- No copy of Fusion's ribbon or the incumbent's form-per-strategy spawning (the incumbent suite benchmark doc §5).
 - No removal of pro features to look friendly — hide, don't amputate.

@@ -139,7 +139,7 @@ public struct HeightfieldFinishParams: Codable, Sendable, ToolFeedApplicable {
         previousToolDiameterMm: Double = 0
     ) {
         self.toolDiameterMm = toolDiameterMm
-        // SPK-2100a — default finish stepover is 10% of D (Aspire's documented
+        // SPK-2100a — default finish stepover is 10% of D (the industry-documented
         // 8-12% finish quality band); an explicit value still wins. The legacy
         // DECODE path below keeps 0.8 for pre-existing stored paramsJSON.
         self.stepOverMm = stepOverMm ?? (toolDiameterMm * 0.10)

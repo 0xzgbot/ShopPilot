@@ -38,7 +38,7 @@ Documented observations (NOT changed — audit-first, out of listed files):
     toolpaths in place — not a forward action — but visually shares
     prominence with "Continue to Machine".
   - The per-op "Apply Params — Regenerate" buttons (Profile/Pocket/Drill/
-    VCarve params forms) are form-commit actions inside contextual detail
+    V-carve params forms) are form-commit actions inside contextual detail
     panes, not stage-level primaries.
   - Hold/Resume/Reset safety chrome (DesignSystem.swift, MachineConnection
     SafetyButton) is mandated always-visible by AGENTS.md §2 — safety, never

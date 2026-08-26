@@ -154,7 +154,7 @@ Alarm state: g-code locked out; only `$H` / `$X` / reset accepted; `[MSG:'$H'|'$
 ## 9. ATC vs tool-change-as-files (decision evidence)
 
 - **GRBL:** no M6/T-based auto tool change. T word parses (T0–T255, error 38 beyond). Tool change = separate file per tool, operator swaps bit manually. Same for FluidNC unless the machine has a tool-changer config (rare on hobby class).
-- **Vectric transcripts** (Txafg3oN8c0) confirm the same model on the CAM side: *"visible toolpaths use different tools and the selected post processor does not support tool changing"* → either ATC-capable post or **save to multiple files**. The multi-file save respects toolpath order = cut order, and group-where-possible packs by tool.
+- **the incumbent transcripts** (Txafg3oN8c0) confirm the same model on the CAM side: *"visible toolpaths use different tools and the selected post processor does not support tool changing"* → either ATC-capable post or **save to multiple files**. The multi-file save respects toolpath order = cut order, and group-where-possible packs by tool.
 - **ShopPilot implication:** post must support (a) per-tool multi-file output with ordered naming, (b) `M6`-less manual tool-change prompts between files, (c) optional T-word emission per tool for ATC-capable FluidNC setups. GRBL `G4 P0.01` sync after pause for manual change.
 
 ## 10. Golden fixtures

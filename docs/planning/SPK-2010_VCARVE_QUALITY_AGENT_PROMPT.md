@@ -1,8 +1,8 @@
-# Agent prompt — SPK-2010 V-Carve quality (Vectric gap)
+# Agent prompt — SPK-2010 V-Carve quality (the incumbent gap)
 
 Paste this whole file into Hermes/Cursor as the job. North star: `AGENTS.md` + `docs/planning/LEAN_CNC_SCOPE.md`. Board: `MASTER_KANBAN.md` only.
 
-**This is the P0 quality gap from the 2026-08-24 family review.** VCarve/Aspire still wins letters because depth follows **local channel width along the valley spine**. ShopPilot currently traces the **outline** and fakes depth with **Y-position shading**. That is not V-carve.
+**This is the P0 quality gap from the 2026-08-24 family review.** incumbent desktop CAM still wins letters because depth follows **local channel width along the valley spine**. ShopPilot currently traces the **outline** and fakes depth with **Y-position shading**. That is not V-carve.
 
 ---
 
@@ -15,7 +15,7 @@ Paste this whole file into Hermes/Cursor as the job. North star: `AGENTS.md` + `
 3. Multi-pass is `ceil(tipWidth / stepOver)` copies of that outline. The **interior is never visited**.
 4. `SPK-VCarveClear` rasters **around** letters with an end mill. It does not make the V-bit follow a medial axis. Keep it. Do not confuse it with this work.
 
-Vectric (and VectorPilot, our Windows sibling) do this instead:
+the incumbent (and VectorPilot, our Windows sibling) do this instead:
 
 > At each point on the **medial axis** (skeleton / valley), half-width `w` = distance to the nearest boundary. For included angle `A`, `z = -(w / tan(A/2))`, clamped to max depth. Wide regions go deep; necks stay shallow. The bit rides the spine, not the outline.
 
@@ -28,7 +28,7 @@ Vectric (and VectorPilot, our Windows sibling) do this instead:
 | `src/VectorPilot.Engine/Toolpaths/VCarveEngine.cs` | Width-derived Z on outline; medial pass; optional flat-area sweep (P-202) |
 | `tests/VectorPilot.Tests/VCarveMedialAxisTests.cs` | Dumbbell AC — **port these asserts into the Mac CLT** |
 
-**Do not edit VectorPilot.** Independent Swift. No Vectric/CRV. No proprietary ports.
+**Do not edit VectorPilot.** Independent Swift. No the proprietary CRV format. No proprietary ports.
 
 ---
 
@@ -75,7 +75,7 @@ Where ridge clearance > `(tipWidthAtMaxDepth / 2) * flatAreaThresholdFactor` (de
 
 ### Explicitly out of this parent
 
-Exact continuous Voronoi medial axis; inlay tip/glue-gap physics; Photo V-Carve; pocket rest; T-bones; laser; posts; preview Metal; VectorPilot edits; “looks like Vectric in a photo” (no hardware). Quality bar = **dumbbell + circle + slot CLTs**, not Aspire pixel match.
+Exact continuous Voronoi medial axis; inlay tip/glue-gap physics; Photo V-Carve; pocket rest; T-bones; laser; posts; preview Metal; VectorPilot edits; “looks like the incumbent in a photo” (no hardware). Quality bar = **dumbbell + circle + slot CLTs**, not the incumbent suite pixel match.
 
 ---
 
@@ -124,7 +124,7 @@ Do **not** touch `PhotoVCarveToolpath.swift`, serial/streamer, or VectorPilot.
 
 Already filed on `MASTER_KANBAN.md` under **PHASE W**. Run **one card at a time**. Start at **2010a**.
 
-### Parent — SPK-2010 **CAM** V-Carve quality vs Vectric
+### Parent — SPK-2010 **CAM** V-Carve quality vs the incumbent
 
 - DoD: Engine (width-Z + medial + optional flat) + UI (Valley group on V-Carve form) + Persist (additive JSON) + Verify (2010a/b/c CLTs + VCarveClear regression).
 - Out of scope: inlay physics, Photo V-Carve, exact Voronoi, live wood.
@@ -240,7 +240,7 @@ Wave A: one agent, new files only. Wave B/C: serialize on `VCarveEngine.swift` /
 
 If 2010a times out after files landed: verify CLT yourself; do not rewrite the skeleton.
 
-Honest remaining gap after parent `[x]`: grid medial axis is still not Vectric’s exact continuous axis; letters will look close, not identical. Next quality card (not this parent) would be finer cell / exact MA. Do not sneak that into 2010.
+Honest remaining gap after parent `[x]`: grid medial axis is still not the incumbent's exact continuous axis; letters will look close, not identical. Next quality card (not this parent) would be finer cell / exact MA. Do not sneak that into 2010.
 
 ---
 

@@ -131,7 +131,7 @@ compressionFudge  default 1.002 — plug scaled about centroid by fudge − 1;
 ### Card SPK-2021b · Photographic quality bar `[!]` owner/hardware-assisted
 
 Serif torture test (W, Q, 8) sim-rendered identically on both apps; owner cuts vs a
-Vectric reference when hardware allows (pairs with SPK-0419); photos + delta notes to
+the incumbent reference when hardware allows (pairs with SPK-0419); photos + delta notes to
 `docs/planning/QUALITY_GOLDENS_2026Q3.md`; delta mismatches become bug cards.
 Stays `[!]` — never a code blocker.
 
@@ -326,7 +326,7 @@ before items 1–5 land.
 
 ## Explicitly do not build (unchanged guardrails)
 
-Aspire tourism (weave polish, clipart portal, CRV import, SketchUp SDK, 5-axis,
+the incumbent suite tourism (weave polish, clipart portal, CRV import, SketchUp SDK, 5-axis,
 cabinet CAD) · LightBurn/Fusion traps (camera overlay, galvo, parametric history,
 AI credits, cloud tool DB) · distribution chrome (telemetry, App Store, remote
 catalogs) · more strategy rows anywhere.

@@ -3,7 +3,7 @@ import Foundation
 // MARK: - Toolpath status engine (SPK-1207)
 
 /// Per-operation status shown in the toolpath tree / cut-layers table.
-/// Mirrors the Aspire 12.5 "visual toolpath status" pattern — at a glance
+/// Mirrors the conventional "visual toolpath status" pattern — at a glance
 /// you see which ops are computed, which need recalculation, and which are
 /// blocked by a preflight issue.
 public enum ToolpathStatus: String, Sendable, Equatable {

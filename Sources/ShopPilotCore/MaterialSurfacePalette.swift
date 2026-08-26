@@ -4,7 +4,7 @@ import Foundation
 
 /// Material look for the preview: the stock's SKIN color on top, the BASE
 /// color revealed once the cut passes through the surface layers — the
-/// "cutting through painted/laminated material" look Aspire 12.5 ships.
+/// "cutting through painted/laminated material" look shops expect.
 /// Pure data + math — CLT-verifiable.
 public struct MaterialSurfacePalette: Sendable {
     /// Material display name (walnut, acrylic, painted MDF, plywood…).

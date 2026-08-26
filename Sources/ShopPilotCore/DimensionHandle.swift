@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - Dimension handle (SPK-1203)
 
-/// Canvas drag math for a driven dimension — the Aspire 12.5 "editable
+/// Canvas drag math for a driven dimension — the parametric CAD "editable
 /// dimensions" pattern: instead of editing the expression in a panel, drag a
 /// control point on the canvas and the dimension's VALUE updates (the
 /// expression is replaced by the dragged number; anchor/offset/caption stay).

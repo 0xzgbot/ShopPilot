@@ -332,7 +332,7 @@ Legend: **P0** MVP parity slice · **P1** full creative · **P2** production/pow
 | Photo V-Carve | P1 | Image |
 | Sketch carving (V12) | P1 | Image |
 | Inlay (pocket + plug) | P1 | Inlay recipe |
-| VCarve Inlay (V12) | P1 | Inlay recipe |
+| V-carve inlay (V12) | P1 | Inlay recipe |
 | Female inlay pocket | P1 | Inlay |
 | Thread milling | P2 | Mechanical |
 | 3D rough | P0 (if 3D) | 3D group |
@@ -555,7 +555,7 @@ Job
 - Multi-sheet, double-sided registration  
 - Nest advanced, array TP, merge TP  
 - Keep-outs full  
-- Inlay + VCarve inlay recipes  
+- Inlay + V-carve inlay recipes  
 - Tiling  
 
 ### Phase E — Rotary & laser (Weeks 36–48)
@@ -606,7 +606,7 @@ Use with `HERMES_BUILD_TODO.md` (Control) and new `HERMES_STUDIO_TODO.md` (below
 | **Incumbent** | Deep creative toolpaths, ecosystem, tutorials | Mac-native, cleaner UI, integrated machine, modern Metal |
 | **Fusion** | Full CAD/CAM parametric | Faster artistic/relief, shop-simple, not enterprise bloat |
 | **Carbide Create** | Easy | Full reference-depth when needed |
-| **VCarve** | Mid-tier incumbent | We target reference-depth with VCarve simplicity at surface |
+| **V-carve** | Mid-tier incumbent | We target reference-depth with V-carve simplicity at surface |
 | **LightBurn** | Laser UX gold standard | Learn from LB clarity for laser pack |
 
 ---

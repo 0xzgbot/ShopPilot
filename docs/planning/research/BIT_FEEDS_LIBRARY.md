@@ -1,7 +1,7 @@
 # Bit / Feeds Library Research — ShopPilot cutting-data seed matrix (offline)
 
 **Date:** 2026-08-04 · **Sources:** ShopBot "Feeds and Speeds Charts" (Onsrud-derived, PDF), Craftgineer starter tables, toolstoday chip-load primer, Onefinity forum guidance. All numeric data is *conservative starting points* — user must test-cut and tune (every source says exactly that).
-**Purpose:** seed ShopPilot's offline Tool DB cutting-data matrix (LEAN_CNC_SCOPE P1: "Tool DB seed + feeds wired to recalc"). Model: one tool geometry × per-material cutting data (matches Vectric's model from 0FkoKHrktJE).
+**Purpose:** seed ShopPilot's offline Tool DB cutting-data matrix (LEAN_CNC_SCOPE P1: "Tool DB seed + feeds wired to recalc"). Model: one tool geometry × per-material cutting data (matches the incumbent's model from 0FkoKHrktJE).
 
 ---
 
@@ -89,7 +89,7 @@ All cuts assumed 1×D depth of cut unless noted. Notable: **V-cutter chip loads 
 1. **RPM too low** — hobby routers are designed for high RPM/low chip load; 8,000 RPM "feels safer" but dulls bits and quadruples job time.
 2. **Not scaling DOC to bit size** — 1/8" bit ≈ half the rigidity of 1/4"; halve DOC.
 3. **Ignoring machine max feed** — formulas may say 3,000 mm/min but a 3018 loses steps; clamp to `$110–$112`.
-4. **Same settings across materials** — pine ≠ maple; per-material cutting data is mandatory (Vectric's model: same tool, different cutting data per material).
+4. **Same settings across materials** — pine ≠ maple; per-material cutting data is mandatory (the incumbent's model: same tool, different cutting data per material).
 5. **Stepover too coarse on finish** — 10–20% finishing; witness marks (see 3D finishing video NF9oaCjXmAo).
 
 ## 6. Seed matrix recommendation (ShopPilot Tool DB v1)
@@ -106,4 +106,4 @@ Seed these tool geometries (fixed) with per-material cutting data (RPM/feed/plun
 
 Data model per tool: `diameter, flutes, type, angle (V-bit/ball), notes`; per (material): `spindle_rpm, feed_rate, plunge_rate, pass_depth, stepover_pct`. Seed values = conservative midpoints from §2–§3, flagged `source: Onsrud-SB|crafteginer`, `status: seed — test-cut required`. Show a "derived from chip load" calculator in-app later; v1 just stores the matrix.
 
-Raw notes saved under `research/raw/` (gitignored); this summary is the planning artifact. All values are starting points, not guarantees — the app must say so (matching Vectric's own guidance: "test cuts on your material first").
+Raw notes saved under `research/raw/` (gitignored); this summary is the planning artifact. All values are starting points, not guarantees — the app must say so (matching the incumbent's own guidance: "test cuts on your material first").

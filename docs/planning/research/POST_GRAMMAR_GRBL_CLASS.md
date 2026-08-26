@@ -56,7 +56,7 @@ Inches variant: `G20` instead of `G21`; feeds in in/min; spindle still RPM.
 - **Arcs work** (G2/G3) `[verified]` — a common complaint is third-party posts that emit arcs which a *custom* firmware build rejects; keep arc output optional.
 - Spindle (router) is ON/OFF via M3/M5; Carbide Motion adds a **~2 s dwell** on M3 and M5 for the router to spin up/down `[verified — glue-dispenser post describes the dwell]`.
 - Post convention: G90 absolute, G17, G21/G20; no G28 return-to-home in the default Carbide posts (G28 posts from Fusion caused "unexpected homing" reports `[verified]` — avoid G28 in the default post).
-- Tool change = separate file per tool (Carbide community advice) — matches Vectric multi-file save.
+- Tool change = separate file per tool (Carbide community advice) — matches the incumbent multi-file save.
 
 ### Onefinity — GRBL/grblHAL class `[inferred, community-consistent]`
 - Onefinity controllers run GRBL-derived firmware (grblHAL lineage); standard GRBL posts work.
@@ -87,7 +87,7 @@ Inches variant: `G20` instead of `G21`; feeds in in/min; spindle still RPM.
 | G28 park vs datum park | datum (G0 X0 Y0, safe Z) | G28 unexpected-homing complaints |
 | Tool change model: file-per-tool vs T-word+ATC | file-per-tool | GRBL has no M6; ATC only for FluidNC tool-changer configs |
 | Ramp vs straight plunge | per-toolpath (FM-14) | tool-stress warning in FAILURE_MODE_LAB |
-| Header comments | on | operator reads tool/feed/spindle at the machine (Vectric: notes field, setup sheet) |
+| Header comments | on | operator reads tool/feed/spindle at the machine (the incumbent: notes field, setup sheet) |
 
 ## 5. What a post must NEVER emit (GRBL-class)
 

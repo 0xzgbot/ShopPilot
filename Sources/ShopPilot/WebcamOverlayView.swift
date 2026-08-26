@@ -115,7 +115,7 @@ struct CameraPreview: NSViewRepresentable {
 // MARK: - View gizmo (SPK-1206)
 
 /// Mini nav-cube overlay: three tappable faces (top / isometric / front)
-/// that switch the preview's 2.5D orientation, matching Aspire's view
+/// that switch the preview's 2.5D orientation — the conventional CAD view
 /// control pattern. The active face is highlighted; the cube is small so it
 /// never blocks the canvas.
 struct ViewGizmoView: View {

@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - VectorBoundary (SPK-1321)
 
-/// Vector boundary engine (Vectric's C17 "Vector Boundary").
+/// Vector boundary engine (parity item C17, "Vector Boundary").
 ///
 /// Given a set of shapes, produces ONE closed outline that encloses them
 /// all — the convex hull of a densely sampled point cloud — optionally

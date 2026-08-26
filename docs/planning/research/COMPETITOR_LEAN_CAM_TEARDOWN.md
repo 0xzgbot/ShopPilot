@@ -1,11 +1,11 @@
 # Competitor Lean CAM Teardown (Carbide Create, Estlcam, Fusion Free CAM, Candle/UGS)
 
 **Date:** 2026-08-04 · **Method:** web research (manufacturer docs, community reviews, comparison guides) — not live app capture. Mark `[verified]` where confirmed by multiple sources, `[inferred]` where derived from reviews/docs.
-**Purpose:** steal workflow simplicity for ShopPilot's lean bar; do not copy Aspire clutter. Findings feed `WHAT_IT_TAKES_CNC_APP.md` + LEAN_CNC_SCOPE.
+**Purpose:** steal workflow simplicity for ShopPilot's lean bar; do not copy the incumbent suite clutter. Findings feed `WHAT_IT_TAKES_CNC_APP.md` + LEAN_CNC_SCOPE.
 
 ---
 
-## TL;DR — what the lean winners do that Aspire doesn't
+## TL;DR — what the lean winners do that the incumbent suite doesn't
 
 1. **One design tab, one toolpath tab, one preview** — no tab maze. Carbide Create and Estlcam both ship a single vertical rail of tools; toolpath creation is a modal dialog from a selected vector.
 2. **Tool = one dropdown, not a database management session.** Free tools default to a handful of common bits; feeds/speeds come from a per-material preset, not a matrix UI.
@@ -26,7 +26,7 @@
 | 3D | Free: none. Pro: 3D modelling + high-productivity toolpaths [verified — community post]. |
 | Material/tool model | Choose material (wood/MDF/etc.) → app supplies feeds/speeds from its own table; tool = diameter + type dropdown. **No tool database management UI in free tier** [inferred from docs]. |
 | Post/save | Posts to Carbide Motion + generic GRBL; save toolpaths; machine integration "seamless" with Carbide machines [verified]. |
-| Multi-tool handling | Community advice: split file at tool change into two files (same as Vectric multi-file save) [verified — Facebook/community]. |
+| Multi-tool handling | Community advice: split file at tool change into two files (same as the incumbent multi-file save) [verified — Facebook/community]. |
 | What to steal | Material-preset → auto feeds/speeds (zero-config for newbies); one tool dropdown; tab dialog with count/spacing; V-carve bit angle as first-class field; **refuse to show a machine wizard when GRBL is the answer**. |
 | What to skip | Carbide-machine lock-in, cloud account, Pro-gated clearance tool (ShopPilot ships it free). |
 
@@ -51,7 +51,7 @@
 | Positioning | Parametric CAD + full CAM; "steep learning curve" [verified — cncrouterinfo table]; free tier is the hobby default. |
 | Toolpaths | 2D contour/pocket/drill, **adaptive clearing**, 3D rough/finish, engrave. Huge surface. |
 | Free-tier CAM limit | "Free version of Fusion will not post code for multiple tools — so if using the ATC you would need the paid version" [verified — community comment]. Forces single-tool files. |
-| Material/tool model | Tool library + feeds/speeds library; per-material feeds/speeds matrix (like Vectric's DB). Powerful but heavyweight. |
+| Material/tool model | Tool library + feeds/speeds library; per-material feeds/speeds matrix (like the incumbent's DB). Powerful but heavyweight. |
 | Post | Post-processor gallery incl. GRBL/grblHAL; setup wizard per machine. |
 | What to steal | **Setup/stock → operations list → simulate → post** ordering discipline; the simulation panel is the trust anchor; adaptive clearing as a premium operation (not lean). |
 | What to skip | Subscription/cloud/account (ShopPilot is offline); parametric CAD weight; 7-pages-of-parameters failure mode (community quote: "a minimum of 7 pages of parameters you have to know by heart") [verified — comment]; free-tier multi-tool post lock. |
@@ -72,10 +72,10 @@
 
 | Step | Carbide Create | Estlcam | Fusion Free | ShopPilot lean target |
 |---|---|---|---|---|
-| Job start | material + size preset | material + size | stock setup | material preset + size (job setup, Vectric-proven) |
+| Job start | material + size preset | material + size | stock setup | material preset + size (job setup, industry-proven) |
 | Design | simple shapes + import | import-first | parametric CAD | vectors + text + DXF/SVG import |
-| Toolpath | select vectors → dialog | select vectors → dialog | operations tree | select vectors → dialog (Vectric-style form, trimmed) |
-| Tool | dropdown + material feeds | tool table | tool library | tool DB (geometry) + per-material cutting data (Vectric-proven) |
+| Toolpath | select vectors → dialog | select vectors → dialog | operations tree | select vectors → dialog (incumbent-style form, trimmed) |
+| Tool | dropdown + material feeds | tool table | tool library | tool DB (geometry) + per-material cutting data (industry-proven) |
 | Preview | 3D cut view | 3D view | simulation panel | sheet-aware 3D preview (SPK-1103) |
 | Save | post at save | post at save + built-in sender | post gallery | GRBL-class posts + multi-file ordered save |
 | Control | separate app (Motion) | built-in sender | send externally | built-in sender (Candle/UGS minimalism) |
@@ -85,9 +85,9 @@
 1. **Material preset → feeds/speeds auto-fill** (Carbide) — kills the tool-DB empty-state problem for new users; ShopPilot seeds cutting-data matrix (see BIT_FEEDS_LIBRARY.md).
 2. **Built-in sender as part of the app** (Estlcam) — ShopPilot's machine control is already in-scope; keep the panel Candle-minimal.
 3. **Post selected at save time, defaulted per machine** (all) — no wizard tax; GRBL default.
-4. **Free-tier Fusion's multi-tool limitation → make multi-file ordered save the ShopPilot feature** (Vectric-proven + Fusion-confirmed need).
+4. **Free-tier Fusion's multi-tool limitation → make multi-file ordered save the ShopPilot feature** (industry-proven + Fusion-confirmed need).
 5. **Preview as trust anchor** — every competitor has *some* 3D cut visualization; ShopPilot's sheet-aware preview must be instant and non-blocking.
-6. **Avoid**: 7-parameter CAM forms (Fusion), tool-DB management ceremonies (Vectric), machine-wizard-first onboarding (Vectric) — progressive disclosure wins.
+6. **Avoid**: 7-parameter CAM forms (Fusion), tool-DB management ceremonies (the incumbent), machine-wizard-first onboarding (the incumbent) — progressive disclosure wins.
 
 ## Caveats
 

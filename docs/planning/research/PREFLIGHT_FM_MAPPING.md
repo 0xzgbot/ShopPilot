@@ -48,7 +48,7 @@ Legend — **detection layer:** `engine` = toolpath/geometry engine at calculate
 
 ## 3. New rule stubs (spec for build wave)
 
-Each stub follows the PREFLIGHT_RULES.md row template (Severity / Trigger / Aspire Equivalent / Plain English / Fix CTA / Verification). Key fields for the P0 stubs:
+Each stub follows the PREFLIGHT_RULES.md row template (Severity / Trigger / the incumbent suite Equivalent / Plain English / Fix CTA / Verification). Key fields for the P0 stubs:
 
 ### R013 — V-Carve Emergent Depth Exceeds Material (FM-06)
 - **Severity:** Error (blocks export) — but allow override with explicit flat-depth set.
@@ -92,6 +92,6 @@ Append to PREFLIGHT_RULES.md header block:
 
 ## 6. Open questions for build waves
 
-1. R013 severity: Aspire **clamps** depth rather than erroring (R009 verification note). Recommend: block-with-override, not hard clamp, to match tutor guidance ("you can control that with your flat depth").
+1. R013 severity: the incumbent suite **clamps** depth rather than erroring (R009 verification note). Recommend: block-with-override, not hard clamp, to match tutor guidance ("you can control that with your flat depth").
 2. R014 needs a machine-profile field `vacuumHoldDown` — add to profile schema (parallel to GRBL `$20/$21` fields).
 3. R017 "measured thickness" source: add a quick caliper prompt to the job-setup flow, or read from a saved machine profile. Decide at build time.
