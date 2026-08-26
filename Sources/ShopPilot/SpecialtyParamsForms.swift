@@ -578,6 +578,9 @@ struct MaterialBitPresetPicker: View {
     @Binding var plungeFeedRateMmPerMin: Double
     @Binding var spindleRpm: Double
     var maxDepthOfCutMm: Binding<Double>? = nil
+    /// SPK-2024b - strategies whose depth field is labeled "Cut depth" bind
+    /// it here; named combos fill whichever depth binding the form provides.
+    var cutDepthMm: Binding<Double>? = nil
 
     @State private var selection: String = ""
 
@@ -616,12 +619,29 @@ struct MaterialBitPresetPicker: View {
             } else {
                 Picker("Preset", selection: $selection) {
                     Text("Choose a preset…").tag("")
+                    // SPK-2024b - shipped named material+bit combos come
+                    // first; selections key on the preset's exact name.
+                    ForEach(MaterialBitPresetCatalog.shipped, id: \.id) { np in
+                        Text("\(np.name) \u2014 D\(Int(np.cutDepthMm)) / F\(Int(np.feedRateMmPerMin)) / S\(Int(np.spindleRpm))")
+                            .tag(np.name)
+                    }
                     ForEach(Array(presets.enumerated()), id: \.offset) { _, preset in
                         Text("\(preset.label) — F\(Int(preset.data.feedRateMmPerMin)) / P\(Int(preset.data.plungeRateMmPerMin)) / S\(Int(preset.data.spindleRpm))")
                             .tag(preset.label)
                     }
                 }
                 .onChange(of: selection) { _, chosen in
+                    // SPK-2024b - a named combo fills depth + feed + rpm and
+                    // marks the node preset-trusted so the chip-load preflight
+                    // warning stays silent (SPK-2023a AC5 contract).
+                    if let named = MaterialBitPresetCatalog.named(chosen) {
+                        feedRateMmPerMin = named.feedRateMmPerMin
+                        plungeFeedRateMmPerMin = named.plungeFeedRateMmPerMin
+                        spindleRpm = named.spindleRpm
+                        (maxDepthOfCutMm ?? cutDepthMm)?.wrappedValue = named.cutDepthMm
+                        node.feedsFromPreset = true
+                        return
+                    }
                     guard let picked = presets.first(where: { $0.label == chosen }) else { return }
                     feedRateMmPerMin = picked.data.feedRateMmPerMin
                     plungeFeedRateMmPerMin = picked.data.plungeRateMmPerMin

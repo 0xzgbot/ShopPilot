@@ -1460,7 +1460,7 @@ private struct CutStageView: View {
                 // SPK-1136a: Profile strategy form — installer-verified §R2 fields.
                 if node.isProfileOperation {
                     ScrollView {
-                        ProfileParamsForm(node: node, variables: session.docVars.variables) { newParams in
+                        ProfileParamsForm(node: node, variables: session.docVars.variables, tools: session.toolDatabase.tools) { newParams in
                             _ = session.applyProfileParams(newParams, to: node.id)
                         }
                     }
@@ -1470,7 +1470,7 @@ private struct CutStageView: View {
                 // SPK-1136b: Pocket strategy form — installer-verified §M fields.
                 if node.isPocketOperation {
                     ScrollView {
-                        PocketParamsForm(node: node, variables: session.docVars.variables) { newParams in
+                        PocketParamsForm(node: node, variables: session.docVars.variables, tools: session.toolDatabase.tools) { newParams in
                             _ = session.applyPocketParams(newParams, to: node.id)
                         }
                     }
@@ -1490,7 +1490,7 @@ private struct CutStageView: View {
                 // SPK-1136d: V-Carve strategy form — installer-verified §O fields.
                 if node.isVCarveOperation {
                     ScrollView {
-                        VCarveParamsForm(node: node, variables: session.docVars.variables) { newParams in
+                        VCarveParamsForm(node: node, variables: session.docVars.variables, tools: session.toolDatabase.tools) { newParams in
                             _ = session.applyVCarveParams(newParams, to: node.id)
                         }
                     }
@@ -1686,6 +1686,7 @@ private struct CutStageView: View {
 /// fresh).
 private struct ProfileParamsForm: View {
     let node: ToolpathTreeNode
+    let tools: [Tool]
     let onApply: (ProfileToolpathParams) -> Void
 
     @State private var params: ProfileToolpathParams
@@ -1694,8 +1695,9 @@ private struct ProfileParamsForm: View {
     /// SPK-0209 — last expression error (shown under the form).
     @State private var calcMessage = ""
 
-    init(node: ToolpathTreeNode, variables: [DocumentVariable], onApply: @escaping (ProfileToolpathParams) -> Void) {
+    init(node: ToolpathTreeNode, tools: [Tool], variables: [DocumentVariable], onApply: @escaping (ProfileToolpathParams) -> Void) {
         self.node = node
+        self.tools = tools
         self.variables = variables
         self.onApply = onApply
         _params = State(initialValue: node.profileParams())
@@ -1703,6 +1705,14 @@ private struct ProfileParamsForm: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
+            MaterialBitPresetPicker(
+                node: node,
+                tools: tools,
+                feedRateMmPerMin: $params.feedRateMmPerMin,
+                plungeFeedRateMmPerMin: $params.plungeFeedRateMmPerMin,
+                spindleRpm: $params.spindleRpm,
+                maxDepthOfCutMm: $params.maxDepthOfCutMm
+            )
             GroupBox("Cut") {
                 VStack(alignment: .leading, spacing: 6) {
                     Picker("Mode", selection: $params.cutMode) {
@@ -1731,6 +1741,7 @@ private struct ProfileParamsForm: View {
                 Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
                     numRow("Feed (mm/min)", $params.feedRateMmPerMin)
                     numRow("Plunge (mm/min)", $params.plungeFeedRateMmPerMin)
+                    numRow("Spindle (RPM, 0 = off)", $params.spindleRpm)
                     calcRow("Depth/pass (mm)", $params.maxDepthOfCutMm, variables: variables, $calcMessage)
                     calcRow("Tool Ø (mm)", $params.toolDiameterMm, variables: variables, $calcMessage)
                 }
@@ -1894,15 +1905,17 @@ private struct DocVarCalcRow: View {
 /// G-code with the real engine.
 private struct PocketParamsForm: View {
     let node: ToolpathTreeNode
+    let tools: [Tool]
     let variables: [DocumentVariable]
     let onApply: (PocketToolpathParams) -> Void
 
     @State private var params: PocketToolpathParams
     @State private var calcMessage = ""
 
-    init(node: ToolpathTreeNode, variables: [DocumentVariable] = [],
+    init(node: ToolpathTreeNode, tools: [Tool], variables: [DocumentVariable] = [],
          onApply: @escaping (PocketToolpathParams) -> Void) {
         self.node = node
+        self.tools = tools
         self.variables = variables
         self.onApply = onApply
         _params = State(initialValue: node.pocketParams())
@@ -1910,6 +1923,14 @@ private struct PocketParamsForm: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
+            MaterialBitPresetPicker(
+                node: node,
+                tools: tools,
+                feedRateMmPerMin: $params.feedRateMmPerMin,
+                plungeFeedRateMmPerMin: $params.plungeFeedRateMmPerMin,
+                spindleRpm: $params.spindleRpm,
+                maxDepthOfCutMm: $params.maxDepthOfCutMm
+            )
             GroupBox("Clearing") {
                 VStack(alignment: .leading, spacing: 6) {
                     Picker("Strategy", selection: $params.clearanceMode) {
@@ -1957,6 +1978,7 @@ private struct PocketParamsForm: View {
                 Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
                     numRow("Feed (mm/min)", $params.feedRateMmPerMin)
                     numRow("Plunge (mm/min)", $params.plungeFeedRateMmPerMin)
+                    numRow("Spindle (RPM, 0 = off)", $params.spindleRpm)
                     numRow("Step-over (mm)", $params.stepOverMm)
                     numRow("Tool Ø (mm)", $params.toolDiameterMm)
                 }
@@ -2101,15 +2123,17 @@ private struct DrillParamsForm: View {
 /// G-code with the real engine.
 private struct VCarveParamsForm: View {
     let node: ToolpathTreeNode
+    let tools: [Tool]
     let variables: [DocumentVariable]
     let onApply: (VCarveParams) -> Void
 
     @State private var params: VCarveParams
     @State private var calcMessage = ""
 
-    init(node: ToolpathTreeNode, variables: [DocumentVariable] = [],
+    init(node: ToolpathTreeNode, tools: [Tool], variables: [DocumentVariable] = [],
          onApply: @escaping (VCarveParams) -> Void) {
         self.node = node
+        self.tools = tools
         self.variables = variables
         self.onApply = onApply
         _params = State(initialValue: node.vcarveParams())
@@ -2117,11 +2141,20 @@ private struct VCarveParamsForm: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
+            MaterialBitPresetPicker(
+                node: node,
+                tools: tools,
+                feedRateMmPerMin: $params.feedRateMmPerMin,
+                plungeFeedRateMmPerMin: $params.plungeFeedRateMmPerMin,
+                spindleRpm: $params.spindleRpm,
+                cutDepthMm: $params.maxDepthOfCutMm
+            )
             GroupBox("Tool") {
                 Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
                     numRow("V-bit angle (°)", $params.vBitAngleDegrees)
                     numRow("Feed (mm/min)", $params.feedRateMmPerMin)
                     numRow("Plunge (mm/min)", $params.plungeFeedRateMmPerMin)
+                    numRow("Spindle (RPM, 0 = off)", $params.spindleRpm)
                     numRow("Step-over (mm)", $params.stepOverMm)
                 }
             }
