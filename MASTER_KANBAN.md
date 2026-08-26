@@ -1726,7 +1726,7 @@ The board **does** contain everything to *reach* full product (Phases H–K). Ag
 - **SPK-2110b [x]** — `PhotoVCarveToolpathParams`: +`twoPass` (default OFF, byte-stable), +`roughStepOverFraction` (50%), +`finishStepOverFraction` (10%). Engine: shared `emitLace` for single-pass and both two-pass legs (rough clears bulk at 50%, finish cleans at 10%); diagonal raster supported in both modes. `LithophaneEngine.leftoverThicknessWarning` returns a warning when `stock − maxDepth < minThickness`; wired into `generateLithophaneFromPanel` via `statusMessage`. Form: Two-pass GroupBox with Enable toggle + rough/finish % rows. Verify: ShopPilotVerify2110b PASS 12/12 (lithophane warning boundary, two-pass byte-stability, rough/finish markers, more total cuts, diagonal two-pass); 2110a PASS; app build green.
 - Claimed: SPK-2110b `[~]` — photo/litho two-pass (rough ~50% / finish 8–12%); lithophane leftover-thickness warning if stock − maxDepth < minThickness. Gate: `./scripts/verify_locked.sh ShopPilotVerify2110b`.
 - **SPK-2110a [x]** — `PhotoVCarveToolpathParams`: +`tipDiameterMm` (init 0.1, decode 0), +`invertLuminance` (decode false), +`rasterAngleDegrees` (init 45°, legacy decode 0 = byte-stable). `grooveWidthMm` w = tip + 2·d·tan(θ/2); init stepover default 50% of widest groove (overlap, no ridge wider than tip). Engine: rotated-lace diagonal passes share the depth-from-luminance rule; invert flips which luminance end carves deep; header announces tip Ø + derived width. Form: Tip Ø / Raster angle rows + Invert toggle on PhotoVCarveParamsForm. Verify: ShopPilotVerify2110a PASS 19/19 (width formula, overlap default, legacy byte-stability, diagonal-vs-straight, monotonic luminance→Z, invert flip) + app build green.
-- Claimed: SPK-2110a `[~]` — photo V-carve tooling groove WIDTH from V-angle + tip Ø + depth (`w = tip + 2·d·tan(θ/2)`); depth-from-luminance kept; init default raster 45° / legacy decode 0 (byte-stable); invert on the Photo form; init stepover = 50% of widest groove (adjacent grooves overlap). Gate: `./scripts/verify_locked.sh ShopPilotVerify2110a`.
+- Claimed: SPK-2110a `[~]` — the incumbent photo-carve product groove WIDTH from V-angle + tip Ø + depth (`w = tip + 2·d·tan(θ/2)`); depth-from-luminance kept; init default raster 45° / legacy decode 0 (byte-stable); invert on the Photo form; init stepover = 50% of widest groove (adjacent grooves overlap). Gate: `./scripts/verify_locked.sh ShopPilotVerify2110a`.
 
 ### 2026-08-26 — SPK-2120c [x] crisp-letters preset + 2120b leftovers (Cursor)
 - **SPK-2120c [x]** — Valley "Crisp Letters (0.2 mm cell)" button already existed; the CLT only assigned 0.2 in memory. Now: `VCarveParams.showsMedialCellTimeWarning` (cell < 0.5) wired into the Valley warning; `ShopPilotVerify2120c` runs a capital-T letter fixture at 0.2 vs 1.0 mm (`MedialAxis.compute` ridge count + `VCarveEngine` G1 count both denser at 0.2) and greps the form. `MedialAxis.swift` not edited. Gate: `./scripts/verify_locked.sh ShopPilotVerify2010a` + `ShopPilotVerify2120c`.
@@ -2539,7 +2539,7 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
 
 # PHASE W — V-Carve quality vs the incumbent (SPK-2010)
 
-> Filed 2026-08-24 from the family feature review: ShopPilot traces outlines and fakes depth with Y-shading. the incumbent (and VectorPilot) ride the **medial-axis valley** with Z from local half-width. Prompt: `docs/planning/SPK-2010_VCARVE_QUALITY_AGENT_PROMPT.md`. Independent Swift — copy VectorPilot **semantics** only. Do **not** edit VectorPilot. Do **not** stamp SPK-0623.
+> Filed 2026-08-24 from the family feature review: ShopPilot traces outlines and fakes depth with Y-shading. The incumbent (and VectorPilot) ride the **medial-axis valley** with Z from local half-width. Prompt: `docs/planning/SPK-2010_VCARVE_QUALITY_AGENT_PROMPT.md`. Independent Swift — copy VectorPilot **semantics** only. Do **not** edit VectorPilot. Do **not** stamp SPK-0623.
 
 - [x] **SPK-2010** **EPIC** Parent — V-Carve quality (width-Z + medial axis + optional flat-area)
   - Parent: lean P0 sign quality. Assignee: `coder`. Worktree.
@@ -2754,7 +2754,7 @@ Claim order (2026-08-25 night): **SPK-2100a** next (engine-only drop-cutter). PH
   - Out of scope: Fusion pencil
   - Files: finish params + engine. Verify: `./scripts/verify_locked.sh ShopPilotVerify2100d`
 
-- [x] **SPK-2110a** **CAM** photo V-carve tooling groove width + depth + 45° raster // P0 // parallel-ok vs 2100a (different files)
+- [x] **SPK-2110a** **CAM** the incumbent photo-carve product groove width + depth + 45° raster // P0 // parallel-ok vs 2100a (different files)
   - Parent: SPK-2100. Assignee: `coder`. `--max-runtime 60m`. Worktree.
   - AC:
     - Groove **width** from V-angle + tip Ø + depth; luminance still drives depth

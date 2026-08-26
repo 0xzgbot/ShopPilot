@@ -9,7 +9,7 @@
 | ID | Title | Why it matters |
 | --- | --- | --- |
 | [GgeP3nUztpw](https://www.youtube.com/watch?v=GgeP3nUztpw) | 2026 CNC Design Software Review (Scott / Sienci-adjacent) | Explicit CAD vs CAM vs **sender** split; Easel/Carbide/Carveco/Fusion/Onshape/gSender ladder |
-| [xLPVwGWA8vw](https://www.youtube.com/watch?v=xLPVwGWA8vw) | the incumbent UGM 2025 (Edward) | Spark for Mac = **entry** product + V-Transfer GRBL; V13 assembly view; EasyCarve AI/credits; core still Windows |
+| [xLPVwGWA8vw](https://www.youtube.com/watch?v=xLPVwGWA8vw) | the incumbent UGM 2025 (Edward) | Spark for Mac = **entry** product + their machine-transfer utility GRBL; V13 assembly view; their simplified carve product AI/credits; core still Windows |
 | [xF3AE03t6jI](https://www.youtube.com/watch?v=xF3AE03t6jI) | gSender full beginner tutorial (IDC Woodcraft) | 16k+ words because **control is a second career**; probe plates, macros, spoilboard surfacer **inside the sender** |
 | [IvrXHz2xDUo](https://www.youtube.com/watch?v=IvrXHz2xDUo) | Fusion vs V-carve V-inlay cutting boards | Fusion is free + photoreal; **terrible vector CAM**; V-carve wins join/close/inlay speed |
 | [ntFIv-N2rS8](https://www.youtube.com/watch?v=ntFIv-N2rS8) | MillMage official trailer | Dogbones / T-bones, rest pockets, **trochoidal slotting**, custom G-code (not post language), toggle-ops re-run |
@@ -26,8 +26,8 @@ Prior corpus (still valid): 67 the incumbent tutorial captions in `extractions/`
 
 | Product | Native Mac | Design+CAM | GRBL send in-app | V-carve quality | 3D relief | Nest | Honest price |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| the incumbent V-carve / the incumbent suite | No (Parallels). Spark = separate entry app | Yes | No (V-Transfer / USB) | Best-in-class | the incumbent suite / Pro 3D | Yes (Pro) | $349–~$2k + upgrades |
-| the incumbent Spark | Yes (new) | Entry 2D | Yes (V-Transfer built in) | Basic | Not the incumbent suite | Unknown/limited | Entry SKU |
+| the incumbent V-carve / the incumbent suite | No (Parallels). Spark = separate entry app | Yes | No (their machine-transfer utility / USB) | Best-in-class | the incumbent suite / Pro 3D | Yes (Pro) | $349–~$2k + upgrades |
+| the incumbent's Mac entry product | Yes (new) | Entry 2D | Yes (their machine-transfer utility built in) | Basic | Not the full 3D suite | Unknown/limited | Entry SKU |
 | Fusion 360 | Yes | CAD-first CAM | No | Awkward / plugins | Best solids / metal | Weak for sheet goods | Free personal / sub |
 | Carbide Create + Motion | Yes | Simple CAM | Separate Motion | Inlay “fudge factor” folklore | Pro / slow calc | Limited | Free / Pro lock on G-code+STL |
 | Estlcam | Windows | Fast 2.5D | Some firmwares | Weak vs the incumbent | Weak | Simple | ~€49 perpetual |
@@ -36,7 +36,7 @@ Prior corpus (still valid): 67 the incumbent tutorial captions in `extractions/`
 | Carveco | Windows | Yes | No | Strong | Image-to-relief / AI | Yes (tier) | Sub / perpetual |
 | **ShopPilot** | **Yes Apple Silicon** | Yes | **Yes** (sim + serial) | Lean (clearance P0) | Heightfield rough/finish + lithophane + I2R | **1900f shipped** | OSS / personal |
 
-**2026 market move:** LightBurn’s MillMage and the incumbent Spark both attack the **same wedge ShopPilot already claimed** (Mac + less Windows tax + some send). Spark is **not** full V-carve. MillMage is the paid product to beat on UX of CAM+control.
+**2026 market move:** LightBurn’s MillMage and the incumbent's Mac entry product both attack the **same wedge ShopPilot already claimed** (Mac + less Windows tax + some send). Spark is **not** full V-carve. MillMage is the paid product to beat on UX of CAM+control.
 
 ---
 
@@ -48,7 +48,7 @@ Ranked by **how often it shows up** × **how badly incumbents still fail**. Thes
 
 Scott’s 2026 video still **defines the market as three apps**. Garrett’s gSender video is an entire course because after V-carve/Fusion you still must learn DRO, unlock alarms, jog, probe, macros, start/pause.
 
-the incumbent's own UGM pitch for Spark: “completely self-contained… design all the way through to machining” — they know the split is the beginner killer.
+The incumbent's own UGM pitch for Spark: “completely self-contained… design all the way through to machining” — they know the split is the beginner killer.
 
 **ShopPilot:** Machine stage exists. Gap is **gSender-class probing, M6 tool-length, spoilboard surfacer, alarm decode** — not another pocket strategy.
 
@@ -106,7 +106,7 @@ UGM + FAQ: core the incumbent remains Windows; Spark is introductory + GRBL. Par
 
 ### 10. Lock-in (C2D / cloud / SKU walls)
 
-Carbide free: no G-code export (C2D + Motion). Easel: no offline. the incumbent: Desktop job-size + 3D gated. Carveco AI: subscription. EasyCreate: **credits**.
+Carbide free: no G-code export (C2D + Motion). Easel: no offline. The incumbent: Desktop job-size + 3D gated. Carveco AI: subscription. EasyCreate: **credits**.
 
 **ShopPilot:** Open `.shoppilot` + GRBL files. Do not add credit meters.
 
@@ -158,7 +158,7 @@ Do **not** reopen dual-side/rotary/laser/Post Studio for this wave.
 ## 6. Source notes
 
 - Scott 2026: “the only wrong software is the one that makes you rage quit”; beginner = Easel/Carbide; signs = Carveco; parametric = Fusion/Onshape; **his personal two: V-carve + Onshape**; sender = gSender.
-- the incumbent UGM: Spark native Mac **entry**; V-Transfer for GRBL/grblHAL (FoxAlien, SainSmart, Sienci-class); V13 assembly; EasyCarve V-text + layouts; **core Windows**.
+- the incumbent UGM: Spark native Mac **entry**; their machine-transfer utility for GRBL/grblHAL (FoxAlien, SainSmart, Sienci-class); V13 assembly; their simplified carve product V-text + layouts; **core Windows**.
 - gSender tutorial: CAD → CAM → G-code → **then** sender; probe puck vs corner plate vs autozero (V-bit cannot use square-step XY math); macros for bit change park; surfacing **in control**.
 - Fusion inlay: Z0 on spoilboard vs surface; vector hygiene; Fusion photoreal vs V-carve vector CAM.
 - MillMage 0.9 forum: V-carve clearance-bit “linked operations” still in progress (same gap as everyone).

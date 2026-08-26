@@ -40,7 +40,7 @@ Use for recruiting: local sign shops, CNC router groups (Facebook/r/CNC/forums),
 
 ### A. Demographics & stack
 1. What do you cut (signs, plaques, dimensional letters, 3D relief) and on what machine (make, controller: GRBL/FluidNC/other)?
-2. Which design/CAM tools today (incumbent desktop CAM, Carbide Create, Estlcam, Fusion, other)? Which do you *actually* use per job type?
+2. Which design/CAM tools today (the V-carve pro tier, Carbide Create, Estlcam, Fusion, other)? Which do you *actually* use per job type?
 3. Do you design in one tool and CAM in another? Where does the handoff happen (DXF/SVG/STL)?
 
 ### B. Order of operations (core)

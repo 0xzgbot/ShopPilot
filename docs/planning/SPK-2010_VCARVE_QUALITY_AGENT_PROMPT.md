@@ -2,7 +2,7 @@
 
 Paste this whole file into Hermes/Cursor as the job. North star: `AGENTS.md` + `docs/planning/LEAN_CNC_SCOPE.md`. Board: `MASTER_KANBAN.md` only.
 
-**This is the P0 quality gap from the 2026-08-24 family review.** incumbent desktop CAM still wins letters because depth follows **local channel width along the valley spine**. ShopPilot currently traces the **outline** and fakes depth with **Y-position shading**. That is not V-carve.
+**This is the P0 quality gap from the 2026-08-24 family review.** the V-carve pro tier still wins letters because depth follows **local channel width along the valley spine**. ShopPilot currently traces the **outline** and fakes depth with **Y-position shading**. That is not V-carve.
 
 ---
 
@@ -15,7 +15,7 @@ Paste this whole file into Hermes/Cursor as the job. North star: `AGENTS.md` + `
 3. Multi-pass is `ceil(tipWidth / stepOver)` copies of that outline. The **interior is never visited**.
 4. `SPK-VCarveClear` rasters **around** letters with an end mill. It does not make the V-bit follow a medial axis. Keep it. Do not confuse it with this work.
 
-the incumbent (and VectorPilot, our Windows sibling) do this instead:
+The incumbent (and VectorPilot, our Windows sibling) do this instead:
 
 > At each point on the **medial axis** (skeleton / valley), half-width `w` = distance to the nearest boundary. For included angle `A`, `z = -(w / tan(A/2))`, clamped to max depth. Wide regions go deep; necks stay shallow. The bit rides the spine, not the outline.
 

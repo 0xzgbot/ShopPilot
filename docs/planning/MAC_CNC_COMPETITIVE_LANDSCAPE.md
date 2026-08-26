@@ -7,16 +7,16 @@
 
 ## 1. Competitor Breakdown
 
-### 1.1 the incumbent (V-carve / the incumbent suite / entry-tier desktop CAM / EasyCarve)
+### 1.1 the incumbent vendor (V-carve / full 3D suite / entry 2D tier)
 
 | Field | Value |
 | --- | --- |
 | **Platform** | Windows only (Mac users need Parallels) |
-| **Products** | entry-tier desktop CAM ($199), V-carve Desktop ($349), incumbent desktop CAM ($799), the incumbent suite ($1,995) |
+| **Products** | the entry 2D tier ($199), the V-carve desktop tier ($349), the V-carve pro tier ($799), the incumbent suite ($1,995) |
 | **UI Pattern** | Classic Windows MDI — left panel = project tree, center = 2D/3D canvas, right panel = toolpath parameters, bottom = status bar |
-| **Easy/Expert Mode** | **No toggle.** Single interface. the incumbent Spark (announced for Mac) is the "entry-level" product — essentially a separate "easy" app |
+| **Easy/Expert Mode** | **No toggle.** Single interface. their announced Mac entry product is the "entry-level" product — essentially a separate "easy" app |
 | **Key Strengths** | V-Carve is the gold standard; 2.5D decorative carving; 3D relief tools; 600+ pre-made relief models; extensive gadget ecosystem; 964+ post processors |
-| **Key Weaknesses** | Windows-only; expensive ($349–$1,995); incumbent desktop CAM is bloated for hobbyists; no native Mac support; cloud-dependent tutorials |
+| **Key Weaknesses** | Windows-only; expensive ($349–$1,995); the V-carve pro tier is bloated for hobbyists; no native Mac support; cloud-dependent tutorials |
 
 **UI Layout:** Left sidebar (project tree with vectors/toolpaths), center canvas (2D top-down + 3D view toggle), right panel (toolpath parameters with strategy-specific forms), bottom status bar. Dense, feature-packed interface.
 
@@ -145,7 +145,7 @@
 | **Carbide Create** | Core (free, 2D/2.5D) | Pro ($120/yr, adds 3D) | Separate products, not a toggle |
 | **Easel** | Free (basic) | Pro (advanced) | Subscription tiers |
 | **MeshCAM** | Wizard mode | Manual mode | **Toggle within the same app** |
-| **the incumbent** | Spark (Mac entry-level) | incumbent desktop CAM / the incumbent suite | Separate products |
+| **Incumbent** | Spark (Mac entry-level) | V-carve pro tier / full 3D suite | Separate products |
 | **ShopPilot** | Recipe-driven onboarding + progressive chrome | Full stage-rail UI | **Progressive disclosure** (not separate modes) |
 
 **Key insight:** Most competitors use **separate products** (Maker vs Maker Plus, Core vs Pro) rather than a toggle within a single app. MeshCAM is the notable exception with an in-app wizard/manual toggle. ShopPilot's approach of **progressive disclosure** (recipe-driven onboarding for beginners, full stage-rail for experts) is actually more elegant — one app, no confusion about which version you have.
@@ -188,7 +188,7 @@
 | App | Layout Style | Panels | Canvas | Learning Curve |
 | --- | --- | --- | --- | --- |
 | **ShopPilot** | Stage-rail (Design→Cut→Preview→Machine) | Left browser, right inspector | Full canvas per stage | Moderate (progressive) |
-| **the incumbent** | Classic MDI | Left tree, right params | Center canvas (2D/3D toggle) | Steep |
+| **Incumbent** | Classic MDI | Left tree, right params | Center canvas (2D/3D toggle) | Steep |
 | **Carveco** | Palette-based | Floating palettes, right params | Center canvas | Moderate |
 | **MillMage** | Single-window | Left tree, right params | Center canvas | Gentle |
 | **Carbide Create** | Simplified | Left sidebar, right params | Center canvas | Very gentle |
@@ -238,10 +238,10 @@ This is better than a toggle because:
 | **Carbide Create** | Free | $120/yr or $360 perpetual | Freemium |
 | **MillMage** | $99 (Core) | $199 (Pro) | Perpetual |
 | **ShopPilot (planned)** | $99 (Core) | $199 (Pro) | Perpetual |
-| **the incumbent entry-tier desktop CAM** | $199 | $199 | Perpetual |
-| **the incumbent V-carve Desktop** | $349 | $349 | Perpetual |
-| **the incumbent incumbent desktop CAM** | — | $799 | Perpetual |
-| **the incumbent suite** | — | $1,995 | Perpetual |
+| **Incumbent — entry 2D tier** | $199 | $199 | Perpetual |
+| **Incumbent — V-carve desktop tier** | $349 | $349 | Perpetual |
+| **Incumbent — V-carve pro tier** | — | $799 | Perpetual |
+| **Incumbent — full 3D suite** | — | $1,995 | Perpetual |
 | **Carveco Maker** | $40/mo | $900 perpetual | Sub or perpetual |
 | **Carveco Maker Plus** | $50/mo | $1,500 perpetual | Sub or perpetual |
 | **Autodesk Fusion** | Free (limited) | $635/yr | Subscription only |

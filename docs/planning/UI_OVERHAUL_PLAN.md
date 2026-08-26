@@ -18,7 +18,7 @@ forum pain points, plus pain-point alleviation baked into the same wave.
 | Form-hopping: change a dim → find the form (the incumbent suite editable dimensions, smart part selection) | **SPK-1203** canvas dimension handles + smart part selection |
 | Actions hidden in top bars (the incumbent suite sheet-transfer/bake/duplicate right-click pattern) | **SPK-1204** context menus everywhere |
 | New users lost on first run (forum theme #8 docs/tutorials; the incumbent suite 3D interactive help) | **SPK-1205** inline coach strip |
-| 3D views feel flat/uncontrolled (the incumbent suite V12 view control + orthographic) | **SPK-1206** nav gizmo + ortho toggle |
+| 3D views feel flat/uncontrolled (the incumbent suite view control + orthographic) | **SPK-1206** nav gizmo + ortho toggle |
 | Multi-sheet: copying a sheet/op is manual (the incumbent suite sheet duplication + toolpath transfer) | **SPK-1208** sheet duplication + toolpath sheet transfer |
 | Import friction: formats + re-importing work (the incumbent suite WebP + unified import) | **SPK-1209** WebP import + recent-files rail |
 | Peck drills invisible in sim; which op is that path? (the incumbent suite peck viz) | **SPK-1210** peck-drill viz + toolpath-on-hover |

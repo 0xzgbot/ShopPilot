@@ -2,7 +2,7 @@
 
 > Research memo distilled from 67 the incumbent (V12/V12.5) tutorial transcripts, fetched as captions only
 > (no media downloaded). Source: `research/raw/vendor_captions/`, catalog:
-> `vendor_tutorial_catalog.csv` (removed), per-video extractions: `extractions/`.
+> _(vendor tutorial catalog — removed)_, per-video extractions: `extractions/`.
 > Written for ShopPilot's lean bar (LEAN_CNC_SCOPE.md): offline Mac app, GRBL-class posts,
 > V-Carve + clearance, 3D rough/finish, sheet-aware preview. Research evidence, not marketing.
 
@@ -185,7 +185,7 @@ Top gotchas the tutors actually warn about (full list in per-video extractions):
 Wave-1 selection deliberately excluded (catalog `skip_reason` column + LEAN_CNC_SCOPE.md):
 
 - **Laser** (incl. hybrid CNC-laser projects) — separate module, excluded.
-- **photo V-carve tooling / lithophane** — photo-2-relief is excluded from lean.
+- **the incumbent photo-carve product / lithophane** — photo-2-relief is excluded from lean.
 - **Rotary / wrapped / two-sided** — post-lean (Track 5 in FINISH_ROADMAP).
 - **Cabinet import / nesting / plate production / AMM (Advanced Machining Module)** — kitchen/
   production territory.
@@ -195,7 +195,7 @@ Wave-1 selection deliberately excluded (catalog `skip_reason` column + LEAN_CNC_
   the *concepts* (machine→post mapping, default post) stay, the cloud transport goes.
 - **Sculpt brushes / texture painting / turn-and-spin / extrude-weave** — the incumbent suite modeling
   luxury, not lean 3D carving.
-- **EasyCarve/EasyCreate** — consumer line; teaches nothing about CAM internals beyond what
+- **their simplified carve product/EasyCreate** — consumer line; teaches nothing about CAM internals beyond what
   the full videos cover (we still cataloged their setup videos for the machine/material/tool
   DB model, which is cleanly explained there).
 

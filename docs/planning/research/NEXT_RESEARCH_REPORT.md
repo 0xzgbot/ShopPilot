@@ -11,7 +11,7 @@
 | R-NEXT-3 | `TOOL_DB_SEED_SPEC.md` | ✅ | JSON + CSV schema (tools geometry × cutting_data per material×machine), full 7×5 matrix (feed/RPM/pass depth/stepover/plunge), 6 source citation keys, grayed-out UX spec. |
 | R-NEXT-4 | `STATUSPARSER_VERIFY_CHECKLIST.md` | ✅ | 6 fixtures confirmed present in `research/raw/grbl_golden/`; 44 parser assertions (P0/P1) across B/S/D/E/T/F + 5 cross-cutting (X1–X5); 5 `[!]` live-hardware items flagged. |
 | R-NEXT-5a | `INTERVIEW_PACK.md` | ✅ | One-page send-to-operator email + 16-question scoring sheet + post-interview coding table. No fabricated answers. |
-| R-NEXT-5b | `VENDOR_FORM_DEFAULTS_RESULTS.md` (removed) | ✅ | Empty capture tables for Profile / V-Carve / 3D Rough / 3D Finish + save summary; runspec cross-linked. |
+| R-NEXT-5b | _(vendor form-defaults results — removed)_ | ✅ | Empty capture tables for Profile / V-Carve / 3D Rough / 3D Finish + save summary; runspec cross-linked. |
 | Report | `NEXT_RESEARCH_REPORT.md` | ✅ | this file |
 
 ## Fixture verifier detail (R-NEXT-1)
@@ -25,7 +25,7 @@
 | Item | Status | Unblock |
 |---|---|---|
 | Sign-shop interviews (5–10 operators) | **Blocked — human** | Send `INTERVIEW_PACK.md` email; fill scoring sheets; merge into SIGN_SHOP_OPERATOR_OPS.md |
-| Windows the incumbent suite form-defaults capture | **Blocked — human/hardware** | Paste `VENDOR_FORM_DEFAULTS_RUNSPEC.md` (removed) on the Windows PC; fill `VENDOR_FORM_DEFAULTS_RESULTS.md` (removed); merge into FEATURE_PARITY_MATRIX §R |
+| Windows vendor form-defaults capture | **Blocked — human/hardware** | Paste _(vendor form-defaults runspec — removed)_ on the Windows PC; fill _(vendor form-defaults results — removed)_; merge into FEATURE_PARITY_MATRIX §R |
 | Live GRBL/FluidNC RX validation | **Blocked — hardware `[!]`** | 5 `[!]` assertions in STATUSPARSER_VERIFY_CHECKLIST.md §4 need a real controller |
 | grbl_golden fixtures gitignored | **Decision needed** | Copy to `ShopPilotTests/Fixtures/grbl/` (checked in) or regenerate from the checklist — flagged in STATUSPARSER_VERIFY_CHECKLIST.md §1 |
 

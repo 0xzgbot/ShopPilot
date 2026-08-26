@@ -104,7 +104,7 @@ P2 — polish (still file, do not gold-plate):
 NOT a bug:
 - Laser missing (held)
 - No physical machine
-- “Not every the incumbent form field”
+- “Not every incumbent form field”
 - License / notarize / App Store
 
 # Card format (append to MASTER_KANBAN.md, do not flip 0623)

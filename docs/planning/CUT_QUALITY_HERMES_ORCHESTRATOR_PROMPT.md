@@ -23,7 +23,7 @@ Safety: AGENTS.md §2. Simulator-first. No auto-start stream.
 
 ## Product bar (read once)
 Cut quality of V-carve / 3D / photo is #1. Not more features.
-Finish engines today: HeightfieldFinishEngine traces z = surface at the tool CENTER with default stepOverMm = 0.8 on a 3.175 mm bit (25% of D). the incumbent suite finish is 8–12% of D + ball compensation.
+Finish engines today: HeightfieldFinishEngine traces z = surface at the tool CENTER with default stepOverMm = 0.8 on a 3.175 mm bit (25% of D). The incumbent suite finish is 8–12% of D + ball compensation.
 Do not reopen SPK-2010 medial-axis. Remaining V-carve work is 2120a tip Ø, not a MA rewrite.
 
 ## Hard bans
@@ -53,7 +53,7 @@ WAVE Q1b (after 2100a [x] — still one at a time):
   then SPK-2100d   rest finish from previous tool
 
 WAVE Q2 (PhotoVCarveToolpath.swift — parallel-ok vs 2100a if RPM bucket is cold; serialize on 429):
-  MAC1 SPK-2110a   photo V-carve tooling width+depth + 45°
+  MAC1 SPK-2110a   the incumbent photo-carve product width+depth + 45°
   then SPK-2110b   two-pass rough 50% / finish 10%
 
 WAVE Q3:
@@ -112,7 +112,7 @@ Out: Fusion pencil.
 Files: HeightfieldFinishParams + engine. Verify: ShopPilotVerify2100d. deps 2100a.
 
 SPK-2110a
-AC: photo V-carve tooling groove WIDTH from V-angle + tip Ø + depth; depth from luminance kept; default raster 45°; invert on the Photo form (litho already has invert). Stepover default so adjacent grooves overlap (no uncut ridge wider than tip).
+AC: the incumbent photo-carve product groove WIDTH from V-angle + tip Ø + depth; depth from luminance kept; default raster 45°; invert on the Photo form (litho already has invert). Stepover default so adjacent grooves overlap (no uncut ridge wider than tip).
 Out: cross-hatch.
 Files: PhotoVCarveToolpath.swift + PhotoVCarveParamsForm. Verify: ShopPilotVerify2110a.
 
