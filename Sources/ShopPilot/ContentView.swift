@@ -1143,7 +1143,7 @@ private struct CutStageView: View {
 
                 // SPK-1102c: regenerate dirty ops with the real engine; badge
                 // count doubles as the enable signal.
-                Button("Recalculate Dirty (\\(session.toolpathTree.dirtyNodeCount))") {
+                Button("Recalculate Dirty (\(session.toolpathTree.dirtyNodeCount))") {
                     _ = session.recalculateDirtyToolpathsAsync()
                 }
                 .disabled(session.toolpathTree.dirtyNodeCount == 0)
@@ -2038,6 +2038,28 @@ private struct PocketParamsForm: View {
                 }
             }
 
+            // SPK-2023d — rest machining. previousToolDiameterMm > 0 machines
+            // only the leftover band left by the previous tool; 0 = full clear
+            // (engine contract in PocketToolpath.swift, SPK-2023c). The picker
+            // fills Ø from the session tool database; manual numeric entry is
+            // also allowed; empty/0 = full clear.
+            GroupBox("Rest machining") {
+                VStack(alignment: .leading, spacing: 6) {
+                    Picker("Previous tool", selection: previousToolSelection) {
+                        Text("None — full clear").tag(UUID?.none)
+                        ForEach(tools) { tool in
+                            Text("\(tool.name) (\(String(format: "%.2f", tool.diameter)) mm)").tag(Optional(tool.id))
+                        }
+                    }
+                    Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                        numRow("Previous tool Ø (mm)", $params.previousToolDiameterMm)
+                    }
+                    Text("> 0 = clear only what that tool left behind")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
             GroupBox("Options") {
                 VStack(alignment: .leading, spacing: 4) {
                     Toggle("Ramp plunge moves", isOn: $params.rampPlungeMoves)
@@ -2061,6 +2083,27 @@ private struct PocketParamsForm: View {
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 80)
         }
+    }
+
+    /// SPK-2023d — picker selection derived from the current previous-tool Ø:
+    /// a tool matches when its diameter equals the field (±1µm); no match or
+    /// 0 shows "None — full clear". Choosing a tool fills its diameter;
+    /// choosing None resets the field to 0 (full clear).
+    private var previousToolSelection: Binding<UUID?> {
+        Binding(
+            get: {
+                guard params.previousToolDiameterMm > 1e-9 else { return nil }
+                return tools.first { abs($0.diameter - params.previousToolDiameterMm) < 0.001 }?.id
+            },
+            set: { id in
+                guard let id,
+                      let tool = tools.first(where: { $0.id == id }) else {
+                    params.previousToolDiameterMm = 0
+                    return
+                }
+                params.previousToolDiameterMm = tool.diameter
+            }
+        )
     }
 }
 
