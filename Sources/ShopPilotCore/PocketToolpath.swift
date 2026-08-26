@@ -68,7 +68,11 @@ public struct PocketToolpathParams: Codable, Sendable {
     public var allowanceMm: Double
     public var rampPlungeMoves: Bool
     public var useVectorSelectionOrder: Bool
-    
+
+    // SPK-2023c — 2D rest machining: diameter of the tool that already
+    // cleared this pocket (0 = full clearing, byte-identical output).
+    public var previousToolDiameterMm: Double
+
     /// Minimum pocket size below which the toolpath is skipped.
     public static let minPocketSizeMm = 2.0
     
@@ -89,7 +93,8 @@ public struct PocketToolpathParams: Codable, Sendable {
         profilePass: PocketProfilePass = .last,
         allowanceMm: Double = 0.0,
         rampPlungeMoves: Bool = false,
-        useVectorSelectionOrder: Bool = false
+        useVectorSelectionOrder: Bool = false,
+        previousToolDiameterMm: Double = 0
     ) {
         self.clearanceMode = clearanceMode
         self.stepOverMm = stepOverMm
@@ -108,6 +113,7 @@ public struct PocketToolpathParams: Codable, Sendable {
         self.allowanceMm = allowanceMm
         self.rampPlungeMoves = rampPlungeMoves
         self.useVectorSelectionOrder = useVectorSelectionOrder
+        self.previousToolDiameterMm = previousToolDiameterMm
     }
     
     /// Create params from material defaults.
@@ -133,7 +139,7 @@ public struct PocketToolpathParams: Codable, Sendable {
         case spindleRpm
         case startDepthMm, passCount, exactStepDepth, cutDirection
         case rasterAngleDegrees, profilePass, allowanceMm, rampPlungeMoves
-        case useVectorSelectionOrder
+        case useVectorSelectionOrder, previousToolDiameterMm
     }
 
     public init(from decoder: Decoder) throws {
@@ -155,6 +161,7 @@ public struct PocketToolpathParams: Codable, Sendable {
         allowanceMm = try c.decodeIfPresent(Double.self, forKey: .allowanceMm) ?? 0.0
         rampPlungeMoves = try c.decodeIfPresent(Bool.self, forKey: .rampPlungeMoves) ?? false
         useVectorSelectionOrder = try c.decodeIfPresent(Bool.self, forKey: .useVectorSelectionOrder) ?? false
+        previousToolDiameterMm = try c.decodeIfPresent(Double.self, forKey: .previousToolDiameterMm) ?? 0
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -176,6 +183,7 @@ public struct PocketToolpathParams: Codable, Sendable {
         try c.encode(allowanceMm, forKey: .allowanceMm)
         try c.encode(rampPlungeMoves, forKey: .rampPlungeMoves)
         try c.encode(useVectorSelectionOrder, forKey: .useVectorSelectionOrder)
+        try c.encode(previousToolDiameterMm, forKey: .previousToolDiameterMm)
     }
 }
 
@@ -264,6 +272,19 @@ public struct PocketToolpathEngine {
                 
                 switch params.clearanceMode {
                 case .zigzag:
+                    if params.previousToolDiameterMm > 0 {
+                        let restPath = generateRestBandZigzag(
+                            bounds: b,
+                            toolDiameter: params.toolDiameterMm,
+                            previousToolDiameter: params.previousToolDiameterMm,
+                            stepOver: params.stepOverMm,
+                            feedRate: feedRate
+                        )
+                        allGcodeLines.append(contentsOf: insertRestPassGcode(
+                            restPath, depth: zDepth, plungeFeed: Int(plungeFeed),
+                            safetyHeightMm: params.safetyHeightMm
+                        ))
+                    } else {
                     let zigzagPath = generateZigzagPath(
                         bounds: b,
                         toolDiameter: params.toolDiameterMm,
@@ -276,6 +297,7 @@ public struct PocketToolpathEngine {
                         depth: zDepth,
                         plungeFeed: Int(plungeFeed)
                     ))
+                    }
                     
                 case .spiralOut:
                     let spiralPath = generateSpiralPath(
@@ -447,6 +469,80 @@ public struct PocketToolpathEngine {
         return gcodeLines
     }
     
+    /// SPK-2023c — rest-machining band generator for rectangular pockets.
+    ///
+    /// The previous tool (larger diameter `previousToolDiameter`) already
+    /// cleared everything within `prevInset = previousToolDiameter / 2` of the
+    /// pocket boundary. This pass machines ONLY the leftover band between that
+    /// cleared region and the area the CURRENT tool can still reach
+    /// (`curInset = toolDiameter / 2`). Rows keep the zigzag rhythm so the
+    /// step-over cadence matches the full-clear path; interior rows shrink to
+    /// the two side bands, each contiguous segment retracts and re-plunges so
+    /// no cutting move ever crosses the previously-cleared floor.
+    private static func generateRestBandZigzag(
+        bounds: (minX: Double, minY: Double, maxX: Double, maxY: Double),
+        toolDiameter: Double,
+        previousToolDiameter: Double,
+        stepOver: Double,
+        feedRate: Double
+    ) -> [(x1: Double, y: Double, x2: Double)] {
+
+        let prevInset = previousToolDiameter / 2   // cleared-region wall offset
+        let curInset = toolDiameter / 2            // current tool's wall offset
+
+        // Current tool's reachable region (same insets as the full-clear zigzag).
+        let minX = bounds.minX + curInset
+        let maxX = bounds.maxX - curInset
+        let minY = bounds.minY + curInset
+        let maxY = bounds.maxY - curInset
+        guard maxX > minX && maxY > minY else { return [] }
+
+        // Region already cleared by the previous tool (inset by ITS radius).
+        let cminX = bounds.minX + prevInset
+        let cmaxX = bounds.maxX - prevInset
+        let cminY = bounds.minY + prevInset
+        let cmaxY = bounds.maxY - prevInset
+
+        var segments: [(x1: Double, y: Double, x2: Double)] = []
+        var y = minY
+        while y <= maxY {
+            if y < cminY || y > cmaxY {
+                // Bottom/top leftover band: full row across the reachable width.
+                segments.append((minX, y, maxX))
+            } else if cminX >= cmaxX {
+                // Pocket narrower than the previous tool: nothing was actually
+                // cleared before — this pass is a full clear.
+                segments.append((minX, y, maxX))
+            } else {
+                // Middle rows: two side bands between the cleared region and
+                // the walls (each bounded by the current tool's reach).
+                if cminX > minX { segments.append((minX, y, cminX)) }
+                if cmaxX < maxX { segments.append((cmaxX, y, maxX)) }
+            }
+            y += stepOver
+        }
+        return segments
+    }
+
+    /// Emit G-code for rest-band segments: for each segment, rapid to safe
+    /// height, position at the segment start, plunge to depth, cut to the
+    /// segment end. Never crosses the previously-cleared floor mid-cut.
+    private static func insertRestPassGcode(
+        _ segments: [(x1: Double, y: Double, x2: Double)],
+        depth: Double,
+        plungeFeed: Int,
+        safetyHeightMm: Double
+    ) -> [String] {
+        var out: [String] = []
+        for seg in segments {
+            out.append("G0 Z\(String(format: "%.1f", safetyHeightMm))")
+            out.append("G0 X\(String(format: "%.3f", seg.x1)) Y\(String(format: "%.3f", seg.y))")
+            out.append("G1 Z\(String(format: "%.3f", depth)) F\(plungeFeed)")
+            out.append("G1 X\(String(format: "%.3f", seg.x2)) Y\(String(format: "%.3f", seg.y))")
+        }
+        return out
+    }
+
     /// Calculate the bounding box of a set of points.
     private static func calculateBounds(_ points: [VectorPoint]) -> (minX: Double, minY: Double, maxX: Double, maxY: Double)? {
         guard !points.isEmpty else { return nil }
