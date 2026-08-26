@@ -65,10 +65,7 @@ RESULT: PASS
 - **Scope allowed:** Sources/ShopPilotCore/PocketToolpath.swift + Sources/ShopPilotVerify2023c/main.swift (target pre-registered). Commit card files only.
 - **Forbidden:** MASTER_KANBAN.md, push, swift test, rm -rf .build, UI/forms (SPK-2023d owns those), SpecialtyParamsForms.swift, AppSession.swift.
 - **Baseline:** HEAD at dispatch — b9e0df0 or later.
-- **Status:** RUNNING
+- **Status:** ABSORBED IN-SESSION — before launch, the background dispatch was blocked twice by terminal approval timeout; owner chose orchestrator absorb (2026-08-25 ~18:40 MDT). Implemented directly by orchestrator: PocketToolpath previousToolDiameterMm rest engine + ShopPilotVerify2023c CLT PASS + 6-target regression sweep clean. Committed 4f151f2; card [x]. No worker output exists for this task.
 
 ### Worker output — VERBATIM
-(pending)
-
-### Orchestrator verification (separate from worker output)
-- PENDING
+(none — task never reached the model)
