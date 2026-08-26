@@ -266,15 +266,14 @@ func main() {
         segmentEntersRect($0, minX: 12, maxX: 18, minY: 7, maxY: 11)
     }, "SELF-CHECK: span guard catches a full-width through-cut")
 
-    // And the inlay path DOES fill its interior (the complementary case).
-    var inlayInterior = VCarveParams()
-    inlayInterior.clearancePassEnabled = true
-    inlayInterior.vFirst = true
+    // And the inlay path DOES fill its interior (the complementary case):
+    // same shape, same vFirst — only the interior-floor gate differs.
+    var inlayInterior = signVFirst
     inlayInterior.inlayInteriorFloor = true
-    let fillG = VCarveEngine.compute(vectors: [square], params: inlayInterior).gcodeLines
-    expect(cutCount(fillG) > cutCount(
-        VCarveEngine.compute(vectors: [square], params: signVFirst).gcodeLines),
-        "inlayInteriorFloor=true fills the interior (more cuts than around-mode)")
+    let around = VCarveEngine.compute(vectors: [square], params: signVFirst).gcodeLines
+    let filled = VCarveEngine.compute(vectors: [square], params: inlayInterior).gcodeLines
+    expect(cutCount(filled) > cutCount(around),
+           "inlayInteriorFloor=true fills the interior (\(cutCount(filled)) > \(cutCount(around)) cuts)")
 
     print("")
     print(failures == 0
