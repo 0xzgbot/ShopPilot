@@ -303,6 +303,16 @@ let package = Package(
             path: "Sources/ShopPilotVerify1920i"
         ),
         .executableTarget(
+            name: "ShopPilotVerify2023b",
+            dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
+            path: "Sources/ShopPilotVerify2023b"
+        ),
+        .executableTarget(
+            name: "ShopPilotVerify2023d",
+            dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
+            path: "Sources/ShopPilotVerify2023d"
+        ),
+        .executableTarget(
             name: "ShopPilotVerify2023c",
             dependencies: ["ShopPilotCore", "ShopPilotGeometry"],
             path: "Sources/ShopPilotVerify2023c"
