@@ -622,7 +622,7 @@ struct MaterialBitPresetPicker: View {
                     // SPK-2024b - shipped named material+bit combos come
                     // first; selections key on the preset's exact name.
                     ForEach(MaterialBitPresetCatalog.shipped, id: \.id) { np in
-                        Text("\(np.name) \u2014 D\(Int(np.cutDepthMm)) / F\(Int(np.feedRateMmPerMin)) / S\(Int(np.spindleRpm))")
+                        Text("\(np.name) \u{2014} D\(Int(np.cutDepthMm)) / F\(Int(np.feedRateMmPerMin)) / S\(Int(np.spindleRpm))")
                             .tag(np.name)
                     }
                     ForEach(Array(presets.enumerated()), id: \.offset) { _, preset in
