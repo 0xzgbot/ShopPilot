@@ -2638,7 +2638,8 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
 
 - [ ] **SPK-2023e** **GEO** Copy along path — N-or-spacing along curve, tangent-follow toggle; generalizes ArrayCopy. Test: `ShopPilotVerify2023e`.
 
-- [~] **SPK-2024a** **UX** Welcome = sample gallery first screen (reuse SampleProjectsStore + SPK-1403 loader hooks; one click → Design + single "Plan the cuts" CTA). AX walk row gate.
+- [x] **SPK-2024a** **UX** Welcome = sample gallery first screen (reuse SampleProjectsStore + SPK-1403 loader hooks; one click → Design + single "Plan the cuts" CTA). AX walk row gate.
+  - worklog: 2026-08-25 — Hermes coder (Nous, verified + flipped by orchestrator). SampleProjectsStore gallery is now the EVERY-LAUNCH landing view (FirstRunGate one-shot condition removed); sample tap → loadSampleProject(id:) → Design stage; exactly ONE "Plan the cuts" borderedProminent primary + Import Artwork secondary; SPK-1403 loader hooks preserved. Gates re-run by orchestrator: verify_1603_welcome.py PASS ("Welcome is the every-launch sample-gallery landing…") + swift_locked build --target ShopPilot exit 0. Commit 219f5d5.
 
 - [x] **SPK-2024b** **UX** Presets over parameters (Mac parity w/ Win H-501) — Walnut 18 mm + 90° V-bit fills Cut depth/feed/rpm; Advanced discloses all; preset-trusted feeds silence 2023a. Test: `ShopPilotVerify2024b`.
   - worklog: 2026-08-25 — Hermes coder (Nous subagent hit 429/max_iterations AFTER landing; orchestrator verified + committed). Core MaterialBitPresets.swift named presets incl. Walnut 18 mm + 90° V-bit; MaterialBitPresetPicker EXTENDED into Profile/Pocket/V-Carve forms with depth/feed/plunge/rpm bindings; sets feedsFromPreset=true so ShopPilotVerify2023a stays silent preset-trusted; Advanced disclosure untouched. Gates re-run by orchestrator: ShopPilotVerify2024b PASS + build --target ShopPilot EXIT=0.
