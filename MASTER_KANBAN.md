@@ -2629,7 +2629,7 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
 - [x] **SPK-2023a** **QA** Chip-load preflight warning
   - Create `Sources/ShopPilotCore/Resources/bit_feeds_seed.json` FROM `docs/planning/research/BIT_FEEDS_LIBRARY.md`; preflight warns when feed/(rpm×flutes) outside material range; warning tier only; preset-filled jobs trusted (no warn). Test: `ShopPilotVerify2023a`.
 
-- [ ] **SPK-2023b** **GEO** T-bones — bit Ø only prompt; along-X/Y/auto-longest-edge; Dogbone.swift TBone variant; existing dogbone fixtures byte-stable. Test: `ShopPilotVerify2023b`.
+- [~] **SPK-2023b** **GEO** T-bones — bit Ø only prompt; along-X/Y/auto-longest-edge; Dogbone.swift TBone variant; existing dogbone fixtures byte-stable. Test: `ShopPilotVerify2023b`.
 
 - [x] **SPK-2023c** **CAM** ENGINE 2D rest machining (pocket leftover pass) — `previousToolDiameterMm > 0` machines ONLY unreachable areas; 0 = byte-stable today. PocketToolpath has NO rest support today (verified 2026-08-25). Test: `ShopPilotVerify2023c`.
   - worklog: 2026-08-25 — Hermes orchestrator (in-session absorb; DeepSeek dispatch approval-blocked, owner chose absorb). PocketToolpathParams gains legacy-safe previousToolDiameterMm (decodeIfPresent default 0). prev>0 zigzag routes through generateRestBandZigzag: full-width rows in top/bottom leftover bands, side-band-only middle rows between cleared region (prev-radius inset) and current-tool reach; per-segment retract/re-plunge so no cut crosses cleared floor; prev=0 keeps original path BYTE-STABLE (CLT-asserted). ShopPilotVerify2023c PASS: byte-stability, 50-endpoint band containment (1/4in cleared → 1/16in rest), depth levels, round-trip + legacy decode, rest distance 231mm < full re-clear 1474mm. Sweep PASS: 1102h/1102c/1102d/1136b/Golden25D/FMR019.
@@ -2644,7 +2644,7 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
 - [x] **SPK-2024b** **UX** Presets over parameters (Mac parity w/ Win H-501) — Walnut 18 mm + 90° V-bit fills Cut depth/feed/rpm; Advanced discloses all; preset-trusted feeds silence 2023a. Test: `ShopPilotVerify2024b`.
   - worklog: 2026-08-25 — Hermes coder (Nous subagent hit 429/max_iterations AFTER landing; orchestrator verified + committed). Core MaterialBitPresets.swift named presets incl. Walnut 18 mm + 90° V-bit; MaterialBitPresetPicker EXTENDED into Profile/Pocket/V-Carve forms with depth/feed/plunge/rpm bindings; sets feedsFromPreset=true so ShopPilotVerify2023a stays silent preset-trusted; Advanced disclosure untouched. Gates re-run by orchestrator: ShopPilotVerify2024b PASS + build --target ShopPilot EXIT=0.
 
-- [ ] **SPK-2024c** **UX** One forward CTA per stage — audit-first (close as audit if already true); coach strip promotes the same action.
+- [~] **SPK-2024c** **UX** One forward CTA per stage — audit-first (close as audit if already true); coach strip promotes the same action.
 
 Claim order (2026-08-25 evening **override**): **cut quality** first — `docs/planning/CUT_QUALITY_RESEARCH_2026-08-25.md` + Hermes paste `docs/planning/CUT_QUALITY_HERMES_ORCHESTRATOR_PROMPT.md`. Next Mac card = **SPK-2100a** (one coder). Park week-plan Wave 2+ (2024a/c, 2023b/e) until Q1 lands. Let 2024b / 1920i / 2023c finish if still `[~]`. Do not reopen medial-axis. 2022f stays parked. Never 0623 / 1900g.
 
