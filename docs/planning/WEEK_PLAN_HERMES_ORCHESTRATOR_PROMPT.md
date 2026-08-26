@@ -1,5 +1,9 @@
 # Hermes orchestrator prompt — week of 2026-08-25
 
+> **PARKED 2026-08-25 evening.** Do **not** paste this until PHASE Y Wave Q1
+> (SPK-2100a–d) lands, unless the owner unparks it.
+> Active paste: [`CUT_QUALITY_HERMES_ORCHESTRATOR_PROMPT.md`](./CUT_QUALITY_HERMES_ORCHESTRATOR_PROMPT.md)
+
 Paste **everything below the line** into one Hermes Desktop session (coder / orchestrator). That session **implements nothing**. It reads the week plan, claims cards, and spawns **one subagent per card** with the template in §4.
 
 Source of truth: `docs/planning/WEEK_PLAN_2026-08-25.md`

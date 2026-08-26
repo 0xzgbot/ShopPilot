@@ -12,8 +12,8 @@
 | **Stack** | **SwiftUI** (macOS 14+) · geometry/toolpath core · **2.5D heightfield preview** (not Metal chips) · serial IOKit |
 | **Not in first ship** | Illegal reverse-engineering of proprietary CRV; Windows/Linux ports; App Store / notarize |
 | **Doc status** | Living — agents **must** update task checkboxes + Work log |
-| **Last updated** | 2026-08-24 |
-| **Current phase focus** | Lean CNC bar; 0.06 shipped; Phase S PC-parity (SPK-1900 a–f `[x]`, 1900g owner license hold) + SPK-1910 trochoidal slotting done; dogfood wave DOGFOOD-01…05 all fixed; **SPK-0623 owner-gated** — see LEAN_CNC_SCOPE |
+| **Last updated** | 2026-08-25 |
+| **Current phase focus** | **Cut quality bar (PHASE Y / SPK-2100a next)** — V-carve / 3D / photo *looks*, not more features. See [`docs/planning/CUT_QUALITY_RESEARCH_2026-08-25.md`](./docs/planning/CUT_QUALITY_RESEARCH_2026-08-25.md). PHASE X first-hour/joinery `[x]` except 2022f / 2023e. **SPK-0623 owner-gated** |
 | **★ Lean north star** | [`docs/planning/LEAN_CNC_SCOPE.md`](./docs/planning/LEAN_CNC_SCOPE.md) — **overrides feature-count parity** |
 | **★ Single task board** | [`MASTER_KANBAN.md`](./MASTER_KANBAN.md) — **only** place to claim work |
 | **★ Finish roadmap** | [`docs/planning/FINISH_ROADMAP.md`](./docs/planning/FINISH_ROADMAP.md) — Tracks 1–6 + lean 3D |
@@ -32,7 +32,7 @@
 1. Read **§1 Mission**, **§2 Non-negotiables (safety)**, **§3 Architecture**, **§4 Agent roles**.
 2. Read **[`docs/planning/LEAN_CNC_SCOPE.md`](./docs/planning/LEAN_CNC_SCOPE.md)** — product bar; skip cloud/social/video/gadget work.
 3. Read **[`docs/planning/FINISH_ROADMAP.md`](./docs/planning/FINISH_ROADMAP.md)** — finish order (lean 3D may run before full Track 5).
-4. Open **[`MASTER_KANBAN.md`](./MASTER_KANBAN.md)** — **only** task board. Prefer **SPK-1100–1106** spine, then lean 3D / V-Carve quality P0s; skip rows marked `[-]`.
+4. Open **[`MASTER_KANBAN.md`](./MASTER_KANBAN.md)** — **only** task board. Prefer **PHASE Y / SPK-2100a** (cut quality) while that parent is open; skip rows marked `[-]`. Do not stamp **SPK-0623**. Do not pick **SPK-1900g**.
 5. Claim: `[ ]` → `[~]`, append Work log in MASTER_KANBAN.md.
 6. Implement **Engine + UI + Persist + Verify** for the card (build-only is not done).
 7. Mark `[x]`, Work log exit. If `[!]`, pick next Ready card — **never idle**.

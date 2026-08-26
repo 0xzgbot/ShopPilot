@@ -1,6 +1,6 @@
 # ShopPilot — Lean CNC Scope (agent north star)
 
-**Last updated:** 2026-08-04  
+**Last updated:** 2026-08-25  
 **Overrides:** feature-count parity is **reference evidence only**. This file is the product bar for agents.
 
 ---
@@ -21,6 +21,7 @@
 | P0 | Sheet-aware material preview (cancellable, non-blocking) |
 | P0 | GRBL post + stream (sim default; serial factory; Hold/Reset always visible) |
 | P0 | **3D carving:** STL → heightfield → real rough + finish G-code; Model stage usable |
+| P0 | **Cut quality of existing engines** — ball compensation + 8–12% finish stepover; V-bit tip Ø; photo groove width (not more menu items). [`CUT_QUALITY_RESEARCH_2026-08-25.md`](./CUT_QUALITY_RESEARCH_2026-08-25.md) |
 | P1 | Tool DB seed + feeds wired to recalc |
 | P1 | Goldens for Profile / Pocket / V-Carve / 3D vs fixture G-code |
 
@@ -29,7 +30,7 @@
 - Cloud accounts, remote/online tool DB, online machine catalog, telemetry / crash phones-home
 - In-app tutorial **videos**, YouTube / social links, remote-fed startup marketing
 - Cabinet import, gadget marketplace, clipart library
-- Laser / plasma / photo V-carve / 964-post library chase
+- Laser / plasma / 964-post library chase; a *new* photo-CAM SKU (the existing Photo V-Carve engine may be hardened — SPK-2110)
 - Proprietary CRV reverse-engineering
 
 Offline markdown for developers (SAFETY, first-cut text) is fine. Keep it **out of app chrome**.
@@ -42,7 +43,7 @@ Offline markdown for developers (SAFETY, first-cut text) is fine. Keep it **out 
 | --- | --- | --- |
 | 2.5D CAM | Mature | Harden algorithms + goldens — not form-field tourism |
 | V-Carve | Clearance tools + engraving | Clearance chain + flat depth — match cut quality, not every gadget |
-| 3D relief | Full components/sculpt | Heightfield + rough/finish G-code first; sculpt later |
+| 3D relief | Full components/sculpt | Heightfield + rough/finish G-code first; **finish = drop-cutter + 8–12% stepover** (PHASE Y); sculpt later |
 | Posts | 964 | GRBL-class first-class; more posts only when a real machine needs them |
 | Machine control | File out only | **Ours** — keep |
 | Cloud / tutorials | Trial remote content | **Never** |
@@ -55,7 +56,7 @@ Evidence: [`INSTALLER_BREAKDOWN.md`](./INSTALLER_BREAKDOWN.md), [`FEATURE_PARITY
 
 1. Preview trust (sheet-aware sim) — **SPK-1103**
 2. Harden 2.5D + V-Carve clearance — goldens
-3. **3D carving spine** (STL → heightfield → rough/finish G-code) — **do not wait for SPK-0623**
+3. **3D carving quality** (drop-cutter finish, not more strategies) — **SPK-2100a**; do not wait for SPK-0623
 4. Machine path (sim + serial); live hardware stays `[!]`
 5. Prune / ignore cloud·tutorial·gadget cards marked `[-]`
 

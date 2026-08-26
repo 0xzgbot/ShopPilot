@@ -1,8 +1,9 @@
 # ShopPilot — Finish Roadmap (source of truth for completion)
 
-**Last updated:** 2026-08-24  
+**Last updated:** 2026-08-25  
 **Companion board:** [`MASTER_KANBAN.md`](../../MASTER_KANBAN.md)  
 **North star:** [`LEAN_CNC_SCOPE.md`](./LEAN_CNC_SCOPE.md) — lean CNC overrides feature-count parity.  
+**Cut quality (active):** [`CUT_QUALITY_RESEARCH_2026-08-25.md`](./CUT_QUALITY_RESEARCH_2026-08-25.md) — 3D finish / photo / V-bit tip; **SPK-2100a** next.  
 **Intent:** Finish lean bar (G-code, V-Carve, 3D carving, GRBL control), then remaining Tracks.  
 **Not the goal:** Thin demos, cloud/social chrome, or “build passes = done.”
 
