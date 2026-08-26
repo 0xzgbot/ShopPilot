@@ -6,9 +6,41 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
-## [Unreleased] — post-0.06 (2026-08-21 → 2026-08-23)
+## [Unreleased] — post-0.06 (2026-08-21 → 2026-08-26)
 
 Not yet packaged into a `dist/` zip. All changes below are committed or staged on `master`.
+
+### Added — Phase Y: Cut quality bar (SPK-2100 / 2110 / 2120)
+
+Product bar for this wave was **cut quality** — how V-carve, 3D and photo work actually *look* off the machine — not feature count. Research: [`CUT_QUALITY_RESEARCH_2026-08-25.md`](CUT_QUALITY_RESEARCH_2026-08-25.md).
+
+- **Drop-cutter 3D finish + finish stepover** (SPK-2100a) — ball-nose compensation on `HeightfieldFinishEngine`; finish stepover default is now 10% of tool Ø (the documented 8–12% finish-quality band) instead of ~25%.
+- **Finish 3D form + raster angle** (SPK-2100b) — Finish 3D gains an inspector form; raster lace runs 0° / 45° / 90° (0° output stays byte-identical to pre-2100b).
+- **Scallop-leftover preview** (SPK-2100c) — honest `h ≈ s²/(8R)` cusp-height tint against the 0.02 mm shop band, live off the finish stepover.
+- **Rest finish** (SPK-2100d) — `previousToolDiameterMm`: only the cusps and narrow valleys a previous larger ball could not reach get finish-machined. `0` is byte-stable vs plain finish.
+- **Photo V-carve groove geometry** (SPK-2110a) — groove **width** now derives from V-angle + tip Ø + depth (`w = tip + 2·d·tan(θ/2)`); 45° default raster, luminance invert toggle, stepover defaults to 50% of the widest groove so adjacent grooves overlap.
+- **Photo / litho two-pass** (SPK-2110b) — optional rough (~50%) + finish (8–12%) legs; lithophane leftover-thickness warning when `stock − maxDepth < minThickness`.
+- **V-bit flat tip Ø** (SPK-2120a) — real V-bits are not infinitely sharp; wide-valley depth accounts for tip width. Default keeps existing goldens byte-stable.
+- **Inlay rim order — V-walls then floor** (SPK-2120b) — inlay pockets cut the sloped V-walls first, then clear the floor with the endmill, as one program.
+- **Crisp-letters medial cell preset** (SPK-2120c) — Valley form **Crisp Letters (0.2 mm cell)** button with a time warning below 0.5 mm (`MedialAxis.swift` algorithm untouched).
+
+### Fixed — SPK-2120b audit: inlay V-first did not actually cut
+
+An independent audit found SPK-2120b marked done with a **green CLT on the wrong object** — three real defects behind passing assertions:
+
+- `InlayToolpathEngine.computePocket` built its `VCarveParams` without copying `vFirst` or enabling the clearance pass, so the inlay form toggle was **persist-only** and never reached the engine.
+- The floor pass was appended **after** the first `M30`/`%`. GRBL halts at `M30`, so the floor would never be cut — while marker-presence assertions still passed.
+- Once enabled, the floor section emitted its `O=` header with **zero cut moves**: `clearanceGcode` implements sign-board semantics (clear *around* protected letters), but an inlay pocket's interior *is* the floor. New `inlayFloorGcode` scanline-fills each closed vector inset by the tool radius, gated by `inlayInteriorFloor` (default off) so ordinary sign boards never pocket out their own letters.
+
+### Added — PHASE Y verification audit
+
+- **`ShopPilotVerifyPhaseYAudit`** (+ [`scripts/sweep_phasey.sh`](../../scripts/sweep_phasey.sh)) — phase-wide guard against the defect class above. Asserts on **emitted cut moves**, not markers or in-memory fields: cut moves are attributed to their owning `O=` section; each param is proved live by mutating it and diffing the G-code; exactly one `M30` with nothing after it but `%`; protected-region checks use full cut **spans**, not endpoints. Two self-check sentinels deliberately trip and roll back, so an all-green run cannot merely mean an inert harness.
+- **Result: 47 assertions PASS — no dead params found.** Every PHASE Y param reaches the G-code, and byte-stability holds where promised. Phase sweep 17/17 PASS.
+
+### Honest / held (this wave)
+- Preview remains 2.5D heightfield. Laser / LightBurn held. **SPK-0623** remains owner-gated `[ ]`.
+
+---
 
 ### Added — Phase S: PC-parity wave (SPK-1900)
 - **Photo Lithophane** (SPK-1900a) — photo import → brightness/contrast/gamma/invert adjust → heightfield with two modes: lithophane thickness (light-transmission mapping) and grayscale relief (luminance→depth), three cut paths (lithophane finish-3D / grayscale rough+finish / Photo V-Carve handoff). Design-stage **Start from a Photo…** starter.

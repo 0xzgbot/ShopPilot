@@ -123,6 +123,10 @@ export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 
 # Single CLT (repo test gate — CLT has no XCTest)
 ./scripts/verify_locked.sh ShopPilotVerify1201
+
+# Phase Y cut-quality audit (params reach the G-code; no dead toggles)
+./scripts/verify_locked.sh ShopPilotVerifyPhaseYAudit
+bash scripts/sweep_phasey.sh          # whole cut-quality phase + byte-goldens
 ```
 
 Release zip (match the committed 0.06 artifact):
@@ -169,7 +173,9 @@ Longer walkthrough: [`docs/planning/TUTORIAL_FIRST_CUT.md`](docs/planning/TUTORI
 
 **Current package:** personal-use **0.06** ([`dist/ShopPilot-0.06-macOS.zip`](dist/ShopPilot-0.06-macOS.zip)), HEAD `a824129` or later. Lean bar: router CAM — design → toolpaths → 2.5D preview → **simulator** (serial exists).
 
-**Shipped on this tip (post-0.06, unreleased):** Phase S PC-parity wave (**SPK-1900 a–f**: photo lithophane, image-to-relief, nesting wired, frame job + click-to-jog, beginner/advanced experience mode), **SPK-1910 trochoidal slotting**, and the dogfood fix wave (**SPK-DOGFOOD-01…05 all fixed** 2026-08-23: Sign sample streams to completion on the sim, alarm + raw console stays responsive, O(n) peck detection, honest preview status). Live AX `ui_drive_full` walk has **PASS**ed; the 2026-08-22 full dogfood sweep found 5 bugs — all fixed and CLT-verified ([`DOGFOOD_REPORT_20260822.md`](docs/planning/DOGFOOD_REPORT_20260822.md)). **Laser module not currently shipping.**
+**Shipped on this tip (post-0.06, unreleased):** Phase S PC-parity wave (**SPK-1900 a–f**: photo lithophane, image-to-relief, nesting wired, frame job + click-to-jog, beginner/advanced experience mode), **SPK-1910 trochoidal slotting**, the dogfood fix wave (**SPK-DOGFOOD-01…05 all fixed** 2026-08-23: Sign sample streams to completion on the sim, alarm + raw console stays responsive, O(n) peck detection, honest preview status), and the **Phase Y cut-quality bar** (**SPK-2100 a–d / 2110 a–b / 2120 a–c**: drop-cutter 3D finish at an 8–12% stepover, rest finish, scallop-leftover preview, photo groove width from tip Ø + angle, two-pass photo/litho, V-bit flat tip Ø, inlay V-walls-then-floor, crisp-letters medial preset). Live AX `ui_drive_full` walk has **PASS**ed; the 2026-08-22 full dogfood sweep found 5 bugs — all fixed and CLT-verified ([`DOGFOOD_REPORT_20260822.md`](docs/planning/DOGFOOD_REPORT_20260822.md)). **Laser module not currently shipping.**
+
+**Verification honesty (2026-08-26):** an independent audit caught **SPK-2120b** marked done while its CLT was green *on the wrong object* — the inlay V-first toggle never reached the engine, the floor pass sat after `M30` (where GRBL halts), and the floor section emitted no cut moves at all. All three are fixed, and [`ShopPilotVerifyPhaseYAudit`](Sources/ShopPilotVerifyPhaseYAudit/main.swift) now guards the whole phase by asserting on **emitted cut moves** rather than G-code markers or in-memory fields — 47 assertions, self-check sentinels included so an inert harness cannot pass as green. No dead params remain in Phase Y.
 
 **Still owner-gated:** **SPK-0623** personal-use UI acceptance — `[ ]` until the owner marks it. Agents must not rubber-stamp. Optional live air-cut **SPK-0419** stays `[!]`. **SPK-1900g** open-source positioning awaits the owner's license choice. No App Store / notarization.
 
