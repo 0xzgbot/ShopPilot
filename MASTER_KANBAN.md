@@ -2638,7 +2638,7 @@ Parent: none. DoD on parent: shared bar usable on Mac sim without dogfood P0s. P
 
 - [ ] **SPK-2023e** **GEO** Copy along path — N-or-spacing along curve, tangent-follow toggle; generalizes ArrayCopy. Test: `ShopPilotVerify2023e`.
 
-- [ ] **SPK-2024a** **UX** Welcome = sample gallery first screen (reuse SampleProjectsStore + SPK-1403 loader hooks; one click → Design + single "Plan the cuts" CTA). AX walk row gate.
+- [~] **SPK-2024a** **UX** Welcome = sample gallery first screen (reuse SampleProjectsStore + SPK-1403 loader hooks; one click → Design + single "Plan the cuts" CTA). AX walk row gate.
 
 - [x] **SPK-2024b** **UX** Presets over parameters (Mac parity w/ Win H-501) — Walnut 18 mm + 90° V-bit fills Cut depth/feed/rpm; Advanced discloses all; preset-trusted feeds silence 2023a. Test: `ShopPilotVerify2024b`.
   - worklog: 2026-08-25 — Hermes coder (Nous subagent hit 429/max_iterations AFTER landing; orchestrator verified + committed). Core MaterialBitPresets.swift named presets incl. Walnut 18 mm + 90° V-bit; MaterialBitPresetPicker EXTENDED into Profile/Pocket/V-Carve forms with depth/feed/plunge/rpm bindings; sets feedsFromPreset=true so ShopPilotVerify2023a stays silent preset-trusted; Advanced disclosure untouched. Gates re-run by orchestrator: ShopPilotVerify2024b PASS + build --target ShopPilot EXIT=0.
