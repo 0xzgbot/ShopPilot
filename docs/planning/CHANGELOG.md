@@ -6,9 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
-## [Unreleased] — post-0.06 (2026-08-21 → 2026-08-26)
+## [0.07] — 2026-08-27 (universal)
 
-Not yet packaged into a `dist/` zip. All changes below are committed or staged on `master`.
+Personal-use zip: `dist/ShopPilot-0.07-macOS.zip` (`VERSION=0.07` in `scripts/package_app.sh` → `CFBundleShortVersionString`). Universal arm64 + x86_64, ad-hoc signed.
 
 ### Added — Phase Y: Cut quality bar (SPK-2100 / 2110 / 2120)
 

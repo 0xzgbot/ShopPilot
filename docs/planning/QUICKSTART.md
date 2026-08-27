@@ -14,7 +14,7 @@ Longer walkthrough: [`TUTORIAL_FIRST_CUT.md`](TUTORIAL_FIRST_CUT.md).
 
 - **macOS 14+**
 - **Apple Silicon** preferred (universal zip also runs Intel)
-- ShopPilot **0.06** — unzip **or** build (below)
+- ShopPilot **0.07** — unzip **or** build (below)
 
 ---
 
@@ -22,7 +22,7 @@ Longer walkthrough: [`TUTORIAL_FIRST_CUT.md`](TUTORIAL_FIRST_CUT.md).
 
 **Unzip (no build):**
 
-1. Open [`dist/ShopPilot-0.06-macOS.zip`](../../dist/ShopPilot-0.06-macOS.zip).
+1. Open [`dist/ShopPilot-0.07-macOS.zip`](../../dist/ShopPilot-0.07-macOS.zip).
 2. Drag **ShopPilot.app** to Applications (or run from the unzip folder).
 3. First launch from another Mac: **right-click → Open**, or `xattr -dr com.apple.quarantine /Applications/ShopPilot.app`.
 
@@ -31,7 +31,7 @@ Longer walkthrough: [`TUTORIAL_FIRST_CUT.md`](TUTORIAL_FIRST_CUT.md).
 ```bash
 export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 ./scripts/swift_locked.sh run ShopPilot
-# or zip: VERSION=0.06 ZIP_NAME=ShopPilot-0.06-macOS.zip ./scripts/package_app.sh
+# or zip: VERSION=0.07 ZIP_NAME=ShopPilot-0.07-macOS.zip ./scripts/package_app.sh
 ```
 
 ---

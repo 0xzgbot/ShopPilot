@@ -1,7 +1,7 @@
 # ShopPilot packaging (personal use)
 
-**Version:** 0.06  
-**Last updated:** 2026-08-13
+**Version:** 0.07  
+**Last updated:** 2026-08-27
 
 This document covers personal-use packaging only. ShopPilot is personal-use only; notarization and public distribution cards are `[-]` on `MASTER_KANBAN.md`.
 
@@ -16,14 +16,14 @@ This document covers personal-use packaging only. ShopPilot is personal-use only
 5. Ad-hoc `codesign --sign -`.
 6. Zips with `ditto` to `dist/$ZIP_NAME` (default `ShopPilot-macOS.zip`).
 
-Match the committed 0.06 artifact:
+Match the committed 0.07 artifact:
 
 ```bash
 export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
-VERSION=0.06 ZIP_NAME=ShopPilot-0.06-macOS.zip ./scripts/package_app.sh
+VERSION=0.07 ZIP_NAME=ShopPilot-0.07-macOS.zip ./scripts/package_app.sh
 ```
 
-Output: `dist/ShopPilot-0.06-macOS.zip` — universal, ad-hoc signed. Gatekeeper: right-click → Open, or `xattr -dr com.apple.quarantine ShopPilot.app`.
+Output: `dist/ShopPilot-0.07-macOS.zip` — universal, ad-hoc signed. Gatekeeper: right-click → Open, or `xattr -dr com.apple.quarantine ShopPilot.app`.
 
 The unpacked `.app` is not the source of truth; rebuild the zip from source.
 

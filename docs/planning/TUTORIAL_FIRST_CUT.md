@@ -16,7 +16,7 @@ Model orbit is a thin 2.5D relief view. Preview is a filled heightfield + playhe
 ## Prerequisites
 
 - macOS 14+ (Apple Silicon or Intel)
-- ShopPilot **0.06** — [`dist/ShopPilot-0.06-macOS.zip`](../../dist/ShopPilot-0.06-macOS.zip) or `VERSION=0.06 ZIP_NAME=ShopPilot-0.06-macOS.zip ./scripts/package_app.sh` (see [README](../../README.md))
+- ShopPilot **0.07** — [`dist/ShopPilot-0.07-macOS.zip`](../../dist/ShopPilot-0.07-macOS.zip) or `VERSION=0.07 ZIP_NAME=ShopPilot-0.07-macOS.zip ./scripts/package_app.sh` (see [README](../../README.md))
 - Optional: USB serial CNC (Step 8)
 
 ---
